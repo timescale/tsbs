@@ -70,6 +70,14 @@ type Point struct {
 	Timestamp       uint64
 }
 
+// Using these literals prevents the slices from escaping to the heap, saving
+// a few micros per call:
+var (
+	charComma  = []byte(",")
+	charEquals = []byte("=")
+	charSpace  = []byte(" ")
+)
+
 // Serialize writes Point data to the given writer, conforming to the InfluxDB
 // wire protocol.
 //
@@ -79,15 +87,6 @@ type Point struct {
 // foo,tag0=bar baz=-1.0 100\n
 //
 // This function is the most expensive in the entire program.
-
-// Using these literals prevents the slices from escaping to the heap, saving
-// a few micros per call:
-var (
-	charComma  = []byte(",")
-	charEquals = []byte("=")
-	charSpace  = []byte(" ")
-)
-
 func (p *Point) Serialize(w io.Writer) error {
 	_, err := w.Write(p.MeasurementName)
 	if err != nil {
