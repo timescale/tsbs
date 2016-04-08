@@ -239,7 +239,7 @@ func randBytes(prefix []byte, length int) []byte {
 }
 
 // randBytesSeq creates a nested slice of `count` byte slices, each element
-// element having `length` random bytes. If the prefix is non-empty, it will be
+// having `length` random bytes. If the prefix is non-empty, it will be
 // prepended to each element.
 func randBytesSeq(prefix []byte, count, length int) [][]byte {
 	bb := make([][]byte, count)
