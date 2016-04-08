@@ -34,7 +34,7 @@ var (
 
 	measurements uint
 	fields       uint
-	// TODO(rw): valueStrategy? generate from other distributions?
+	// TODO(rw): valueStrategy: generate from other distributions?
 	batchSize uint
 	tagKeys   uint
 	tagValues uint
@@ -122,7 +122,7 @@ func init() {
 }
 
 func main() {
-	err := create_db(daemonUrl, dbName)
+	err := createDb(daemonUrl, dbName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +154,6 @@ func main() {
 		}
 
 		g := NewMeasurementGenerator(&config)
-		g.InitPoint()
 		generators[i] = &g
 	}
 
@@ -251,27 +250,7 @@ func flushToDatabase(client *http.Client, daemonUrl, dbName string, r io.Reader)
 	return nil
 }
 
-func rand_bytes(prefix []byte, length int) []byte {
-	b := make([]byte, 0, length+len(prefix))
-	if len(prefix) > 0 {
-		b = append(prefix, b...)
-	}
-	for i := 0; i < length; i++ {
-		c := letters[rand.Intn(len(letters))]
-		b = append(b, c)
-	}
-	return b
-}
-
-func rand_bytes_seq(prefix []byte, count, length int) [][]byte {
-	bb := make([][]byte, count)
-	for i := 0; i < count; i++ {
-		bb[i] = rand_bytes(prefix, length)
-	}
-	return bb
-}
-
-func create_db(daemon_url, dbname string) error {
+func createDb(daemon_url, dbname string) error {
 	u, err := url.Parse(daemon_url)
 	if err != nil {
 		return err

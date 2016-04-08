@@ -151,7 +151,7 @@ func (p *Point) Serialize(w io.Writer) error {
 }
 
 // MeasurementGenerator creates data for populating a given measurement.
-// Instances are created built using the a MeasurementGeneratorConfig.
+// Instances are created using a MeasurementGeneratorConfig.
 //
 // Field values are sampled from a normal distribution.
 type MeasurementGenerator struct {
@@ -169,16 +169,18 @@ type MeasurementGenerator struct {
 	Config *MeasurementGeneratorConfig
 }
 
+// NewMeasurementGenerator creates a MeasurementGenerator from the given
+// MeasurementGeneratorConfig.
 func NewMeasurementGenerator(cfg *MeasurementGeneratorConfig) MeasurementGenerator {
 	tvc := make([][][]byte, cfg.TagKeyCount)
 	for i := 0; i < len(tvc); i++ {
-		tvc[i] = rand_bytes_seq(nil, cfg.TagValueCount, cfg.TagValueLen)
+		tvc[i] = randBytesSeq(nil, cfg.TagValueCount, cfg.TagValueLen)
 	}
-	return MeasurementGenerator{
-		Name:            rand_bytes([]byte("measurement_"), cfg.NameLen),
-		TagKeys:         rand_bytes_seq([]byte("tag_"), cfg.TagKeyCount, cfg.TagKeyLen),
+	g := MeasurementGenerator{
+		Name:            randBytes([]byte("measurement_"), cfg.NameLen),
+		TagKeys:         randBytesSeq([]byte("tag_"), cfg.TagKeyCount, cfg.TagKeyLen),
 		TagValueChoices: tvc,
-		FieldKeys:       rand_bytes_seq([]byte("field_"), cfg.FieldCount, cfg.FieldNameLen),
+		FieldKeys:       randBytesSeq([]byte("field_"), cfg.FieldCount, cfg.FieldNameLen),
 
 		P:            &Point{},
 		FieldMeans:   cfg.FieldMeans,
@@ -186,9 +188,13 @@ func NewMeasurementGenerator(cfg *MeasurementGeneratorConfig) MeasurementGenerat
 
 		Config: cfg,
 	}
+	g.initPoint()
+	return g
 }
 
-func (mg *MeasurementGenerator) InitPoint() {
+// initPoint initializes bookkeeping for a MeasurementGenerator. It should be
+// called exactly once.
+func (mg *MeasurementGenerator) initPoint() {
 	mg.P.MeasurementName = []byte(mg.Name)
 
 	mg.P.TagKeys = mg.TagKeys
@@ -200,6 +206,7 @@ func (mg *MeasurementGenerator) InitPoint() {
 	mg.P.Timestamp = 0
 }
 
+// Next updates the internal Point object with new data.
 func (mg *MeasurementGenerator) Next() {
 	// choose tag values
 	for i := 0; i < len(mg.TagKeys); i++ {
@@ -217,3 +224,29 @@ func (mg *MeasurementGenerator) Next() {
 
 	mg.Count++
 }
+
+// randBytes creates random bytes of the given length. If the prefix is
+// non-empty, it will be prepended to the result.
+func randBytes(prefix []byte, length int) []byte {
+	b := make([]byte, 0, length+len(prefix))
+	if len(prefix) > 0 {
+		b = append(prefix, b...)
+	}
+	for i := 0; i < length; i++ {
+		c := letters[rand.Intn(len(letters))]
+		b = append(b, c)
+	}
+	return b
+}
+
+// randBytesSeq creates a nested slice of `count` byte slices, each element
+// element having `length` random bytes. If the prefix is non-empty, it will be
+// prepended to each element.
+func randBytesSeq(prefix []byte, count, length int) [][]byte {
+	bb := make([][]byte, count)
+	for i := 0; i < count; i++ {
+		bb[i] = randBytes(prefix, length)
+	}
+	return bb
+}
+
