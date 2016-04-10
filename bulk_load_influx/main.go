@@ -161,50 +161,46 @@ func main() {
 	bytesWritten := int64(0)
 	thisBatch := uint(0)
 	batchStart := time.Now()
-	for i := int64(0); i < int64(points); i++ {
-		// Construct the next point and write it to the buffer:
-		g := generators[generatorIdx]
-		g.Next()
+	for i := int64(0); i < int64(points); i += int64(batchSize) {
+		for j := int64(0); j < int64(batchSize); j ++ {
+			// Construct the next point and write it to the buffer:
+			g := generators[generatorIdx]
+			g.Next()
 
-		err = g.P.Serialize(buf)
-		if err != nil {
-			log.Fatal(err)
-		}
-		thisBatch++
-
-		// flush the buffer if the batch size is met, or if this is
-		// the last point:
-		if thisBatch == batchSize || i+1 == int64(points) {
-			if debug >= 2 {
-				// print the buffer to transmit to stderr:
-				_, err := os.Stderr.Write(buf.Bytes())
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-
-			// flush to DB:
-			bytesWritten += int64(len(buf.Bytes()))
-			err = flushToDatabase(client, daemonUrl, dbName, buf)
+			err = g.P.Serialize(buf)
 			if err != nil {
 				log.Fatal(err)
 			}
-			batchEnd := time.Now()
 
-			if debug >= 1 {
-				fmt.Printf("wrote %d points in %7.2fms\n",
-					thisBatch,
-					batchEnd.Sub(batchStart).Seconds()*1e3)
-			}
-
-			batchStart = batchEnd
-			buf.Reset()
-			thisBatch = 0
+			// increment and wrap around the generator index:
+			generatorIdx++
+			generatorIdx %= len(generators)
 		}
 
-		// increment and wrap around the generator index:
-		generatorIdx++
-		generatorIdx %= len(generators)
+		if debug >= 2 {
+			// print the buffer to transmit to stderr:
+			_, err := os.Stderr.Write(buf.Bytes())
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		// flush to DB:
+		bytesWritten += int64(len(buf.Bytes()))
+		err = flushToDatabase(client, daemonUrl, dbName, buf)
+		if err != nil {
+			log.Fatal(err)
+		}
+		batchEnd := time.Now()
+
+		if debug >= 1 {
+			fmt.Printf("wrote %d points in %7.2fms\n",
+				thisBatch,
+				batchEnd.Sub(batchStart).Seconds()*1e3)
+		}
+
+		batchStart = batchEnd
+		buf.Reset()
 
 	}
 	fmt.Printf("wrote %d points across %d measurements (%.2fMB)\n", points,
@@ -221,6 +217,7 @@ func main() {
 // InfluxDB bulk write endpoint. Note that the data in the source reader must
 // conform to the InfluxDB line protocol.
 func flushToDatabase(client *http.Client, daemonUrl, dbName string, r io.Reader) error {
+	return nil
 	u, err := url.Parse(daemonUrl)
 	if err != nil {
 		return err
