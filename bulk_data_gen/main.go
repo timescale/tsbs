@@ -166,6 +166,7 @@ func main() {
 	for i := int64(0); i < int64(points); i++ {
 		// Construct the next point and write it to the buffer:
 		g := generators[generatorIdx]
+		g.Next()
 
 		switch format {
 		case "influx-bulk":
@@ -178,22 +179,17 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-		default: panic("unreachable") 
+		default: panic("unreachable")
 		}
 
 		// increment and wrap around the generator index:
 		generatorIdx++
 		generatorIdx %= len(generators)
-		if generatorIdx == 0 {
-			for _, g := range generators {
-				g.Next()
-			}
-		}
 	}
-	fmt.Printf("created %d points across %d measurements (%.2fMB)\n", points,
+	fmt.Fprintf(os.Stderr, "created %d points across %d measurements (%.2fMB)\n", points,
 		len(generators), float64(bytesWritten)/(1<<20))
 	for _, g := range generators {
-		fmt.Printf("  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
+		fmt.Fprintf(os.Stderr, "  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
 			g.Name, g.Count,
 			g.Config.TagKeyCount*g.Config.TagValueCount,
 			g.Config.FieldCount, g.FieldStdDevs, g.FieldMeans)
