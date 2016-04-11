@@ -1,124 +1,45 @@
-// bulk_load_influx loads an InfluxDB daemon with generated data.
+// bulk_load_influx loads an InfluxDB daemon with data from stdin.
 //
 // The caller is responsible for assuring that the database is empty before
 // bulk load.
-//
-// The options provide ways to change the following parameters:
-//   # total points to write
-//   # measurements to spread points across
-//   # tag key/value pairs to spread points across (per measurement)
-//   standard deviations and means of the field values
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
-	"time"
+	"sync"
 )
-
-// Used for generating random field names:
-const letters = "abcdefghijklmnopqrstuvwxyz"
 
 // Program option vars:
 var (
 	daemonUrl string
 	dbName    string
+	workers   int
+	batchSize int
+)
 
-	measurements uint
-	fields       uint
-	// TODO(rw): valueStrategy: generate from other distributions?
-	batchSize uint
-	tagKeys   uint
-	tagValues uint
-	points    uint
-	// TODO(rw): precision?
-
-	measurementNameLen uint
-	fieldNameLen       uint
-	tagKeyLen          uint
-	tagValueLen        uint
-
-	stdDevsStr string
-	meansStr   string
-
-	stdDevs []float64
-	means   []float64
-
-	seed  int64
-	debug int
+// Global vars
+var (
+	bufPool      sync.Pool
+	batchChan    chan *bytes.Buffer
+	inputDone    chan struct{}
+	workersGroup sync.WaitGroup
 )
 
 // Parse args:
 func init() {
 	flag.StringVar(&daemonUrl, "url", "http://localhost:8086", "Influxd URL.")
-	flag.StringVar(&dbName, "db", "benchmark_db", "Database name to use.")
-
-	flag.UintVar(&measurements, "measurements", 1, "Number of measurements to create.")
-	flag.UintVar(&fields, "fields", 1, "Number of fields to populate per point.")
-	flag.UintVar(&batchSize, "batch-size", 1000, "Number of points to write per request.")
-	flag.UintVar(&tagKeys, "tag-keys", 1, "Number of tag keys to generate per point. These are generated per measurement.")
-	flag.UintVar(&tagValues, "tag-values", 1, "Number of tag values to generate per tag key. These are generated per measurement.")
-	flag.UintVar(&points, "points", 10000, "Number of points to generate. Points are split evenly across all measurements.")
-
-	flag.UintVar(&measurementNameLen, "measurement-name-len", 5, "Length of generated measurement names.")
-	flag.UintVar(&fieldNameLen, "field-name-len", 5, "Length of generated field names.")
-	flag.UintVar(&tagKeyLen, "tag-key-len", 5, "Length of generated tag keys.")
-	flag.UintVar(&tagValueLen, "tag-value-len", 5, "Length of generated tag values.")
-
-	flag.StringVar(&stdDevsStr, "std-devs", "1.0", "Comma-separated std deviations for generating field values. Will be repeated to satisfy all generators. Example: 1.0,2.0,3.0")
-	flag.StringVar(&meansStr, "means", "0.0", "Comma-separated means for generating field values. Will be repeated to satisfy all generators. Example: 0.0,1.0,2.0")
-
-	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
-	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
+	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
+	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
+	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
 	flag.Parse()
-
-	// the default seed is the current timestamp:
-	if seed == 0 {
-		seed = int64(time.Now().Nanosecond())
-	}
-
-	// Parse std dev numbers, cycling the slice to fill up `fields` items:
-	stdDevNums := make([]float64, 0)
-	for _, s := range strings.Split(stdDevsStr, ",") {
-		var n float64
-		if _, err := fmt.Sscanf(s, "%f", &n); err != nil {
-			log.Fatalf("std-devs parsing failure: %s", err)
-		}
-		stdDevNums = append(stdDevNums, n)
-	}
-
-	stdDevs = make([]float64, int(fields))
-	for i := 0; i < int(fields); i++ {
-		stdDevs[i] = stdDevNums[i%len(stdDevNums)]
-	}
-
-	// Parse mean numbers, cycling the slice to fill up `fields` items:
-	meanNums := make([]float64, 0)
-	for _, s := range strings.Split(meansStr, ",") {
-		var n float64
-		if _, err := fmt.Sscanf(s, "%f", &n); err != nil {
-			log.Fatalf("means parsing failure: %s", err)
-		}
-		meanNums = append(meanNums, n)
-	}
-	means = make([]float64, int(fields))
-	for i := 0; i < int(fields); i++ {
-		means[i] = meanNums[i%len(meanNums)]
-	}
-
-	if debug >= 1 {
-		fmt.Printf("stddevs: %v\n", stdDevs)
-		fmt.Printf("means: %v\n", means)
-	}
 }
 
 func main() {
@@ -127,124 +48,77 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rand.Seed(seed)
-
-	// client and buf are reused between batches:
-	client := &http.Client{}
-	buf := bytes.NewBuffer(make([]byte, 0, 16<<20))
-
-	// Initialize generators, one for each measurement:
-	generators := make([]*MeasurementGenerator, measurements)
-	for i := 0; i < len(generators); i++ {
-		config := MeasurementGeneratorConfig{
-			NameLen: int(measurementNameLen),
-
-			TagKeyCount:   int(tagKeys),
-			TagKeyLen:     int(tagKeyLen),
-			TagValueCount: int(tagValues),
-			TagValueLen:   int(tagValueLen),
-
-			FieldCount:   int(fields),
-			FieldNameLen: int(fieldNameLen),
-			FieldStdDevs: stdDevs,
-			FieldMeans:   means,
-		}
-		if err = config.Validate(); err != nil {
-			log.Fatal(err)
-		}
-
-		g := NewMeasurementGenerator(&config)
-		generators[i] = &g
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
+		},
 	}
 
-	generatorIdx := 0
-	bytesWritten := int64(0)
-	thisBatch := uint(0)
-	batchStart := time.Now()
-	for i := int64(0); i < int64(points); i += int64(batchSize) {
-		for j := int64(0); j < int64(batchSize); j ++ {
-			// Construct the next point and write it to the buffer:
-			g := generators[generatorIdx]
-			g.Next()
+	batchChan = make(chan *bytes.Buffer, workers)
+	inputDone = make(chan struct{})
 
-			err = g.P.Serialize(buf)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			// increment and wrap around the generator index:
-			generatorIdx++
-			generatorIdx %= len(generators)
+	for i := 0; i < workers; i++ {
+		workersGroup.Add(1)
+		cfg := HTTPWriterConfig{
+			Host:     daemonUrl,
+			Database: dbName,
 		}
-
-		if debug >= 2 {
-			// print the buffer to transmit to stderr:
-			_, err := os.Stderr.Write(buf.Bytes())
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		// flush to DB:
-		bytesWritten += int64(len(buf.Bytes()))
-		err = flushToDatabase(client, daemonUrl, dbName, buf)
-		if err != nil {
-			log.Fatal(err)
-		}
-		batchEnd := time.Now()
-
-		if debug >= 1 {
-			fmt.Printf("wrote %d points in %7.2fms\n",
-				thisBatch,
-				batchEnd.Sub(batchStart).Seconds()*1e3)
-		}
-
-		batchStart = batchEnd
-		buf.Reset()
-
+		go processBatches(NewHTTPWriter(cfg))
 	}
-	fmt.Printf("wrote %d points across %d measurements (%.2fMB)\n", points,
-		len(generators), float64(bytesWritten)/(1<<20))
-	for _, g := range generators {
-		fmt.Printf("  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
-			g.Name, g.Count,
-			g.Config.TagKeyCount*g.Config.TagValueCount,
-			g.Config.FieldCount, g.FieldStdDevs, g.FieldMeans)
-	}
+
+	scan(batchSize)
+
+	<-inputDone
+	close(batchChan)
+	workersGroup.Wait()
 }
 
-// flushToDatabase writes the payload from the given source to the standard
-// InfluxDB bulk write endpoint. Note that the data in the source reader must
-// conform to the InfluxDB line protocol.
-func flushToDatabase(client *http.Client, daemonUrl, dbName string, r io.Reader) error {
-	return nil
-	u, err := url.Parse(daemonUrl)
-	if err != nil {
-		return err
+// scan reads one line at a time from stdin.
+// When the requested number of lines per batch is met, send a batch over batchChan for the workers to write.
+func scan(linesPerBatch int) {
+	buf := bufPool.Get().(*bytes.Buffer)
+
+	var n int
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		buf.Write(scanner.Bytes())
+		buf.Write([]byte("\n"))
+
+		n++
+		if n >= linesPerBatch {
+			batchChan <- buf
+			buf = bufPool.Get().(*bytes.Buffer)
+			n = 0
+		}
 	}
 
-	// Construct the URL, which looks like:
-	// http://localhost:8086/write?db=benchmark_db
-	u.Path = "write"
-	v := u.Query()
-	v.Set("db", dbName)
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest("POST", u.String(), r)
-	if err != nil {
-		return err
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading input: %s", err.Error())
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 204 {
-		return fmt.Errorf("bad batch write")
+	// Finished reading input, make sure last batch goes out.
+	if n > 0 {
+		batchChan <- buf
 	}
 
-	return nil
+	// Closing inputDone signals to the application that we've read everything and can now shut down.
+	close(inputDone)
+}
+
+// processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
+func processBatches(w LineProtocolWriter) {
+	for batch := range batchChan {
+		// Write the batch.
+		_, err := w.WriteLineProtocol(batch.Bytes())
+		if err != nil {
+			log.Fatalf("Error writing: %s\n", err.Error())
+		}
+
+		// Return the batch buffer to the pool.
+		batch.Reset()
+		bufPool.Put(batch)
+	}
+	workersGroup.Done()
 }
 
 func createDb(daemon_url, dbname string) error {
