@@ -81,8 +81,8 @@ func init() {
 	flag.StringVar(&stdDevsStr, "std-devs", "1.0", "Comma-separated std deviations for generating field values. Will be repeated to satisfy all generators. Example: 1.0,2.0,3.0")
 	flag.StringVar(&meansStr, "means", "0.0", "Comma-separated means for generating field values. Will be repeated to satisfy all generators. Example: 0.0,1.0,2.0")
 
-	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-07:00", "Beginning timestamp (RFC3339).")
-	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-07:00", "Ending timestamp (RFC3339).")
+	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
+	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")
 
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
