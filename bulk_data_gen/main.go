@@ -199,7 +199,6 @@ func main() {
 	}
 
 	generatorIdx := 0
-	bytesWritten := int64(0)
 	for i := int64(0); i < int64(points); i++ {
 		// Construct the next point and write it to the buffer:
 		g := generators[generatorIdx]
@@ -223,8 +222,8 @@ func main() {
 		generatorIdx++
 		generatorIdx %= len(generators)
 	}
-	fmt.Fprintf(os.Stderr, "created %d points across %d measurements (%.2fMB)\n", points,
-		len(generators), float64(bytesWritten)/(1<<20))
+	fmt.Fprintf(os.Stderr, "created %d points across %d measurements\n", points,
+		len(generators))
 	for _, g := range generators {
 		fmt.Fprintf(os.Stderr, "  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
 			g.Name, g.Seen,
