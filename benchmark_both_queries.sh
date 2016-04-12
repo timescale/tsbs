@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 echo 'influx:'
 ./benchmark_influx_queries.sh $@
 echo ''

@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -euf -o pipefail
 measurement=${1}
 field=${2}
