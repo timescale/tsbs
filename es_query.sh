@@ -2,6 +2,9 @@
 set -euf -o pipefail
 measurement=${1}
 field=${2}
+start_date=${3}
+end_date=${4}
+interval=${5}
 #query="
 #{
 #  \"size\": 0,
@@ -16,24 +19,28 @@ field=${2}
 
 query="
 {
-   \"size\" : 0,
-   \"filter\": {
-     \"range\": {
-       \"timestamp\": {
-         \"gte\": \"2016-01-01\",
-         \"lt\": \"2016-01-15\"
-       }
-     }
-   },
-   \"aggs\": {
-      \"result\": {
-         \"date_histogram\": {
+  \"size\" : 0,
+  \"aggs\": {
+    \"result\": {
+      \"filter\": {
+        \"range\": {
+          \"timestamp\": {
+            \"gte\": \"${start_date}\",
+            \"lt\": \"${end_date}\"
+          }
+        }
+      },
+      \"aggs\": {
+        \"result2\": {
+          \"date_histogram\": {
             \"field\": \"timestamp\",
-            \"interval\": \"1h\",
+            \"interval\": \"${interval}\",
             \"format\": \"yyyy-MM-dd-HH\"
-         }
+          }
+        }
       }
-   }
+    }
+  }
 }
 "
 echo $query
