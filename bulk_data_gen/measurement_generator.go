@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"time"
 )
 
 // Used for generating random field names:
@@ -12,6 +13,8 @@ const letters = "abcdefghijklmnopqrstuvwxyz"
 // MeasurementGeneratorConfig stores parameters used to construct a
 // MeasurementGenerator.
 type MeasurementGeneratorConfig struct {
+	Count int64
+
 	NameLen int
 
 	TagKeyLen   int
@@ -24,6 +27,9 @@ type MeasurementGeneratorConfig struct {
 	FieldCount   int
 	FieldStdDevs []float64
 	FieldMeans   []float64
+
+	TimestampStart time.Time
+	TimestampEnd   time.Time
 }
 
 // Validate checks that a MeasurementGeneratorConfig is sane.
@@ -56,6 +62,10 @@ func (cfg *MeasurementGeneratorConfig) Validate() error {
 		return fmt.Errorf("field means slice is the wrong size")
 	}
 
+	if !cfg.TimestampStart.Before(cfg.TimestampEnd) {
+		return fmt.Errorf("start time is not less than end time")
+	}
+
 	return nil
 }
 
@@ -70,7 +80,7 @@ type Point struct {
 	TagValues       [][]byte
 	FieldKeys       [][]byte
 	FieldValues     []float64
-	Timestamp       uint64
+	Timestamp       time.Time
 }
 
 // Using these literals prevents the slices from escaping to the heap, saving
@@ -143,7 +153,7 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) error {
 
 	}
 
-	_, err = fmt.Fprintf(w, " %d\n", p.Timestamp)
+	_, err = fmt.Fprintf(w, " %d\n", p.Timestamp.UnixNano())
 	if err != nil {
 		return err
 	}
@@ -221,7 +231,8 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 			return err
 		}
 	}
-	_, err = fmt.Fprintf(w, "\"timestamp\": %d }\n", p.Timestamp)
+	// Timestamps in ES must be millisecond precision:
+	_, err = fmt.Fprintf(w, "\"timestamp\": %d }\n", p.Timestamp.UnixNano()/1e6)
 	if err != nil {
 		return err
 	}
@@ -234,6 +245,9 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 //
 // Field values are sampled from a normal distribution.
 type MeasurementGenerator struct {
+	Total int64
+	Seen  int64
+
 	Name            []byte
 	TagKeys         [][]byte
 	TagValueChoices [][][]byte
@@ -243,7 +257,9 @@ type MeasurementGenerator struct {
 	FieldMeans   []float64
 	FieldStdDevs []float64
 
-	Count int64
+	TimestampStart     time.Time
+	TimestampIncrement time.Duration
+	TimestampEnd       time.Time
 
 	Config *MeasurementGeneratorConfig
 }
@@ -255,7 +271,23 @@ func NewMeasurementGenerator(cfg *MeasurementGeneratorConfig) MeasurementGenerat
 	for i := 0; i < len(tvc); i++ {
 		tvc[i] = randBytesSeq(nil, cfg.TagValueCount, cfg.TagValueLen)
 	}
+
+	diffNanos := cfg.TimestampEnd.UnixNano() - cfg.TimestampStart.UnixNano()
+	if diffNanos <= 0 {
+		panic("logic error: diffNanos <= 0")
+	}
+
+	perPointNanos := diffNanos / cfg.Count
+	if perPointNanos == 0 {
+		perPointNanos = 1
+	}
+
+	timestampIncrement := time.Duration(perPointNanos) * time.Nanosecond
+
 	g := MeasurementGenerator{
+		Total: cfg.Count,
+		Seen:  0,
+
 		Name:            randBytes([]byte("measurement_"), cfg.NameLen),
 		TagKeys:         randBytesSeq([]byte("tag_"), cfg.TagKeyCount, cfg.TagKeyLen),
 		TagValueChoices: tvc,
@@ -264,6 +296,10 @@ func NewMeasurementGenerator(cfg *MeasurementGeneratorConfig) MeasurementGenerat
 		P:            &Point{},
 		FieldMeans:   cfg.FieldMeans,
 		FieldStdDevs: cfg.FieldStdDevs,
+
+		TimestampStart:     cfg.TimestampStart,
+		TimestampIncrement: timestampIncrement,
+		TimestampEnd:       cfg.TimestampEnd,
 
 		Config: cfg,
 	}
@@ -282,7 +318,7 @@ func (mg *MeasurementGenerator) initPoint() {
 	mg.P.FieldKeys = mg.FieldKeys
 	mg.P.FieldValues = make([]float64, len(mg.FieldKeys))
 
-	mg.P.Timestamp = 0
+	mg.P.Timestamp = mg.TimestampStart
 }
 
 // Next updates the internal Point object with new data.
@@ -299,9 +335,9 @@ func (mg *MeasurementGenerator) Next() {
 		v := rand.NormFloat64()*mg.FieldStdDevs[i] + mg.FieldMeans[i]
 		mg.P.FieldValues[i] = v
 	}
-	mg.P.Timestamp += 100 // ns
+	mg.P.Timestamp = mg.P.Timestamp.Add(mg.TimestampIncrement)
 
-	mg.Count++
+	mg.Seen++
 }
 
 // randBytes creates random bytes of the given length. If the prefix is

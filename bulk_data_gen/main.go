@@ -50,6 +50,12 @@ var (
 	stdDevs []float64
 	means   []float64
 
+	timestampStartStr string
+	timestampEndStr   string
+
+	timestampStart time.Time
+	timestampEnd   time.Time
+
 	seed  int64
 	debug int
 
@@ -58,7 +64,7 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&format, "format", "influx-bulk", "Format to emit. (choices: influx-bulk, es-bulk)")
+	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-bulk, es-bulk)")
 
 	flag.UintVar(&measurements, "measurements", 1, "Number of measurements to create.")
 	flag.UintVar(&fields, "fields", 1, "Number of fields to populate per point.")
@@ -74,6 +80,9 @@ func init() {
 
 	flag.StringVar(&stdDevsStr, "std-devs", "1.0", "Comma-separated std deviations for generating field values. Will be repeated to satisfy all generators. Example: 1.0,2.0,3.0")
 	flag.StringVar(&meansStr, "means", "0.0", "Comma-separated means for generating field values. Will be repeated to satisfy all generators. Example: 0.0,1.0,2.0")
+
+	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-07:00", "Beginning timestamp (RFC3339).")
+	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-07:00", "Ending timestamp (RFC3339).")
 
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
@@ -125,6 +134,17 @@ func init() {
 		means[i] = meanNums[i%len(meanNums)]
 	}
 
+	// Parse timestamps:
+	var err error
+	timestampStart, err = time.Parse(time.RFC3339, timestampStartStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	timestampEnd, err = time.Parse(time.RFC3339, timestampEndStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if debug >= 1 {
 		fmt.Printf("stddevs: %v\n", stdDevs)
 		fmt.Printf("means: %v\n", means)
@@ -137,10 +157,17 @@ func main() {
 	out := bufio.NewWriterSize(os.Stdout, 1<<20)
 	defer out.Flush()
 
+	perGeneratorCount := points / measurements
+	if perGeneratorCount * measurements < points {
+		perGeneratorCount++
+	}
+
 	// Initialize generators, one for each measurement:
 	generators := make([]*MeasurementGenerator, measurements)
 	for i := 0; i < len(generators); i++ {
 		config := MeasurementGeneratorConfig{
+			Count: int64(perGeneratorCount),
+
 			NameLen: int(measurementNameLen),
 
 			TagKeyCount:   int(tagKeys),
@@ -152,6 +179,9 @@ func main() {
 			FieldNameLen: int(fieldNameLen),
 			FieldStdDevs: stdDevs,
 			FieldMeans:   means,
+
+			TimestampStart: timestampStart,
+			TimestampEnd:   timestampEnd,
 		}
 		if err := config.Validate(); err != nil {
 			log.Fatal(err)
@@ -159,6 +189,13 @@ func main() {
 
 		g := NewMeasurementGenerator(&config)
 		generators[i] = &g
+		if debug >= 1 {
+
+			fmt.Fprintf(os.Stderr, "generator %d:\n", i)
+			fmt.Fprintf(os.Stderr, "  timestamp start: %s\n", g.TimestampStart)
+			fmt.Fprintf(os.Stderr, "  timestamp end: %s\n", g.TimestampEnd)
+			fmt.Fprintf(os.Stderr, "  timestamp increment: %s\n", g.TimestampIncrement)
+		}
 	}
 
 	generatorIdx := 0
@@ -190,7 +227,7 @@ func main() {
 		len(generators), float64(bytesWritten)/(1<<20))
 	for _, g := range generators {
 		fmt.Fprintf(os.Stderr, "  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
-			g.Name, g.Count,
+			g.Name, g.Seen,
 			g.Config.TagKeyCount*g.Config.TagValueCount,
 			g.Config.FieldCount, g.FieldStdDevs, g.FieldMeans)
 	}
