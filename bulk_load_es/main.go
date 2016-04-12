@@ -33,6 +33,26 @@ var (
 	workersGroup sync.WaitGroup
 )
 
+var defaultTemplate = []byte(`
+{
+  "template": "measurement_*",
+  "settings": {
+    "index": {
+      "refresh_interval": "5s"
+    }
+  },
+  "mappings": {
+    "point": {
+      "_all":            { "enabled": false },
+      "_source":         { "enabled": true },
+      "properties": {
+        "timestamp":    { "type": "date", "doc_values": true }
+      }
+    }
+  }
+}
+`)
+
 // Parse args:
 func init() {
 	flag.StringVar(&daemonUrl, "url", "http://localhost:9200", "ElasticSearch URL.")
@@ -45,6 +65,10 @@ func init() {
 }
 
 func main() {
+	err := createESTemplate(daemonUrl, "measurements_template", defaultTemplate)
+	if err != nil {
+		log.Fatal(err)
+	}
 	bufPool = sync.Pool{
 		New: func() interface{} {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
@@ -117,6 +141,33 @@ func processBatches(w LineProtocolWriter) {
 		bufPool.Put(batch)
 	}
 	workersGroup.Done()
+}
+
+func createESTemplate(daemonUrl, templateName string, templateBody []byte) error {
+	u, err := url.Parse(daemonUrl)
+	if err != nil {
+		return err
+	}
+
+	u.Path = fmt.Sprintf("_template/%s", templateName)
+
+	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(templateBody))
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	// does the body need to be read into the void?
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bad mapping create")
+	}
+	return nil
 }
 
 func createDb(daemon_url, dbname string) error {
