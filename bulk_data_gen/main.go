@@ -47,8 +47,8 @@ var (
 	stdDevsStr string
 	meansStr   string
 
-	stdDevs []float64
-	means   []float64
+	distributionType string
+	distributions []Distribution
 
 	timestampStartStr string
 	timestampEndStr   string
@@ -80,6 +80,7 @@ func init() {
 
 	flag.StringVar(&stdDevsStr, "std-devs", "1.0", "Comma-separated std deviations for generating field values. Will be repeated to satisfy all generators. Example: 1.0,2.0,3.0")
 	flag.StringVar(&meansStr, "means", "0.0", "Comma-separated means for generating field values. Will be repeated to satisfy all generators. Example: 0.0,1.0,2.0")
+	flag.StringVar(&distributionType, "distribution", "normal", "Choice of distribution: normal or random-walk-normal.")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")
@@ -115,7 +116,7 @@ func init() {
 		stdDevNums = append(stdDevNums, n)
 	}
 
-	stdDevs = make([]float64, int(fields))
+	stdDevs := make([]float64, int(fields))
 	for i := 0; i < int(fields); i++ {
 		stdDevs[i] = stdDevNums[i%len(stdDevNums)]
 	}
@@ -129,9 +130,29 @@ func init() {
 		}
 		meanNums = append(meanNums, n)
 	}
-	means = make([]float64, int(fields))
+	means := make([]float64, int(fields))
 	for i := 0; i < int(fields); i++ {
 		means[i] = meanNums[i%len(meanNums)]
+	}
+
+	distributions = make([]Distribution, int(fields))
+	for i := 0; i < int(fields); i++ {
+		switch distributionType {
+		case "normal":
+			distributions[i] = &NormalDistribution{
+				Mean: means[i],
+				StdDev: stdDevs[i],
+			}
+		case "random-walk-normal":
+			distributions[i] = &RandomWalkDistribution{
+				State: 0,
+				Step: &NormalDistribution{
+					Mean: means[i],
+					StdDev: stdDevs[i],
+				},
+			}
+		default: panic("unreachable")
+		}
 	}
 
 	// Parse timestamps:
@@ -146,8 +167,7 @@ func init() {
 	}
 
 	if debug >= 1 {
-		fmt.Printf("stddevs: %v\n", stdDevs)
-		fmt.Printf("means: %v\n", means)
+		fmt.Printf("distributions: %v\n", distributions)
 	}
 }
 
@@ -177,8 +197,7 @@ func main() {
 
 			FieldCount:   int(fields),
 			FieldNameLen: int(fieldNameLen),
-			FieldStdDevs: stdDevs,
-			FieldMeans:   means,
+			FieldDistributions: distributions,
 
 			TimestampStart: timestampStart,
 			TimestampEnd:   timestampEnd,
@@ -225,9 +244,9 @@ func main() {
 	fmt.Fprintf(os.Stderr, "created %d points across %d measurements\n", points,
 		len(generators))
 	for _, g := range generators {
-		fmt.Fprintf(os.Stderr, "  %s: %d points. tag pairs: %d, fields: %d, stddevs: %v, means: %v\n",
+		fmt.Fprintf(os.Stderr, "  %s: %d points. tag pairs: %d, fields: %d, distributions: %v\n",
 			g.Name, g.Seen,
 			g.Config.TagKeyCount*g.Config.TagValueCount,
-			g.Config.FieldCount, g.FieldStdDevs, g.FieldMeans)
+			g.Config.FieldCount, g.FieldDistributions)
 	}
 }

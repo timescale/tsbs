@@ -23,10 +23,9 @@ type MeasurementGeneratorConfig struct {
 	TagValueLen   int
 	TagValueCount int
 
-	FieldNameLen int
-	FieldCount   int
-	FieldStdDevs []float64
-	FieldMeans   []float64
+	FieldNameLen       int
+	FieldCount         int
+	FieldDistributions []Distribution
 
 	TimestampStart time.Time
 	TimestampEnd   time.Time
@@ -54,12 +53,8 @@ func (cfg *MeasurementGeneratorConfig) Validate() error {
 		return fmt.Errorf("field name len is too small")
 	}
 
-	if len(cfg.FieldStdDevs) != cfg.FieldCount {
-		return fmt.Errorf("field std deviations slice is the wrong size")
-	}
-
-	if len(cfg.FieldStdDevs) != cfg.FieldCount {
-		return fmt.Errorf("field means slice is the wrong size")
+	if len(cfg.FieldDistributions) != cfg.FieldCount {
+		return fmt.Errorf("field distributions slice is the wrong size")
 	}
 
 	if !cfg.TimestampStart.Before(cfg.TimestampEnd) {
@@ -254,8 +249,7 @@ type MeasurementGenerator struct {
 	FieldKeys       [][]byte
 
 	P            *Point
-	FieldMeans   []float64
-	FieldStdDevs []float64
+	FieldDistributions   []Distribution
 
 	TimestampStart     time.Time
 	TimestampIncrement time.Duration
@@ -294,8 +288,7 @@ func NewMeasurementGenerator(cfg *MeasurementGeneratorConfig) MeasurementGenerat
 		FieldKeys:       randBytesSeq([]byte("field_"), cfg.FieldCount, cfg.FieldNameLen),
 
 		P:            &Point{},
-		FieldMeans:   cfg.FieldMeans,
-		FieldStdDevs: cfg.FieldStdDevs,
+		FieldDistributions:   cfg.FieldDistributions,
 
 		TimestampStart:     cfg.TimestampStart,
 		TimestampIncrement: timestampIncrement,
@@ -332,7 +325,7 @@ func (mg *MeasurementGenerator) Next() {
 
 	// choose field values
 	for i := 0; i < len(mg.FieldKeys); i++ {
-		v := rand.NormFloat64()*mg.FieldStdDevs[i] + mg.FieldMeans[i]
+		v := mg.FieldDistributions[i].Next(mg.Seen)
 		mg.P.FieldValues[i] = v
 	}
 	mg.P.Timestamp = mg.P.Timestamp.Add(mg.TimestampIncrement)
