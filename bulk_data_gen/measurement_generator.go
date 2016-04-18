@@ -5,5 +5,7 @@ type MeasurementGenerator interface {
 	Total() int64
 	Seen() int64
 	Finished() bool
-	Next() *Point
+	Next(*Point)
+        MakeUsablePoint() *Point
+
 }

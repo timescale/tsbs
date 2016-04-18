@@ -19,14 +19,26 @@ var (
 )
 
 var (
+	// The duration of a log epoch.
+	EpochDuration = 10 * time.Second
+
+	// Choices for modeling a host's memory capacity.
 	MemoryMaxBytesChoices = []int64{8 << 30, 12 << 30, 16 << 30}
 
-	MachineTagKeys = [][]byte{
+	// Tag fields for 'mem' points.
+	MemoryTagKeys = [][]byte{
+		[]byte("host"),
+		[]byte("dc"),
+	}
+
+	// Tag fields for 'cpu' points.
+	CPUTagKeys = [][]byte{
 		[]byte("cpu"),
 		[]byte("host"),
 		[]byte("dc"),
 	}
 
+	// Choices of datacenters.
 	MachineDatacenters = [][]byte{
 		[]byte("us-east-1"),
 		[]byte("us-west-2"),
@@ -40,6 +52,7 @@ var (
 		[]byte("sa-east-1"),
 	}
 
+	// Field keys for 'cpu' points.
 	CPUFieldKeys = [][]byte{
 		[]byte("usage_user"),
 		[]byte("usage_system"),
@@ -53,6 +66,7 @@ var (
 		[]byte("usage_guest_nice"),
 	}
 
+	// Field keys for 'mem' points.
 	MemoryFieldKeys = [][]byte{
 		[]byte("total"),
 		[]byte("available"),
@@ -65,6 +79,12 @@ var (
 	}
 )
 
+// Type Host models a machine being monitored by Telegraf. Its Name looks like
+// "host_123", the Datacenter is randomly chosen from MachineDatacenters,
+// and the BytesTotal is chosen from MemoryMaxBytesChoices.
+//
+// It models a host through time by using stateful distributions for memory
+// and CPU usage.
 type Host struct {
 	Name, Datacenter []byte
 
@@ -143,7 +163,6 @@ func newCPUDistributions(count int) []Distribution {
 // Type DevopsGenerator generates data similar to the Telegraf CPU and Memory
 // measurements.
 type DevopsGenerator struct {
-	point      *Point
 	madePoints int64
 	maxPoints  int64
 
@@ -154,13 +173,13 @@ type DevopsGenerator struct {
 
 	timestampNow       time.Time
 	timestampStart     time.Time
-	timestampIncrement time.Duration
 	timestampEnd       time.Time
 }
 
 func (g *DevopsGenerator) Seen() int64 {
 	return g.madePoints
 }
+
 func (g *DevopsGenerator) Total() int64 {
 	return g.maxPoints
 }
@@ -169,6 +188,7 @@ func (g *DevopsGenerator) Finished() bool {
 	return g.madePoints >= g.maxPoints
 }
 
+// Type DevopsGeneratorConfig is used to create a DevopsGenerator.
 type DevopsGeneratorConfig struct {
 	Start time.Time
 	End   time.Time
@@ -182,12 +202,9 @@ func (d *DevopsGeneratorConfig) ToMeasurementGenerator() *DevopsGenerator {
 		hostInfos[i] = NewHost(i)
 	}
 
-	timestampIncrement := 10 * time.Second
-	epochs := d.End.Sub(d.Start).Nanoseconds() / timestampIncrement.Nanoseconds()
+	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
 	maxPoints := epochs * (d.HostCount * 2)
 	dg := &DevopsGenerator{
-		point: nil,
-
 		madePoints: 0,
 		maxPoints:  maxPoints,
 
@@ -198,14 +215,17 @@ func (d *DevopsGeneratorConfig) ToMeasurementGenerator() *DevopsGenerator {
 
 		timestampNow:       d.Start,
 		timestampStart:     d.Start,
-		timestampIncrement: timestampIncrement,
 		timestampEnd:       d.End,
 	}
 
 	return dg
 }
 
-func (d *DevopsGenerator) makeUsablePoint() *Point {
+func (d *DevopsGenerator) MakeUsablePoint() *Point {
+	neededTagKeys := len(CPUTagKeys)
+	if neededTagKeys < len(MemoryTagKeys) {
+		neededTagKeys = len(MemoryTagKeys)
+	}
 	neededFieldKeys := len(CPUFieldKeys)
 	if neededFieldKeys < len(MemoryFieldKeys) {
 		neededFieldKeys = len(MemoryFieldKeys)
@@ -213,24 +233,20 @@ func (d *DevopsGenerator) makeUsablePoint() *Point {
 	return &Point{
 		MeasurementName: nil,
 		TagKeys:         nil,
-		TagValues:       make([][]byte, 0, len(MachineTagKeys)),
+		TagValues:       make([][]byte, 0, neededTagKeys),
 		FieldKeys:       nil,
 		FieldValues:     make([]interface{}, 0, neededFieldKeys),
 		Timestamp:       time.Time{},
 	}
 }
 
-func (d *DevopsGenerator) Next() *Point {
-	if d.point == nil {
-		d.point = d.makeUsablePoint()
-	}
-
+func (d *DevopsGenerator) Next(p *Point) {
 	// switch to the next metric if needed
 	if d.hostIndex == len(d.hosts) {
 		d.hostIndex = 0
 
 		// Update the timestamp (applies to all points in this epoch):
-		d.timestampNow = d.timestampNow.Add(d.timestampIncrement)
+		d.timestampNow = d.timestampNow.Add(EpochDuration)
 
 		// Update the generators on each Host:
 		for i := 0; i < len(d.hosts); i++ {
@@ -248,20 +264,21 @@ func (d *DevopsGenerator) Next() *Point {
 	}
 
 	host := &d.hosts[d.hostIndex]
-	p := d.point
 
 	// Populate the data that apply to both CPU and Mem points:
-	p.TagKeys = MachineTagKeys
-	p.TagValues = p.TagValues[:len(MachineTagKeys)]
-	p.TagValues[0] = CPUTotalByteString
-	p.TagValues[1] = host.Name
-	p.TagValues[2] = host.Datacenter
 	p.Timestamp = d.timestampNow
 
 	switch d.enumerationMode {
 	case enumerationModeCPU:
 		// Populate CPU-specific labels:
 		p.MeasurementName = CPUByteString
+
+		p.TagKeys = CPUTagKeys
+		p.TagValues = p.TagValues[:len(CPUTagKeys)]
+		p.TagValues[0] = CPUTotalByteString
+		p.TagValues[1] = host.Name
+		p.TagValues[2] = host.Datacenter
+
 		p.FieldKeys = CPUFieldKeys
 
 		// Ensure correct len:
@@ -276,20 +293,18 @@ func (d *DevopsGenerator) Next() *Point {
 	case enumerationModeMem:
 		// Populate Mem-specific labels:
 		p.MeasurementName = MemoryByteString
+
+		p.TagKeys = MemoryTagKeys
+		p.TagValues = p.TagValues[:len(MemoryTagKeys)]
+		p.TagValues[0] = host.Name
+		p.TagValues[1] = host.Datacenter
+
 		p.FieldKeys = MemoryFieldKeys
 
 		// Ensure correct len:
 		p.FieldValues = p.FieldValues[:len(MemoryFieldKeys)]
 
 		// Populate Memory-specific data:
-		//p.FieldValues[0] = []byte(fmt.Sprintf("%d", host.BytesTotal))
-		//p.FieldValues[1] = []byte(fmt.Sprintf("%d", int(math.Floor(float64(host.BytesTotal)-host.BytesUsed.Get()))))
-		//p.FieldValues[2] = []byte(fmt.Sprintf("%d", int(math.Floor(host.BytesUsed.Get()))))
-		//p.FieldValues[3] = []byte(fmt.Sprintf("%d", int(math.Floor(host.BytesCached.Get()))))
-		//p.FieldValues[4] = []byte(fmt.Sprintf("%d", int(math.Floor(host.BytesBuffered.Get()))))
-		//p.FieldValues[5] = []byte(fmt.Sprintf("%d", int(math.Floor(host.BytesUsed.Get()))))
-		//p.FieldValues[6] = []byte(fmt.Sprintf("%.2f", 100.0*(host.BytesUsed.Get()/float64(host.BytesTotal))))
-		//p.FieldValues[7] = []byte(fmt.Sprintf("%.2f", 100.0*(float64(host.BytesTotal)-host.BytesUsed.Get())/float64(host.BytesTotal)))
 		p.FieldValues[0] = host.BytesTotal
 		p.FieldValues[1] = int(math.Floor(float64(host.BytesTotal) - host.BytesUsed.Get()))
 		p.FieldValues[2] = int(math.Floor(host.BytesUsed.Get()))
@@ -305,7 +320,7 @@ func (d *DevopsGenerator) Next() *Point {
 	d.madePoints++
 	d.hostIndex++
 
-	return p
+	return
 }
 
 func randChoice(choices [][]byte) []byte {

@@ -108,8 +108,9 @@ func main() {
 		panic("unreachable")
 	}
 
+	point := generator.MakeUsablePoint()
 	for !generator.Finished() {
-		point := generator.Next()
+		generator.Next(point)
 
 		switch format {
 		case "influx-bulk":
