@@ -59,6 +59,12 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 		v := p.FieldValues[i]
 		buf = fastFormatAppend(v, buf)
 
+		// Influx uses 'i' to indicate integers:
+		switch v.(type) {
+		case int, int64:
+			buf = append(buf, byte('i'))
+		}
+
 		if i+1 < len(p.FieldKeys) {
 			buf = append(buf, charComma...)
 		}
