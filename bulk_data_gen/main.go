@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"io"
 	"flag"
 	"log"
 	"math/rand"
@@ -108,23 +109,23 @@ func main() {
 		panic("unreachable")
 	}
 
+	var serializer func(*Point, io.Writer) error
+	switch format {
+	case "influx-bulk":
+		serializer = (*Point).SerializeInfluxBulk
+	case "es-bulk":
+		serializer = (*Point).SerializeESBulk
+	default:
+		panic("unreachable")
+	}
+
 	point := generator.MakeUsablePoint()
 	for !generator.Finished() {
 		generator.Next(point)
 
-		switch format {
-		case "influx-bulk":
-			err := point.SerializeInfluxBulk(out)
-			if err != nil {
-				log.Fatal(err)
-			}
-		case "es-bulk":
-			err := point.SerializeESBulk(out)
-			if err != nil {
-				log.Fatal(err)
-			}
-		default:
-			panic("unreachable")
+		err := serializer(point, out)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 }

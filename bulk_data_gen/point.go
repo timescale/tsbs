@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 )
 
@@ -36,7 +37,7 @@ var (
 //
 // For example:
 // foo,tag0=bar baz=-1.0 100\n
-func (p *Point) SerializeInfluxBulk(w io.Writer) error {
+func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 	buf := make([]byte, 0, 256)
 	buf = append(buf, p.MeasurementName...)
 
@@ -56,17 +57,16 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) error {
 		buf = append(buf, charEquals...)
 
 		v := p.FieldValues[i]
-		format := formatFor(v)
+		buf = fastFormatAppend(v, buf)
 
-		buf = append(buf, []byte(fmt.Sprintf(format, v))...)
 		if i+1 < len(p.FieldKeys) {
 			buf = append(buf, charComma...)
 		}
 
 	}
 
-	buf = append(buf, []byte(fmt.Sprintf("%d\n", p.Timestamp.UnixNano()))...)
-	_, err := w.Write(buf)
+	buf = append(buf, []byte(fmt.Sprintf(" %d\n", p.Timestamp.UnixNano()))...)
+	_, err = w.Write(buf)
 
 	return err
 }
@@ -107,11 +107,12 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 		if i > 0 {
 			buf = append(buf, []byte(", ")...)
 		}
-		buf = append(buf, []byte(fmt.Sprintf("\"%s\": ", p.FieldKeys[i]))...)
+		buf = append(buf, "\""...)
+		buf = append(buf, p.FieldKeys[i]...)
+		buf = append(buf, "\": "...)
 
 		v := p.FieldValues[i]
-		format := formatFor(v)
-		buf = append(buf, []byte(fmt.Sprintf(format, v))...)
+		buf = fastFormatAppend(v, buf)
 	}
 
 	if len(p.TagKeys) > 0 || len(p.FieldKeys) > 0 {
@@ -128,16 +129,24 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 	return nil
 }
 
-func formatFor(v interface{}) string {
+func fastFormatAppend(v interface{}, buf []byte) []byte {
 	switch v.(type) {
-	case int, int64:
-		return "%di"
-	case float32, float64:
-		return "%f"
+	case int:
+		return strconv.AppendInt(buf, int64(v.(int)), 10)
+	case int64:
+		return strconv.AppendInt(buf, v.(int64), 10)
+	case float64:
+		return strconv.AppendFloat(buf, v.(float64), 'f', -1, 64)
+	case float32:
+		return strconv.AppendFloat(buf, float64(v.(float32)), 'f', -1, 32)
 	case bool:
-		return "%t"
-	case string, []byte:
-		return "%s"
+		return strconv.AppendBool(buf, v.(bool))
+	case []byte:
+		buf = append(buf, v.([]byte)...)
+		return buf
+	case string:
+		buf = append(buf, v.(string)...)
+		return buf
 	default:
 		panic("unknown field type")
 	}

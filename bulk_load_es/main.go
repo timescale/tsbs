@@ -35,7 +35,7 @@ var (
 
 var defaultTemplate = []byte(`
 {
-  "template": "measurement_*",
+  "template": "*",
   "settings": {
     "index": {
       "refresh_interval": "5s"
