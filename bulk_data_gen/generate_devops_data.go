@@ -245,19 +245,19 @@ func (d *DevopsGenerator) Next(p *Point) {
 	if d.hostIndex == len(d.hosts) {
 		d.hostIndex = 0
 
-		// Update the timestamp (applies to all points in this epoch):
-		d.timestampNow = d.timestampNow.Add(EpochDuration)
-
-		// Update the generators on each Host:
-		for i := 0; i < len(d.hosts); i++ {
-			d.hosts[i].AdvanceAll()
-		}
-
 		switch d.enumerationMode {
 		case enumerationModeCPU:
 			d.enumerationMode = enumerationModeMem
 		case enumerationModeMem:
 			d.enumerationMode = enumerationModeCPU
+
+			// Update the timestamp (applies to all points in this epoch):
+			d.timestampNow = d.timestampNow.Add(EpochDuration)
+
+			// Update the generators on each Host:
+			for i := 0; i < len(d.hosts); i++ {
+				d.hosts[i].AdvanceAll()
+			}
 		default:
 			panic("unreachable")
 		}
