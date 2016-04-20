@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"io"
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -75,6 +76,7 @@ func init() {
 	if seed == 0 {
 		seed = int64(time.Now().Nanosecond())
 	}
+	fmt.Fprintf(os.Stderr, "using random seed %d\n", seed)
 
 	// Parse timestamps:
 	var err error
