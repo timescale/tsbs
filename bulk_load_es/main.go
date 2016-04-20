@@ -18,11 +18,11 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl string
-	refreshEachBatch bool
-	//dbName    string
-	workers   int
-	batchSize int
+	daemonUrl         string
+	refreshEachBatch  bool
+	workers           int
+	batchSize         int
+	indexTemplateName string
 )
 
 // Global vars
@@ -31,6 +31,14 @@ var (
 	batchChan    chan *bytes.Buffer
 	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
+)
+
+// Args parsing vars
+var (
+	indexTemplateChoices = map[string][]byte{
+		"default": defaultTemplate,
+		"lossy":   lossyAggregationTemplate,
+	}
 )
 
 var defaultTemplate = []byte(`
@@ -53,6 +61,42 @@ var defaultTemplate = []byte(`
 }
 `)
 
+var lossyAggregationTemplate = []byte(`
+{
+  "template": "*",
+  "settings": {
+    "index": {
+      "refresh_interval": "5s"
+    }
+  },
+  "mappings": {
+    "_default_": {
+      "dynamic_templates": [
+        {
+          "strings_are_stored_exactly_for_filtering": {
+            "match": "*",
+            "match_mapping_type": "string",
+            "mapping": { "type": "string",  "doc_values": true, "index": "not_analyzed" }
+          }
+        },
+	{
+	  "all_other_types_are_only_stored_in_column_index": {
+            "match": "*",
+            "mapping": { "doc_values": true, "index": "no" }
+          }
+        }
+      ],
+      "_all": { "enabled": false },
+      "_source": { "enabled": false },
+      "properties": {
+        "timestamp": { "type": "date", "doc_values": true, "format": "epoch_millis" }
+      }
+    }
+  }
+}
+
+`)
+
 // Parse args:
 func init() {
 	flag.StringVar(&daemonUrl, "url", "http://localhost:9200", "ElasticSearch URL.")
@@ -61,11 +105,18 @@ func init() {
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
+	flag.StringVar(&indexTemplateName, "index-template", "default", "ElasticSearch index template to use (choices: default, lossy).")
+
 	flag.Parse()
+
+	if _, ok := indexTemplateChoices[indexTemplateName]; !ok {
+		log.Fatalf("invalid index template type")
+	}
 }
 
 func main() {
-	err := createESTemplate(daemonUrl, "measurements_template", defaultTemplate)
+	indexTemplate := indexTemplateChoices[indexTemplateName]
+	err := createESTemplate(daemonUrl, "measurements_template", indexTemplate)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +132,7 @@ func main() {
 	for i := 0; i < workers; i++ {
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
-			Host:     daemonUrl,
+			Host: daemonUrl,
 			//Database: dbName,
 		}
 		go processBatches(NewHTTPWriter(cfg, refreshEachBatch))
@@ -107,7 +158,7 @@ func scan(itemsPerBatch int) {
 		buf.Write([]byte("\n"))
 
 		n++
-		if n % 2 == 0 && (n / 2) >= itemsPerBatch {
+		if n%2 == 0 && (n/2) >= itemsPerBatch {
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
 			n = 0
