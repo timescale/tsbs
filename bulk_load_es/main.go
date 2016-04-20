@@ -124,9 +124,20 @@ func main() {
 	}
 
 	if len(existingIndexTemplates) > 0 {
-		log.Fatal("there are index templates already in the data store. clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
+		log.Fatal("There are index templates already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
 	}
 
+	// check that there are no pre-existing indices:
+	existingIndices, err := listIndices(daemonUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(existingIndices) > 0 {
+		log.Fatal("There are indices already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_all'")
+	}
+
+	// create the index template:
 	indexTemplate := indexTemplateChoices[indexTemplateName]
 	err = createESTemplate(daemonUrl, "measurements_template", indexTemplate)
 	if err != nil {
@@ -267,6 +278,29 @@ func createDb(daemon_url, dbname string) error {
 // listIndexTemplates lists the existing index templates in ElasticSearch.
 func listIndexTemplates(daemonUrl string) (map[string]interface{}, error) {
 	u := fmt.Sprintf("%s/_template", daemonUrl)
+	resp, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var listing map[string]interface{}
+	err = json.Unmarshal(body, &listing)
+	if err != nil {
+		return nil, err
+	}
+
+	return listing, nil
+}
+
+// listIndices lists the existing indices in ElasticSearch.
+func listIndices(daemonUrl string) (map[string]interface{}, error) {
+	u := fmt.Sprintf("%s/*", daemonUrl)
 	resp, err := http.Get(u)
 	if err != nil {
 		return nil, err
