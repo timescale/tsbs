@@ -104,9 +104,9 @@ func main() {
 		panic("unreachable")
 	}
 
-	req := &Request{}
+	q := &Query{}
 	for i := 0; i < 100; i++ {
-		devops.AvgCPUUsageDayByHour(req)
-		fmt.Printf("%#v\n", req)
+		devops.AvgCPUUsageDayByHour(q)
+		fmt.Printf("%#v\n", q)
 	}
 }
