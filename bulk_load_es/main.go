@@ -7,8 +7,10 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -115,8 +117,18 @@ func init() {
 }
 
 func main() {
+	// check that there are no pre-existing index templates:
+	existingIndexTemplates, err := listIndexTemplates(daemonUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(existingIndexTemplates) > 0 {
+		log.Fatal("there are index templates already in the data store. clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
+	}
+
 	indexTemplate := indexTemplateChoices[indexTemplateName]
-	err := createESTemplate(daemonUrl, "measurements_template", indexTemplate)
+	err = createESTemplate(daemonUrl, "measurements_template", indexTemplate)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -250,4 +262,27 @@ func createDb(daemon_url, dbname string) error {
 		return fmt.Errorf("bad db create")
 	}
 	return nil
+}
+
+// listIndexTemplates lists the existing index templates in ElasticSearch.
+func listIndexTemplates(daemonUrl string) (map[string]interface{}, error) {
+	u := fmt.Sprintf("%s/_template", daemonUrl)
+	resp, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var listing map[string]interface{}
+	err = json.Unmarshal(body, &listing)
+	if err != nil {
+		return nil, err
+	}
+
+	return listing, nil
 }
