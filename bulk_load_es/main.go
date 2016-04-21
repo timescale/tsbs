@@ -25,6 +25,7 @@ var (
 	workers           int
 	batchSize         int
 	indexTemplateName string
+	doLoad            bool
 )
 
 // Global vars
@@ -109,6 +110,8 @@ func init() {
 
 	flag.StringVar(&indexTemplateName, "index-template", "default", "ElasticSearch index template to use (choices: default, lossy).")
 
+	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+
 	flag.Parse()
 
 	if _, ok := indexTemplateChoices[indexTemplateName]; !ok {
@@ -117,31 +120,33 @@ func init() {
 }
 
 func main() {
-	// check that there are no pre-existing index templates:
-	existingIndexTemplates, err := listIndexTemplates(daemonUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
+	if doLoad {
+		// check that there are no pre-existing index templates:
+		existingIndexTemplates, err := listIndexTemplates(daemonUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if len(existingIndexTemplates) > 0 {
-		log.Fatal("There are index templates already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
-	}
+		if len(existingIndexTemplates) > 0 {
+			log.Fatal("There are index templates already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
+		}
 
-	// check that there are no pre-existing indices:
-	existingIndices, err := listIndices(daemonUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
+		// check that there are no pre-existing indices:
+		existingIndices, err := listIndices(daemonUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if len(existingIndices) > 0 {
-		log.Fatal("There are indices already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_all'")
-	}
+		if len(existingIndices) > 0 {
+			log.Fatal("There are indices already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_all'")
+		}
 
-	// create the index template:
-	indexTemplate := indexTemplateChoices[indexTemplateName]
-	err = createESTemplate(daemonUrl, "measurements_template", indexTemplate)
-	if err != nil {
-		log.Fatal(err)
+		// create the index template:
+		indexTemplate := indexTemplateChoices[indexTemplateName]
+		err = createESTemplate(daemonUrl, "measurements_template", indexTemplate)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	bufPool = sync.Pool{
 		New: func() interface{} {
@@ -204,6 +209,10 @@ func scan(itemsPerBatch int) {
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(w LineProtocolWriter) {
 	for batch := range batchChan {
+		if !doLoad {
+			continue
+		}
+
 		// Write the batch.
 		_, err := w.WriteLineProtocol(batch.Bytes())
 		if err != nil {
