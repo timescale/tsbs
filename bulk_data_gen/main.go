@@ -51,7 +51,7 @@ func init() {
 	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-bulk, es-bulk)")
 
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
-	flag.Int64Var(&scaleVar, "scale-var", 1000, "Scaling variable specific to the use case.")
+	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")

@@ -10,3 +10,8 @@ type Query struct {
 	Arguments url.Values
 	Body      string
 }
+type QueryBytes struct {
+	Method    []byte
+	Path      []byte
+	Body      []byte
+}

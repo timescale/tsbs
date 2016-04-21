@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"log"
@@ -33,7 +34,6 @@ var (
 	format  string
 	useCase string
 
-	scaleVar int64
 
 	timestampStartStr string
 	timestampEndStr   string
@@ -51,7 +51,6 @@ func init() {
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use")
 
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
-	flag.Int64Var(&scaleVar, "scale-var", 1000, "Scaling variable specific to the use case.")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")
@@ -93,8 +92,6 @@ func init() {
 func main() {
 	rand.Seed(seed)
 
-	out := bufio.NewWriterSize(os.Stdout, 4<<20)
-	defer out.Flush()
 
 	var devops Devops
 	switch useCase {
@@ -104,9 +101,18 @@ func main() {
 		panic("unreachable")
 	}
 
-	q := &Query{}
-	for i := 0; i < 100; i++ {
+	out := bufio.NewWriter(os.Stdout)
+	defer out.Flush()
+	enc := gob.NewEncoder(out)
+	q := &QueryBytes{}
+	for i := 0; i < 1e6; i += 3 {
 		devops.AvgCPUUsageDayByHour(q)
-		fmt.Printf("%#v\n", q)
+		devops.AvgCPUUsageWeekByHour(q)
+		devops.AvgCPUUsageMonthByDay(q)
+
+		err := enc.Encode(q)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

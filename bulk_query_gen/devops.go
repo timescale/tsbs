@@ -8,13 +8,14 @@ import (
 )
 
 type Devops interface {
-	AvgCPUUsageDayByHour(*Query)
-	AvgCPUUsageMonthByDay(*Query)
+	AvgCPUUsageDayByHour(*QueryBytes)
+	AvgCPUUsageMonthByDay(*QueryBytes)
 }
 
 type InfluxDevops struct {
-	DatabaseName string
-	DayIntervals TimeIntervals
+	DatabaseName   string
+	DayIntervals   TimeIntervals
+	WeekIntervals  TimeIntervals
 	MonthIntervals TimeIntervals
 }
 
@@ -39,9 +40,9 @@ func (tis TimeIntervals) RandChoice() *TimeInterval {
 func NewTimeIntervals(start, end time.Time, window time.Duration) TimeIntervals {
 	xs := TimeIntervals{}
 	for start.Add(window).Before(end) || start.Add(window).Equal(end) {
-		x := TimeInterval {
+		x := TimeInterval{
 			Start: start,
-			End: start.Add(window),
+			End:   start.Add(window),
 		}
 		xs = append(xs, x)
 
@@ -55,35 +56,46 @@ func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
-	return &InfluxDevops {
-		DatabaseName: databaseName,
-		DayIntervals: NewTimeIntervals(start, end, 24*time.Hour),
+	return &InfluxDevops{
+		DatabaseName:   databaseName,
+		DayIntervals:   NewTimeIntervals(start, end, 24*time.Hour),
+		WeekIntervals:  NewTimeIntervals(start, end, 7*24*time.Hour),
 		MonthIntervals: NewTimeIntervals(start, end, 31*24*time.Hour),
 	}
 }
 
-func (d *InfluxDevops) AvgCPUUsageDayByHour(q *Query) {
+func (d *InfluxDevops) AvgCPUUsageDayByHour(q *QueryBytes) {
 	interval := d.DayIntervals.RandChoice()
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
-	q.Method = "GET"
-	q.Path = "/query"
-	q.Arguments = v
-	q.Body = ""
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *Query) {
+func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *QueryBytes) {
+	interval := d.WeekIntervals.RandChoice()
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
+
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *QueryBytes) {
 	interval := d.MonthIntervals.RandChoice()
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
-	q.Method = "GET"
-	q.Path = "/query"
-	q.Arguments = v
-	q.Body = ""
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
 }
