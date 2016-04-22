@@ -9,7 +9,29 @@ import (
 
 type Devops interface {
 	AvgCPUUsageDayByHour(*QueryBytes)
+	AvgCPUUsageWeekByHour(*QueryBytes)
 	AvgCPUUsageMonthByDay(*QueryBytes)
+
+	AvgMemAvailableDayByHour(*QueryBytes)
+	AvgMemAvailableWeekByHour(*QueryBytes)
+	AvgMemAvailableMonthByDay(*QueryBytes)
+}
+
+func DevopsDispatch(d Devops, iteration int, q *QueryBytes) {
+	switch iteration %6 {
+	case 0:
+		d.AvgCPUUsageDayByHour(q)
+	case 1:
+		d.AvgCPUUsageWeekByHour(q)
+	case 2:
+		d.AvgCPUUsageMonthByDay(q)
+	case 3:
+		d.AvgMemAvailableDayByHour(q)
+	case 4:
+		d.AvgMemAvailableWeekByHour(q)
+	case 5:
+		d.AvgMemAvailableMonthByDay(q)
+	}
 }
 
 type InfluxDevops struct {
@@ -71,6 +93,8 @@ func (d *InfluxDevops) AvgCPUUsageDayByHour(q *QueryBytes) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
+	q.HumanLabel = []byte("CPU day   by 1h")
+	q.HumanDescription = []byte(fmt.Sprintf("CPU day   by 1h: %s", interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -83,6 +107,8 @@ func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *QueryBytes) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
+	q.HumanLabel = []byte("CPU week  by 1h")
+	q.HumanDescription = []byte(fmt.Sprintf("CPU week  by 1h: %s", interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -95,6 +121,50 @@ func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *QueryBytes) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
+	q.HumanLabel = []byte("CPU month by 1d")
+	q.HumanDescription = []byte(fmt.Sprintf("CPU month by 1d: %s", interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) AvgMemAvailableDayByHour(q *QueryBytes) {
+	interval := d.DayIntervals.RandChoice()
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
+
+	q.HumanLabel = []byte("mem day   by 1h")
+	q.HumanDescription = []byte(fmt.Sprintf("mem day   by 1h: %s", interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *QueryBytes) {
+	interval := d.WeekIntervals.RandChoice()
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
+
+	q.HumanLabel = []byte("mem week  by 1h")
+	q.HumanDescription = []byte(fmt.Sprintf("mem week  by 1h: %s", interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) AvgMemAvailableMonthByDay(q *QueryBytes) {
+	interval := d.MonthIntervals.RandChoice()
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
+
+	q.HumanLabel = []byte("mem month by 1d")
+	q.HumanDescription = []byte(fmt.Sprintf("mem month by 1d: %s", interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil

@@ -17,6 +17,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -101,16 +102,32 @@ func main() {
 		panic("unreachable")
 	}
 
+	stats := make(map[string]int64)
+
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
+
+	// create request instances, serializing them to stdout and collecting
+	// counts for each kind:
 	enc := gob.NewEncoder(out)
 	q := &QueryBytes{}
-	for i := 0; i < 1e6; i += 3 {
-		devops.AvgCPUUsageDayByHour(q)
-		devops.AvgCPUUsageWeekByHour(q)
-		devops.AvgCPUUsageMonthByDay(q)
-
+	for i := 0; i < 1e6; i++ {
+		DevopsDispatch(devops, i, q)
 		err := enc.Encode(q)
+		if err != nil {
+			log.Fatal(err)
+		}
+		stats[string(q.HumanLabel)]++
+	}
+
+	// print stats:
+	keys := []string{}
+	for k, _ := range stats {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		_, err := fmt.Fprintf(os.Stderr, "%s: %d points\n", k, stats[k])
 		if err != nil {
 			log.Fatal(err)
 		}
