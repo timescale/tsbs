@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/reuseport"
 )
 
 var (
@@ -16,7 +17,12 @@ var body = []byte("OK")
 func main() {
 	flag.Parse()
 
-	if err := fasthttp.ListenAndServe(*addr, requestHandler); err != nil {
+	ln, err := reuseport.Listen("tcp4", *addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := fasthttp.Serve(ln, requestHandler); err != nil {
 		log.Fatalf("Error in ListenAndServe: %s", err)
 	}
 }
