@@ -1,5 +1,10 @@
 package main
 
+import (
+	"math/rand"
+	"time"
+)
+
 // TimeInterval represents an interval of time.
 type TimeInterval struct {
 	Start, End time.Time

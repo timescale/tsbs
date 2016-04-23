@@ -1,7 +1,7 @@
 // bulk_query_gen generates queries for various use cases. Its output will
 // typically be consume by query_benchmarker.
 //
-// Output formats: InfluxDB.
+// Output formats: InfluxDB, ElasticSearch.
 //
 // Query style use cases: Devops.
 package main
