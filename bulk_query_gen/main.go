@@ -57,7 +57,7 @@ func init() {
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")
 
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
-	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
+	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1) (default 0).")
 
 	flag.Parse()
 
@@ -118,6 +118,13 @@ func main() {
 			log.Fatal(err)
 		}
 		stats[string(q.HumanLabel)]++
+
+		if debug > 0 {
+			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.String())
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 
 	// print stats:
