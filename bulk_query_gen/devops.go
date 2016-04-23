@@ -7,17 +7,19 @@ import (
 	"time"
 )
 
+// Devops describes a devops query generator.
 type Devops interface {
-	AvgCPUUsageDayByHour(*QueryBytes)
-	AvgCPUUsageWeekByHour(*QueryBytes)
-	AvgCPUUsageMonthByDay(*QueryBytes)
+	AvgCPUUsageDayByHour(*Query)
+	AvgCPUUsageWeekByHour(*Query)
+	AvgCPUUsageMonthByDay(*Query)
 
-	AvgMemAvailableDayByHour(*QueryBytes)
-	AvgMemAvailableWeekByHour(*QueryBytes)
-	AvgMemAvailableMonthByDay(*QueryBytes)
+	AvgMemAvailableDayByHour(*Query)
+	AvgMemAvailableWeekByHour(*Query)
+	AvgMemAvailableMonthByDay(*Query)
 }
 
-func DevopsDispatch(d Devops, iteration int, q *QueryBytes) {
+// DevopsDispatch round-robins through the different devops queries.
+func DevopsDispatch(d Devops, iteration int, q *Query) {
 	switch iteration %6 {
 	case 0:
 		d.AvgCPUUsageDayByHour(q)
@@ -34,6 +36,7 @@ func DevopsDispatch(d Devops, iteration int, q *QueryBytes) {
 	}
 }
 
+// InfluxDevops produces Influx-specific queries for the devops use case.
 type InfluxDevops struct {
 	DatabaseName   string
 	DayIntervals   TimeIntervals
@@ -41,39 +44,7 @@ type InfluxDevops struct {
 	MonthIntervals TimeIntervals
 }
 
-type TimeInterval struct {
-	Start, End time.Time
-}
-
-func (ti *TimeInterval) StartString() string {
-	return ti.Start.Format(time.RFC3339)
-}
-
-func (ti *TimeInterval) EndString() string {
-	return ti.End.Format(time.RFC3339)
-}
-
-type TimeIntervals []TimeInterval
-
-func (tis TimeIntervals) RandChoice() *TimeInterval {
-	return &tis[rand.Intn(len(tis))]
-}
-
-func NewTimeIntervals(start, end time.Time, window time.Duration) TimeIntervals {
-	xs := TimeIntervals{}
-	for start.Add(window).Before(end) || start.Add(window).Equal(end) {
-		x := TimeInterval{
-			Start: start,
-			End:   start.Add(window),
-		}
-		xs = append(xs, x)
-
-		start = start.Add(window)
-	}
-
-	return xs
-}
-
+// NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
 func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
 	if !start.Before(end) {
 		panic("bad time order")
@@ -86,7 +57,9 @@ func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
 	}
 }
 
-func (d *InfluxDevops) AvgCPUUsageDayByHour(q *QueryBytes) {
+// AvgCPUUsageDayByHour populates a Query with a query that looks like:
+// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h)
+func (d *InfluxDevops) AvgCPUUsageDayByHour(q *Query) {
 	interval := d.DayIntervals.RandChoice()
 
 	v := url.Values{}
@@ -100,7 +73,9 @@ func (d *InfluxDevops) AvgCPUUsageDayByHour(q *QueryBytes) {
 	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *QueryBytes) {
+// AvgCPUUsageWeekByHour populates a Query with a query that looks like:
+// SELECT mean(usage_user) from cpu where time >= '$WEEK_START' and time < '$WEEK_END' group by time(1h)
+func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *Query) {
 	interval := d.WeekIntervals.RandChoice()
 
 	v := url.Values{}
@@ -114,7 +89,9 @@ func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *QueryBytes) {
 	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *QueryBytes) {
+// AvgCPUUsageMonthByDay populates a Query with a query that looks like:
+// SELECT mean(usage_user) from cpu where time >= '$MONTH_START' and time < '$MONTH_END' group by time(1d)
+func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *Query) {
 	interval := d.MonthIntervals.RandChoice()
 
 	v := url.Values{}
@@ -128,7 +105,9 @@ func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *QueryBytes) {
 	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgMemAvailableDayByHour(q *QueryBytes) {
+// AvgMemAvailableDayByHour populates a Query with a query that looks like:
+// SELECT mean(available) from mem where time >= '$DAY_START' and time < '$DAY_END' group by time(1h)
+func (d *InfluxDevops) AvgMemAvailableDayByHour(q *Query) {
 	interval := d.DayIntervals.RandChoice()
 
 	v := url.Values{}
@@ -142,7 +121,9 @@ func (d *InfluxDevops) AvgMemAvailableDayByHour(q *QueryBytes) {
 	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *QueryBytes) {
+// AvgMemAvailableWeekByHour populates a Query with a query that looks like:
+// SELECT mean(available) from mem where time >= '$WEEK_START' and time < '$WEEK_END' group by time(1h)
+func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *Query) {
 	interval := d.WeekIntervals.RandChoice()
 
 	v := url.Values{}
@@ -156,7 +137,9 @@ func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *QueryBytes) {
 	q.Body = nil
 }
 
-func (d *InfluxDevops) AvgMemAvailableMonthByDay(q *QueryBytes) {
+// AvgMemAvailableMonthByDay populates a Query with a query that looks like:
+// SELECT mean(available) from mem where time >= '$MONTH_START' and time < '$MONTH_END' group by time(1d)
+func (d *InfluxDevops) AvgMemAvailableMonthByDay(q *Query) {
 	interval := d.MonthIntervals.RandChoice()
 
 	v := url.Values{}

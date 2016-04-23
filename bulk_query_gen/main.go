@@ -1,12 +1,9 @@
-// bulk_data_gen generates queries from pre-specified use cases.
+// bulk_query_gen generates queries for various use cases. Its output will
+// typically be consume by query_benchmarker.
 //
-// Supported formats:
-// InfluxDB
-// ElasticSearch
+// Output formats: InfluxDB.
 //
-// Supported use cases:
-// Devops: scale_var is the number of hosts to simulate, with log messages
-//         every 10 seconds.
+// Query style use cases: Devops.
 package main
 
 import (
@@ -110,7 +107,7 @@ func main() {
 	// create request instances, serializing them to stdout and collecting
 	// counts for each kind:
 	enc := gob.NewEncoder(out)
-	q := &QueryBytes{}
+	q := &Query{}
 	for i := 0; i < 1e6; i++ {
 		DevopsDispatch(devops, i, q)
 		err := enc.Encode(q)
