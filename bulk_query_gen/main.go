@@ -32,7 +32,6 @@ var (
 	format  string
 	useCase string
 
-
 	timestampStartStr string
 	timestampEndStr   string
 
@@ -90,13 +89,20 @@ func init() {
 func main() {
 	rand.Seed(seed)
 
-
-	var devops Devops
+	var generator QueryGenerator
 	switch useCase {
 	case "devops":
-		devops = NewInfluxDevops(dbName, timestampStart, timestampEnd)
+		switch format {
+		case "influx-http":
+			generator = NewInfluxDevops(dbName, timestampStart, timestampEnd)
+		case "es-http":
+
+			generator = NewElasticSearchDevops(timestampStart, timestampEnd)
+		default:
+			panic("invalid format")
+		}
 	default:
-		panic("unreachable")
+		panic("invalid use case")
 	}
 
 	stats := make(map[string]int64)
@@ -109,7 +115,7 @@ func main() {
 	enc := gob.NewEncoder(out)
 	q := &Query{}
 	for i := 0; i < 1e6; i++ {
-		DevopsDispatch(devops, i, q)
+		generator.Dispatch(i, q)
 		err := enc.Encode(q)
 		if err != nil {
 			log.Fatal(err)

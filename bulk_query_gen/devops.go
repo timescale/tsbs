@@ -9,11 +9,13 @@ type Devops interface {
 	AvgMemAvailableDayByHour(*Query)
 	AvgMemAvailableWeekByHour(*Query)
 	AvgMemAvailableMonthByDay(*Query)
+
+	Dispatch(int, *Query)
 }
 
 // DevopsDispatch round-robins through the different devops queries.
 func DevopsDispatch(d Devops, iteration int, q *Query) {
-	switch iteration %6 {
+	switch iteration % 6 {
 	case 0:
 		d.AvgCPUUsageDayByHour(q)
 	case 1:

@@ -6,21 +6,19 @@ import (
 	"time"
 )
 
-// InfluxDevops produces Influx-specific queries for the devops use case.
-type InfluxDevops struct {
-	DatabaseName   string
+// ElasticSearchDevops produces ES-specific queries for the devops use case.
+type ElasticSearchDevops struct {
 	DayIntervals   TimeIntervals
 	WeekIntervals  TimeIntervals
 	MonthIntervals TimeIntervals
 }
 
-// NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
-func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
+// NewElasticSearchDevops makes an ElasticSearchDevops object ready to generate Queries.
+func NewElasticSearchDevops(start, end time.Time) *ElasticSearchDevops {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
-	return &InfluxDevops{
-		DatabaseName:   databaseName,
+	return &ElasticSearchDevops{
 		DayIntervals:   NewTimeIntervals(start, end, 24*time.Hour),
 		WeekIntervals:  NewTimeIntervals(start, end, 7*24*time.Hour),
 		MonthIntervals: NewTimeIntervals(start, end, 31*24*time.Hour),
@@ -28,17 +26,16 @@ func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *InfluxDevops) Dispatch(i int, q *Query) {
+func (d *ElasticSearchDevops) Dispatch(i int, q *Query) {
 	DevopsDispatch(d, i, q)
 }
 
 // AvgCPUUsageDayByHour populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h)
-func (d *InfluxDevops) AvgCPUUsageDayByHour(q *Query) {
+func (d *ElasticSearchDevops) AvgCPUUsageDayByHour(q *Query) {
 	interval := d.DayIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("CPU day   by 1h")
@@ -50,11 +47,10 @@ func (d *InfluxDevops) AvgCPUUsageDayByHour(q *Query) {
 
 // AvgCPUUsageWeekByHour populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$WEEK_START' and time < '$WEEK_END' group by time(1h)
-func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *Query) {
+func (d *ElasticSearchDevops) AvgCPUUsageWeekByHour(q *Query) {
 	interval := d.WeekIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("CPU week  by 1h")
@@ -66,11 +62,10 @@ func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *Query) {
 
 // AvgCPUUsageMonthByDay populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$MONTH_START' and time < '$MONTH_END' group by time(1d)
-func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *Query) {
+func (d *ElasticSearchDevops) AvgCPUUsageMonthByDay(q *Query) {
 	interval := d.MonthIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("CPU month by 1d")
@@ -82,11 +77,10 @@ func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *Query) {
 
 // AvgMemAvailableDayByHour populates a Query with a query that looks like:
 // SELECT mean(available) from mem where time >= '$DAY_START' and time < '$DAY_END' group by time(1h)
-func (d *InfluxDevops) AvgMemAvailableDayByHour(q *Query) {
+func (d *ElasticSearchDevops) AvgMemAvailableDayByHour(q *Query) {
 	interval := d.DayIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("mem day   by 1h")
@@ -98,11 +92,10 @@ func (d *InfluxDevops) AvgMemAvailableDayByHour(q *Query) {
 
 // AvgMemAvailableWeekByHour populates a Query with a query that looks like:
 // SELECT mean(available) from mem where time >= '$WEEK_START' and time < '$WEEK_END' group by time(1h)
-func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *Query) {
+func (d *ElasticSearchDevops) AvgMemAvailableWeekByHour(q *Query) {
 	interval := d.WeekIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("mem week  by 1h")
@@ -114,11 +107,10 @@ func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *Query) {
 
 // AvgMemAvailableMonthByDay populates a Query with a query that looks like:
 // SELECT mean(available) from mem where time >= '$MONTH_START' and time < '$MONTH_END' group by time(1d)
-func (d *InfluxDevops) AvgMemAvailableMonthByDay(q *Query) {
+func (d *ElasticSearchDevops) AvgMemAvailableMonthByDay(q *Query) {
 	interval := d.MonthIntervals.RandChoice()
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
 	q.HumanLabel = []byte("mem month by 1d")
