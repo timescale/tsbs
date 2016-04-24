@@ -128,7 +128,7 @@ func main() {
 		}
 
 		if len(existingIndexTemplates) > 0 {
-			log.Fatal("There are index templates already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_template/*'")
+			log.Fatal("There are index templates already in the data store. If you know what you are doing, clear them first with a command like:\ncurl -XDELETE 'http://localhost:9200/_template/*'")
 		}
 
 		// check that there are no pre-existing indices:
@@ -138,7 +138,7 @@ func main() {
 		}
 
 		if len(existingIndices) > 0 {
-			log.Fatal("There are indices already in the data store. If you know what you are doing, clear them first with a command like: curl -XDELETE 'http://localhost:9200/_all'")
+			log.Fatal("There are indices already in the data store. If you know what you are doing, clear them first with a command like:\ncurl -XDELETE 'http://localhost:9200/_all'")
 		}
 
 		// create the index template:

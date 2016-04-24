@@ -7,8 +7,10 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,6 +24,7 @@ var (
 	dbName    string
 	workers   int
 	batchSize int
+	doLoad    bool
 )
 
 // Global vars
@@ -38,14 +41,27 @@ func init() {
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
 	flag.Parse()
 }
 
 func main() {
-	err := createDb(daemonUrl, dbName)
-	if err != nil {
-		log.Fatal(err)
+	if doLoad {
+		// check that there are no pre-existing databases:
+		existingDatabases, err := listDatabases(daemonUrl)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if len(existingDatabases) > 0 {
+			log.Fatalf("There are databases already in the data store. If you know what you are doing, run the command:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", existingDatabases[0])
+		}
+
+		err = createDb(daemonUrl, dbName)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	bufPool = sync.Pool{
@@ -108,6 +124,9 @@ func scan(linesPerBatch int) {
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(w LineProtocolWriter) {
 	for batch := range batchChan {
+		if !doLoad {
+			continue
+		}
 		// Write the batch.
 		_, err := w.WriteLineProtocol(batch.Bytes())
 		if err != nil {
@@ -150,4 +169,45 @@ func createDb(daemon_url, dbname string) error {
 		return fmt.Errorf("bad db create")
 	}
 	return nil
+}
+
+// listDatabases lists the existing databases in InfluxDB.
+func listDatabases(daemonUrl string) ([]string, error) {
+	u := fmt.Sprintf("%s/query?q=show%%20databases", daemonUrl)
+	resp, err := http.Get(u)
+	if err != nil {
+		return nil, fmt.Errorf("listDatabases error: %s", err.Error())
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do ad-hoc parsing to find existing database names:
+	// {"results":[{"series":[{"name":"databases","columns":["name"],"values":[["_internal"],["benchmark_db"]]}]}]}%
+	type listingType struct {
+		Results []struct {
+			Series []struct {
+				Values [][]string
+			}
+		}
+	}
+	var listing listingType
+	err = json.Unmarshal(body, &listing)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := []string{}
+	for _, nestedName := range listing.Results[0].Series[0].Values {
+		name := nestedName[0]
+		// the _internal database is skipped:
+		if name == "_internal" {
+			continue
+		}
+		ret = append(ret, name)
+	}
+	return ret, nil
 }
