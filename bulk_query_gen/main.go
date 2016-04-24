@@ -122,7 +122,17 @@ func main() {
 		}
 		stats[string(q.HumanLabel)]++
 
-		if debug > 0 {
+		if debug == 1 {
+			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabel)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else if debug == 2 {
+			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescription)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else if debug >= 3 {
 			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.String())
 			if err != nil {
 				log.Fatal(err)
