@@ -1,35 +1,35 @@
 ### bulk data generation
 
 # generate devops data for influx:
-$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=influx-bulk | gzip > influx_bulk_records__usecase_devops__scalevar_1.gz
+$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=influx-bulk | gzip > influx_bulk_records__usecase_devops__scalevar_1__seed_123.gz
 using random seed 123
 
 # generate devops data for elastic:
-$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=es-bulk | gzip > elastic_bulk_records__usecase_devops__scalevar_1.gz
+$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=es-bulk | gzip > elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz
 using random seed 123
 
 #### bulk data examination
 
-# make sure your shell uses C encoding, for parsing speed:
+# (optional) make sure your shell uses C-style collation, for parsing speed:
 $ export LC_ALL=C
 
 # eyeball the generated data for influx:
-$ cat influx_bulk_records__usecase_devops__scalevar_1.gz | gunzip | wc -l
+$ cat influx_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | wc -l
 535680
 
 # examine the generated data:
-$ cat influx_bulk_records__usecase_devops__scalevar_1.gz | gunzip | head -n 4
+$ cat influx_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | head -n 4
 cpu,cpu=cpu-total,host=host_0,dc=ap-northeast-1 usage_user=24.99694950699479,usage_system=61.58544846337789,usage_idle=22.94813932316394,usage_nice=63.64992071061983,usage_iowait=6.409877704830105,usage_irq=44.879914050302744,usage_softirq=80.50287707611362,usage_steal=38.24311829115428,usage_guest=51.044066802933216,usage_guest_nice=50.30847632544611 1451606400000000000
 mem,host=host_0,dc=ap-northeast-1 total=17179869184i,available=16883651721i,used=296217462i,free=15988633722i,cached=4684897985i,buffered=296217462i,used_percent=1.7242125596295794,available_percent=98.27578744037042 1451606400000000000
 cpu,cpu=cpu-total,host=host_0,dc=ap-northeast-1 usage_user=25.50911623003783,usage_system=62.17239502260804,usage_idle=23.82938665156794,usage_nice=63.02702362870897,usage_iowait=5.809334373706265,usage_irq=45.29492618753222,usage_softirq=79.31606394020304,usage_steal=37.307481323355354,usage_guest=51.7077373345054,usage_guest_nice=51.087330866396265 1451606410000000000
 mem,host=host_0,dc=ap-northeast-1 total=17179869184i,available=17179869184i,used=0i,free=15916954354i,cached=3737398434i,buffered=0i,used_percent=0,available_percent=100 1451606410000000000
 
-# eyeball the generated data for elastic:
-$ cat elastic_bulk_records__usecase_devops__scalevar_1.gz | gunzip | wc -l
+# eyeball the generated data for elastic (note that 1071360 == 2 * 535680):
+$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | wc -l
 1071360
 
 # examine the generated data (note that the values are the same as for influx):
-$ cat elastic_bulk_records__usecase_devops__scalevar_1.gz | gunzip | head -n 8
+$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | head -n 8
 { "create" : { "_index" : "cpu", "_type" : "point" } }
 {"cpu": "cpu-total", "host": "host_0", "dc": "ap-northeast-1", "usage_user": 24.99694950699479, "usage_system": 61.58544846337789, "usage_idle": 22.94813932316394, "usage_nice": 63.64992071061983, "usage_iowait": 6.409877704830105, "usage_irq": 44.879914050302744, "usage_softirq": 80.50287707611362, "usage_steal": 38.24311829115428, "usage_guest": 51.044066802933216, "usage_guest_nice": 50.30847632544611, "timestamp": 1451606400000 }
 { "create" : { "_index" : "mem", "_type" : "point" } }
@@ -40,3 +40,59 @@ $ cat elastic_bulk_records__usecase_devops__scalevar_1.gz | gunzip | head -n 8
 {"host": "host_0", "dc": "ap-northeast-1", "total": 17179869184, "available": 17179869184, "used": 0, "free": 15916954354, "cached": 3737398434, "buffered": 0, "used_percent": 0, "available_percent": 100, "timestamp": 1451606410000 }
 
 ### bulk data loading
+
+# load influx:
+$ cat influx_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | bulk_load_influx --batch-size=5000 --workers=2
+loaded 535680 items in 7.718265sec with 2 workers (mean rate 69404.198209/sec)
+
+# load elastic:
+$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | bulk_load_es --batch-size=5000 --workers=2
+loaded 535680 items in 73.443550sec with 2 workers (mean rate 7293.765034/sec)
+
+# (optional) load elastic with the aggregation-only index template:
+$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | bulk_load_es --batch-size=5000 --workers=2 --index-template=lossy
+loaded 535680 items in 37.635921sec with 2 workers (mean rate 14233.211003/sec)
+
+### bulk query generation
+
+# generate influx queries:
+$ bulk_query_gen --debug=0 --seed=321 --format=influx-http | gzip > influx_queries__usecase_devops__scalevar_1__seed_321.gz
+using random seed 321
+Influx CPU day   by 1h: 167 points
+Influx CPU month by 1d: 167 points
+Influx CPU week  by 1h: 167 points
+Influx mem day   by 1h: 167 points
+Influx mem month by 1d: 166 points
+Influx mem week  by 1h: 166 points
+
+# generate elastic queries:
+$ bulk_query_gen --debug=0 --seed=321 --format=es-http | gzip > elastic_queries__usecase_devops__scalevar_1__seed_321.gz
+using random seed 321
+Elastic CPU day   by 1h: 167 points
+Elastic CPU month by 1d: 167 points
+Elastic CPU week  by 1h: 167 points
+Elastic mem day   by 1h: 167 points
+Elastic mem month by 1d: 166 points
+Elastic mem week  by 1h: 166 points
+
+### bulk query benchmarking
+
+# benchmark devops queries against influx:
+$ cat influx_queries__usecase_devops__scalevar_1__seed_321.gz | gunzip | query_benchmarker --url=http://localhost:8086 --print-interval=0 --limit=100 --workers=2
+run complete after 100 queries:
+Influx CPU day   by 1h: min:     2.87ms (348.32/sec), mean:     7.63ms (130.99/sec), max:    73.49ms ( 13.61/sec), count: 17
+Influx CPU month by 1d: min:    51.50ms ( 19.42/sec), mean:    61.74ms ( 16.20/sec), max:   158.60ms (  6.31/sec), count: 17
+Influx CPU week  by 1h: min:    13.37ms ( 74.77/sec), mean:    23.06ms ( 43.37/sec), max:   156.85ms (  6.38/sec), count: 17
+Influx mem day   by 1h: min:     2.83ms (353.10/sec), mean:     3.35ms (298.52/sec), max:     4.20ms (238.15/sec), count: 17
+Influx mem month by 1d: min:    49.96ms ( 20.02/sec), mean:    60.15ms ( 16.63/sec), max:   140.03ms (  7.14/sec), count: 16
+Influx mem week  by 1h: min:    12.60ms ( 79.38/sec), mean:    17.12ms ( 58.42/sec), max:    62.33ms ( 16.04/sec), count: 16
+
+# benchmark devops queries against elastic:
+$ cat elastic_queries__usecase_devops__scalevar_1__seed_321.gz | gunzip | query_benchmarker --url=http://localhost:9200 --debug=0 --print-interval=0 --limit=100 --workers=2
+run complete after 100 queries:
+Elastic CPU day   by 1h: min:     5.65ms (176.85/sec), mean:     9.77ms (102.38/sec), max:    24.07ms ( 41.54/sec), count: 17
+Elastic CPU month by 1d: min:    19.46ms ( 51.40/sec), mean:    27.90ms ( 35.84/sec), max:    44.05ms ( 22.70/sec), count: 17
+Elastic CPU week  by 1h: min:     7.06ms (141.60/sec), mean:    22.78ms ( 43.90/sec), max:    42.74ms ( 23.40/sec), count: 17
+Elastic mem day   by 1h: min:     5.47ms (182.80/sec), mean:    11.95ms ( 83.70/sec), max:    26.37ms ( 37.92/sec), count: 17
+Elastic mem month by 1d: min:    21.14ms ( 47.31/sec), mean:    37.92ms ( 26.37/sec), max:    90.99ms ( 10.99/sec), count: 16
+Elastic mem week  by 1h: min:    16.72ms ( 59.79/sec), mean:    24.07ms ( 41.54/sec), max:    41.03ms ( 24.37/sec), count: 16
