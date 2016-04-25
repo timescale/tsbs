@@ -142,9 +142,9 @@ func fastFormatAppend(v interface{}, buf []byte) []byte {
 	case int64:
 		return strconv.AppendInt(buf, v.(int64), 10)
 	case float64:
-		return strconv.AppendFloat(buf, v.(float64), 'f', -1, 64)
+		return strconv.AppendFloat(buf, v.(float64), 'f', 16, 64)
 	case float32:
-		return strconv.AppendFloat(buf, float64(v.(float32)), 'f', -1, 32)
+		return strconv.AppendFloat(buf, float64(v.(float32)), 'f', 16, 32)
 	case bool:
 		return strconv.AppendBool(buf, v.(bool))
 	case []byte:
