@@ -36,7 +36,6 @@ var (
 	queryChan    chan *Query
 	statPool     sync.Pool
 	statChan     chan *Stat
-	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
 	statGroup    sync.WaitGroup
 )
@@ -79,7 +78,6 @@ func main() {
 	// Make data and control channels:
 	queryChan = make(chan *Query, workers)
 	statChan = make(chan *Stat, workers)
-	inputDone = make(chan struct{})
 
 	// Launch the stats processor:
 	statGroup.Add(1)
@@ -95,7 +93,6 @@ func main() {
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	scan(input)
-	<-inputDone
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
@@ -141,7 +138,6 @@ func scan(r io.Reader) {
 		n++
 
 	}
-	close(inputDone)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
