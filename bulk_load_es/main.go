@@ -41,7 +41,7 @@ var (
 var (
 	indexTemplateChoices = map[string][]byte{
 		"default": defaultTemplate,
-		"lossy":   lossyAggregationTemplate,
+		"aggregation":   aggregationTemplate,
 	}
 )
 
@@ -65,7 +65,7 @@ var defaultTemplate = []byte(`
 }
 `)
 
-var lossyAggregationTemplate = []byte(`
+var aggregationTemplate = []byte(`
 {
   "template": "*",
   "settings": {
@@ -109,7 +109,7 @@ func init() {
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
-	flag.StringVar(&indexTemplateName, "index-template", "default", "ElasticSearch index template to use (choices: default, lossy).")
+	flag.StringVar(&indexTemplateName, "index-template", "default", "ElasticSearch index template to use (choices: default, aggregation).")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 

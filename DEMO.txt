@@ -50,7 +50,7 @@ $ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | b
 loaded 535680 items in 73.443550sec with 2 workers (mean rate 7293.765034/sec)
 
 # (optional) load elastic with the aggregation-only index template:
-$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | bulk_load_es --batch-size=5000 --workers=2 --index-template=lossy
+$ cat elastic_bulk_records__usecase_devops__scalevar_1__seed_123.gz | gunzip | bulk_load_es --batch-size=5000 --workers=2 --index-template=aggregation
 loaded 535680 items in 37.635921sec with 2 workers (mean rate 14233.211003/sec)
 
 ### bulk query generation
