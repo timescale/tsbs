@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 )
 
 // Program option vars:
@@ -82,21 +83,31 @@ func main() {
 		go processBatches(NewHTTPWriter(cfg))
 	}
 
-	scan(batchSize)
+	start := time.Now()
+	itemsRead := scan(batchSize)
 
 	<-inputDone
 	close(batchChan)
 	workersGroup.Wait()
+
+	end := time.Now()
+	took := end.Sub(start)
+	rate := float64(itemsRead) / float64(took.Seconds())
+
+	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
 // scan reads one line at a time from stdin.
 // When the requested number of lines per batch is met, send a batch over batchChan for the workers to write.
-func scan(linesPerBatch int) {
+func scan(linesPerBatch int) int64 {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
+	var itemsRead int64
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
+		itemsRead++
+
 		buf.Write(scanner.Bytes())
 		buf.Write([]byte("\n"))
 
@@ -119,6 +130,8 @@ func scan(linesPerBatch int) {
 
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
 	close(inputDone)
+
+	return itemsRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.

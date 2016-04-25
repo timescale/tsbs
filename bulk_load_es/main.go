@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 )
 
 // Program option vars:
@@ -166,22 +167,31 @@ func main() {
 		go processBatches(NewHTTPWriter(cfg, refreshEachBatch))
 	}
 
-	scan(batchSize)
+	start := time.Now()
+	itemsRead := scan(batchSize)
 
 	<-inputDone
 	close(batchChan)
 	workersGroup.Wait()
+	end := time.Now()
+	took := end.Sub(start)
+	rate := float64(itemsRead) / float64(took.Seconds())
+
+	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
 // scan reads lines from stdin. It expects input in the ElasticSearch bulk
 // format: two line pairs, the first line being an 'action' and the second line
 // being the payload.
-func scan(itemsPerBatch int) {
+func scan(itemsPerBatch int) int64 {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
+	var linesRead int64
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
+		linesRead++
+
 		buf.Write(scanner.Bytes())
 		buf.Write([]byte("\n"))
 
@@ -204,6 +214,14 @@ func scan(itemsPerBatch int) {
 
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
 	close(inputDone)
+
+	// The ES bulk format uses 2 lines per item:
+	if linesRead % 2 != 0 {
+		log.Fatalf("the number of lines read was not a multiple of 2, which indicates a bad bulk format for Elastic")
+	}
+	itemsRead := linesRead / 2
+
+	return itemsRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
