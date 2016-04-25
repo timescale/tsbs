@@ -162,8 +162,8 @@ func processQueries(w *HTTPClient) {
 	workersGroup.Done()
 }
 
-// processStats collections latency results, aggregating them into summary
-// statistics. Optionally, they are printed to stderr.
+// processStats collects latency results, aggregating them into summary
+// statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
 	statMapping := map[string]*StatGroup{}
 
