@@ -204,7 +204,7 @@ func processStats() {
 
 // fprintStats pretty-prints stats to the given writer.
 func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
-	keys := []string{}
+	keys := make([]string, 0, len(statGroups))
 	for k := range statGroups {
 		keys = append(keys, k)
 	}
