@@ -26,11 +26,11 @@ var useCaseChoices = []string{"devops"}
 
 // Program option vars:
 var (
-	daemonUrl string
-	dbName    string
-
 	format  string
 	useCase string
+	queryCount int
+
+	dbName    string
 
 	timestampStartStr string
 	timestampEndStr   string
@@ -45,9 +45,10 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-http, es-http)")
-	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use")
-
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
+	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
+
+	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for elastic)")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-02-01T00:00:00-00:00", "Ending timestamp (RFC3339).")
@@ -114,7 +115,7 @@ func main() {
 	// counts for each kind:
 	enc := gob.NewEncoder(out)
 	q := &Query{}
-	for i := 0; i < 1e6; i++ {
+	for i := 0; i < queryCount; i++ {
 		generator.Dispatch(i, q)
 		err := enc.Encode(q)
 		if err != nil {
