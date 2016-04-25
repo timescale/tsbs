@@ -26,11 +26,11 @@ var useCaseChoices = []string{"devops"}
 
 // Program option vars:
 var (
-	format  string
-	useCase string
+	format     string
+	useCase    string
 	queryCount int
 
-	dbName    string
+	dbName string
 
 	timestampStartStr string
 	timestampEndStr   string

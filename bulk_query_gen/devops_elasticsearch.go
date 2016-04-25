@@ -42,10 +42,10 @@ func (d *ElasticSearchDevops) AvgCPUUsageDayByHour(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1h",
-		Field: "usage_user",
+		Field:    "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU day   by 1h")
@@ -62,10 +62,10 @@ func (d *ElasticSearchDevops) AvgCPUUsageWeekByHour(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1h",
-		Field: "usage_user",
+		Field:    "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU week  by 1h")
@@ -82,10 +82,10 @@ func (d *ElasticSearchDevops) AvgCPUUsageMonthByDay(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1d",
-		Field: "usage_user",
+		Field:    "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU month by 1d")
@@ -102,10 +102,10 @@ func (d *ElasticSearchDevops) AvgMemAvailableDayByHour(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1h",
-		Field: "available",
+		Field:    "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem day   by 1h")
@@ -122,10 +122,10 @@ func (d *ElasticSearchDevops) AvgMemAvailableWeekByHour(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1h",
-		Field: "available",
+		Field:    "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem week  by 1h")
@@ -142,10 +142,10 @@ func (d *ElasticSearchDevops) AvgMemAvailableMonthByDay(q *Query) {
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start: interval.StartString(),
-		End: interval.EndString(),
+		Start:    interval.StartString(),
+		End:      interval.EndString(),
 		Interval: "1d",
-		Field: "available",
+		Field:    "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem month by 1d")
