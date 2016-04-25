@@ -1,169 +1,42 @@
-# generate data for influx:
-$ bulk_data_gen --points=1000000 --format=influx-bulk --seed=12345 > points_influx
-created 1000000 points across 1 measurements
-  measurement_xaane: 1000000 points. tag pairs: 1, fields: 1, stddevs: [1], means: [0]
+### bulk data generation
 
-# generate data for elasticsearch:
-$ bulk_data_gen --points=1000000 --format=es-bulk --seed=12345 > points_es
-created 1000000 points across 1 measurements
-  measurement_xaane: 1000000 points. tag pairs: 1, fields: 1, stddevs: [1], means: [0]
+# generate devops data for influx:
+$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=influx-bulk | gzip > influx_bulk_records__usecase_devops__scalevar_1.gz
+using random seed 123
+
+# generate devops data for elastic:
+$ bulk_data_gen --seed=123 --use-case=devops --scale-var=1 --format=es-bulk | gzip > elastic_bulk_records__usecase_devops__scalevar_1.gz
+using random seed 123
+
+#### bulk data examination
 
 # make sure your shell uses C encoding, for parsing speed:
 $ export LC_ALL=C
 
 # eyeball the generated data for influx:
-$ wc -l points_influx
-1000000 points_influx
+$ cat influx_bulk_records__usecase_devops__scalevar_1.gz | gunzip | wc -l
+535680
 
-$ head -n 4 points_influx
-measurement_xaane,tag_evnic=jhieh field_atrrb=0.197115 1451606402678400000
-measurement_xaane,tag_evnic=jhieh field_atrrb=-1.003646 1451606405356800000
-measurement_xaane,tag_evnic=jhieh field_atrrb=-1.222651 1451606408035200000
-measurement_xaane,tag_evnic=jhieh field_atrrb=1.166251 1451606410713600000
+# examine the generated data:
+$ cat influx_bulk_records__usecase_devops__scalevar_1.gz | gunzip | head -n 4
+cpu,cpu=cpu-total,host=host_0,dc=ap-northeast-1 usage_user=24.99694950699479,usage_system=61.58544846337789,usage_idle=22.94813932316394,usage_nice=63.64992071061983,usage_iowait=6.409877704830105,usage_irq=44.879914050302744,usage_softirq=80.50287707611362,usage_steal=38.24311829115428,usage_guest=51.044066802933216,usage_guest_nice=50.30847632544611 1451606400000000000
+mem,host=host_0,dc=ap-northeast-1 total=17179869184i,available=16883651721i,used=296217462i,free=15988633722i,cached=4684897985i,buffered=296217462i,used_percent=1.7242125596295794,available_percent=98.27578744037042 1451606400000000000
+cpu,cpu=cpu-total,host=host_0,dc=ap-northeast-1 usage_user=25.50911623003783,usage_system=62.17239502260804,usage_idle=23.82938665156794,usage_nice=63.02702362870897,usage_iowait=5.809334373706265,usage_irq=45.29492618753222,usage_softirq=79.31606394020304,usage_steal=37.307481323355354,usage_guest=51.7077373345054,usage_guest_nice=51.087330866396265 1451606410000000000
+mem,host=host_0,dc=ap-northeast-1 total=17179869184i,available=17179869184i,used=0i,free=15916954354i,cached=3737398434i,buffered=0i,used_percent=0,available_percent=100 1451606410000000000
 
-# eyeball the generated data for elasticsearch (note the 2-line format):
-$ wc -l points_es
-2000000 points_es
+# eyeball the generated data for elastic:
+$ cat elastic_bulk_records__usecase_devops__scalevar_1.gz | gunzip | wc -l
+1071360
 
-$ head -n 8 points_es
-{ "create" : { "_index" : "measurement_xaane", "_type" : "point" } }
-{ "tag_evnic": "jhieh", "field_atrrb": 0.19711461853875367, "timestamp": 1451606402678 }
-{ "create" : { "_index" : "measurement_xaane", "_type" : "point" } }
-{ "tag_evnic": "jhieh", "field_atrrb": -1.003646414550623, "timestamp": 1451606405356 }
-{ "create" : { "_index" : "measurement_xaane", "_type" : "point" } }
-{ "tag_evnic": "jhieh", "field_atrrb": -1.2226510771993728, "timestamp": 1451606408035 }
-{ "create" : { "_index" : "measurement_xaane", "_type" : "point" } }
-{ "tag_evnic": "jhieh", "field_atrrb": 1.1662512469965591, "timestamp": 1451606410713 }
+# examine the generated data (note that the values are the same as for influx):
+$ cat elastic_bulk_records__usecase_devops__scalevar_1.gz | gunzip | head -n 8
+{ "create" : { "_index" : "cpu", "_type" : "point" } }
+{"cpu": "cpu-total", "host": "host_0", "dc": "ap-northeast-1", "usage_user": 24.99694950699479, "usage_system": 61.58544846337789, "usage_idle": 22.94813932316394, "usage_nice": 63.64992071061983, "usage_iowait": 6.409877704830105, "usage_irq": 44.879914050302744, "usage_softirq": 80.50287707611362, "usage_steal": 38.24311829115428, "usage_guest": 51.044066802933216, "usage_guest_nice": 50.30847632544611, "timestamp": 1451606400000 }
+{ "create" : { "_index" : "mem", "_type" : "point" } }
+{"host": "host_0", "dc": "ap-northeast-1", "total": 17179869184, "available": 16883651721, "used": 296217462, "free": 15988633722, "cached": 4684897985, "buffered": 296217462, "used_percent": 1.7242125596295794, "available_percent": 98.27578744037042, "timestamp": 1451606400000 }
+{ "create" : { "_index" : "cpu", "_type" : "point" } }
+{"cpu": "cpu-total", "host": "host_0", "dc": "ap-northeast-1", "usage_user": 25.50911623003783, "usage_system": 62.17239502260804, "usage_idle": 23.82938665156794, "usage_nice": 63.02702362870897, "usage_iowait": 5.809334373706265, "usage_irq": 45.29492618753222, "usage_softirq": 79.31606394020304, "usage_steal": 37.307481323355354, "usage_guest": 51.7077373345054, "usage_guest_nice": 51.087330866396265, "timestamp": 1451606410000 }
+{ "create" : { "_index" : "mem", "_type" : "point" } }
+{"host": "host_0", "dc": "ap-northeast-1", "total": 17179869184, "available": 17179869184, "used": 0, "free": 15916954354, "cached": 3737398434, "buffered": 0, "used_percent": 0, "available_percent": 100, "timestamp": 1451606410000 }
 
-# load the generated data into influx:
-$ cat points_influx | pv -ablt | bulk_load_influx --workers=4 --batch-size=5000
-   1M 0:00:02 [ 478k/s]
-
-# load the generated data into elasticsearch:
-$ cat points_es | pv -ablt | bulk_load_es --refresh=true --workers=4 --batch-size=5000
-   2M 0:01:13 [27.2k/s]
-
-# run an example query against influx:
-$ ./influx_query.sh measurement_xaane field_atrrb 2016-01-01 2016-01-05 1d
-q=SELECT count(field_atrrb) FROM measurement_xaane WHERE time >= '2016-01-01' AND time < '2016-01-05' GROUP BY time(1d)
-{
-    "results": [
-        {
-            "series": [
-                {
-                    "name": "measurement_xaane",
-                    "columns": [
-                        "time",
-                        "count"
-                    ],
-                    "values": [
-                        [
-                            "2016-01-01T00:00:00Z",
-                            32258
-                        ],
-                        [
-                            "2016-01-02T00:00:00Z",
-                            32258
-                        ],
-                        [
-                            "2016-01-03T00:00:00Z",
-                            32258
-                        ],
-                        [
-                            "2016-01-04T00:00:00Z",
-                            32258
-                        ]
-                    ]
-                }
-            ]
-        }
-    ]
-}
-
-# run an example query against elasticsearch:
-$ ./es_query.sh measurement_xaane field_atrrb 2016-01-01 2016-01-05 1d
-{ "size" : 0, "aggs": { "result": { "filter": { "range": { "timestamp": { "gte": "2016-01-01", "lt": "2016-01-05" } } }, "aggs": { "result2": { "date_histogram": { "field": "timestamp", "interval": "1d", "format": "yyyy-MM-dd-HH" } } } } } }
-{
-  "took" : 366,
-  "timed_out" : false,
-  "_shards" : {
-    "total" : 5,
-    "successful" : 5,
-    "failed" : 0
-  },
-  "hits" : {
-    "total" : 1000000,
-    "max_score" : 0.0,
-    "hits" : [ ]
-  },
-  "aggregations" : {
-    "result" : {
-      "doc_count" : 129032,
-      "result2" : {
-        "buckets" : [ {
-          "key_as_string" : "2016-01-01-00",
-          "key" : 1451606400000,
-          "doc_count" : 32258
-        }, {
-          "key_as_string" : "2016-01-02-00",
-          "key" : 1451692800000,
-          "doc_count" : 32258
-        }, {
-          "key_as_string" : "2016-01-03-00",
-          "key" : 1451779200000,
-          "doc_count" : 32258
-        }, {
-          "key_as_string" : "2016-01-04-00",
-          "key" : 1451865600000,
-          "doc_count" : 32258
-        } ]
-      }
-    }
-  }
-}
-
-# benchmark both databases with a simple query, varying the parameters:
-$ ./benchmark_both_queries.sh 20 measurement_xaane field_atrrb 2016-01-01 2016-01-02 1h
-influx:
-20 queries:
-
-real    0m0.440s
-user    0m0.121s
-sys     0m0.128s
-
-elasticsearch:
-20 queries:
-
-real    0m0.614s
-user    0m0.129s
-sys     0m0.143s
-
-$ ./benchmark_both_queries.sh 20 measurement_xaane field_atrrb 2016-01-01 2016-02-01 1d
-influx:
-20 queries:
-
-real    0m3.525s
-user    0m0.115s
-sys     0m0.120s
-
-elasticsearch:
-20 queries:
-
-real    0m1.652s
-user    0m0.140s
-sys     0m0.154s
-
-$ ./benchmark_both_queries.sh 20 measurement_xaane field_atrrb 2016-01-01 2016-01-15 1h
-influx:
-20 queries:
-
-real    0m1.410s
-user    0m0.116s
-sys     0m0.124s
-
-elasticsearch:
-20 queries:
-
-real    0m1.175s
-user    0m0.161s
-sys     0m0.178s
+### bulk data loading
