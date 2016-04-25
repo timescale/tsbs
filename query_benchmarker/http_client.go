@@ -8,6 +8,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+var bytesSlash = []byte("/") // heap optimization
+
 // HTTPClient is a reusable HTTP Client.
 type HTTPClient struct {
 	client fasthttp.Client
@@ -33,7 +35,9 @@ func NewHTTPClient(host string, debug int) *HTTPClient {
 func (w *HTTPClient) Do(q *Query) (float64, error) {
 	// populate uri from the reusable byte slice:
 	w.uri = w.uri[:0]
-	w.uri = append(w.uri, fmt.Sprintf("%s/%s", w.host, q.Path)...)
+	w.uri = append(w.uri, w.host...)
+	w.uri = append(w.uri, bytesSlash...)
+	w.uri = append(w.uri, q.Path...)
 
 	// populate a request with data from the Query:
 	req := fasthttp.AcquireRequest()
