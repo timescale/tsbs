@@ -10,10 +10,8 @@ import (
 
 // ElasticSearchDevops produces ES-specific queries for the devops use case.
 type ElasticSearchDevops struct {
-	Template       *template.Template
-	DayIntervals   TimeIntervals
-	WeekIntervals  TimeIntervals
-	MonthIntervals TimeIntervals
+	Template    *template.Template
+	AllInterval TimeInterval
 }
 
 // NewElasticSearchDevops makes an ElasticSearchDevops object ready to generate Queries.
@@ -24,10 +22,8 @@ func NewElasticSearchDevops(start, end time.Time) *ElasticSearchDevops {
 	t := template.Must(template.New("esDevopsQuery").Parse(rawEsDevopsQuery))
 
 	return &ElasticSearchDevops{
-		Template:       t,
-		DayIntervals:   NewTimeIntervals(start, end, 24*time.Hour),
-		WeekIntervals:  NewTimeIntervals(start, end, 7*24*time.Hour),
-		MonthIntervals: NewTimeIntervals(start, end, 31*24*time.Hour),
+		Template:    t,
+		AllInterval: NewTimeInterval(start, end),
 	}
 }
 
@@ -38,14 +34,14 @@ func (d *ElasticSearchDevops) Dispatch(i int, q *Query) {
 
 // AvgCPUUsageDayByHour populates a Query for getting the average CPU usage by hour for a random day.
 func (d *ElasticSearchDevops) AvgCPUUsageDayByHour(q *Query) {
-	interval := d.DayIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1h",
-		Field:    "usage_user",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1h",
+		Field:  "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU day   by 1h")
@@ -58,14 +54,14 @@ func (d *ElasticSearchDevops) AvgCPUUsageDayByHour(q *Query) {
 
 // AvgCPUUsageWeekByHour populates a Query for getting the average CPU usage by hour for a random week.
 func (d *ElasticSearchDevops) AvgCPUUsageWeekByHour(q *Query) {
-	interval := d.WeekIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(7 * 24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1h",
-		Field:    "usage_user",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1h",
+		Field:  "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU week  by 1h")
@@ -78,14 +74,14 @@ func (d *ElasticSearchDevops) AvgCPUUsageWeekByHour(q *Query) {
 
 // AvgCPUUsageMonthByDay populates a Query for getting the average CPU usage by day for a random month.
 func (d *ElasticSearchDevops) AvgCPUUsageMonthByDay(q *Query) {
-	interval := d.MonthIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(28 * 24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1d",
-		Field:    "usage_user",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1d",
+		Field:  "usage_user",
 	})
 
 	q.HumanLabel = []byte("Elastic CPU month by 1d")
@@ -98,14 +94,14 @@ func (d *ElasticSearchDevops) AvgCPUUsageMonthByDay(q *Query) {
 
 // AvgMemAvailableDayByHour populates a Query for getting the average memory available by hour for a random day.
 func (d *ElasticSearchDevops) AvgMemAvailableDayByHour(q *Query) {
-	interval := d.DayIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1h",
-		Field:    "available",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1h",
+		Field:  "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem day   by 1h")
@@ -118,14 +114,14 @@ func (d *ElasticSearchDevops) AvgMemAvailableDayByHour(q *Query) {
 
 // AvgMemAvailableWeekByHour populates a Query for getting the average memory available by hour for a random week.
 func (d *ElasticSearchDevops) AvgMemAvailableWeekByHour(q *Query) {
-	interval := d.WeekIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(7 * 24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1h",
-		Field:    "available",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1h",
+		Field:  "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem week  by 1h")
@@ -138,14 +134,14 @@ func (d *ElasticSearchDevops) AvgMemAvailableWeekByHour(q *Query) {
 
 // AvgMemAvailableMonthByDay populates a Query for getting the average memory available by day for a random month.
 func (d *ElasticSearchDevops) AvgMemAvailableMonthByDay(q *Query) {
-	interval := d.MonthIntervals.RandChoice()
+	interval := d.AllInterval.RandWindow(28 * 24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(d.Template, body, esDevopsQueryParams{
-		Start:    interval.StartString(),
-		End:      interval.EndString(),
-		Interval: "1d",
-		Field:    "available",
+		Start:  interval.StartString(),
+		End:    interval.EndString(),
+		Bucket: "1d",
+		Field:  "available",
 	})
 
 	q.HumanLabel = []byte("Elastic mem month by 1d")
@@ -164,7 +160,7 @@ func mustExecuteTemplate(t *template.Template, w io.Writer, params interface{}) 
 }
 
 type esDevopsQueryParams struct {
-	Interval, Start, End, Field string
+	Bucket, Start, End, Field string
 }
 
 const rawEsDevopsQuery = `
@@ -184,7 +180,7 @@ const rawEsDevopsQuery = `
         "result2": {
           "date_histogram": {
             "field": "timestamp",
-            "interval": "{{.Interval}}",
+            "interval": "{{.Bucket}}",
             "format": "yyyy-MM-dd-HH"
           },
           "aggs": {
