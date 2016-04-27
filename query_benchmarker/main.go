@@ -161,7 +161,10 @@ func processQueries(w *HTTPClient) {
 // processStats collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
-	statMapping := map[string]*StatGroup{}
+	const allQueriesLabel = "all queries            "
+	statMapping := map[string]*StatGroup{
+		allQueriesLabel: &StatGroup{},
+	}
 
 	i := int64(0)
 	for stat := range statChan {
@@ -169,6 +172,7 @@ func processStats() {
 			statMapping[string(stat.Label)] = &StatGroup{}
 		}
 
+		statMapping[allQueriesLabel].Push(stat.Value)
 		statMapping[string(stat.Label)].Push(stat.Value)
 
 		statPool.Put(stat)
@@ -177,7 +181,7 @@ func processStats() {
 
 		// print stats to stderr (if printInterval is greater than zero):
 		if printInterval > 0 && i > 0 && i%printInterval == 0 && (i < limit || limit < 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries:\n", i)
+			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i, workers)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -190,7 +194,7 @@ func processStats() {
 	}
 
 	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries:\n", i)
+	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -210,7 +214,7 @@ func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
 		minRate := 1e3 / v.Min
 		meanRate := 1e3 / v.Mean
 		maxRate := 1e3 / v.Max
-		_, err := fmt.Fprintf(w, "%s: min: %8.2fms (%6.2f/sec), mean: %8.2fms (%6.2f/sec), max: %8.2fms (%6.2f/sec), count: %d \n", k, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.Count)
+		_, err := fmt.Fprintf(w, "%s: min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), count: %8d, sum: %5.1fsec \n", k, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.Count, v.Sum/1e3)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -20,6 +20,7 @@ type StatGroup struct {
 	Min  float64
 	Max  float64
 	Mean float64
+	Sum  float64
 
 	Count int64
 }
@@ -31,6 +32,7 @@ func (s *StatGroup) Push(n float64) {
 		s.Max = n
 		s.Mean = n
 		s.Count = 1
+		s.Sum = n
 		return
 	}
 
@@ -41,6 +43,8 @@ func (s *StatGroup) Push(n float64) {
 		s.Max = n
 	}
 
+	s.Sum += n
+
 	// constant-space mean update:
 	sum := s.Mean*float64(s.Count) + n
 	s.Mean = sum / float64(s.Count+1)
@@ -50,5 +54,5 @@ func (s *StatGroup) Push(n float64) {
 
 // String makes a simple description of a StatGroup.
 func (s *StatGroup) String() string {
-	return fmt.Sprintf("min: %f, max: %f, mean: %f, count: %d", s.Min, s.Max, s.Mean, s.Count)
+	return fmt.Sprintf("min: %f, max: %f, mean: %f, count: %d, sum: %f", s.Min, s.Max, s.Mean, s.Count, s.Sum)
 }
