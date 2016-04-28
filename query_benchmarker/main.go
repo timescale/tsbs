@@ -17,6 +17,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"time"
 	"sync"
 )
 
@@ -92,6 +93,7 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
+	wallStart := time.Now()
 	scan(input)
 	close(queryChan)
 
@@ -102,6 +104,14 @@ func main() {
 
 	// Wait on the stat collector to finish (and print its results):
 	statGroup.Wait()
+
+	wallEnd := time.Now()
+	wallTook := wallEnd.Sub(wallStart)
+	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds()) / 1e9)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 
 	// (Optional) create a memory profile:
 	if memProfile != "" {
@@ -161,7 +171,7 @@ func processQueries(w *HTTPClient) {
 // processStats collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
-	const allQueriesLabel = "all queries            "
+	const allQueriesLabel = "all queries           "
 	statMapping := map[string]*StatGroup{
 		allQueriesLabel: &StatGroup{},
 	}
