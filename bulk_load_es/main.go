@@ -162,7 +162,6 @@ func main() {
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
 			Host: daemonUrl,
-			//Database: dbName,
 		}
 		go processBatches(NewHTTPWriter(cfg, refreshEachBatch))
 	}
