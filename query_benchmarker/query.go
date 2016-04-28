@@ -9,9 +9,10 @@ type Query struct {
 	Method           []byte
 	Path             []byte
 	Body             []byte
+	ID               int64
 }
 
 // String produces a debug-ready description of a Query.
 func (q *Query) String() string {
-	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, Method: %s, Path: %s, Body:%s", q.HumanLabel, q.HumanDescription, q.Method, q.Path, q.Body)
+	return fmt.Sprintf("ID: %d, HumanLabel: %s, HumanDescription: %s, Method: %s, Path: %s, Body:%s", q.ID, q.HumanLabel, q.HumanDescription, q.Method, q.Path, q.Body)
 }

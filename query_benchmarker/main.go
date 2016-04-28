@@ -26,6 +26,7 @@ var (
 	daemonUrl     string
 	workers       int
 	debug         int
+	prettyPrintResponses         bool
 	limit         int64
 	printInterval int64
 	memProfile    string
@@ -48,6 +49,7 @@ func init() {
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
 	flag.Int64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
+	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
@@ -143,6 +145,8 @@ func scan(r io.Reader) {
 			log.Fatal(err)
 		}
 
+		q.ID = n
+
 		queryChan <- q
 
 		n++
@@ -153,8 +157,12 @@ func scan(r io.Reader) {
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries(w *HTTPClient) {
+	opts := &HTTPClientDoOptions{
+		Debug: debug,
+		PrettyPrintResponses: prettyPrintResponses,
+	}
 	for q := range queryChan {
-		lag, err := w.Do(q)
+		lag, err := w.Do(q, opts)
 
 		stat := statPool.Get().(*Stat)
 		stat.Init(q.HumanLabel, lag)
