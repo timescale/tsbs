@@ -14,12 +14,11 @@ import (
 // overhead.
 type Point struct {
 	MeasurementName []byte
-	//	SerializedTags  []byte
-	TagKeys     [][]byte
-	TagValues   [][]byte
-	FieldKeys   [][]byte
-	FieldValues []interface{}
-	Timestamp   time.Time
+	TagKeys         [][]byte
+	TagValues       [][]byte
+	FieldKeys       [][]byte
+	FieldValues     []interface{}
+	Timestamp       time.Time
 }
 
 // Using these literals prevents the slices from escaping to the heap, saving
@@ -57,6 +56,8 @@ func (p *Point) AppendField(key []byte, value interface{}) {
 //
 // For example:
 // foo,tag0=bar baz=-1.0 100\n
+//
+// TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 	buf := make([]byte, 0, 256)
 	buf = append(buf, p.MeasurementName...)
@@ -106,6 +107,8 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 // For example:
 // { "create" : { "_index" : "measurement_otqio", "_type" : "point" } }\n
 // { "tag_launx": "btkuw", "tag_gaijk": "jiypr", "field_wokxf": 0.08463898963964356, "field_zqstf": -0.043641533500086316, "timestamp": 171300 }\n
+//
+// TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeESBulk(w io.Writer) error {
 	action := "{ \"create\" : { \"_index\" : \"%s\", \"_type\" : \"point\" } }\n"
 	_, err := fmt.Fprintf(w, action, p.MeasurementName)
