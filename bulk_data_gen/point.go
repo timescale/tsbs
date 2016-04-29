@@ -14,20 +14,40 @@ import (
 // overhead.
 type Point struct {
 	MeasurementName []byte
-	TagKeys         [][]byte
-	TagValues       [][]byte
-	FieldKeys       [][]byte
-	FieldValues     []interface{}
-	Timestamp       time.Time
+	//	SerializedTags  []byte
+	TagKeys     [][]byte
+	TagValues   [][]byte
+	FieldKeys   [][]byte
+	FieldValues []interface{}
+	Timestamp   time.Time
 }
 
 // Using these literals prevents the slices from escaping to the heap, saving
 // a few micros per call:
 var (
-	charComma  = []byte(",")
-	charEquals = []byte("=")
-	charSpace  = []byte(" ")
+	charComma  = byte(',')
+	charEquals = byte('=')
+	charSpace  = byte(' ')
 )
+
+func (p *Point) Reset() {
+	p.MeasurementName = nil
+	p.TagKeys = p.TagKeys[:0]
+	p.TagValues = p.TagValues[:0]
+	p.FieldKeys = p.FieldKeys[:0]
+	p.FieldValues = p.FieldValues[:0]
+	p.Timestamp = time.Time{}
+}
+
+func (p *Point) AppendTag(key, value []byte) {
+	p.TagKeys = append(p.TagKeys, key)
+	p.TagValues = append(p.TagValues, value)
+}
+
+func (p *Point) AppendField(key []byte, value interface{}) {
+	p.FieldKeys = append(p.FieldKeys, key)
+	p.FieldValues = append(p.FieldValues, value)
+}
 
 // SerializeInfluxBulk writes Point data to the given writer, conforming to the
 // InfluxDB wire protocol.
@@ -42,19 +62,19 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 	buf = append(buf, p.MeasurementName...)
 
 	for i := 0; i < len(p.TagKeys); i++ {
-		buf = append(buf, charComma...)
+		buf = append(buf, charComma)
 		buf = append(buf, p.TagKeys[i]...)
-		buf = append(buf, charEquals...)
+		buf = append(buf, charEquals)
 		buf = append(buf, p.TagValues[i]...)
 	}
 
 	if len(p.FieldKeys) > 0 {
-		buf = append(buf, charSpace...)
+		buf = append(buf, charSpace)
 	}
 
 	for i := 0; i < len(p.FieldKeys); i++ {
 		buf = append(buf, p.FieldKeys[i]...)
-		buf = append(buf, charEquals...)
+		buf = append(buf, charEquals)
 
 		v := p.FieldValues[i]
 		buf = fastFormatAppend(v, buf)
@@ -66,9 +86,8 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 		}
 
 		if i+1 < len(p.FieldKeys) {
-			buf = append(buf, charComma...)
+			buf = append(buf, charComma)
 		}
-
 	}
 
 	buf = append(buf, []byte(fmt.Sprintf(" %d\n", p.Timestamp.UnixNano()))...)
