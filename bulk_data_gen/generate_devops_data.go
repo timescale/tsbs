@@ -58,7 +58,7 @@ var (
 
 	// Tag fields common to all hosts:
 	MachineTagKeys = [][]byte{
-		[]byte("name"),
+		[]byte("hostname"),
 		[]byte("region"),
 		[]byte("datacenter"),
 		[]byte("rack"),
