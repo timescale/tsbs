@@ -189,6 +189,37 @@ func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar 
 	q.Body = body.Bytes()
 }
 
+// MaxCPUUsageHourByMinuteTwoHosts populates a Query for getting the maximum CPU
+// usage for two hosts over the course of an hour.
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar int) {
+	interval := d.AllInterval.RandWindow(time.Hour)
+	a, b := 0, 0
+	for a == b {
+		a = rand.Intn(scaleVar)
+		b = rand.Intn(scaleVar)
+	}
+
+	hostname0 := fmt.Sprintf("host_%d", a)
+	hostname1 := fmt.Sprintf("host_%d", b)
+
+	body := new(bytes.Buffer)
+	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
+		JSONEncodedHostnames: fmt.Sprintf("[ \"%s\", \"%s\" ]", hostname0, hostname1),
+		Start:                interval.StartString(),
+		End:                  interval.EndString(),
+		Bucket:               "1m",
+		Field:                "usage_user",
+	})
+
+	humanLabel := []byte("Elastic max cpu, rand 2 hosts, rand 1hr by 1m")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("POST")
+
+	q.Path = []byte("/cpu/_search")
+	q.Body = body.Bytes()
+}
+
 func mustExecuteTemplate(t *template.Template, w io.Writer, params interface{}) {
 	err := t.Execute(w, params)
 	if err != nil {

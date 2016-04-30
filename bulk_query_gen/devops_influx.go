@@ -148,3 +148,28 @@ func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
 }
+
+// MaxCPUUsageHourByMinuteTwoHosts populates a Query with a query that looks like:
+// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME1' or hostname = '$HOSTNAME2') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+func (d *InfluxDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar int) {
+	interval := d.AllInterval.RandWindow(time.Hour)
+	a, b := 0, 0
+	for a == b {
+		a = rand.Intn(scaleVar)
+		b = rand.Intn(scaleVar)
+	}
+
+	hostname0 := fmt.Sprintf("host_%d", a)
+	hostname1 := fmt.Sprintf("host_%d", b)
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (hostname = '%s' or hostname = '%s') and time >= '%s' and time < '%s' group by time(1m)", hostname0, hostname1, interval.StartString(), interval.EndString()))
+
+	humanLabel := []byte("Influx max cpu, rand 2 hosts, rand 1hr by 1m")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
