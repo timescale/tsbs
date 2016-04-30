@@ -17,19 +17,19 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
-	"time"
 	"sync"
+	"time"
 )
 
 // Program option vars:
 var (
-	daemonUrl     string
-	workers       int
-	debug         int
-	prettyPrintResponses         bool
-	limit         int64
-	printInterval int64
-	memProfile    string
+	daemonUrl            string
+	workers              int
+	debug                int
+	prettyPrintResponses bool
+	limit                int64
+	printInterval        int64
+	memProfile           string
 )
 
 // Global vars:
@@ -109,11 +109,10 @@ func main() {
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
-	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds()) / 1e9)
+	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds())/1e9)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 
 	// (Optional) create a memory profile:
 	if memProfile != "" {
@@ -158,7 +157,7 @@ func scan(r io.Reader) {
 // target server, while tracking latency.
 func processQueries(w *HTTPClient) {
 	opts := &HTTPClientDoOptions{
-		Debug: debug,
+		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
 	for q := range queryChan {
@@ -179,7 +178,7 @@ func processQueries(w *HTTPClient) {
 // processStats collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
-	const allQueriesLabel = "all queries           "
+	const allQueriesLabel = "all queries"
 	statMapping := map[string]*StatGroup{
 		allQueriesLabel: &StatGroup{},
 	}
@@ -222,8 +221,12 @@ func processStats() {
 
 // fprintStats pretty-prints stats to the given writer.
 func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
+	maxKeyLength := 0
 	keys := make([]string, 0, len(statGroups))
 	for k := range statGroups {
+		if len(k) > maxKeyLength {
+			maxKeyLength = len(k)
+		}
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -232,7 +235,11 @@ func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
 		minRate := 1e3 / v.Min
 		meanRate := 1e3 / v.Mean
 		maxRate := 1e3 / v.Max
-		_, err := fmt.Fprintf(w, "%s: min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), count: %8d, sum: %5.1fsec \n", k, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.Count, v.Sum/1e3)
+		paddedKey := fmt.Sprintf("%s", k)
+		for len(paddedKey) < maxKeyLength {
+			paddedKey += " "
+		}
+		_, err := fmt.Fprintf(w, "%s : min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), count: %8d, sum: %5.1fsec \n", paddedKey, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.Count, v.Sum/1e3)
 		if err != nil {
 			log.Fatal(err)
 		}
