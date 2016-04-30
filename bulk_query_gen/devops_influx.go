@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 	"time"
 )
@@ -24,8 +25,8 @@ func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *InfluxDevops) Dispatch(i int, q *Query) {
-	DevopsDispatch(d, i, q)
+func (d *InfluxDevops) Dispatch(i int, q *Query, scaleVar int) {
+	DevopsDispatch(d, i, q, scaleVar)
 }
 
 // AvgCPUUsageDayByHour populates a Query with a query that looks like:
@@ -37,8 +38,9 @@ func (d *InfluxDevops) AvgCPUUsageDayByHour(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx CPU day   by 1h")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx CPU day   by 1h: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg cpu, all hosts, rand 1d by 1h")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -53,8 +55,9 @@ func (d *InfluxDevops) AvgCPUUsageWeekByHour(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx CPU week  by 1h")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx CPU week  by 1h: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg cpu, all hosts, rand 7d by 1h")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -69,8 +72,9 @@ func (d *InfluxDevops) AvgCPUUsageMonthByDay(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx CPU month by 1d")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx CPU month by 1d: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg cpu, all hosts, rand 28d by 1d")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -85,8 +89,9 @@ func (d *InfluxDevops) AvgMemAvailableDayByHour(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx mem day   by 1h")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx mem day   by 1h: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg mem, all hosts, rand 1d by 1h")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -101,8 +106,9 @@ func (d *InfluxDevops) AvgMemAvailableWeekByHour(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx mem week  by 1h")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx mem week  by 1h: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg mem, all hosts, rand 7d by 1h")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -117,8 +123,27 @@ func (d *InfluxDevops) AvgMemAvailableMonthByDay(q *Query) {
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT mean(available) from mem where time >= '%s' and time < '%s' group by time(1d)", interval.StartString(), interval.EndString()))
 
-	q.HumanLabel = []byte("Influx mem month by 1d")
-	q.HumanDescription = []byte(fmt.Sprintf("Influx mem month by 1d: %s", interval.StartString()))
+	humanLabel := []byte("Influx avg mem, all hosts, rand 28d by 1d")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+// MaxCPUUsageHourByMinuteOneHost populates a Query with a query that looks like:
+// SELECT max(usage_user) from cpu where hostname = '$HOSTNAME' and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
+	interval := d.AllInterval.RandWindow(time.Hour)
+	hostname := fmt.Sprintf("host_%d", rand.Intn(scaleVar))
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where hostname = '%s' and time >= '%s' and time < '%s' group by time(1m)", hostname, interval.StartString(), interval.EndString()))
+
+	humanLabel := []byte("Influx max cpu, rand 1 host, rand 1hr by 1m")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil

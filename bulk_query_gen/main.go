@@ -28,6 +28,7 @@ var useCaseChoices = []string{"devops"}
 var (
 	format     string
 	useCase    string
+	scaleVar   int
 	queryCount int
 
 	dbName string
@@ -46,6 +47,7 @@ var (
 func init() {
 	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-http, es-http)")
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
+	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for elastic)")
@@ -116,7 +118,7 @@ func main() {
 	enc := gob.NewEncoder(out)
 	q := &Query{}
 	for i := 0; i < queryCount; i++ {
-		generator.Dispatch(i, q)
+		generator.Dispatch(i, q, scaleVar)
 		err := enc.Encode(q)
 		if err != nil {
 			log.Fatal(err)

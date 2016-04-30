@@ -10,12 +10,14 @@ type Devops interface {
 	AvgMemAvailableWeekByHour(*Query)
 	AvgMemAvailableMonthByDay(*Query)
 
-	Dispatch(int, *Query)
+	MaxCPUUsageHourByMinuteOneHost(*Query, int)
+
+	Dispatch(int, *Query, int)
 }
 
 // DevopsDispatch round-robins through the different devops queries.
-func DevopsDispatch(d Devops, iteration int, q *Query) {
-	switch iteration % 6 {
+func DevopsDispatch(d Devops, iteration int, q *Query, scaleVar int) {
+	switch iteration % 7 {
 	case 0:
 		d.AvgCPUUsageDayByHour(q)
 	case 1:
@@ -28,5 +30,7 @@ func DevopsDispatch(d Devops, iteration int, q *Query) {
 		d.AvgMemAvailableWeekByHour(q)
 	case 5:
 		d.AvgMemAvailableMonthByDay(q)
+	case 6:
+		d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	}
 }
