@@ -302,8 +302,8 @@ const rawHostsQuery = `
   "aggs":{
     "result":{
       "filter":{
-        "and":[
-          {
+        "bool":{
+          "filter":{
             "range":{
               "timestamp":{
                 "gte":"{{.Start}}",
@@ -311,19 +311,15 @@ const rawHostsQuery = `
               }
             }
           },
-          {
-            "bool":{
-              "minimum_should_match":1,
-              "should":[
-                {
-                  "terms":{
-                    "hostname": {{.JSONEncodedHostnames }}
-                  }
-                }
-              ]
+          "should":[
+            {
+              "terms":{
+                "hostname": {{.JSONEncodedHostnames }}
+              }
             }
-          }
-        ]
+          ],
+	  "minimum_should_match" : 1
+        }
       },
       "aggs":{
         "result2":{
