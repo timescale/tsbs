@@ -169,7 +169,8 @@ func (d *ElasticSearchDevops) AvgMemAvailableMonthByDay(q *Query) {
 // usage for one host over the course of an hour.
 func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
 	interval := d.AllInterval.RandWindow(time.Hour)
-	hostname := fmt.Sprintf("host_%d", rand.Intn(scaleVar))
+	nn := rand.Perm(scaleVar)[:1]
+	hostname := fmt.Sprintf("host_%d", nn[0])
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
@@ -193,14 +194,10 @@ func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar 
 // usage for two hosts over the course of an hour.
 func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar int) {
 	interval := d.AllInterval.RandWindow(time.Hour)
-	a, b := 0, 0
-	for a == b {
-		a = rand.Intn(scaleVar)
-		b = rand.Intn(scaleVar)
-	}
+	nn := rand.Perm(scaleVar)[:2]
 
-	hostname0 := fmt.Sprintf("host_%d", a)
-	hostname1 := fmt.Sprintf("host_%d", b)
+	hostname0 := fmt.Sprintf("host_%d", nn[0])
+	hostname1 := fmt.Sprintf("host_%d", nn[1])
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
@@ -212,6 +209,35 @@ func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar
 	})
 
 	humanLabel := []byte("Elastic max cpu, rand 2 hosts, rand 1hr by 1m")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("POST")
+
+	q.Path = []byte("/cpu/_search")
+	q.Body = body.Bytes()
+}
+
+// MaxCPUUsageHourByMinuteFourHosts populates a Query for getting the maximum CPU
+// usage for four hosts over the course of an hour.
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteFourHosts(q *Query, scaleVar int) {
+	interval := d.AllInterval.RandWindow(time.Hour)
+	nn := rand.Perm(scaleVar)[:4]
+
+	hostname0 := fmt.Sprintf("host_%d", nn[0])
+	hostname1 := fmt.Sprintf("host_%d", nn[1])
+	hostname2 := fmt.Sprintf("host_%d", nn[2])
+	hostname3 := fmt.Sprintf("host_%d", nn[3])
+
+	body := new(bytes.Buffer)
+	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
+		JSONEncodedHostnames: fmt.Sprintf("[ \"%s\", \"%s\", \"%s\", \"%s\" ]", hostname0, hostname1, hostname2, hostname3),
+		Start:                interval.StartString(),
+		End:                  interval.EndString(),
+		Bucket:               "1m",
+		Field:                "usage_user",
+	})
+
+	humanLabel := []byte("Elastic max cpu, rand 4 hosts, rand 1hr by 1m")
 	q.HumanLabel = humanLabel
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("POST")

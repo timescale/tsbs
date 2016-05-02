@@ -12,14 +12,21 @@ type Devops interface {
 
 	MaxCPUUsageHourByMinuteOneHost(*Query, int)
 	MaxCPUUsageHourByMinuteTwoHosts(*Query, int)
+	MaxCPUUsageHourByMinuteFourHosts(*Query, int)
 
 	Dispatch(int, *Query, int)
 }
 
 // DevopsDispatch round-robins through the different devops queries.
 func DevopsDispatch(d Devops, iteration int, q *Query, scaleVar int) {
+	if scaleVar <= 0 {
+		panic("logic error: bad scalevar")
+	}
 	mod := 7
 	if scaleVar >= 2 {
+		mod++
+	}
+	if scaleVar >= 4 {
 		mod++
 	}
 	switch iteration % mod {
@@ -39,8 +46,13 @@ func DevopsDispatch(d Devops, iteration int, q *Query, scaleVar int) {
 		d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	case 7:
 		if scaleVar < 2 {
-			panic("logic error: not enough hosts to make query for")
+			panic("logic error: not enough hosts to make query")
 		}
 		d.MaxCPUUsageHourByMinuteTwoHosts(q, scaleVar)
+	case 8:
+		if scaleVar < 4 {
+			panic("logic error: not enough hosts to make query")
+		}
+		d.MaxCPUUsageHourByMinuteFourHosts(q, scaleVar)
 	}
 }
