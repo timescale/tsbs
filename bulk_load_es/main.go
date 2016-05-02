@@ -40,8 +40,8 @@ var (
 // Args parsing vars
 var (
 	indexTemplateChoices = map[string][]byte{
-		"default": defaultTemplate,
-		"aggregation":   aggregationTemplate,
+		"default":     defaultTemplate,
+		"aggregation": aggregationTemplate,
 	}
 )
 
@@ -215,7 +215,7 @@ func scan(itemsPerBatch int) int64 {
 	close(inputDone)
 
 	// The ES bulk format uses 2 lines per item:
-	if linesRead % 2 != 0 {
+	if linesRead%2 != 0 {
 		log.Fatalf("the number of lines read was not a multiple of 2, which indicates a bad bulk format for Elastic")
 	}
 	itemsRead := linesRead / 2
