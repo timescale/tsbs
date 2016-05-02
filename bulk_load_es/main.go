@@ -77,16 +77,12 @@ var aggregationTemplate = []byte(`
     "_default_": {
       "dynamic_templates": [
         {
-          "strings_are_indexed_exactly_for_filtering": {
+          "all_columns_can_be_used_for_filtering": {
             "match": "*",
-            "match_mapping_type": "string",
-            "mapping": { "type": "string",  "doc_values": true, "index": "not_analyzed" }
-          }
-        },
-	{
-	  "all_other_types_are_in_column_index_but_not_searchable": {
-            "match": "*",
-            "mapping": { "doc_values": true, "index": "no" }
+            "mapping": {
+              "doc_values": true,
+              "index": "not_analyzed"
+            }
           }
         }
       ],
