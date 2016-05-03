@@ -194,7 +194,7 @@ func NewHost(i int) Host {
 	serviceVersionId := rand.Int63n(MachineServiceVersionChoices)
 	serviceEnvironment := randChoice(MachineServiceEnvironmentChoices)
 
-	return Host{
+	h := Host{
 		// Tag Values that are static throughout the life of a Host:
 		Name:               []byte(fmt.Sprintf("host_%d", i)),
 		Region:             []byte(fmt.Sprintf("%s", region.Name)),
@@ -211,7 +211,7 @@ func NewHost(i int) Host {
 		CPUFieldDistributions: newCPUDistributions(len(CPUFieldKeys)),
 
 		// Memory models (updated each epoch):
-		BytesTotal:            bytesTotal,
+		BytesTotal: bytesTotal,
 		BytesUsed: &ClampedRandomWalkDistribution{
 			State: rand.Float64() * float64(bytesTotal),
 			Min:   0.0,
@@ -240,6 +240,11 @@ func NewHost(i int) Host {
 			},
 		},
 	}
+
+	// initialize all the distributions:
+	h.AdvanceAll()
+
+	return h
 }
 
 // AdvanceAll advances all Distributions of a Host.
