@@ -77,11 +77,23 @@ var aggregationTemplate = []byte(`
     "_default_": {
       "dynamic_templates": [
         {
-          "all_columns_can_be_used_for_filtering": {
+          "all_string_fields_can_be_used_for_filtering": {
             "match": "*",
+            "match_mapping_type": "string",
             "mapping": {
+              "type": "string",
               "doc_values": true,
               "index": "not_analyzed"
+            }
+          }
+        },
+        {
+          "all_nonstring_fields_are_just_stored_in_column_index": {
+            "match": "*",
+            "match_mapping_type": "*",
+            "mapping": {
+              "doc_values": true,
+              "index": "no"
             }
           }
         }
@@ -89,7 +101,11 @@ var aggregationTemplate = []byte(`
       "_all": { "enabled": false },
       "_source": { "enabled": false },
       "properties": {
-        "timestamp": { "type": "date", "doc_values": true }
+        "timestamp": {
+          "type": "date",
+          "doc_values": true,
+          "index": "not_analyzed"
+        }
       }
     }
   }
