@@ -99,7 +99,6 @@ func main() {
 		case "influx-http":
 			generator = NewInfluxDevops(dbName, timestampStart, timestampEnd)
 		case "es-http":
-
 			generator = NewElasticSearchDevops(timestampStart, timestampEnd)
 		default:
 			panic("invalid format")

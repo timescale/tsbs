@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -168,76 +169,63 @@ func (d *ElasticSearchDevops) AvgMemAvailableMonthByDay(q *Query) {
 // MaxCPUUsageHourByMinuteOneHost populates a Query for getting the maximum CPU
 // usage for one host over the course of an hour.
 func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
-	interval := d.AllInterval.RandWindow(time.Hour)
-	nn := rand.Perm(scaleVar)[:1]
-	hostname := fmt.Sprintf("host_%d", nn[0])
-
-	body := new(bytes.Buffer)
-	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
-		JSONEncodedHostnames: fmt.Sprintf("[ \"%s\" ]", hostname),
-		Start:                interval.StartString(),
-		End:                  interval.EndString(),
-		Bucket:               "1m",
-		Field:                "usage_user",
-	})
-
-	humanLabel := []byte("Elastic max cpu, rand 1 host, rand 1hr by 1m")
-	q.HumanLabel = humanLabel
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("POST")
-
-	q.Path = []byte("/cpu/_search")
-	q.Body = body.Bytes()
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1)
 }
 
 // MaxCPUUsageHourByMinuteTwoHosts populates a Query for getting the maximum CPU
 // usage for two hosts over the course of an hour.
 func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar int) {
-	interval := d.AllInterval.RandWindow(time.Hour)
-	nn := rand.Perm(scaleVar)[:2]
-
-	hostname0 := fmt.Sprintf("host_%d", nn[0])
-	hostname1 := fmt.Sprintf("host_%d", nn[1])
-
-	body := new(bytes.Buffer)
-	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
-		JSONEncodedHostnames: fmt.Sprintf("[ \"%s\", \"%s\" ]", hostname0, hostname1),
-		Start:                interval.StartString(),
-		End:                  interval.EndString(),
-		Bucket:               "1m",
-		Field:                "usage_user",
-	})
-
-	humanLabel := []byte("Elastic max cpu, rand 2 hosts, rand 1hr by 1m")
-	q.HumanLabel = humanLabel
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("POST")
-
-	q.Path = []byte("/cpu/_search")
-	q.Body = body.Bytes()
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2)
 }
 
 // MaxCPUUsageHourByMinuteFourHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
 func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteFourHosts(q *Query, scaleVar int) {
-	interval := d.AllInterval.RandWindow(time.Hour)
-	nn := rand.Perm(scaleVar)[:4]
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4)
+}
 
-	hostname0 := fmt.Sprintf("host_%d", nn[0])
-	hostname1 := fmt.Sprintf("host_%d", nn[1])
-	hostname2 := fmt.Sprintf("host_%d", nn[2])
-	hostname3 := fmt.Sprintf("host_%d", nn[3])
+// MaxCPUUsageHourByMinuteEightHosts populates a Query for getting the maximum CPU
+// usage for four hosts over the course of an hour.
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteEightHosts(q *Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8)
+}
+
+// MaxCPUUsageHourByMinuteSixteenHosts populates a Query for getting the maximum CPU
+// usage for four hosts over the course of an hour.
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteSixteenHosts(q *Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16)
+}
+
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q *Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32)
+}
+
+func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, nhosts int) {
+	interval := d.AllInterval.RandWindow(time.Hour)
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	hostnameClauses := []string{}
+	for _, s := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("\"%s\"", s))
+	}
+
+	combinedHostnameClause := fmt.Sprintf("[ %s ]", strings.Join(hostnameClauses, ", "))
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(hostsQuery, body, HostsQueryParams{
-		JSONEncodedHostnames: fmt.Sprintf("[ \"%s\", \"%s\", \"%s\", \"%s\" ]", hostname0, hostname1, hostname2, hostname3),
+		JSONEncodedHostnames: combinedHostnameClause,
 		Start:                interval.StartString(),
 		End:                  interval.EndString(),
 		Bucket:               "1m",
 		Field:                "usage_user",
 	})
 
-	humanLabel := []byte("Elastic max cpu, rand 4 hosts, rand 1hr by 1m")
+	humanLabel := []byte(fmt.Sprintf("Elastic max cpu, rand %4d hosts, rand 1hr by 1m", nhosts))
 	q.HumanLabel = humanLabel
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("POST")
