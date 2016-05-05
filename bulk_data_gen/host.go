@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const NHostSims = 2
+const NHostSims = 3
 
 type Region struct {
 	Name        []byte
@@ -91,6 +91,7 @@ func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
 	return []SimulatedMeasurement{
 		NewCPUMeasurement(start),
 		NewMemMeasurement(start),
+		NewRedisMeasurement(start),
 	}
 }
 

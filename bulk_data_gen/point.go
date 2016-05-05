@@ -184,6 +184,6 @@ func fastFormatAppend(v interface{}, buf []byte) []byte {
 		buf = append(buf, v.(string)...)
 		return buf
 	default:
-		panic("unknown field type")
+		panic(fmt.Sprintf("unknown field type for %#v", v))
 	}
 }

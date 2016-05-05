@@ -19,6 +19,10 @@ type NormalDistribution struct {
 	value float64
 }
 
+func ND(mean, stddev float64) *NormalDistribution {
+	return &NormalDistribution{Mean: mean, StdDev: stddev}
+}
+
 // Advance advances this distribution. Since a normal distribution is
 // stateless, this is just overwrites the internal cache value.
 func (d *NormalDistribution) Advance() {
@@ -36,6 +40,10 @@ type UniformDistribution struct {
 	High float64
 
 	value float64
+}
+
+func UD(low, high float64) *UniformDistribution {
+	return &UniformDistribution{Low: low, High: high}
 }
 
 // Advance advances this distribution. Since a uniform distribution is
@@ -60,6 +68,10 @@ type RandomWalkDistribution struct {
 	State float64 // optional
 }
 
+func WD(step Distribution, state float64) *RandomWalkDistribution {
+	return &RandomWalkDistribution{Step: step, State: state}
+}
+
 // Advance computes the next value of this distribution and stores it.
 func (d *RandomWalkDistribution) Advance() {
 	d.Step.Advance()
@@ -80,6 +92,16 @@ type ClampedRandomWalkDistribution struct {
 	Max  float64
 
 	State float64 // optional
+}
+
+func CWD(step Distribution, min, max, state float64) *ClampedRandomWalkDistribution {
+	return &ClampedRandomWalkDistribution{
+		Step: step,
+		Min: min,
+		Max: max,
+
+		State: state,
+	}
 }
 
 // Advance computes the next value of this distribution and stores it.
@@ -116,6 +138,10 @@ func (d *MonotonicRandomWalkDistribution) Advance() {
 
 func (d *MonotonicRandomWalkDistribution) Get() float64 {
 	return d.State
+}
+
+func MWD(step Distribution, state float64) *MonotonicRandomWalkDistribution {
+	return &MonotonicRandomWalkDistribution{Step: step, State: state}
 }
 
 type ConstantDistribution struct {
