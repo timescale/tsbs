@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
 
 type LabeledDistributionMaker struct {
 	Label             []byte
@@ -13,6 +17,11 @@ var (
 	RedisUptime = []byte("uptime_in_seconds")
 
 	SixteenGB = float64(16 * 1024 * 1024 * 1024)
+
+	RedisTags = [][]byte{
+		[]byte("port"),
+		[]byte("server"),
+	}
 
 	RedisFields = []LabeledDistributionMaker{
 		{[]byte("total_connections_received"), func() Distribution { return MWD(ND(5, 1), 0) }},
@@ -53,8 +62,9 @@ var (
 type RedisMeasurement struct {
 	timestamp time.Time
 
-	uptime        time.Duration
-	distributions []Distribution
+	port, serverName []byte
+	uptime           time.Duration
+	distributions    []Distribution
 }
 
 func NewRedisMeasurement(start time.Time) *RedisMeasurement {
@@ -63,7 +73,12 @@ func NewRedisMeasurement(start time.Time) *RedisMeasurement {
 		distributions[i] = RedisFields[i].DistributionMaker()
 	}
 
+	serverName := []byte(fmt.Sprintf("redis_%d", rand.Intn(100000)))
+	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &RedisMeasurement{
+		port:       port,
+		serverName: serverName,
+
 		timestamp:     start,
 		uptime:        time.Duration(0),
 		distributions: distributions,
@@ -82,6 +97,9 @@ func (m *RedisMeasurement) Tick(d time.Duration) {
 func (m *RedisMeasurement) ToPoint(p *Point) {
 	p.SetMeasurementName(RedisByteString)
 	p.SetTimestamp(&m.timestamp)
+
+	p.AppendTag(RedisTags[0], m.port)
+	p.AppendTag(RedisTags[1], m.serverName)
 
 	p.AppendField(RedisUptime, int64(m.uptime.Seconds()))
 	for i := range m.distributions {
