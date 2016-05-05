@@ -1,6 +1,9 @@
 package main
 
-import "math/rand"
+import (
+	"math"
+	"math/rand"
+)
 
 // Distribution provides an interface to model a statistical distribution.
 type Distribution interface {
@@ -93,5 +96,24 @@ func (d *ClampedRandomWalkDistribution) Advance() {
 
 // Get returns the last computed value for this distribution.
 func (d *ClampedRandomWalkDistribution) Get() float64 {
+	return d.State
+}
+
+// MonotonicRandomWalkDistribution is a stateful random walk that only
+// increases. Initialize it with a Start and an underlying distribution,
+// which is used to compute the new step value. The sign of any value of the
+// u.d. is always made positive.
+type MonotonicRandomWalkDistribution struct {
+	Step  Distribution
+	State float64
+}
+
+// Advance computes the next value of this distribution and stores it.
+func (d *MonotonicRandomWalkDistribution) Advance() {
+	d.Step.Advance()
+	d.State += math.Abs(d.Step.Get())
+}
+
+func (d *MonotonicRandomWalkDistribution) Get() float64 {
 	return d.State
 }
