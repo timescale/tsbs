@@ -7,5 +7,4 @@ type MeasurementGenerator interface {
 	Finished() bool
 	Next(*Point)
         MakeUsablePoint() *Point
-
 }
