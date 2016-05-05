@@ -1,10 +1,6 @@
 package main
 
-import (
-	//"math"
-	//"math/rand"
-	"time"
-)
+import "time"
 
 type LabeledDistributionMaker struct {
 	Label             []byte
