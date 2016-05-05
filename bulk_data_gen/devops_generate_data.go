@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-// A DevopsGenerator generates data similar to the Telegraf CPU and Memory
-// measurements. It is format-agnostic.
-type DevopsGenerator struct {
+// A DevopsSimulator generates data similar to telemetry from Telegraf.
+// It fulfills the Simulator interface.
+type DevopsSimulator struct {
 	madePoints int64
 	maxPoints  int64
 
@@ -20,27 +20,27 @@ type DevopsGenerator struct {
 	timestampEnd   time.Time
 }
 
-func (g *DevopsGenerator) Seen() int64 {
+func (g *DevopsSimulator) Seen() int64 {
 	return g.madePoints
 }
 
-func (g *DevopsGenerator) Total() int64 {
+func (g *DevopsSimulator) Total() int64 {
 	return g.maxPoints
 }
 
-func (g *DevopsGenerator) Finished() bool {
+func (g *DevopsSimulator) Finished() bool {
 	return g.madePoints >= g.maxPoints
 }
 
-// Type DevopsGeneratorConfig is used to create a DevopsGenerator.
-type DevopsGeneratorConfig struct {
+// Type DevopsSimulatorConfig is used to create a DevopsSimulator.
+type DevopsSimulatorConfig struct {
 	Start time.Time
 	End   time.Time
 
 	HostCount int64
 }
 
-func (d *DevopsGeneratorConfig) ToMeasurementGenerator() *DevopsGenerator {
+func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
 		hostInfos[i] = NewHost(i, d.Start)
@@ -48,7 +48,7 @@ func (d *DevopsGeneratorConfig) ToMeasurementGenerator() *DevopsGenerator {
 
 	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
 	maxPoints := epochs * (d.HostCount * 2)
-	dg := &DevopsGenerator{
+	dg := &DevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
 
@@ -65,20 +65,8 @@ func (d *DevopsGeneratorConfig) ToMeasurementGenerator() *DevopsGenerator {
 	return dg
 }
 
-// MakeUsablePoint allocates a new Point ready for use by a DevopsGenerator.
-func (d *DevopsGenerator) MakeUsablePoint() *Point {
-	return &Point{
-		MeasurementName: nil,
-		TagKeys:         make([][]byte, 0),
-		TagValues:       make([][]byte, 0),
-		FieldKeys:       make([][]byte, 0),
-		FieldValues:     make([]interface{}, 0),
-		Timestamp:       &time.Time{},
-	}
-}
-
 // Next advances a Point to the next state in the generator.
-func (d *DevopsGenerator) Next(p *Point) {
+func (d *DevopsSimulator) Next(p *Point) {
 	// switch to the next metric if needed
 	if d.hostIndex == len(d.hosts) {
 		d.hostIndex = 0
@@ -107,6 +95,7 @@ func (d *DevopsGenerator) Next(p *Point) {
 	p.AppendTag(MachineTagKeys[8], host.ServiceVersion)
 	p.AppendTag(MachineTagKeys[9], host.ServiceEnvironment)
 
+	// Populate measurement-specific tags and fields:
 	host.SimulatedMeasurements[d.simulatedMeasurementIndex].ToPoint(p)
 
 	d.madePoints++

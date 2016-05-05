@@ -96,17 +96,17 @@ func main() {
 	out := bufio.NewWriterSize(os.Stdout, 4<<20)
 	defer out.Flush()
 
-	var generator MeasurementGenerator
+	var sim Simulator
 
 	switch useCase {
 	case "devops":
-		dataSet := &DevopsGeneratorConfig{
+		cfg := &DevopsSimulatorConfig{
 			Start: timestampStart,
 			End:   timestampEnd,
 
 			HostCount: scaleVar,
 		}
-		generator = dataSet.ToMeasurementGenerator()
+		sim = cfg.ToSimulator()
 	default:
 		panic("unreachable")
 	}
@@ -121,9 +121,9 @@ func main() {
 		panic("unreachable")
 	}
 
-	point := generator.MakeUsablePoint()
-	for !generator.Finished() {
-		generator.Next(point)
+	point := MakeUsablePoint()
+	for !sim.Finished() {
+		sim.Next(point)
 
 		err := serializer(point, out)
 		if err != nil {
