@@ -7,6 +7,14 @@ import (
 
 const NHostSims = 3
 
+// Count of choices for auto-generated tag values:
+const (
+	MachineRackChoicesPerDatacenter = 100
+	MachineServiceChoices           = 20
+	MachineServiceVersionChoices    = 2
+)
+
+
 type Region struct {
 	Name        []byte
 	Datacenters [][]byte
@@ -76,6 +84,50 @@ var (
 		},
 	}
 )
+
+var (
+	MachineTeamChoices = [][]byte{
+		[]byte("SF"),
+		[]byte("NYC"),
+		[]byte("LON"),
+		[]byte("CHI"),
+	}
+	MachineOSChoices = [][]byte{
+		[]byte("Ubuntu16.10"),
+		[]byte("Ubuntu16.04LTS"),
+		[]byte("Ubuntu15.10"),
+	}
+	MachineArchChoices = [][]byte{
+		[]byte("x64"),
+		[]byte("x86"),
+	}
+	MachineServiceEnvironmentChoices = [][]byte{
+		[]byte("production"),
+		[]byte("staging"),
+		[]byte("test"),
+	}
+)
+
+var (
+	// The duration of a log epoch.
+	EpochDuration = 10 * time.Second
+
+	// Tag fields common to all hosts:
+	MachineTagKeys = [][]byte{
+		[]byte("hostname"),
+		[]byte("region"),
+		[]byte("datacenter"),
+		[]byte("rack"),
+		[]byte("os"),
+		[]byte("arch"),
+		[]byte("team"),
+		[]byte("service"),
+		[]byte("service_version"),
+		[]byte("service_environment"),
+	}
+)
+
+
 
 
 // Type Host models a machine being monitored by Telegraf.
