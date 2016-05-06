@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const NHostSims = 8
+const NHostSims = 9
 
 // Count of choices for auto-generated tag values:
 const (
@@ -147,6 +147,7 @@ func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
 		NewNetMeasurement(start),
 		NewDiskMeasurement(start),
 		NewDiskIOMeasurement(start),
+		NewNginxMeasurement(start),
 		NewRedisMeasurement(start),
 		NewPostgresqlMeasurement(start),
 	}
