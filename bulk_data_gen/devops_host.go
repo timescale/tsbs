@@ -141,15 +141,15 @@ type Host struct {
 
 func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
 	sm := []SimulatedMeasurement{
-		NewKernelMeasurement(start),
 		NewCPUMeasurement(start),
+		NewDiskIOMeasurement(start),
+		NewDiskMeasurement(start),
+		NewKernelMeasurement(start),
 		NewMemMeasurement(start),
 		NewNetMeasurement(start),
-		NewDiskMeasurement(start),
-		NewDiskIOMeasurement(start),
 		NewNginxMeasurement(start),
-		NewRedisMeasurement(start),
 		NewPostgresqlMeasurement(start),
+		NewRedisMeasurement(start),
 	}
 
 	if len(sm) != NHostSims {
