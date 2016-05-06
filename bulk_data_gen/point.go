@@ -99,7 +99,7 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 		}
 	}
 
-	buf = append(buf, []byte(fmt.Sprintf(" %d\n", p.Timestamp.UnixNano()))...)
+	buf = append(buf, []byte(fmt.Sprintf(" %d\n", p.Timestamp.UTC().UnixNano()))...)
 	_, err = w.Write(buf)
 
 	return err
@@ -155,7 +155,7 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 		buf = append(buf, []byte(", ")...)
 	}
 	// Timestamps in ES must be millisecond precision:
-	buf = append(buf, []byte(fmt.Sprintf("\"timestamp\": %d }\n", p.Timestamp.UnixNano()/1e6))...)
+	buf = append(buf, []byte(fmt.Sprintf("\"timestamp\": %d }\n", p.Timestamp.UTC().UnixNano()/1e6))...)
 
 	_, err = w.Write(buf)
 	if err != nil {

@@ -53,8 +53,8 @@ func init() {
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
 	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
 
-	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00-00:00", "Beginning timestamp (RFC3339).")
-	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-01T06:00:00-00:00", "Ending timestamp (RFC3339).")
+	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
+	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-01T06:00:00Z", "Ending timestamp (RFC3339).")
 
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
@@ -84,10 +84,12 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	timestampStart = timestampStart.UTC()
 	timestampEnd, err = time.Parse(time.RFC3339, timestampEndStr)
 	if err != nil {
 		log.Fatal(err)
 	}
+	timestampEnd = timestampEnd.UTC()
 }
 
 func main() {

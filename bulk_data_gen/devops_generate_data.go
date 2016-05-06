@@ -47,7 +47,7 @@ func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
 	}
 
 	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
-	maxPoints := epochs * (d.HostCount * 2)
+	maxPoints := epochs * (d.HostCount * NHostSims)
 	dg := &DevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
