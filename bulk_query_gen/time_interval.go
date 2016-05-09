@@ -46,10 +46,10 @@ func (ti *TimeInterval) RandWindow(window time.Duration) TimeInterval {
 
 // StartString formats the start of the time interval.
 func (ti *TimeInterval) StartString() string {
-	return ti.Start.Format(time.RFC3339)
+	return ti.Start.UTC().Format(time.RFC3339)
 }
 
 // EndString formats the end of the time interval.
 func (ti *TimeInterval) EndString() string {
-	return ti.End.Format(time.RFC3339)
+	return ti.End.UTC().Format(time.RFC3339)
 }
