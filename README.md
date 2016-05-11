@@ -17,7 +17,7 @@ Although the data is randomly generated, our data and queries are entirely deter
 
 (Note: The use of more than one worker thread does lead to a non-deterministic ordering of events when writing and/or querying the databases.)
 
-There are four phases when using the benchmark suite: data generation, data loading, query generation, and query execution.
+There are five phases when using the benchmark suite: data generation, data loading, query generation, query execution, and query validation.
 
 ### Phase 1: Data generation
 
