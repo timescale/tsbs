@@ -22,7 +22,7 @@ import (
 var formatChoices = []string{"influx-http", "es-http"}
 
 // Use case choices:
-var useCaseChoices = []string{"devops"}
+var useCaseChoices = []string{"devops-single-host", "devops-full-dataset", "devops-groupby-hosts"}
 
 // Program option vars:
 var (
@@ -46,7 +46,7 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-http, es-http)")
-	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
+	flag.StringVar(&useCase, "use-case", useCaseChoices[0], fmt.Sprintf("Use case to model. (choices: %s)", useCaseChoices))
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
@@ -96,7 +96,7 @@ func main() {
 
 	var generator QueryGenerator
 	switch useCase {
-	case "devops":
+	case "devops-single-host":
 		switch format {
 		case "influx-http":
 			generator = NewInfluxDevops(dbName, timestampStart, timestampEnd)
