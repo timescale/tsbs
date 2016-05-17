@@ -1,9 +1,5 @@
 // bulk_query_gen generates queries for various use cases. Its output will
-// typically be consume by query_benchmarker.
-//
-// Output formats: InfluxDB, ElasticSearch.
-//
-// Query style use cases: Devops.
+// be consumed by query_benchmarker.
 package main
 
 import (
@@ -19,6 +15,7 @@ import (
 )
 
 // query generator choices {use-case, query-type, format}
+// (This object is shown to the user when flag.Usage is called.)
 var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
 	"devops": {
 		"single-host": {
@@ -51,27 +48,31 @@ var (
 
 // Parse args:
 func init() {
+	// Change the Usage function to print the use case matrix of choices:
 	oldUsage := flag.Usage
 	flag.Usage = func() {
 		oldUsage()
+
 		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "The use case matrix of choices is:\n")
 		for uc, queryTypes := range useCaseMatrix {
 			for qt, formats := range queryTypes {
-				for ff := range formats {
-					fmt.Fprintf(os.Stderr, "  use case: %s, query type: %s, format: %s\n", uc, qt, ff)
+				for f := range formats {
+					fmt.Fprintf(os.Stderr, "  use case: %s, query type: %s, format: %s\n", uc, qt, f)
 				}
 			}
 		}
 
 	}
+
 	flag.StringVar(&format, "format", "influx-http", "Format to emit. (Choices are in the use case matrix.)")
 	flag.StringVar(&useCase, "use-case", "devops", "Use case to model. (Choices are in the use case matrix.)")
 	flag.StringVar(&queryType, "query-type", "", "Query type. (Choices are in the use case matrix.)")
+
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
-	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for elastic)")
+	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for ElasticSearch).")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-01T06:00:00Z", "Ending timestamp (RFC3339).")
@@ -118,19 +119,23 @@ func init() {
 func main() {
 	rand.Seed(seed)
 
+	// TODO(rw): Parse this from the CLI (maybe).
 	dbConfig := DatabaseConfig{
 		"database-name": dbName,
 	}
 
-	qgMaker := useCaseMatrix[useCase][queryType][format]
-	var generator QueryGenerator = qgMaker(dbConfig, timestampStart, timestampEnd)
+	// Make the query generator:
+	maker := useCaseMatrix[useCase][queryType][format]
+	var generator QueryGenerator = maker(dbConfig, timestampStart, timestampEnd)
 
+	// Set up bookkeeping:
 	stats := make(map[string]int64)
 
+	// Set up output buffering:
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
 
-	// create request instances, serializing them to stdout and collecting
+	// Create request instances, serializing them to stdout and collecting
 	// counts for each kind:
 	enc := gob.NewEncoder(out)
 	q := &Query{}
@@ -160,7 +165,7 @@ func main() {
 		}
 	}
 
-	// print stats:
+	// Print stats:
 	keys := []string{}
 	for k, _ := range stats {
 		keys = append(keys, k)
