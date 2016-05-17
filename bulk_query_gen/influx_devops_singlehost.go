@@ -2,7 +2,7 @@ package main
 
 import "time"
 
-// InfluxDevops produces Influx-specific queries for the devops single-host case.
+// InfluxDevopsSingleHost produces Influx-specific queries for the devops single-host case.
 type InfluxDevopsSingleHost struct {
 	InfluxDevops
 }

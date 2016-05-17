@@ -9,6 +9,8 @@ type Devops interface {
 	MaxCPUUsageHourByMinuteSixteenHosts(*Query, int)
 	MaxCPUUsageHourByMinuteThirtyTwoHosts(*Query, int)
 
+	MeanCPUUsageDayByHourAllHosts(*Query)
+
 	Dispatch(int, *Query, int)
 }
 

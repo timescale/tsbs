@@ -11,11 +11,12 @@ import (
 )
 
 var (
-	fleetQuery, hostsQuery *template.Template
+	fleetQuery, fleetGroupByHostnameQuery, hostsQuery *template.Template
 )
 
 func init() {
 	fleetQuery = template.Must(template.New("fleetQuery").Parse(rawFleetQuery))
+	fleetGroupByHostnameQuery = template.Must(template.New("fleetGroupByHostnameQuery").Parse(rawFleetGroupByHostnameQuery))
 	hostsQuery = template.Must(template.New("hostsQuery").Parse(rawHostsQuery))
 }
 
@@ -107,6 +108,26 @@ func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, 
 	q.Body = body.Bytes()
 }
 
+func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHosts(q *Query) {
+	interval := d.AllInterval.RandWindow(24*time.Hour)
+
+	body := new(bytes.Buffer)
+	mustExecuteTemplate(fleetGroupByHostnameQuery, body, FleetQueryParams{
+		Start:                interval.StartString(),
+		End:                  interval.EndString(),
+		Bucket:               "1h",
+		Field:                "usage_user",
+	})
+
+	humanLabel := []byte("Elastic mean cpu, all hosts, rand 1day by 1hour")
+	q.HumanLabel = humanLabel
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("POST")
+
+	q.Path = []byte("/cpu/_search")
+	q.Body = body.Bytes()
+}
+
 func mustExecuteTemplate(t *template.Template, w io.Writer, params interface{}) {
 	err := t.Execute(w, params)
 	if err != nil {
@@ -147,6 +168,47 @@ const rawFleetQuery = `
             "avg_of_field": {
               "avg": {
                  "field": "{{.Field}}"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
+const rawFleetGroupByHostnameQuery = `
+{
+  "size" : 0,
+  "aggs": {
+    "result": {
+      "filter": {
+        "range": {
+          "timestamp": {
+            "gte": "{{.Start}}",
+            "lt": "{{.End}}"
+          }
+        }
+      },
+      "aggs": {
+        "by_hostname": {
+          "terms": {
+            "field": "hostname"
+	  },
+          "aggs": {
+            "result2": {
+              "date_histogram": {
+                "field": "timestamp",
+                "interval": "{{.Bucket}}",
+                "format": "yyyy-MM-dd-HH"
+              },
+              "aggs": {
+                "avg_of_field": {
+                  "avg": {
+                     "field": "{{.Field}}"
+                  }
+                }
               }
             }
           }
