@@ -2,16 +2,6 @@ package main
 
 // Devops describes a devops query generator.
 type Devops interface {
-	// These are now deprecated
-	AvgCPUUsageDayByHour(*Query)
-	AvgCPUUsageWeekByHour(*Query)
-	AvgCPUUsageMonthByDay(*Query)
-
-	// These are now deprecated
-	AvgMemAvailableDayByHour(*Query)
-	AvgMemAvailableWeekByHour(*Query)
-	AvgMemAvailableMonthByDay(*Query)
-
 	MaxCPUUsageHourByMinuteOneHost(*Query, int)
 	MaxCPUUsageHourByMinuteTwoHosts(*Query, int)
 	MaxCPUUsageHourByMinuteFourHosts(*Query, int)
