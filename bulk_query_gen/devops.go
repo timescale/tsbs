@@ -12,8 +12,8 @@ type Devops interface {
 	Dispatch(int, *Query, int)
 }
 
-// DevopsDispatch round-robins through the different devops queries.
-func DevopsDispatch(d Devops, iteration int, q *Query, scaleVar int) {
+// devopsDispatchAll round-robins through the different devops queries.
+func devopsDispatchAll(d Devops, iteration int, q *Query, scaleVar int) {
 	if scaleVar <= 0 {
 		panic("logic error: bad scalevar")
 	}

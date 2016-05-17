@@ -14,20 +14,40 @@ type InfluxDevops struct {
 	AllInterval  TimeInterval
 }
 
+type InfluxDevopsSingleHost struct {
+	InfluxDevops
+}
+
 // NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
-func NewInfluxDevops(databaseName string, start, end time.Time) *InfluxDevops {
+func NewInfluxDevops(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
+	if _, ok := dbConfig["database-name"]; !ok {
+		panic("need influx database name")
+	}
+
 	return &InfluxDevops{
-		DatabaseName: databaseName,
+		DatabaseName: dbConfig["database-name"],
 		AllInterval:  NewTimeInterval(start, end),
 	}
 }
 
+func NewInfluxDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := NewInfluxDevops(dbConfig, start, end).(*InfluxDevops)
+	return &InfluxDevopsSingleHost{
+		InfluxDevops: *underlying,
+	}
+
+}
+
+func (d *InfluxDevopsSingleHost) Dispatch(i int, q *Query, scaleVar int) {
+	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
+}
+
 // Dispatch fulfills the QueryGenerator interface.
 func (d *InfluxDevops) Dispatch(i int, q *Query, scaleVar int) {
-	DevopsDispatch(d, i, q, scaleVar)
+	devopsDispatchAll(d, i, q, scaleVar)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {

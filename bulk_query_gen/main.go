@@ -18,20 +18,26 @@ import (
 	"time"
 )
 
-// Output data format choices:
-var formatChoices = []string{"influx-http", "es-http"}
-
-// Use case choices:
-var useCaseChoices = []string{"devops-single-host", "devops-full-dataset", "devops-groupby-hosts"}
+// query generator choices {use-case, query-type, format}
+var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
+	"devops": {
+		"single-host": {
+			"influx-http": NewInfluxDevopsSingleHost,
+			"es-http": NewElasticSearchDevopsSingleHost,
+		},
+	},
+}
 
 // Program option vars:
 var (
-	format     string
-	useCase    string
+	useCase   string
+	queryType string
+	format    string
+
 	scaleVar   int
 	queryCount int
 
-	dbName string
+	dbName string // TODO(rw): make this a map[string]string -> DatabaseConfig
 
 	timestampStartStr string
 	timestampEndStr   string
@@ -45,8 +51,23 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-http, es-http)")
-	flag.StringVar(&useCase, "use-case", useCaseChoices[0], fmt.Sprintf("Use case to model. (choices: %s)", useCaseChoices))
+	oldUsage := flag.Usage
+	flag.Usage = func() {
+		oldUsage()
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "The use case matrix of choices is:\n")
+		for uc, queryTypes := range useCaseMatrix {
+			for qt, formats := range queryTypes {
+				for ff := range formats {
+					fmt.Fprintf(os.Stderr, "  use case: %s, query type: %s, format: %s\n", uc, qt, ff)
+				}
+			}
+		}
+
+	}
+	flag.StringVar(&format, "format", "influx-http", "Format to emit. (Choices are in the use case matrix.)")
+	flag.StringVar(&useCase, "use-case", "devops", "Use case to model. (Choices are in the use case matrix.)")
+	flag.StringVar(&queryType, "query-type", "", "Query type. (Choices are in the use case matrix.)")
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
@@ -60,16 +81,19 @@ func init() {
 
 	flag.Parse()
 
-	validFormat := false
-	for _, s := range formatChoices {
-		if s == format {
-			validFormat = true
-			break
-		}
+	if _, ok := useCaseMatrix[useCase]; !ok {
+		log.Fatal("invalid use case specifier")
 	}
-	if !validFormat {
+
+	if _, ok := useCaseMatrix[useCase][queryType]; !ok {
+		log.Fatal("invalid query type specifier")
+	}
+
+	if _, ok := useCaseMatrix[useCase][queryType][format]; !ok {
 		log.Fatal("invalid format specifier")
 	}
+
+
 
 	// the default seed is the current timestamp:
 	if seed == 0 {
@@ -94,20 +118,12 @@ func init() {
 func main() {
 	rand.Seed(seed)
 
-	var generator QueryGenerator
-	switch useCase {
-	case "devops-single-host":
-		switch format {
-		case "influx-http":
-			generator = NewInfluxDevops(dbName, timestampStart, timestampEnd)
-		case "es-http":
-			generator = NewElasticSearchDevops(timestampStart, timestampEnd)
-		default:
-			panic("invalid format")
-		}
-	default:
-		panic("invalid use case")
+	dbConfig := DatabaseConfig{
+		"database-name": dbName,
 	}
+
+	qgMaker := useCaseMatrix[useCase][queryType][format]
+	var generator QueryGenerator = qgMaker(dbConfig, timestampStart, timestampEnd)
 
 	stats := make(map[string]int64)
 

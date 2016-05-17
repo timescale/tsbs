@@ -25,8 +25,12 @@ type ElasticSearchDevops struct {
 	AllInterval TimeInterval
 }
 
+type ElasticSearchDevopsSingleHost struct {
+	ElasticSearchDevops
+}
+
 // NewElasticSearchDevops makes an ElasticSearchDevops object ready to generate Queries.
-func NewElasticSearchDevops(start, end time.Time) *ElasticSearchDevops {
+func NewElasticSearchDevops(_ DatabaseConfig, start, end time.Time) QueryGenerator {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
@@ -35,9 +39,22 @@ func NewElasticSearchDevops(start, end time.Time) *ElasticSearchDevops {
 	}
 }
 
+func NewElasticSearchDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := NewElasticSearchDevops(dbConfig, start, end).(*ElasticSearchDevops)
+	return &ElasticSearchDevopsSingleHost{
+		ElasticSearchDevops: *underlying,
+	}
+
+}
+
+func (d *ElasticSearchDevopsSingleHost) Dispatch(i int, q *Query, scaleVar int) {
+	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
+}
+
+
 // Dispatch fulfills the QueryGenerator interface.
 func (d *ElasticSearchDevops) Dispatch(i int, q *Query, scaleVar int) {
-	DevopsDispatch(d, i, q, scaleVar)
+	devopsDispatchAll(d, i, q, scaleVar)
 }
 
 // MaxCPUUsageHourByMinuteOneHost populates a Query for getting the maximum CPU
