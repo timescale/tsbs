@@ -15,5 +15,5 @@ func NewElasticSearchDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time
 }
 
 func (d *ElasticSearchDevopsGroupBy) Dispatch(i int, q *Query, scaleVar int) {
-	d.MeanCPUUsageDayByHourAllHosts(q, scaleVar)
+	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, scaleVar)
 }

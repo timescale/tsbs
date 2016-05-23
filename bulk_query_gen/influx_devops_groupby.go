@@ -16,5 +16,5 @@ func NewInfluxDevopsGroupby(dbConfig DatabaseConfig, start, end time.Time) Query
 }
 
 func (d *InfluxDevopsGroupby) Dispatch(i int, q *Query, scaleVar int) {
-	d.MeanCPUUsageDayByHourAllHosts(q, scaleVar)
+	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, scaleVar)
 }

@@ -108,7 +108,7 @@ func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, 
 	q.Body = body.Bytes()
 }
 
-func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHosts(q *Query, scaleVar int) {
+func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(q *Query, scaleVar int) {
 	if scaleVar > 10000 {
 		panic("scaleVar > 10000 implies size > 10000, which is not supported on elasticsearch. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html")
 	}
