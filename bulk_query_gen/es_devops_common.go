@@ -108,15 +108,20 @@ func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, 
 	q.Body = body.Bytes()
 }
 
-func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHosts(q *Query) {
-	interval := d.AllInterval.RandWindow(24*time.Hour)
+func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHosts(q *Query, scaleVar int) {
+	if scaleVar > 10000 {
+		panic("scaleVar > 10000 implies size > 10000, which is not supported on elasticsearch. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html")
+	}
+
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	body := new(bytes.Buffer)
 	mustExecuteTemplate(fleetGroupByHostnameQuery, body, FleetQueryParams{
-		Start:                interval.StartString(),
-		End:                  interval.EndString(),
-		Bucket:               "1h",
-		Field:                "usage_user",
+		Start:         interval.StartString(),
+		End:           interval.EndString(),
+		Bucket:        "1h",
+		Field:         "usage_user",
+		HostnameCount: scaleVar,
 	})
 
 	humanLabel := []byte("Elastic mean cpu, all hosts, rand 1day by 1hour")
@@ -137,6 +142,7 @@ func mustExecuteTemplate(t *template.Template, w io.Writer, params interface{}) 
 
 type FleetQueryParams struct {
 	Bucket, Start, End, Field string
+	HostnameCount             int
 }
 
 type HostsQueryParams struct {
@@ -194,6 +200,7 @@ const rawFleetGroupByHostnameQuery = `
       "aggs": {
         "by_hostname": {
           "terms": {
+            "size": {{.HostnameCount}},
             "field": "hostname"
 	  },
           "aggs": {

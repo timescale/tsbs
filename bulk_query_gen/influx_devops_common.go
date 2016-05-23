@@ -90,7 +90,7 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, nhosts 
 
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *InfluxDevops) MeanCPUUsageDayByHourAllHosts(q *Query) {
+func (d *InfluxDevops) MeanCPUUsageDayByHourAllHosts(q *Query, _ int) {
 	interval := d.AllInterval.RandWindow(24*time.Hour)
 
 	v := url.Values{}
