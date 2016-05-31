@@ -3,11 +3,17 @@ package main
 // This file lifted wholesale from mountainflux by Mark Rushakoff.
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/valyala/fasthttp"
+)
+
+var (
+	BackoffError error = fmt.Errorf("backpressure is needed")
+	backoffMagicWords []byte = []byte("engine: cache maximum memory size exceeded")
 )
 
 // LineProtocolWriter is the interface used to write InfluxDB Line Protocol to a remote server.
@@ -70,7 +76,9 @@ func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 	lat := time.Since(start).Nanoseconds()
 	if err == nil {
 		sc := resp.StatusCode()
-		if sc != fasthttp.StatusNoContent {
+		if sc == 500 && backpressurePred(resp.Body()) {
+			err = BackoffError
+		} else if sc != fasthttp.StatusNoContent {
 			err = fmt.Errorf("Invalid write response (status %d): %s", sc, resp.Body())
 		}
 	}
@@ -79,4 +87,8 @@ func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 	fasthttp.ReleaseRequest(req)
 
 	return lat, err
+}
+
+func backpressurePred(body []byte) bool {
+	return bytes.Contains(body, backoffMagicWords)
 }

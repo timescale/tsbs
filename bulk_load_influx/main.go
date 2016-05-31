@@ -25,6 +25,7 @@ var (
 	dbName    string
 	workers   int
 	batchSize int
+	backoff   time.Duration
 	doLoad    bool
 )
 
@@ -42,6 +43,7 @@ func init() {
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
 	flag.Parse()
@@ -140,8 +142,16 @@ func processBatches(w LineProtocolWriter) {
 		if !doLoad {
 			continue
 		}
-		// Write the batch.
-		_, err := w.WriteLineProtocol(batch.Bytes())
+		// Write the batch: try until backoff is not needed.
+		var err error
+		for {
+			_, err = w.WriteLineProtocol(batch.Bytes())
+			if err == BackoffError {
+				time.Sleep(backoff)
+			} else {
+				break
+			}
+		}
 		if err != nil {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}
