@@ -177,20 +177,22 @@ func processBatches(w LineProtocolWriter) {
 }
 
 func processBackoffMessages() {
+	var totalBackoffSecs float64
 	var start time.Time
 	last := false
 	for this := range backingOffChan {
 		if this && !last {
-			fmt.Println("backoff started")
 			start = time.Now()
 			last = true
 		} else if !this && last {
 			took := time.Now().Sub(start)
-			fmt.Printf("backoff ended after %.02fsec\n", took.Seconds())
-			start = time.Now()
+			fmt.Printf("backoff took %.02fsec\n", took.Seconds())
+			totalBackoffSecs += took.Seconds()
 			last = false
+			start = time.Now()
 		}
 	}
+	fmt.Printf("backoffs took a total of %fsec of runtime\n", totalBackoffSecs)
 	backingOffDone<-struct{}{}
 }
 
