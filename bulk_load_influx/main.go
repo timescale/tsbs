@@ -31,10 +31,12 @@ var (
 
 // Global vars
 var (
-	bufPool      sync.Pool
-	batchChan    chan *bytes.Buffer
-	inputDone    chan struct{}
-	workersGroup sync.WaitGroup
+	bufPool        sync.Pool
+	batchChan      chan *bytes.Buffer
+	inputDone      chan struct{}
+	workersGroup   sync.WaitGroup
+	backingOffChan chan bool
+	backingOffDone chan struct{}
 )
 
 // Parse args:
@@ -76,6 +78,9 @@ func main() {
 	batchChan = make(chan *bytes.Buffer, workers)
 	inputDone = make(chan struct{})
 
+	backingOffChan = make(chan bool, 100)
+	backingOffDone = make(chan struct{})
+
 	for i := 0; i < workers; i++ {
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
@@ -85,12 +90,18 @@ func main() {
 		go processBatches(NewHTTPWriter(cfg))
 	}
 
+	go processBackoffMessages()
+
 	start := time.Now()
 	itemsRead := scan(batchSize)
 
 	<-inputDone
 	close(batchChan)
+
 	workersGroup.Wait()
+
+	close(backingOffChan)
+	<-backingOffDone
 
 	end := time.Now()
 	took := end.Sub(start)
@@ -147,8 +158,10 @@ func processBatches(w LineProtocolWriter) {
 		for {
 			_, err = w.WriteLineProtocol(batch.Bytes())
 			if err == BackoffError {
+				backingOffChan <- true
 				time.Sleep(backoff)
 			} else {
+				backingOffChan <- false
 				break
 			}
 		}
@@ -161,6 +174,24 @@ func processBatches(w LineProtocolWriter) {
 		bufPool.Put(batch)
 	}
 	workersGroup.Done()
+}
+
+func processBackoffMessages() {
+	var start time.Time
+	last := false
+	for this := range backingOffChan {
+		if this && !last {
+			fmt.Println("backoff started")
+			start = time.Now()
+			last = true
+		} else if !this && last {
+			took := time.Now().Sub(start)
+			fmt.Printf("backoff ended after %.02fsec\n", took.Seconds())
+			start = time.Now()
+			last = false
+		}
+	}
+	backingOffDone<-struct{}{}
 }
 
 func createDb(daemon_url, dbname string) error {
