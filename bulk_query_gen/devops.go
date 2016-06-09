@@ -11,6 +11,8 @@ type Devops interface {
 
 	MeanCPUUsageDayByHourAllHostsGroupbyHost(*Query, int)
 
+	CountCPUUsageDayByHourAllHostsGroupbyHost(*Query, int)
+
 	Dispatch(int, *Query, int)
 }
 

@@ -104,3 +104,18 @@ func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(q *Query, _ int)
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
 }
+
+func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(q *Query, _ int) {
+	interval := d.AllInterval.RandWindow(24*time.Hour)
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT count(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
+
+	humanLabel := "Influx mean cpu, all hosts, rand 1day by 1hour"
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
