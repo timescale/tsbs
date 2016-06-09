@@ -164,15 +164,17 @@ func createKeyspace(daemon_url string) {
 		log.Print("echo 'drop keyspace measurements;' | cqlsh <host>")
 		log.Fatal(err)
 	}
-	q := `CREATE TABLE measurements.all_series (
-		series_id text,
-		timestamp_ns bigint,
-		value double,
-		PRIMARY KEY (series_id, timestamp_ns)
-	)
-	WITH COMPACT STORAGE;
-	`
-	if err := session.Query(q).Exec(); err != nil {
-		log.Fatal(err)
+	for _, cassandraTypename := range []string{"bigint", "float", "double", "boolean", "blob"} {
+		q := fmt.Sprintf(`CREATE TABLE measurements.series_%s (
+					series_id text,
+					timestamp_ns bigint,
+					value %s,
+					PRIMARY KEY (series_id, timestamp_ns)
+				 )
+				 WITH COMPACT STORAGE;`,
+				 cassandraTypename, cassandraTypename)
+		if err := session.Query(q).Exec(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }

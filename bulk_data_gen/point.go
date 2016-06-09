@@ -188,8 +188,13 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 	timestampBucket := p.Timestamp.UTC().Format("2006-01-02")
 
 	for fieldId := 0; fieldId < len(p.FieldKeys); fieldId++ {
+		v := p.FieldValues[fieldId]
+		tableName := fmt.Sprintf("measurements.series_%s", typeNameForCassandra(v))
+
 		buf := make([]byte, 0, 256)
-		buf = append(buf, []byte("INSERT INTO measurements.all_series (series_id, timestamp_ns, value) VALUES ('")...)
+		buf = append(buf, []byte("INSERT INTO ")...)
+		buf = append(buf, []byte(tableName)...)
+		buf = append(buf, []byte(" (series_id, timestamp_ns, value) VALUES ('")...)
 		buf = append(buf, seriesIdPrefix...)
 		buf = append(buf, byte('#'))
 		buf = append(buf, p.FieldKeys[fieldId]...)
@@ -200,7 +205,6 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 		buf = append(buf, charSpace)
 		buf = append(buf, []byte(fmt.Sprintf("%d, ", timestampNanos))...)
 
-		v := p.FieldValues[fieldId]
 		buf = fastFormatAppend(v, buf)
 
 		buf = append(buf, []byte(")\n")...)
@@ -212,6 +216,23 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 	}
 
 	return nil
+}
+
+func typeNameForCassandra(v interface{}) string {
+	switch v.(type) {
+	case int, int64:
+		return "bigint"
+	case float64:
+		return "double"
+	case float32:
+		return "float"
+	case bool:
+		return "boolean"
+	case []byte, string:
+		return "blob"
+	default:
+		panic(fmt.Sprintf("unknown field type for %#v", v))
+	}
 }
 
 func fastFormatAppend(v interface{}, buf []byte) []byte {
