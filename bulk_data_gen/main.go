@@ -3,6 +3,7 @@
 // Supported formats:
 // InfluxDB bulk load format
 // ElasticSearch bulk load format
+// Cassandra query format
 //
 // Supported use cases:
 // Devops: scale_var is the number of hosts to simulate, with log messages
@@ -17,11 +18,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}
@@ -48,7 +50,7 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&format, "format", formatChoices[0], "Format to emit. (choices: influx-bulk, es-bulk)")
+	flag.StringVar(&format, "format", formatChoices[0], fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
 	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
 	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
@@ -119,6 +121,8 @@ func main() {
 		serializer = (*Point).SerializeInfluxBulk
 	case "es-bulk":
 		serializer = (*Point).SerializeESBulk
+	case "cassandra":
+		serializer = (*Point).SerializeCassandra
 	default:
 		panic("unreachable")
 	}

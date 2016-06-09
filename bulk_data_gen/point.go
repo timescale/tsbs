@@ -165,6 +165,55 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 	return nil
 }
 
+// SerializeCassandra writes Point data to the given writer, conforming to the
+// Cassandra query format.
+//
+// This function writes output that looks like:
+// INSERT INTO <tablename> (series_id, ts_ns, value) VALUES (<series_id>, <timestamp_nanoseconds>, <field value>)
+// where series_id looks like: <measurement>,<tagset>#<field name>#<time shard>
+//
+// For example:
+// INSERT INTO all_series (series_id, timestamp_ns, value) VALUES ('cpu,hostname=host_01#user#2016-01-01', 12345, 42.1)\n
+func (p *Point) SerializeCassandra(w io.Writer) (err error) {
+	seriesIdPrefix := make([]byte, 0, 256)
+	seriesIdPrefix = append(seriesIdPrefix, p.MeasurementName...)
+	for i := 0; i < len(p.TagKeys); i++ {
+		seriesIdPrefix = append(seriesIdPrefix, charComma)
+		seriesIdPrefix = append(seriesIdPrefix, p.TagKeys[i]...)
+		seriesIdPrefix = append(seriesIdPrefix, charEquals)
+		seriesIdPrefix = append(seriesIdPrefix, p.TagValues[i]...)
+	}
+
+	timestampNanos := p.Timestamp.UTC().UnixNano()
+	timestampBucket := p.Timestamp.UTC().Format("2006-01-02")
+
+	for fieldId := 0; fieldId < len(p.FieldKeys); fieldId++ {
+		buf := make([]byte, 0, 256)
+		buf = append(buf, []byte("INSERT INTO measurements.all_series (series_id, timestamp_ns, value) VALUES ('")...)
+		buf = append(buf, seriesIdPrefix...)
+		buf = append(buf, byte('#'))
+		buf = append(buf, p.FieldKeys[fieldId]...)
+		buf = append(buf, byte('#'))
+		buf = append(buf, []byte(timestampBucket)...)
+		buf = append(buf, byte('\''))
+		buf = append(buf, charComma)
+		buf = append(buf, charSpace)
+		buf = append(buf, []byte(fmt.Sprintf("%d, ", timestampNanos))...)
+
+		v := p.FieldValues[fieldId]
+		buf = fastFormatAppend(v, buf)
+
+		buf = append(buf, []byte(")\n")...)
+
+		_, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func fastFormatAppend(v interface{}, buf []byte) []byte {
 	switch v.(type) {
 	case int:
