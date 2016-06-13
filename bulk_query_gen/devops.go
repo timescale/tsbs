@@ -2,22 +2,22 @@ package main
 
 // Devops describes a devops query generator.
 type Devops interface {
-	MaxCPUUsageHourByMinuteOneHost(*Query, int)
-	MaxCPUUsageHourByMinuteTwoHosts(*Query, int)
-	MaxCPUUsageHourByMinuteFourHosts(*Query, int)
-	MaxCPUUsageHourByMinuteEightHosts(*Query, int)
-	MaxCPUUsageHourByMinuteSixteenHosts(*Query, int)
-	MaxCPUUsageHourByMinuteThirtyTwoHosts(*Query, int)
+	MaxCPUUsageHourByMinuteOneHost(Query, int)
+	MaxCPUUsageHourByMinuteTwoHosts(Query, int)
+	MaxCPUUsageHourByMinuteFourHosts(Query, int)
+	MaxCPUUsageHourByMinuteEightHosts(Query, int)
+	MaxCPUUsageHourByMinuteSixteenHosts(Query, int)
+	MaxCPUUsageHourByMinuteThirtyTwoHosts(Query, int)
 
-	MeanCPUUsageDayByHourAllHostsGroupbyHost(*Query, int)
+	MeanCPUUsageDayByHourAllHostsGroupbyHost(Query, int)
 
-	CountCPUUsageDayByHourAllHostsGroupbyHost(*Query, int)
+	//CountCPUUsageDayByHourAllHostsGroupbyHost(Query, int)
 
-	Dispatch(int, *Query, int)
+	Dispatch(int, int) Query
 }
 
 // devopsDispatchAll round-robins through the different devops queries.
-func devopsDispatchAll(d Devops, iteration int, q *Query, scaleVar int) {
+func devopsDispatchAll(d Devops, iteration int, q Query, scaleVar int) {
 	if scaleVar <= 0 {
 		panic("logic error: bad scalevar")
 	}

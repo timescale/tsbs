@@ -142,9 +142,8 @@ func main() {
 	// Create request instances, serializing them to stdout and collecting
 	// counts for each kind:
 	enc := gob.NewEncoder(out)
-	q := &Query{}
 	for i := 0; i < queryCount; i++ {
-		generator.Dispatch(i, q, scaleVar)
+		q := generator.Dispatch(i, scaleVar)
 		err := enc.Encode(q)
 		if err != nil {
 			log.Fatal(err)
@@ -167,6 +166,7 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+		q.Release()
 	}
 
 	// Print stats:

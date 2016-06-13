@@ -14,6 +14,8 @@ func NewElasticSearchDevopsSingleHost(dbConfig DatabaseConfig, start, end time.T
 	}
 }
 
-func (d *ElasticSearchDevopsSingleHost) Dispatch(i int, q *Query, scaleVar int) {
+func (d *ElasticSearchDevopsSingleHost) Dispatch(i, scaleVar int) Query {
+	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
+	return q
 }

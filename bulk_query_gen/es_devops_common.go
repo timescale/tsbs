@@ -36,45 +36,47 @@ func NewElasticSearchDevops(_ DatabaseConfig, start, end time.Time) QueryGenerat
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *ElasticSearchDevops) Dispatch(i int, q *Query, scaleVar int) {
+func (d *ElasticSearchDevops) Dispatch(i, scaleVar int) Query {
+	q := NewHTTPQuery() // from pool
 	devopsDispatchAll(d, i, q, scaleVar)
+	return q
 }
 
 // MaxCPUUsageHourByMinuteOneHost populates a Query for getting the maximum CPU
 // usage for one host over the course of an hour.
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1)
 }
 
 // MaxCPUUsageHourByMinuteTwoHosts populates a Query for getting the maximum CPU
 // usage for two hosts over the course of an hour.
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 2)
 }
 
 // MaxCPUUsageHourByMinuteFourHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteFourHosts(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 4)
 }
 
 // MaxCPUUsageHourByMinuteEightHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteEightHosts(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8)
 }
 
 // MaxCPUUsageHourByMinuteSixteenHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteSixteenHosts(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 16)
 }
 
-func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q *Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32)
+func (d *ElasticSearchDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 32)
 }
 
-func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, nhosts int) {
+func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(time.Hour)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
@@ -100,6 +102,7 @@ func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, 
 	})
 
 	humanLabel := []byte(fmt.Sprintf("Elastic max cpu, rand %4d hosts, rand 1hr by 1m", nhosts))
+	q := qi.(*HTTPQuery)
 	q.HumanLabel = humanLabel
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("POST")
@@ -108,7 +111,7 @@ func (d *ElasticSearchDevops) maxCPUUsageHourByMinuteNHosts(q *Query, scaleVar, 
 	q.Body = body.Bytes()
 }
 
-func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(q *Query, scaleVar int) {
+func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, scaleVar int) {
 	if scaleVar > 10000 {
 		panic("scaleVar > 10000 implies size > 10000, which is not supported on elasticsearch. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html")
 	}
@@ -125,6 +128,7 @@ func (d *ElasticSearchDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(q *Query,
 	})
 
 	humanLabel := []byte("Elastic mean cpu, all hosts, rand 1day by 1hour")
+	q := qi.(*HTTPQuery)
 	q.HumanLabel = humanLabel
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("POST")

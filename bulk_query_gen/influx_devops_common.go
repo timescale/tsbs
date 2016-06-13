@@ -30,8 +30,10 @@ func newInfluxDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryG
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *InfluxDevops) Dispatch(i int, q *Query, scaleVar int) {
+func (d *InfluxDevops) Dispatch(i, scaleVar int) Query {
+	q := NewHTTPQuery() // from pool
 	devopsDispatchAll(d, i, q, scaleVar)
+	return q
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q *Query, scaleVar int) {
