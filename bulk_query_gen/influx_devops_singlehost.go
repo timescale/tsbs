@@ -15,6 +15,8 @@ func NewInfluxDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) Qu
 
 }
 
-func (d *InfluxDevopsSingleHost) Dispatch(i int, q *Query, scaleVar int) {
+func (d *InfluxDevopsSingleHost) Dispatch(i, scaleVar int) Query {
+	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
+	return q
 }

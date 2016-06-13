@@ -148,15 +148,15 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		stats[string(q.HumanLabel)]++
+		stats[string(q.HumanLabelName())]++
 
 		if debug == 1 {
-			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabel)
+			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabelName())
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else if debug == 2 {
-			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescription)
+			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescriptionName())
 			if err != nil {
 				log.Fatal(err)
 			}

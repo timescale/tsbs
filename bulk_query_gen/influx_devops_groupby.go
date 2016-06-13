@@ -15,6 +15,8 @@ func NewInfluxDevopsGroupby(dbConfig DatabaseConfig, start, end time.Time) Query
 
 }
 
-func (d *InfluxDevopsGroupby) Dispatch(i int, q *Query, scaleVar int) {
+func (d *InfluxDevopsGroupby) Dispatch(i, scaleVar int) Query {
+	q := NewHTTPQuery() // from pool
 	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, scaleVar)
+	return q
 }

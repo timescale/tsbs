@@ -36,6 +36,13 @@ func (q *HTTPQuery) String() string {
 	return fmt.Sprintf("HumanLabel: \"%s\", HumanDescription: \"%s\", Method: \"%s\", Path: \"%s\", Body: \"%s\"", q.HumanLabel, q.HumanDescription, q.Method, q.Path, q.Body)
 }
 
+func (q *HTTPQuery) HumanLabelName() []byte {
+	return q.HumanLabel
+}
+func (q *HTTPQuery) HumanDescriptionName() []byte {
+	return q.HumanDescription
+}
+
 func (q *HTTPQuery) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
@@ -48,5 +55,7 @@ func (q *HTTPQuery) Release() {
 
 type Query interface {
 	Release()
+	HumanLabelName() []byte
+	HumanDescriptionName() []byte
 	fmt.Stringer
 }
