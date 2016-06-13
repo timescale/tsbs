@@ -129,11 +129,11 @@ func main() {
 		ID:               123,
 
 		AggregationType: "avg",
-		MeasurementName:       "cpu",
+		MeasurementName: "cpu",
 		FieldName:       "usage_user",
 		TimeStart:       time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC),
 		TimeEnd:         time.Date(2016, 1, 2, 0, 0, 0, 0, time.UTC),
-		//TagFilters:      []TagFilter{"datacenter=sa-east-1c"},
+		TagFilters:      []TagFilter{"region=sa-east-1"},
 	}
 	close(queryChan)
 
