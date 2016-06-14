@@ -1,7 +1,7 @@
 // query_benchmarker_cassandra speed tests Cassandra servers using request
 // data from stdin.
 //
-// It reads encoded Query objects from stdin, and makes concurrent requests
+// It reads encoded HLQuery objects from stdin, and makes concurrent requests
 // to the provided Cassandra cluster. This program is a 'heavy client', i.e.
 // it builds a client-side index of table metadata before beginning the
 // benchmarking.
@@ -10,7 +10,7 @@
 package main
 
 import (
-	_ "bufio"
+	"bufio"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 )
+
+const BucketDuration time.Duration = 24*time.Hour
 
 // Blessed tables that hold benchmark data:
 var (
@@ -44,6 +46,7 @@ var (
 var (
 	daemonUrl            string
 	workers              int
+	subQueryParallelism  int
 	debug                int
 	prettyPrintResponses bool
 	limit                int64
@@ -54,7 +57,7 @@ var (
 // Global vars:
 var (
 	queryPool    sync.Pool
-	queryChan    chan *Query
+	hlQueryChan  chan *HLQuery
 	statPool     sync.Pool
 	statChan     chan *Stat
 	workersGroup sync.WaitGroup
@@ -65,6 +68,7 @@ var (
 func init() {
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
+	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
 	flag.Int64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
@@ -75,27 +79,28 @@ func init() {
 }
 
 func main() {
-	// // Make pools to minimize heap usage:
-	// queryPool = sync.Pool{
-	// 	New: func() interface{} {
-	// 		return &Query{
-	// 			HumanLabel:       make([]byte, 0, 1024),
-	// 			HumanDescription: make([]byte, 0, 1024),
-	// 			Method:           make([]byte, 0, 1024),
-	// 			Path:             make([]byte, 0, 1024),
-	// 			Body:             make([]byte, 0, 1024),
-	// 		}
-	// 	},
-	// }
+	// Make pools to minimize heap usage:
+	queryPool = sync.Pool{
+		New: func() interface{} {
+			return &HLQuery{
+				HumanLabel:       make([]byte, 0, 1024),
+				HumanDescription: make([]byte, 0, 1024),
+				MeasurementName:  make([]byte, 0, 1024),
+				FieldName:        make([]byte, 0, 1024),
+				AggregationType:  make([]byte, 0, 1024),
+				TagFilters:       make([]TagFilter, 0, 100),
+			}
+		},
+	}
 
-	// statPool = sync.Pool{
-	// 	New: func() interface{} {
-	// 		return &Stat{
-	// 			Label: make([]byte, 0, 1024),
-	// 			Value: 0.0,
-	// 		}
-	// 	},
-	// }
+	statPool = sync.Pool{
+		New: func() interface{} {
+			return &Stat{
+				Label: make([]byte, 0, 1024),
+				Value: 0.0,
+			}
+		},
+	}
 
 	// Make client-side index:
 	csi := NewClientSideIndex(fetchSeriesCollection(daemonUrl))
@@ -105,7 +110,7 @@ func main() {
 	defer session.Close()
 
 	// Make data and control channels:
-	queryChan = make(chan *Query, workers)
+	hlQueryChan = make(chan *HLQuery, workers)
 	statChan = make(chan *Stat, workers)
 
 	// Launch the stats processor:
@@ -113,29 +118,29 @@ func main() {
 	go processStats()
 
 	// Launch the query processors:
-	qe := NewQueryExecutor(session, csi, debug)
+	qe := NewHLQueryExecutor(session, csi, debug)
 	for i := 0; i < workers; i++ {
 		workersGroup.Add(1)
 		go processQueries(qe)
 	}
 
 	// Read in jobs, closing the job channel when done:
-	//input := bufio.NewReaderSize(os.Stdin, 1<<20)
+	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	wallStart := time.Now()
-	//scan(input)
-	queryChan <- &Query{
-		HumanLabel:       []byte("a query label"),
-		HumanDescription: []byte("a query description"),
-		ID:               123,
+	scan(input)
+	//queryChan <- &Query{
+	//	HumanLabel:       []byte("a query label"),
+	//	HumanDescription: []byte("a query description"),
+	//	ID:               123,
 
-		AggregationType: "avg",
-		MeasurementName: "cpu",
-		FieldName:       "usage_user",
-		TimeStart:       time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC),
-		TimeEnd:         time.Date(2016, 1, 2, 0, 0, 0, 0, time.UTC),
-		TagFilters:      []TagFilter{"region=sa-east-1"},
-	}
-	close(queryChan)
+	//	AggregationType: "avg",
+	//	MeasurementName: "cpu",
+	//	FieldName:       "usage_user",
+	//	TimeStart:       time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC),
+	//	TimeEnd:         time.Date(2016, 1, 2, 0, 0, 0, 0, time.UTC),
+	//	TagFilters:      []TagFilter{"region=sa-east-1"},
+	//}
+	close(hlQueryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
@@ -173,7 +178,7 @@ func scan(r io.Reader) {
 			break
 		}
 
-		q := queryPool.Get().(*Query)
+		q := queryPool.Get().(*HLQuery)
 		err := dec.Decode(q)
 		if err == io.EOF {
 			break
@@ -184,29 +189,29 @@ func scan(r io.Reader) {
 
 		q.ID = n
 
-		queryChan <- q
+		hlQueryChan <- q
 
 		n++
 
 	}
 }
 
-// processQueries reads byte buffers from queryChan and writes them to the
+// processQueries reads byte buffers from hlQueryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(qc *QueryExecutor) {
-	opts := QueryExecutorDoOptions{
+func processQueries(qc *HLQueryExecutor) {
+	opts := HLQueryExecutorDoOptions{
+		SubQueryParallelism:  subQueryParallelism,
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
-	for q := range queryChan {
+	for q := range hlQueryChan {
 		lag, err := qc.Do(q, opts)
 
-		//stat := statPool.Get().(*Stat)
-		stat := &Stat{}
+		stat := statPool.Get().(*Stat)
 		stat.Init(q.HumanLabel, lag)
 		statChan <- stat
 
-		//queryPool.Put(q)
+		queryPool.Put(q)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}

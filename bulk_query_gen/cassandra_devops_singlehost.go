@@ -15,7 +15,7 @@ func NewCassandraDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time)
 }
 
 func (d *CassandraDevopsSingleHost) Dispatch(i, scaleVar int) Query {
-	q := NewHTTPQuery() // from pool
+	q := NewCassandraQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	return q
 }

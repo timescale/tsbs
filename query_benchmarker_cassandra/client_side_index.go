@@ -9,65 +9,38 @@ import (
 	"github.com/gocql/gocql"
 )
 
-type timeBucket string
-
-func newTimeBuckets(a, b time.Time) []timeBucket {
-	ret := []timeBucket{}
-
-	start := a.UnixNano()
-	// round down to the first bucket:
-	start -= (start % timeBucketInterval.Nanoseconds())
-
-	// first window is always present:
-	tb := timeBucket(time.Unix(0, start).Format("2016-01-02"))
-	ret = append(ret, tb)
-	start += timeBucketInterval.Nanoseconds()
-
-	// populate remaining windows, if needed:
-	end := b.UnixNano()
-	for start < end {
-		tb := timeBucket(time.Unix(0, start).Format("2016-01-02"))
-		ret = append(ret, tb)
-
-		start += timeBucketInterval.Nanoseconds()
-	}
-
-	return ret
-
-}
-
 // A ClientSideIndex wraps logic to translate a query into the cassandra keys
-// needed to execute that query.
+// needed to execute that query. After initialization, this type is read-only.
 type ClientSideIndex struct {
-	timeBucketMapping map[timeBucket]map[*series]struct{}
-	tagMapping map[string]map[*series]struct{}
+	timeIntervalMapping map[TimeInterval]map[*Series]struct{}
+	tagMapping          map[string]map[*Series]struct{}
 
-	seriesCollection []series
-	seriesIds []string
+	seriesCollection []Series
+	seriesIds        []string
 }
 
-func NewClientSideIndex(seriesCollection []series) *ClientSideIndex {
+func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 	if len(seriesCollection) == 0 {
 		log.Fatal("logic error: no data to build ClientSideIndex")
 	}
 
-	bm := map[timeBucket]map[*series]struct{}{}
+	bm := map[TimeInterval]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
-		if _, ok := bm[s.timeBucket]; !ok {
-			bm[s.timeBucket] = map[*series]struct{}{}
+		if _, ok := bm[s.TimeInterval]; !ok {
+			bm[s.TimeInterval] = map[*Series]struct{}{}
 		}
-		if _, ok := bm[s.timeBucket][&s]; !ok {
-			bm[s.timeBucket][&s] = struct{}{}
+		if _, ok := bm[s.TimeInterval][&s]; !ok {
+			bm[s.TimeInterval][&s] = struct{}{}
 		}
 	}
 
-	tm := map[string]map[*series]struct{}{}
+	tm := map[string]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
-		for tag, _ := range s.tags {
+		for tag, _ := range s.Tags {
 			if _, ok := tm[tag]; !ok {
-				tm[tag] = map[*series]struct{}{}
+				tm[tag] = map[*Series]struct{}{}
 			}
 			if _, ok := tm[tag][&s]; !ok {
 				tm[tag][&s] = struct{}{}
@@ -77,96 +50,78 @@ func NewClientSideIndex(seriesCollection []series) *ClientSideIndex {
 
 	seriesIds := make([]string, 0, len(seriesCollection))
 	for _, s := range seriesCollection {
-		seriesIds = append(seriesIds, s.id)
+		seriesIds = append(seriesIds, s.Id)
 	}
 
-
 	return &ClientSideIndex{
-		timeBucketMapping: bm,
-		tagMapping: tm,
+		timeIntervalMapping: bm,
+		tagMapping:        tm,
 		seriesCollection:  seriesCollection,
-		seriesIds: seriesIds,
+		seriesIds:         seriesIds,
 	}
 }
 
+func (csi *ClientSideIndex) CopyOfSeriesCollection() []Series {
+	ret := make([]Series, len(csi.seriesCollection))
+	copy(ret, csi.seriesCollection)
+	return ret
+}
+
 // linear in the number of filters
-func (csi *ClientSideIndex) SeriesSelector(q *Query) []series {
-	// begin with a set of all possible series:
-	m := map[*series]struct{}{}
+func (csi *ClientSideIndex) SeriesSelector(q *HLQuery) []Series {
+	// begin with a set of all possible Series:
+	m := map[*Series]struct{}{}
 	for _, s := range csi.seriesCollection {
 		safeCopy := s
 		m[&safeCopy] = struct{}{}
 	}
-	fmt.Printf("m len: %d\n", len(m))
+	//fmt.Printf("m len: %d\n", len(m))
 
-	// make an ad-hoc predicate to indicate if a series matches this query:
-	pred := func(s *series) bool {
-		if q.MeasurementName != s.measurement {
-			//fmt.Printf("pred false (measurement): %s != %s\n", q.MeasurementName, s.measurement)
-			return false
-		}
-		if q.FieldName != s.field {
-			//fmt.Printf("pred false (fieldname): %s != %s\n", q.FieldName, s.field)
-			return false
-		}
-		for _, tag := range q.TagFilters {
-			tagStr := string(tag)
-			_, ok := s.tags[tagStr]
-			if !ok {
-				//fmt.Printf("pred false (tag): %s\n", tagStr)
-				return false
-			}
-
-		}
-		//fmt.Printf("pred true\n")
-		return true
-	}
-
-	// filter all series against the predicate, deleting if not a match:
-	ret := []series{}
+	// filter all Series against the predicate:
+	ret := []Series{}
 	for s := range m {
-		if pred(s) {
+		if q.AppliesToSeries(s) {
 			ret = append(ret, *s)
 		}
 	}
 	return ret
 }
 
-// A series maps to a time series in cassandra. All data in this type are just
+// A Series maps to a time series in cassandra. All data in this type are just
 // keys used in the database.
-type series struct {
-	table string // e.g. "series_bigint"
-	id    string // e.g. "cpu,hostname=host_0,region=eu-central-1#usage_idle#2016-01-01"
+type Series struct {
+	Table string // e.g. "series_bigint"
+	Id    string // e.g. "cpu,hostname=host_0,region=eu-central-1#usage_idle#2016-01-01"
 
 	// parsed fields
-	measurement string              // e.g. "cpu"
-	tags        map[string]struct{} // e.g. {"hostname": "host_3"}
-	field       string              // e.g. "usage_idle"
-	timeBucket  timeBucket          // (UTC) e.g. "2016-01-01"
+	Measurement  string              // e.g. "cpu"
+	Tags         map[string]struct{} // e.g. {"hostname": "host_3"}
+	Field        string              // e.g. "usage_idle"
+	TimeInterval TimeInterval        // (UTC) e.g. "2016-01-01"
 }
 
-func newSeries(table, id string) series {
-	s := series{
-		table: table,
-		id:    id,
+func NewSeries(table, id string) Series {
+	s := Series{
+		Table: table,
+		Id:    id,
 	}
 
 	s.parse()
 	return s
 }
 
-func (s *series) parse() {
+func (s *Series) parse() {
 	// expected format:
 	// cpu,hostname=host_0,region=eu-central-1,datacenter=eu-central-1a,rack=42,os=Ubuntu16.10,arch=x64,team=CHI,service=19,service_version=1,service_environment=staging#usage_idle#2016-01-01
-	sections := strings.Split(s.id, "#")
+	sections := strings.Split(s.Id, "#")
 	if len(sections) != 3 {
-		fmt.Println(s.table)
+		//fmt.Println(s.table)
 		log.Fatal("logic error: invalid series id")
 	}
 	measurementAndTags := strings.Split(sections[0], ",")
 
 	// parse measurement:
-	s.measurement = measurementAndTags[0]
+	s.Measurement = measurementAndTags[0]
 
 	// parse tags:
 	tags := map[string]struct{}{}
@@ -177,16 +132,49 @@ func (s *series) parse() {
 
 		tags[tag] = struct{}{}
 	}
-	s.tags = tags
+	s.Tags = tags
 
 	// parse field name:
-	s.field = sections[1]
+	s.Field = sections[1]
 
-	// parse time bucket:
-	s.timeBucket = timeBucket(sections[2])
+	// parse time interval:
+	start, err := time.Parse("2006-01-02", sections[2])
+	if err != nil {
+		log.Fatal("bad time bucket parse in pre-existing database series")
+	}
+	end := start.Add(BucketDuration)
+	s.TimeInterval = TimeInterval{start, end}
 }
 
-func fetchSeriesCollection(daemonUrl string) []series {
+func (s *Series) MatchesTimeInterval(ti *TimeInterval) bool {
+	return s.TimeInterval.Overlap(ti)
+}
+
+func (s *Series) MatchesMeasurementName(m string) bool {
+	return s.Measurement == m
+}
+
+func (s *Series) MatchesFieldName(f string) bool {
+	return s.Field == f
+}
+
+func (s *Series) MatchesTagFilters(tags []TagFilter) bool {
+	for _, tag := range tags {
+		tagStr := string(tag)
+		_, ok := s.Tags[tagStr]
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (q *HLQuery) AppliesToSeries(s *Series) bool {
+	panic("unreachable")
+	return true
+}
+
+func fetchSeriesCollection(daemonUrl string) []Series {
 	cluster := gocql.NewCluster(daemonUrl)
 	cluster.Keyspace = "measurements"
 	cluster.Consistency = gocql.One
@@ -197,14 +185,14 @@ func fetchSeriesCollection(daemonUrl string) []series {
 	}
 	defer session.Close()
 
-	seriesCollection := []series{}
+	seriesCollection := []Series{}
 
 	for _, tableName := range blessedTables {
 		var seriesId string
 		iter := session.Query(fmt.Sprintf(`SELECT DISTINCT series_id FROM %s`, tableName)).Iter()
 		for iter.Scan(&seriesId) {
-			fmt.Println(tableName, seriesId)
-			s := newSeries(tableName, seriesId)
+			//fmt.Println(tableName, seriesId)
+			s := NewSeries(tableName, seriesId)
 			seriesCollection = append(seriesCollection, s)
 
 		}
