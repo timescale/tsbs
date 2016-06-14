@@ -21,6 +21,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
 		"single-host": {
 			"influx-http": NewInfluxDevopsSingleHost,
 			"es-http": NewElasticSearchDevopsSingleHost,
+			"cassandra": NewCassandraDevopsSingleHost,
 		},
 		"groupby": {
 			"influx-http": NewInfluxDevopsGroupby,
