@@ -25,7 +25,7 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 		log.Fatal("logic error: no data to build ClientSideIndex")
 	}
 
-	// build the time bucket reverse index:
+	// build the "time interval -> series" index:
 	bm := map[TimeInterval]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
@@ -37,7 +37,7 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 		}
 	}
 
-	// build the tag reverse index:
+	// build the "tag -> series" index:
 	tm := map[string]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
