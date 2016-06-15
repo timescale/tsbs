@@ -61,6 +61,15 @@ func (ti *TimeInterval) Overlap(other *TimeInterval) bool {
 	return false
 }
 
+type TimeIntervals []TimeInterval
+
+// implement sort.Interface
+func (x TimeIntervals) Len() int { return len(x) }
+func (x TimeIntervals) Swap(i, j int) {x[i], x[j] = x[j], x[i]}
+func (x TimeIntervals) Less(i, j int) bool {
+	return x[i].Start.Before(x[j].Start)
+}
+
 // bucketTimeIntervals is a helper that creates a slice of TimeInterval
 // over the given span of time, in chunks of duration `window`.
 func bucketTimeIntervals(start, end time.Time, window time.Duration) []TimeInterval {

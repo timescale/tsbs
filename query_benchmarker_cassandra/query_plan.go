@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/gocql/gocql"
 )
@@ -29,32 +30,21 @@ func NewQueryPlan(aggrLabel string, bucketedCQLQueries map[TimeInterval][]CQLQue
 
 // Execute runs all CQLQueries in the QueryPlan, possibly in parallel.
 func (qp *QueryPlan) Execute(session *gocql.Session) error {
-	tis := []TimeInterval{}
-  	for ti, cqlGroup := range qp.BucketedCQLQueries {
-		tis = append(tis, ti)
-		//fmt.Printf("[qp_exec] %s\n", ti)
-		_ = cqlGroup
-  	}
-
-	min := tis[0]
-	max := tis[0]
-
-	for _, ti := range tis[1:] {
-		if ti.Start.Before(min.Start) {
-			min = ti
-		}
-		if ti.Start.After(max.Start) {
-			max = ti
-		}
+	// sort the time interval buckets we'll use:
+	sortedKeys := make([]TimeInterval, 0, len(qp.BucketedCQLQueries))
+	for k := range qp.BucketedCQLQueries {
+		sortedKeys = append(sortedKeys, k)
 	}
+	sort.Sort(TimeIntervals(sortedKeys))
 
-	fmt.Printf("[exec] %s - %s\n", min, max)
-
+	// for each bucket, execute its queries, aggregate the results, then
+	// store them:
 	results := make([]float64, 0, len(qp.BucketedCQLQueries))
-  	for _, cqlGroup := range qp.BucketedCQLQueries {
+	for _, k := range sortedKeys {
+		cqlGroup := qp.BucketedCQLQueries[k]
 		agg := make([]float64, 0, len(cqlGroup))
 		for _, query := range cqlGroup {
-			fmt.Println(string(query))
+			//fmt.Println(string(query))
 			iter := session.Query(string(query)).Iter()
 			var x float64
 			for iter.Scan(&x) {

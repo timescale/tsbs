@@ -69,12 +69,12 @@ func (q *HLQuery) ToQueryPlan(csi *ClientSideIndex) (qp *QueryPlan, err error) {
 
 	// For each group-by time bucket, convert its series into CQLQueries:
 	cqlBuckets := make(map[TimeInterval][]CQLQuery, len(bucketedSeries))
-	for k, seriesSlice := range bucketedSeries {
+	for ti, seriesSlice := range bucketedSeries {
 		cqlQueries := make([]CQLQuery, len(seriesSlice))
 		for i, ser := range seriesSlice {
-			cqlQueries[i] = NewCQLQuery(string(q.AggregationType), ser.Table, ser.Id, ser.TimeInterval.Start.UnixNano(), ser.TimeInterval.End.UnixNano())
+			cqlQueries[i] = NewCQLQuery(string(q.AggregationType), ser.Table, ser.Id, ti.Start.UnixNano(), ti.End.UnixNano())
 		}
-		cqlBuckets[k] = cqlQueries
+		cqlBuckets[ti] = cqlQueries
 	}
 
 	qp, err = NewQueryPlan(string(q.AggregationType), cqlBuckets)
