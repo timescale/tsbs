@@ -14,7 +14,11 @@ func NewTimeInterval(start, end time.Time) TimeInterval {
 	if end.Before(start) {
 		panic("logic error in NewTimeInterval: bad input times")
 	}
-	return TimeInterval{Start: start.UTC(), End: end.UTC()}
+	// force UTC to help with pretty-printing:
+	start = start.UTC()
+	end = end.UTC()
+
+	return TimeInterval{Start: start, End: end}
 }
 
 // Overlap detects whether this TimeInterval overlaps with another
@@ -62,7 +66,6 @@ func (ti *TimeInterval) Overlap(other *TimeInterval) bool {
 }
 
 type TimeIntervals []TimeInterval
-
 // implement sort.Interface
 func (x TimeIntervals) Len() int { return len(x) }
 func (x TimeIntervals) Swap(i, j int) {x[i], x[j] = x[j], x[i]}

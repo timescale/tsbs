@@ -1,15 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/gocql/gocql"
 )
 
-// A QueryPlan wraps the literal CQL query data needed to fulfill an HLQuery.
+// A QueryPlan is a concrete strategy used to fulfill an HLQuery.
+//
+// It has 1) an AggrFunc, which merges data on the client, and 2) a map of
+// time interval buckets to CQL queries, which are used to retrieve data
+// relevant to each bucket.
 type QueryPlan struct {
-	Aggregator     AggrFunc
+	Aggregator         AggrFunc
 	BucketedCQLQueries map[TimeInterval][]CQLQuery
 }
 
@@ -22,14 +25,16 @@ func NewQueryPlan(aggrLabel string, bucketedCQLQueries map[TimeInterval][]CQLQue
 	}
 
 	qp := &QueryPlan{
-		Aggregator:     aggr,
+		Aggregator:         aggr,
 		BucketedCQLQueries: bucketedCQLQueries,
 	}
 	return qp, nil
 }
 
-// Execute runs all CQLQueries in the QueryPlan, possibly in parallel.
-func (qp *QueryPlan) Execute(session *gocql.Session) error {
+// Execute runs all CQLQueries in the QueryPlan and collects the results.
+//
+// TODO(rw): support parallel execution.
+func (qp *QueryPlan) Execute(session *gocql.Session) ([]CQLResult, error) {
 	// sort the time interval buckets we'll use:
 	sortedKeys := make([]TimeInterval, 0, len(qp.BucketedCQLQueries))
 	for k := range qp.BucketedCQLQueries {
@@ -38,26 +43,26 @@ func (qp *QueryPlan) Execute(session *gocql.Session) error {
 	sort.Sort(TimeIntervals(sortedKeys))
 
 	// for each bucket, execute its queries, aggregate the results, then
-	// store them:
-	results := make([]float64, 0, len(qp.BucketedCQLQueries))
+	// append them to the result set:
+	results := make([]CQLResult, 0, len(qp.BucketedCQLQueries))
 	for _, k := range sortedKeys {
 		cqlGroup := qp.BucketedCQLQueries[k]
 		agg := make([]float64, 0, len(cqlGroup))
-		for _, query := range cqlGroup {
-			//fmt.Println(string(query))
-			iter := session.Query(string(query)).Iter()
+		for _, q := range cqlGroup {
+			// execute one CQLQuery and collect its result
+			// (we know that it will only return one row)
+			iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
 			var x float64
 			for iter.Scan(&x) {
 				agg = append(agg, x)
 			}
 			if err := iter.Close(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		groupResult := qp.Aggregator(agg)
-		results = append(results, groupResult)
+		results = append(results, CQLResult{TimeInterval: k, Value: groupResult})
 	}
 
-	fmt.Printf("[exec] %v...\n", results[:8])
-	return nil
+	return results, nil
 }

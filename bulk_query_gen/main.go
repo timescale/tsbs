@@ -24,8 +24,14 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
 			"cassandra": NewCassandraDevopsSingleHost,
 		},
 		"groupby": {
-			"influx-http": NewInfluxDevopsGroupby,
+			"influx-http": NewInfluxDevopsGroupBy,
 			"es-http": NewElasticSearchDevopsGroupBy,
+			"cassandra": NewCassandraDevopsGroupBy,
+		},
+		"8-hosts": {
+			"influx-http": NewInfluxDevops8Hosts,
+			//"es-http": NewElasticSearchDevops8Hosts,
+			"cassandra": NewCassandraDevops8Hosts,
 		},
 	},
 }

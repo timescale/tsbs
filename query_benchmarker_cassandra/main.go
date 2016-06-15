@@ -23,11 +23,14 @@ import (
 	"time"
 )
 
-const BucketDuration time.Duration = 24*time.Hour
+const (
+	BucketDuration  time.Duration = 24 * time.Hour
+	BlessedKeyspace string        = "measurements"
+)
 
 // Blessed tables that hold benchmark data:
 var (
-	blessedTables []string = []string{
+	BlessedTables []string = []string{
 		"series_bigint",
 		"series_float",
 		"series_double",
@@ -88,7 +91,7 @@ func main() {
 				MeasurementName:  make([]byte, 0, 1024),
 				FieldName:        make([]byte, 0, 1024),
 				AggregationType:  make([]byte, 0, 1024),
-				TagFilters:       make([]TagFilter, 0, 100),
+				TagSets:          make([][]string, 0, 10),
 			}
 		},
 	}
@@ -103,10 +106,10 @@ func main() {
 	}
 
 	// Make client-side index:
-	csi := NewClientSideIndex(fetchSeriesCollection(daemonUrl))
+	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl))
 
 	// Make database connection pool:
-	session := newSession(daemonUrl)
+	session := NewCassandraSession(daemonUrl)
 	defer session.Close()
 
 	// Make data and control channels:
@@ -128,18 +131,6 @@ func main() {
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	wallStart := time.Now()
 	scan(input)
-	//queryChan <- &Query{
-	//	HumanLabel:       []byte("a query label"),
-	//	HumanDescription: []byte("a query description"),
-	//	ID:               123,
-
-	//	AggregationType: "avg",
-	//	MeasurementName: "cpu",
-	//	FieldName:       "usage_user",
-	//	TimeStart:       time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC),
-	//	TimeEnd:         time.Date(2016, 1, 2, 0, 0, 0, 0, time.UTC),
-	//	TagFilters:      []TagFilter{"region=sa-east-1"},
-	//}
 	close(hlQueryChan)
 
 	// Block for workers to finish sending requests, closing the stats
@@ -188,11 +179,11 @@ func scan(r io.Reader) {
 		}
 
 		q.ID = n
+		q.ForceUTC()
 
 		hlQueryChan <- q
 
 		n++
-
 	}
 }
 
@@ -200,7 +191,6 @@ func scan(r io.Reader) {
 // target server, while tracking latency.
 func processQueries(qc *HLQueryExecutor) {
 	opts := HLQueryExecutorDoOptions{
-		SubQueryParallelism:  subQueryParallelism,
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}

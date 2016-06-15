@@ -7,7 +7,7 @@ type InfluxDevopsGroupby struct {
 	InfluxDevops
 }
 
-func NewInfluxDevopsGroupby(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewInfluxDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
 	underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
 	return &InfluxDevopsGroupby{
 		InfluxDevops: *underlying,

@@ -12,7 +12,6 @@ func NewInfluxDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) Qu
 	return &InfluxDevopsSingleHost{
 		InfluxDevops: *underlying,
 	}
-
 }
 
 func (d *InfluxDevopsSingleHost) Dispatch(i, scaleVar int) Query {
