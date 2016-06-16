@@ -8,6 +8,11 @@ import (
 	"github.com/gocql/gocql"
 )
 
+const (
+	AggrPlanTypeServerAggregation   = 1
+	AggrPlanTypeNoServerAggregation = 2
+)
+
 // An HLQueryExecutor is responsible for executing HLQuery objects in the
 // context of a particular Cassandra session and data set.
 type HLQueryExecutor struct {
@@ -28,6 +33,7 @@ func NewHLQueryExecutor(session *gocql.Session, csi *ClientSideIndex, debug int)
 
 // HLQueryExecutorDoOptions contains options used by HLQueryExecutor.
 type HLQueryExecutorDoOptions struct {
+	AggregationPlan      int
 	SubQueryParallelism  int // unused
 	Debug                int
 	PrettyPrintResponses bool
@@ -42,28 +48,26 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (lagMs 
 	}
 
 	// build the query plan:
-	var qp *QueryPlan
+	var qp QueryPlan
 	qpStart := time.Now()
-	qp, err = q.ToQueryPlan(qe.csi)
+	switch opts.AggregationPlan {
+	case AggrPlanTypeServerAggregation:
+		qp, err = q.ToQueryPlanWithServerAggregation(qe.csi)
+	case AggrPlanTypeNoServerAggregation:
+		qp, err = q.ToQueryPlanWithoutServerAggregation(qe.csi)
+	default:
+		panic("logic error: invalid aggregation plan option")
+	}
 	qpLag := time.Now().Sub(qpStart).Seconds()
+
+	// print debug info if needed:
 	if opts.Debug >= 1 {
 		// FYI: query planning takes about 0.5ms for 1000 series.
 		fmt.Printf("[hlqe] query planning took %fs\n", qpLag)
 
-		n := 0
-		for _, qq := range qp.BucketedCQLQueries {
-			n += len(qq)
-		}
-		fmt.Printf("[hlqe] query plan has %d CQLQuery objects\n", n)
+		qp.DebugQueries(opts.Debug)
 	}
 
-	if opts.Debug >= 2 {
-		for k, qq := range qp.BucketedCQLQueries {
-			for i, q := range qq {
-				fmt.Printf("[hlqe] CQL: %s, %d, %s\n", k, i, q)
-			}
-		}
-	}
 	if err != nil {
 		return
 	}

@@ -29,15 +29,15 @@ func (q *HLQuery) String() string {
 	return fmt.Sprintf("ID: %d, HumanLabel: %s, HumanDescription: %s, MeasurementName: %s, FieldName: %s, AggregationType: %s, TimeStart: %s, TimeEnd: %s, GroupByDuration: %s, TagSets: %s", q.ID, q.HumanLabel, q.HumanDescription, q.MeasurementName, q.FieldName, q.AggregationType, q.TimeStart, q.TimeEnd, q.GroupByDuration, q.TagSets)
 }
 
-// ForceUTC rewrites timestamps to be in UTC, which is helpful for
-// pretty-printing.
+// ForceUTC rewrites timestamps in UTC, which is helpful for pretty-printing.
 func (q *HLQuery) ForceUTC() {
 	q.TimeStart = q.TimeStart.UTC()
 	q.TimeEnd = q.TimeEnd.UTC()
 }
 
-// ToQueryPlan combines an HLQuery with a ClientSideIndex to make a QueryPlan.
-func (q *HLQuery) ToQueryPlan(csi *ClientSideIndex) (qp *QueryPlan, err error) {
+// ToQueryPlanWithServerAggregation combines an HLQuery with a
+// ClientSideIndex to make a QueryPlanWithServerAggregation.
+func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithServerAggregation, err error) {
 	seriesChoices := csi.CopyOfSeriesCollection()
 
 	// Build the time buckets used for 'group by time'-type queries.
@@ -95,7 +95,52 @@ func (q *HLQuery) ToQueryPlan(csi *ClientSideIndex) (qp *QueryPlan, err error) {
 		cqlBuckets[ti] = cqlQueries
 	}
 
-	qp, err = NewQueryPlan(string(q.AggregationType), cqlBuckets)
+	qp, err = NewQueryPlanWithServerAggregation(string(q.AggregationType), cqlBuckets)
+	return
+}
+
+// ToQueryPlanWithoutServerAggregation combines an HLQuery with a
+// ClientSideIndex to make a QueryPlanWithoutServerAggregation.
+//
+// It executes at most one CQLQuery per series.
+func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
+	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	seriesChoices := csi.CopyOfSeriesCollection()
+
+	// Build the time buckets used for 'group by time'-type queries.
+	//
+	// It is important to populate these even if they end up being empty,
+	// so that we get correct results for empty 'time buckets'.
+	timeBuckets := bucketTimeIntervals(q.TimeStart, q.TimeEnd, q.GroupByDuration)
+
+	// For each known db series, use it for querying only if it matches
+	// this HLQuery:
+	applicableSeries := []Series{}
+	for _, s := range seriesChoices {
+		if !s.MatchesMeasurementName(string(q.MeasurementName)) {
+			continue
+		}
+		if !s.MatchesFieldName(string(q.FieldName)) {
+			continue
+		}
+		if !s.MatchesTagSets(q.TagSets) {
+			continue
+		}
+		if !s.MatchesTimeInterval(&hlQueryInterval) {
+			continue
+		}
+
+		applicableSeries = append(applicableSeries, s)
+	}
+
+	// Build CQLQuery objects that will be used to fulfill this HLQuery:
+	cqlQueries := []CQLQuery{}
+	for _, ser := range applicableSeries {
+		q := NewCQLQuery("", ser.Table, ser.Id, q.TimeStart.UnixNano(), q.TimeEnd.UnixNano())
+		cqlQueries = append(cqlQueries, q)
+	}
+
+	qp, err = NewQueryPlanWithoutServerAggregation(string(q.AggregationType), q.GroupByDuration, timeBuckets, cqlQueries)
 	return
 }
 
@@ -107,7 +152,13 @@ type CQLQuery struct {
 
 // NewCQLQuery builds a CQLQuery, using prepared CQL statements.
 func NewCQLQuery(aggrLabel, tableName, rowName string, timeStartNanos, timeEndNanos int64) CQLQuery {
-	preparableQueryString := fmt.Sprintf("SELECT %s(value) FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", aggrLabel, tableName)
+	var preparableQueryString string
+
+	if aggrLabel == "" {
+		preparableQueryString = fmt.Sprintf("SELECT timestamp_ns, value FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", tableName)
+	} else {
+		preparableQueryString = fmt.Sprintf("SELECT %s(value) FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", aggrLabel, tableName)
+	}
 	args := []interface{}{rowName, timeStartNanos, timeEndNanos}
 	return CQLQuery{preparableQueryString, args}
 }

@@ -44,12 +44,21 @@ var (
 var (
 	daemonUrl            string
 	workers              int
+	aggrPlanLabel        string
 	subQueryParallelism  int
 	debug                int
 	prettyPrintResponses bool
 	limit                int64
 	printInterval        int64
 	memProfile           string
+)
+
+// Helpers for choice-like flags:
+var (
+	aggrPlanChoices map[string]int = map[string]int{
+		"server": AggrPlanTypeServerAggregation,
+		"client": AggrPlanTypeNoServerAggregation,
+	}
 )
 
 // Global vars:
@@ -60,20 +69,27 @@ var (
 	statChan     chan *Stat
 	workersGroup sync.WaitGroup
 	statGroup    sync.WaitGroup
+	aggrPlan     int
 )
 
 // Parse args:
 func init() {
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
+	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
 	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
 	flag.Int64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
-	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
+	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
+
+	if _, ok := aggrPlanChoices[aggrPlanLabel]; !ok {
+		log.Fatal("invalid aggregation plan")
+	}
+	aggrPlan = aggrPlanChoices[aggrPlanLabel]
 }
 
 func main() {
@@ -186,6 +202,7 @@ func scan(r io.Reader) {
 // target server, while tracking latency.
 func processQueries(qc *HLQueryExecutor) {
 	opts := HLQueryExecutorDoOptions{
+		AggregationPlan:      aggrPlan,
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}

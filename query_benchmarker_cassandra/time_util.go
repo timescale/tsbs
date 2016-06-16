@@ -66,9 +66,10 @@ func (ti *TimeInterval) Overlap(other *TimeInterval) bool {
 }
 
 type TimeIntervals []TimeInterval
+
 // implement sort.Interface
-func (x TimeIntervals) Len() int { return len(x) }
-func (x TimeIntervals) Swap(i, j int) {x[i], x[j] = x[j], x[i]}
+func (x TimeIntervals) Len() int      { return len(x) }
+func (x TimeIntervals) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 func (x TimeIntervals) Less(i, j int) bool {
 	return x[i].Start.Before(x[j].Start)
 }
@@ -86,6 +87,14 @@ func bucketTimeIntervals(start, end time.Time, window time.Duration) []TimeInter
 		ti := NewTimeInterval(start, start.Add(window))
 		ret = append(ret, ti)
 		start = start.Add(window)
+	}
+
+	// sanity check
+	tis := TimeIntervals(ret)
+	for i := 0; i < len(tis)-1; i++ {
+		if !tis.Less(i, i+1) {
+			panic("logic error: unsorted buckets in bucketTimeIntervals")
+		}
 	}
 
 	return ret
