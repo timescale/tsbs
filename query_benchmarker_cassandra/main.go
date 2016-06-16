@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	BucketDuration  time.Duration = 24 * time.Hour
-	BlessedKeyspace string        = "measurements"
+	BucketDuration   time.Duration = 24 * time.Hour
+	BucketTimeLayout string        = "2006-01-02"
+	BlessedKeyspace  string        = "measurements"
 )
 
 // Blessed tables that hold benchmark data:
@@ -37,12 +38,6 @@ var (
 		"series_boolean",
 		"series_blob",
 	}
-)
-
-// Blessed time bucket parameters:
-var (
-	timeBucketInterval time.Duration = 24 * time.Hour
-	timeBucketLayout   string        = "2006-01-02"
 )
 
 // Program option vars:

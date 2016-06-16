@@ -124,7 +124,7 @@ func (s *Series) parse() {
 	s.Field = sections[1]
 
 	// parse time interval:
-	start, err := time.Parse("2006-01-02", sections[2])
+	start, err := time.Parse(BucketTimeLayout, sections[2])
 	if err != nil {
 		log.Fatal("bad time bucket parse in pre-existing database series")
 	}
