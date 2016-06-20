@@ -86,6 +86,9 @@ func (csi *ClientSideIndex) CopyOfSeriesCollection() []Series {
 	return ret
 }
 
+// SeriesForMeasurementAndField filters the series choices based on a key of
+// Measurement name and Field name. Using this dramatically speeds up query
+// planning when the database has many series.
 func (csi *ClientSideIndex) SeriesForMeasurementAndField(measurementName, fieldName string) []Series {
 	key := [2]string{measurementName, fieldName}
 	return csi.nameMapping[key]

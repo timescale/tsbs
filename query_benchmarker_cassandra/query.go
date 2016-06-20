@@ -38,7 +38,7 @@ func (q *HLQuery) ForceUTC() {
 // ToQueryPlanWithServerAggregation combines an HLQuery with a
 // ClientSideIndex to make a QueryPlanWithServerAggregation.
 func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithServerAggregation, err error) {
-	seriesChoices := csi.CopyOfSeriesCollection()
+	seriesChoices := csi.SeriesForMeasurementAndField(string(q.MeasurementName), string(q.FieldName))
 
 	// Build the time buckets used for 'group by time'-type queries.
 	//
@@ -106,7 +106,6 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
 	seriesChoices := csi.SeriesForMeasurementAndField(string(q.MeasurementName), string(q.FieldName))
-	//seriesChoices := csi.CopyOfSeriesCollection()
 
 	// Build the time buckets used for 'group by time'-type queries.
 	//
