@@ -42,7 +42,7 @@ type HLQueryExecutorDoOptions struct {
 // Do takes a high-level query, constructs a query plan using the client-side
 // index contained within the query executor, executes that query plan, then
 // aggregates the results.
-func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (lagMs float64, err error) {
+func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagMs, requestLagMs float64, err error) {
 	if opts.Debug >= 1 {
 		fmt.Printf("[hlqe] Do: %s\n", q)
 	}
@@ -58,12 +58,12 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (lagMs 
 	default:
 		panic("logic error: invalid aggregation plan option")
 	}
-	qpLag := time.Now().Sub(qpStart).Seconds()
+	qpLagMs = float64(time.Now().Sub(qpStart).Nanoseconds()) / 1e6
 
 	// print debug info if needed:
 	if opts.Debug >= 1 {
 		// FYI: query planning takes about 0.5ms for 1000 series.
-		fmt.Printf("[hlqe] query planning took %fs\n", qpLag)
+		fmt.Printf("[hlqe] query planning took %fms\n", qpLagMs)
 
 		qp.DebugQueries(opts.Debug)
 	}
@@ -76,9 +76,9 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (lagMs 
 	var results []CQLResult
 	execStart := time.Now()
 	results, err = qp.Execute(qe.session)
-	lagMs = float64(time.Now().Sub(execStart).Nanoseconds()) / 1e6
+	requestLagMs = float64(time.Now().Sub(execStart).Nanoseconds()) / 1e6
 	if err != nil {
-		return lagMs, err
+		return
 	}
 
 	// optionally, print reponses for query validation:

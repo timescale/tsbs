@@ -13,6 +13,7 @@ import (
 type ClientSideIndex struct {
 	timeIntervalMapping map[TimeInterval]map[*Series]struct{}
 	tagMapping          map[string]map[*Series]struct{}
+	nameMapping         map[[2]string][]Series
 
 	seriesCollection []Series
 	seriesIds        []string
@@ -57,9 +58,21 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 		seriesIds = append(seriesIds, s.Id)
 	}
 
+	// build the "measurement and fieldname -> series slices" index:
+	nm := map[[2]string][]Series{}
+
+	for _, s := range seriesCollection {
+		key := [2]string{s.Measurement, s.Field}
+		if _, ok := nm[key]; !ok {
+			nm[key] = []Series{}
+		}
+		nm[key] = append(nm[key], s)
+	}
+
 	return &ClientSideIndex{
 		timeIntervalMapping: bm,
 		tagMapping:          tm,
+		nameMapping:         nm,
 		seriesCollection:    seriesCollection,
 		seriesIds:           seriesIds,
 	}
@@ -71,6 +84,11 @@ func (csi *ClientSideIndex) CopyOfSeriesCollection() []Series {
 	ret := make([]Series, len(csi.seriesCollection))
 	copy(ret, csi.seriesCollection)
 	return ret
+}
+
+func (csi *ClientSideIndex) SeriesForMeasurementAndField(measurementName, fieldName string) []Series {
+	key := [2]string{measurementName, fieldName}
+	return csi.nameMapping[key]
 }
 
 // A Series maps 1-to-1 to a time series 'wide row' in Cassandra. All data in

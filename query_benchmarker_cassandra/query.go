@@ -105,7 +105,8 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 // It executes at most one CQLQuery per series.
 func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
-	seriesChoices := csi.CopyOfSeriesCollection()
+	seriesChoices := csi.SeriesForMeasurementAndField(string(q.MeasurementName), string(q.FieldName))
+	//seriesChoices := csi.CopyOfSeriesCollection()
 
 	// Build the time buckets used for 'group by time'-type queries.
 	//

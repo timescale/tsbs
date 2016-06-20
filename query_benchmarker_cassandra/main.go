@@ -206,11 +206,32 @@ func processQueries(qc *HLQueryExecutor) {
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+	labels := map[string][][]byte{}
 	for q := range hlQueryChan {
-		lag, err := qc.Do(q, opts)
+		qpLagMs, reqLagMs, err := qc.Do(q, opts)
 
+		if _, ok := labels[string(q.HumanLabel)]; !ok {
+			labels[string(q.HumanLabel)] = [][]byte{
+				q.HumanLabel,
+				[]byte(fmt.Sprintf("%s-qp", q.HumanLabel)),
+				[]byte(fmt.Sprintf("%s-req", q.HumanLabel)),
+			}
+		}
+		ls := labels[string(q.HumanLabel)]
+
+		// total lag stat:
 		stat := statPool.Get().(*Stat)
-		stat.Init(q.HumanLabel, lag)
+		stat.Init(ls[0], qpLagMs + reqLagMs)
+		statChan <- stat
+
+		// qp lag stat:
+		stat = statPool.Get().(*Stat)
+		stat.Init(ls[1], qpLagMs)
+		statChan <- stat
+
+		// req lag stat:
+		stat = statPool.Get().(*Stat)
+		stat.Init(ls[2], reqLagMs)
 		statChan <- stat
 
 		queryPool.Put(q)
