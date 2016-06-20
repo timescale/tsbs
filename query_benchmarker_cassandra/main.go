@@ -245,10 +245,7 @@ func processQueries(qc *HLQueryExecutor) {
 // processStats collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
-	const allQueriesLabel = "all queries"
-	statMapping := map[string]*StatGroup{
-		allQueriesLabel: &StatGroup{},
-	}
+	statMapping := map[string]*StatGroup{}
 
 	i := int64(0)
 	for stat := range statChan {
@@ -256,7 +253,6 @@ func processStats() {
 			statMapping[string(stat.Label)] = &StatGroup{}
 		}
 
-		statMapping[allQueriesLabel].Push(stat.Value)
 		statMapping[string(stat.Label)].Push(stat.Value)
 
 		statPool.Put(stat)
