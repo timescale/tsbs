@@ -221,7 +221,7 @@ func processQueries(qc *HLQueryExecutor) {
 
 		// total lag stat:
 		stat := statPool.Get().(*Stat)
-		stat.Init(ls[0], qpLagMs + reqLagMs, true)
+		stat.Init(ls[0], qpLagMs+reqLagMs, true)
 		statChan <- stat
 
 		// qp lag stat:

@@ -4,8 +4,8 @@ import "fmt"
 
 // Stat represents one statistical measurement.
 type Stat struct {
-	Label            []byte
-	Value            float64
+	Label    []byte
+	Value    float64
 	IsActual bool
 }
 

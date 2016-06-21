@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-// Type Aggregator is merges QueryPlan results on the client in constant time.
+// Type Aggregator merges QueryPlan results on the client in constant time.
 // This is intended to match the aggregation that a CQLQuery performs on a
 // Cassandra server.
 //
