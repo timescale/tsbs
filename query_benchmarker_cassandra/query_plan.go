@@ -22,20 +22,15 @@ type QueryPlan interface {
 // time interval buckets to CQL queries, which are used to retrieve data
 // relevant to each bucket.
 type QueryPlanWithServerAggregation struct {
-	Aggregator         AggrFunc
+	AggregatorLabel    string
 	BucketedCQLQueries map[TimeInterval][]CQLQuery
 }
 
 // NewQueryPlanWithServerAggregation builds a QueryPlanWithServerAggregation.
 // It is typically called via (*HLQuery).ToQueryPlanWithServerAggregation.
 func NewQueryPlanWithServerAggregation(aggrLabel string, bucketedCQLQueries map[TimeInterval][]CQLQuery) (*QueryPlanWithServerAggregation, error) {
-	aggr, err := GetAggrFunc(aggrLabel)
-	if err != nil {
-		return nil, err
-	}
-
 	qp := &QueryPlanWithServerAggregation{
-		Aggregator:         aggr,
+		AggregatorLabel:    aggrLabel,
 		BucketedCQLQueries: bucketedCQLQueries,
 	}
 	return qp, nil
@@ -52,13 +47,16 @@ func (qp *QueryPlanWithServerAggregation) Execute(session *gocql.Session) ([]CQL
 	}
 	sort.Sort(TimeIntervals(sortedKeys))
 
-	// for each bucket, execute its queries, aggregate the results, then
-	// append them to the result set:
+	// for each bucket, execute its queries while aggregating its results
+	// in constant space, then append them to the result set:
 	results := make([]CQLResult, 0, len(qp.BucketedCQLQueries))
 	for _, k := range sortedKeys {
-		cqlGroup := qp.BucketedCQLQueries[k]
-		acc := make([]float64, 0, len(cqlGroup))
-		for _, q := range cqlGroup {
+		agg, err := GetAggregator(qp.AggregatorLabel)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, q := range qp.BucketedCQLQueries[k] {
 			// Execute one CQLQuery and collect its result
 			//
 			// For server-side aggregation, this will return only
@@ -67,14 +65,13 @@ func (qp *QueryPlanWithServerAggregation) Execute(session *gocql.Session) ([]CQL
 			iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
 			var x float64
 			for iter.Scan(&x) {
-				acc = append(acc, x)
+				agg.Put(x)
 			}
 			if err := iter.Close(); err != nil {
 				return nil, err
 			}
 		}
-		groupResult := qp.Aggregator(acc)
-		results = append(results, CQLResult{TimeInterval: k, Value: groupResult})
+		results = append(results, CQLResult{TimeInterval: k, Value: agg.Get()})
 	}
 
 	return results, nil
@@ -108,7 +105,7 @@ func (qp *QueryPlanWithServerAggregation) DebugQueries(level int) {
 // response, 3) a set of TimeBuckets, which are used to store final
 // aggregated items, and 4) a set of CQLQueries used to fulfill this plan.
 type QueryPlanWithoutServerAggregation struct {
-	Aggregator      AggrFunc
+	Aggregators     map[TimeInterval]Aggregator
 	GroupByDuration time.Duration
 	TimeBuckets     []TimeInterval
 	CQLQueries      []CQLQuery
@@ -117,13 +114,18 @@ type QueryPlanWithoutServerAggregation struct {
 // NewQueryPlanWithoutServerAggregation builds a QueryPlanWithoutServerAggregation.
 // It is typically called via (*HLQuery).ToQueryPlanWithoutServerAggregation.
 func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time.Duration, timeBuckets []TimeInterval, cqlQueries []CQLQuery) (*QueryPlanWithoutServerAggregation, error) {
-	aggr, err := GetAggrFunc(aggrLabel)
-	if err != nil {
-		return nil, err
+	aggrs := make(map[TimeInterval]Aggregator, len(timeBuckets))
+	for _, ti := range timeBuckets {
+		aggr, err := GetAggregator(aggrLabel)
+		if err != nil {
+			return nil, err
+		}
+
+		aggrs[ti] = aggr
 	}
 
 	qp := &QueryPlanWithoutServerAggregation{
-		Aggregator:      aggr,
+		Aggregators:     aggrs,
 		GroupByDuration: groupByDuration,
 		TimeBuckets:     timeBuckets,
 		CQLQueries:      cqlQueries,
@@ -136,8 +138,6 @@ func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time
 // TODO(rw): use constant-space acc functions (instead of requiring a slice).
 // TODO(rw): support parallel execution.
 func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]CQLResult, error) {
-	toAggregate := map[TimeInterval][]float64{}
-
 	// for each query, execute it, then append each result row to the
 	// client-side bucket that matches its timestamp:
 	for _, q := range qp.CQLQueries {
@@ -154,7 +154,7 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 				End:   tsTruncated.Add(qp.GroupByDuration),
 			}
 
-			toAggregate[bucketKey] = append(toAggregate[bucketKey], value)
+			qp.Aggregators[bucketKey].Put(value)
 		}
 		if err := iter.Close(); err != nil {
 			return nil, err
@@ -164,7 +164,7 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 	// perform aggregation across all buckets, entirely on the client:
 	results := make([]CQLResult, 0, len(qp.TimeBuckets))
 	for _, ti := range qp.TimeBuckets {
-		acc := qp.Aggregator(toAggregate[ti])
+		acc := qp.Aggregators[ti].Get()
 		results = append(results, CQLResult{TimeInterval: ti, Value: acc})
 	}
 
