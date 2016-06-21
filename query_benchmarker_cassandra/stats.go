@@ -4,15 +4,17 @@ import "fmt"
 
 // Stat represents one statistical measurement.
 type Stat struct {
-	Label []byte
-	Value float64
+	Label            []byte
+	Value            float64
+	IsActual bool
 }
 
 // Init safely initializes a stat while minimizing heap allocations.
-func (s *Stat) Init(label []byte, value float64) {
+func (s *Stat) Init(label []byte, value float64, isActual bool) {
 	s.Label = s.Label[:0] // clear
 	s.Label = append(s.Label, label...)
 	s.Value = value
+	s.IsActual = isActual
 }
 
 // StatGroup collects simple streaming statistics.

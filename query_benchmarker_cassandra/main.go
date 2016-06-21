@@ -221,17 +221,17 @@ func processQueries(qc *HLQueryExecutor) {
 
 		// total lag stat:
 		stat := statPool.Get().(*Stat)
-		stat.Init(ls[0], qpLagMs + reqLagMs)
+		stat.Init(ls[0], qpLagMs + reqLagMs, true)
 		statChan <- stat
 
 		// qp lag stat:
 		stat = statPool.Get().(*Stat)
-		stat.Init(ls[1], qpLagMs)
+		stat.Init(ls[1], qpLagMs, false)
 		statChan <- stat
 
 		// req lag stat:
 		stat = statPool.Get().(*Stat)
-		stat.Init(ls[2], reqLagMs)
+		stat.Init(ls[2], reqLagMs, false)
 		statChan <- stat
 
 		queryPool.Put(q)
@@ -255,9 +255,11 @@ func processStats() {
 
 		statMapping[string(stat.Label)].Push(stat.Value)
 
-		statPool.Put(stat)
+		if stat.IsActual {
+			i++
+		}
 
-		i++
+		statPool.Put(stat)
 
 		// print stats to stderr (if printInterval is greater than zero):
 		if printInterval > 0 && i > 0 && i%printInterval == 0 && (i < limit || limit < 0) {
