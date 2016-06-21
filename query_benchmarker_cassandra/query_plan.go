@@ -18,7 +18,7 @@ type QueryPlan interface {
 // aggregation on both the server and the client. This results in more
 // round-trip requests, but uses the server to aggregate over large datasets.
 //
-// It has 1) an AggrFunc, which merges data on the client, and 2) a map of
+// It has 1) an Aggregator, which merges data on the client, and 2) a map of
 // time interval buckets to CQL queries, which are used to retrieve data
 // relevant to each bucket.
 type QueryPlanWithServerAggregation struct {
@@ -100,10 +100,11 @@ func (qp *QueryPlanWithServerAggregation) DebugQueries(level int) {
 // table scans on the server and aggregating all data on the client. This
 // results in higher bandwidth usage but fewer round-trip requests.
 //
-// It has 1) an AggrFunc, which merges data on the client, 2) a
-// GroupByDuration, which is used to reconstuct time buckets from a server
-// response, 3) a set of TimeBuckets, which are used to store final
-// aggregated items, and 4) a set of CQLQueries used to fulfill this plan.
+// It has 1) a map of Aggregators (one for each time bucket) which merge data
+// on the client, 2) a GroupByDuration, which is used to reconstruct time
+// buckets from a server response, 3) a set of TimeBuckets, which are used to
+// store final aggregated items, and 4) a set of CQLQueries used to fulfill
+// this plan.
 type QueryPlanWithoutServerAggregation struct {
 	Aggregators     map[TimeInterval]Aggregator
 	GroupByDuration time.Duration
@@ -135,11 +136,10 @@ func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time
 
 // Execute runs all CQLQueries in the QueryPlan and collects the results.
 //
-// TODO(rw): use constant-space acc functions (instead of requiring a slice).
 // TODO(rw): support parallel execution.
 func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]CQLResult, error) {
-	// for each query, execute it, then append each result row to the
-	// client-side bucket that matches its timestamp:
+	// for each query, execute it, then put each result row into the
+	// client-side aggregator that matches its time bucket:
 	for _, q := range qp.CQLQueries {
 		iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
 
@@ -161,7 +161,7 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 		}
 	}
 
-	// perform aggregation across all buckets, entirely on the client:
+	// perform client-side aggregation across all buckets:
 	results := make([]CQLResult, 0, len(qp.TimeBuckets))
 	for _, ti := range qp.TimeBuckets {
 		acc := qp.Aggregators[ti].Get()
