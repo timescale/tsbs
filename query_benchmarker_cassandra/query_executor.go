@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	AggrPlanTypeServerAggregation   = 1
-	AggrPlanTypeNoServerAggregation = 2
+	AggrPlanTypeWithServerAggregation    = 1
+	AggrPlanTypeWithoutServerAggregation = 2
 )
 
 // An HLQueryExecutor is responsible for executing HLQuery objects in the
@@ -51,9 +51,9 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 	var qp QueryPlan
 	qpStart := time.Now()
 	switch opts.AggregationPlan {
-	case AggrPlanTypeServerAggregation:
+	case AggrPlanTypeWithServerAggregation:
 		qp, err = q.ToQueryPlanWithServerAggregation(qe.csi)
-	case AggrPlanTypeNoServerAggregation:
+	case AggrPlanTypeWithoutServerAggregation:
 		qp, err = q.ToQueryPlanWithoutServerAggregation(qe.csi)
 	default:
 		panic("logic error: invalid aggregation plan option")

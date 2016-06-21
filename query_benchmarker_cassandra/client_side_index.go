@@ -78,7 +78,7 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 	}
 }
 
-// CopyOfSeriesCollection returns a copy of the internal Series data. It's
+// CopyOfSeriesCollection returns a copy of the internal Series data. Its
 // output slice can be safely altered, but the Series objects within may not!
 func (csi *ClientSideIndex) CopyOfSeriesCollection() []Series {
 	ret := make([]Series, len(csi.seriesCollection))

@@ -56,8 +56,8 @@ var (
 // Helpers for choice-like flags:
 var (
 	aggrPlanChoices map[string]int = map[string]int{
-		"server": AggrPlanTypeServerAggregation,
-		"client": AggrPlanTypeNoServerAggregation,
+		"server": AggrPlanTypeWithServerAggregation,
+		"client": AggrPlanTypeWithoutServerAggregation,
 	}
 )
 
@@ -111,7 +111,6 @@ func main() {
 		New: func() interface{} {
 			return &Stat{
 				Label: make([]byte, 0, 1024),
-				Value: 0.0,
 			}
 		},
 	}
@@ -123,7 +122,7 @@ func main() {
 	session := NewCassandraSession(daemonUrl)
 	defer session.Close()
 
-	// Make data and control channels:
+	// Make data and stat channels:
 	hlQueryChan = make(chan *HLQuery, workers)
 	statChan = make(chan *Stat, workers)
 
@@ -210,6 +209,7 @@ func processQueries(qc *HLQueryExecutor) {
 	for q := range hlQueryChan {
 		qpLagMs, reqLagMs, err := qc.Do(q, opts)
 
+		// if needed, prepare stat labels:
 		if _, ok := labels[string(q.HumanLabel)]; !ok {
 			labels[string(q.HumanLabel)] = [][]byte{
 				q.HumanLabel,
