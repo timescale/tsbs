@@ -82,7 +82,7 @@ func GetAggregator(label string) (Aggregator, error) {
 	case "max":
 		return &AggregatorMax{}, nil
 	case "avg":
-		return &AggregatorMin{}, nil
+		return &AggregatorAvg{}, nil
 	default:
 		return nil, fmt.Errorf("invalid aggregation specifier")
 	}
