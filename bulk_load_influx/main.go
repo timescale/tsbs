@@ -117,12 +117,14 @@ func scan(linesPerBatch int) int64 {
 
 	var n int
 	var itemsRead int64
-	scanner := bufio.NewScanner(os.Stdin)
+	newline := []byte("\n")
+
+	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 	for scanner.Scan() {
 		itemsRead++
 
 		buf.Write(scanner.Bytes())
-		buf.Write([]byte("\n"))
+		buf.Write(newline)
 
 		n++
 		if n >= linesPerBatch {
