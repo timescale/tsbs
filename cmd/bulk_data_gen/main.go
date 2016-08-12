@@ -51,6 +51,8 @@ var (
 
 	seed  int64
 	debug int
+
+	logSeconds time.Duration
 )
 
 // Parse args:
@@ -61,7 +63,7 @@ func init() {
 	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
-	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-01T06:00:00Z", "Ending timestamp (RFC3339).")
+	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-02T06:00:00Z", "Ending timestamp (RFC3339).")
 
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
@@ -74,6 +76,11 @@ func init() {
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
 		log.Fatal("incorrect interleaved groups configuration")
 	}
+	flag.DurationVar(&logSeconds, "logSeconds", 10*time.Second, "duration between host data points")
+	flag.Parse()
+
+	// The duration of a log epoch.
+	EpochDuration = logSeconds
 
 	validFormat := false
 	for _, s := range formatChoices {
