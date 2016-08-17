@@ -190,6 +190,8 @@ func processItems(session *mgo.Session) {
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
 
+			pv.timestamp = item.TimestampNanos()
+
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:
 				pv.value = item.LongValue()
