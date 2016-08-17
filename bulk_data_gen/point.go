@@ -1,10 +1,16 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"time"
+
+	flatbuffers "github.com/google/flatbuffers/go"
+
+	"github.com/influxdata/influxdb-comparisons/mongo_serialization"
 )
 
 // Point wraps a single data point. It stores database-agnostic data
@@ -214,6 +220,103 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 			return err
 		}
 	}
+
+	return nil
+}
+
+// SerializeMongo writes Point data to the given writer, conforming to the
+// mongo_serialization FlatBuffers format.
+func (p *Point) SerializeMongo(w io.Writer) (err error) {
+	// Prepare the series id prefix, which is the set of tags associated
+	// with this point. The series id prefix is the base of each value's
+	// particular collection name:
+	seriesId := bufPool.Get().([]byte)
+	seriesId = append(seriesId, p.MeasurementName...)
+	for i := 0; i < len(p.TagKeys); i++ {
+		seriesId = append(seriesId, charComma)
+		seriesId = append(seriesId, p.TagKeys[i]...)
+		seriesId = append(seriesId, charEquals)
+		seriesId = append(seriesId, p.TagValues[i]...)
+	}
+	seriesIdPrefixLen := len(seriesId)
+
+	// Prepare the timestamp, which is the same for each value in this
+	// Point:
+	timestampNanos := p.Timestamp.UTC().UnixNano()
+
+	// Fetch a flatbuffers builder from a pool:
+	lenBuf := bufPool8.Get().([]byte)
+	builder := fbBuilderPool.Get().(*flatbuffers.Builder)
+
+	// For each field in this Point, serialize its:
+	// collection name (series id prefix + the name of the value)
+	// timestamp in nanos (int64)
+	// numeric value (int, int64, or float64 -- determined by reflection)
+	for fieldId := 0; fieldId < len(p.FieldKeys); fieldId++ {
+		fieldName := p.FieldKeys[fieldId]
+		genericValue := p.FieldValues[fieldId]
+
+		// Make the collection name for this value, taking care to
+		// reuse the seriesId slice:
+		seriesId = seriesId[:seriesIdPrefixLen]
+		seriesId = append(seriesId, '#')
+		seriesId = append(seriesId, fieldName...)
+
+		// build the flatbuffer representing this point:
+		builder.Reset()
+		seriesIdOffset := builder.CreateByteVector(seriesId)
+		mongo_serialization.ItemStart(builder)
+		mongo_serialization.ItemAddSeriesId(builder, seriesIdOffset)
+		mongo_serialization.ItemAddTimestampNanos(builder, timestampNanos)
+
+		switch v := genericValue.(type) {
+		// (We can't switch on groups of types (e.g. int,int64) because
+		// that does not make v concrete.)
+		case int, int64:
+			mongo_serialization.ItemAddValueType(builder, mongo_serialization.ValueTypeLong)
+			switch v2 := v.(type) {
+			case int:
+				mongo_serialization.ItemAddLongValue(builder, int64(v2))
+			case int64:
+				mongo_serialization.ItemAddLongValue(builder, v2)
+			}
+		case float64:
+			mongo_serialization.ItemAddValueType(builder, mongo_serialization.ValueTypeDouble)
+			mongo_serialization.ItemAddDoubleValue(builder, v)
+		default:
+			panic(fmt.Sprintf("logic error in mongo serialization, %s", reflect.TypeOf(v)))
+		}
+		mongo_serialization.ItemAddSeriesId(builder, seriesIdOffset)
+		rootTable := mongo_serialization.ItemEnd(builder)
+		builder.Finish(rootTable)
+
+		// Access the finished byte slice representing this flatbuffer:
+		buf := builder.FinishedBytes()
+
+		// Write the metadata for the flatbuffer object:
+		binary.LittleEndian.PutUint64(lenBuf, uint64(len(buf)))
+		_, err = w.Write(lenBuf)
+		if err != nil {
+			return err
+		}
+
+		// Write the flatbuffer object:
+		_, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Give the flatbuffers builder back to a pool:
+	builder.Reset()
+	fbBuilderPool.Put(builder)
+
+	// Give the series id byte slice back to a pool:
+	seriesId = seriesId[:0]
+	bufPool.Put(seriesId)
+
+	// Give the 8-byte buf back to a pool:
+	bufPool8.Put(lenBuf)
 
 	return nil
 }

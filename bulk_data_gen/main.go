@@ -4,6 +4,7 @@
 // InfluxDB bulk load format
 // ElasticSearch bulk load format
 // Cassandra query format
+// Mongo custom format
 //
 // Supported use cases:
 // Devops: scale_var is the number of hosts to simulate, with log messages
@@ -12,9 +13,9 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"os"
@@ -23,7 +24,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}
@@ -123,6 +124,8 @@ func main() {
 		serializer = (*Point).SerializeESBulk
 	case "cassandra":
 		serializer = (*Point).SerializeCassandra
+	case "mongo":
+		serializer = (*Point).SerializeMongo
 	default:
 		panic("unreachable")
 	}
@@ -137,5 +140,10 @@ func main() {
 		}
 
 		point.Reset()
+	}
+
+	err := out.Flush()
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 }

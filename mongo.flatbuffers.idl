@@ -1,0 +1,12 @@
+namespace mongo_serialization;
+enum ValueType:byte { Long = 0, Double = 1 }
+table Item {
+  seriesId:[ubyte];
+
+  timestamp_nanos:long;
+
+  value_type:ValueType;
+  long_value:long;
+  double_value:double;
+}
+root_type Item;
