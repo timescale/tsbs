@@ -140,7 +140,7 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 		}
 		itemBuf = itemBuf[:l]
 
-		// read the bytes and init the flatbuffer
+		// read the bytes and init the flatbuffer object
 		totRead := 0
 		for totRead < l {
 			m, err := r.Read(itemBuf[totRead:])
@@ -218,3 +218,25 @@ func processItems(session *mgo.Session) {
 	}
 	workersGroup.Done()
 }
+
+//func ensureCollectionExists(session *mgo.Session, name []byte) {
+//	globalCollectionMappingMutex.RLock()
+//	_, ok := globalCollectionMapping[unsafeBytesToString(name)]
+//	globalCollectionMappingMutex.RUnlock()
+//	if ok {
+//		// nothing to do
+//		return
+//	}
+//
+//	globalCollectionMappingMutex.Lock()
+//	_, ok = globalCollectionMapping[unsafeBytesToString(name)]
+//	if ok {
+//		// another goroutine inserted this, nothing to do:
+//		globalCollectionMappingMutex.Unlock()
+//		return
+//	}
+//
+//	_, ok = globalCollectionMapping[unsafeBytesToString(name)]
+//
+//	globalCollectionMappingMutex.Unlock()
+//}
