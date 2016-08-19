@@ -17,6 +17,7 @@ import (
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/influxdata/influxdb-comparisons/mongo_serialization"
 )
@@ -35,6 +36,11 @@ var (
 	batchChan    chan *Batch
 	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
+)
+
+// Magic database constants
+const (
+	pointCollectionName = "benchmark_db_points"
 )
 
 // bufPool holds []byte instances to reduce heap churn.
@@ -73,7 +79,7 @@ func init() {
 
 func main() {
 	if doLoad {
-		//createKeyspace(daemonUrl)
+		mustCreateCollections(daemonUrl)
 	}
 
 	var session *mgo.Session
@@ -87,12 +93,12 @@ func main() {
 		defer session.Close()
 	}
 
-	batchChan = make(chan *Batch, workers*100)
+	batchChan = make(chan *Batch, workers*10)
 	inputDone = make(chan struct{})
 
 	for i := 0; i < workers; i++ {
 		workersGroup.Add(1)
-		go processItems(session)
+		go processBatches(session)
 	}
 
 	start := time.Now()
@@ -172,24 +178,35 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 	return itemsRead
 }
 
-// processItems reads byte buffers from itemChan, interprets them and writes
+// processBatches reads byte buffers from batchChan, interprets them and writes
 // them to the target server. Note that mgo incurs a lot of overhead.
-func processItems(session *mgo.Session) {
+func processBatches(session *mgo.Session) {
 	db := session.DB("benchmark_db")
-	item := &mongo_serialization.Item{}
 
 	type pointValue struct {
-		timestamp int64
-		value     interface{}
+		internalSeriesId []byte
+		timestamp        int64
+		value            interface{}
 	}
+	var pvs []pointValue
 
-	pv := &pointValue{}
+	item := &mongo_serialization.Item{}
+	collection := db.C(pointCollectionName)
 	for batch := range batchChan {
+		bulk := collection.Bulk()
+
+		if cap(pvs) < len(*batch) {
+			pvs = make([]pointValue, 0, len(*batch))
+		}
+		pvs = pvs[:len(*batch)]
+
+		i := 0
 		for _, itemBuf := range *batch {
 			// this ui could be improved on the library side:
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
 
+			pv := &pvs[i]
 			pv.timestamp = item.TimestampNanos()
 
 			switch item.ValueType() {
@@ -201,15 +218,22 @@ func processItems(session *mgo.Session) {
 				panic("logic error")
 			}
 
-			if doLoad {
-				collection := db.C(unsafeBytesToString(item.SeriesIdBytes()))
-				err := collection.Insert(pv)
-				if err != nil {
-					log.Fatalf("Error writing: %s\n", err.Error())
-				}
-			}
+			bulk.Insert(pv)
+			i++
 		}
 
+		if doLoad {
+			_, err := bulk.Run()
+			if err != nil {
+				log.Fatalf("Bulk err: %s\n", err.Error())
+			}
+
+		}
+
+		// TODO cleanup pvs
+
+
+		// cleanup
 		for _, itemBuf := range *batch {
 			bufPool.Put(itemBuf)
 		}
@@ -217,6 +241,31 @@ func processItems(session *mgo.Session) {
 		batchPool.Put(batch)
 	}
 	workersGroup.Done()
+}
+
+func mustCreateCollections(daemonUrl string) {
+	session, err := mgo.Dial(daemonUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer session.Close()
+
+	// collection C: point data
+	// from (*mgo.Collection).Create
+	cmd := make(bson.D, 0, 4)
+	cmd = append(cmd, bson.DocElem{"create", pointCollectionName})
+	// wiredtiger doesn't need nopadding, but mmapv1 does
+	cmd = append(cmd, bson.DocElem{
+		"storageEngine", bson.DocElem{
+			"wiredTiger", bson.DocElem{
+				"configString", "block_compressor=snappy",
+			},
+		},
+	})
+	err = session.DB("benchmark_db").Run(cmd, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 //func ensureCollectionExists(session *mgo.Session, name []byte) {
