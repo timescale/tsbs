@@ -98,6 +98,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		session.SetMode(mgo.Eventual, false)
 		defer session.Close()
 	}
 
@@ -183,15 +184,17 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 			batch = batchPool.Get().(*Batch)
 		}
 
-		if itemsRead > 0 && itemsRead%100000 == 0 {
-			took := (time.Now().UnixNano() - start.UnixNano())
-			if took >= 1e9 {
-				tookUs := float64(took) / 1e3
-				tookSec := float64(took) / 1e9
-				fmt.Fprintf(os.Stderr, "itemsRead: %d, rate: %.0f/sec, lag: %.2fus/op\n",
-					itemsRead, float64(itemsRead)/tookSec, tookUs/float64(itemsRead))
-			}
-		}
+		_ =  start
+		//if itemsRead > 0 && itemsRead%100000 == 0 {
+		//	_ = start
+		//	//took := (time.Now().UnixNano() - start.UnixNano())
+		//	//if took >= 1e9 {
+		//	//	tookUs := float64(took) / 1e3
+		//	//	tookSec := float64(took) / 1e9
+		//	//	fmt.Fprintf(os.Stderr, "itemsRead: %d, rate: %.0f/sec, lag: %.2fus/op\n",
+		//	//		itemsRead, float64(itemsRead)/tookSec, tookUs/float64(itemsRead))
+		//	//}
+		//}
 	}
 
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
