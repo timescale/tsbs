@@ -18,6 +18,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"github.com/pkg/profile"
 
 	"github.com/influxdata/influxdb-comparisons/mongo_serialization"
 )
@@ -27,6 +28,7 @@ var (
 	daemonUrl    string
 	workers      int
 	batchSize    int
+	limit	     int64
 	doLoad       bool
 	writeTimeout time.Duration
 )
@@ -47,7 +49,8 @@ const (
 // bufPool holds []byte instances to reduce heap churn.
 var bufPool = &sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 0, 256)
+		var x []byte
+		return x // make([]byte, 0, 1024)
 	},
 }
 
@@ -71,6 +74,7 @@ func init() {
 
 	flag.IntVar(&batchSize, "batch-size", 100, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.Int64Var(&limit, "limit", -1, "Number of items to insert (default unlimited).")
 	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
@@ -79,6 +83,9 @@ func init() {
 }
 
 func main() {
+	_ = profile.Start
+	//p := profile.Start(profile.MemProfile)
+	//defer p.Stop()
 	if doLoad {
 		mustCreateCollections(daemonUrl)
 	}
@@ -131,6 +138,9 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 	lenBuf := make([]byte, 8)
 
 	for {
+		if itemsRead == limit {
+			break
+		}
 		// get the serialized item length (this is the framing format)
 		_, err := r.Read(lenBuf)
 		if err == io.EOF {
@@ -143,7 +153,7 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 		// ensure correct len of receiving buffer
 		l := int(binary.LittleEndian.Uint64(lenBuf))
 		itemBuf := bufPool.Get().([]byte)
-		if cap(itemBuf) < l {
+		if itemBuf == nil || cap(itemBuf) < l {
 			itemBuf = make([]byte, l)
 		}
 		itemBuf = itemBuf[:l]
@@ -176,10 +186,10 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 		if itemsRead > 0 && itemsRead%100000 == 0 {
 			took := (time.Now().UnixNano() - start.UnixNano())
 			if took >= 1e9 {
-				tookUs := took / 1e3
-				tookSec := took / 1e9
-				fmt.Fprintf(os.Stderr, "itemsRead: %d, rate: %d/sec, lag: %dus/op\n",
-					itemsRead, int64(itemsRead)/tookSec, tookUs/int64(itemsRead))
+				tookUs := float64(took) / 1e3
+				tookSec := float64(took) / 1e9
+				fmt.Fprintf(os.Stderr, "itemsRead: %d, rate: %.0f/sec, lag: %.2fus/op\n",
+					itemsRead, float64(itemsRead)/tookSec, tookUs/float64(itemsRead))
 			}
 		}
 	}
@@ -195,14 +205,23 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
-	type pointValue struct {
+	type pointLong struct {
 		id struct {
 			internalSeriesId []byte
 			timestamp        int64
 		} `bson:"_id" json:"id"`
-		value interface{} `bson:"v" json:"v"`
+		value int64 `bson:"v" json:"v"`
 	}
-	var pvs []interface{}
+	type pointDouble struct {
+		id struct {
+			internalSeriesId []byte
+			timestamp        int64
+		} `bson:"_id" json:"id"`
+		value float64 `bson:"v" json:"v"`
+	}
+	plPool := &sync.Pool{New: func() interface{} { return &pointLong{} }}
+	pdPool := &sync.Pool{New: func() interface{} { return &pointDouble{} }}
+	pvs := []interface{}{}
 
 	item := &mongo_serialization.Item{}
 	collection := db.C(pointCollectionName)
@@ -211,33 +230,32 @@ func processBatches(session *mgo.Session) {
 
 		if cap(pvs) < len(*batch) {
 			pvs = make([]interface{}, len(*batch))
-			for i := range pvs {
-				pvs[i] = &pointValue{}
-			}
 		}
 		pvs = pvs[:len(*batch)]
 
-		i := 0
-		for _, itemBuf := range *batch {
+		for i, itemBuf := range *batch {
 			// this ui could be improved on the library side:
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
 
-			pv := pvs[i].(*pointValue)
-			pv.id.internalSeriesId = item.SeriesIdBytes()
-			pv.id.timestamp = item.TimestampNanos()
-
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:
-				pv.value = item.LongValue()
+				x := plPool.Get().(*pointLong)
+				x.id.internalSeriesId = item.SeriesIdBytes()
+				x.id.timestamp = item.TimestampNanos()
+				x.value = item.LongValue()
+				pvs[i] = x
 			case mongo_serialization.ValueTypeDouble:
-				pv.value = item.DoubleValue()
+				x := pdPool.Get().(*pointDouble)
+				x.id.internalSeriesId = item.SeriesIdBytes()
+				x.id.timestamp = item.TimestampNanos()
+				x.value = item.DoubleValue()
+				pvs[i] = x
 			default:
 				panic("logic error")
 			}
 
 			//fmt.Fprintf(os.Stderr, "%s - %d\n", pv.id.internalSeriesId, pv.id.timestamp)
-			i++
 		}
 		bulk.Insert(pvs...)
 
@@ -250,11 +268,21 @@ func processBatches(session *mgo.Session) {
 		}
 
 		// cleanup pvs
-		for i := range pvs {
-			pv := pvs[i].(*pointValue)
-			pv.id.internalSeriesId = nil
-			pv.id.timestamp = 0
-			pv.value = nil
+		for _, x := range pvs {
+			switch x2 := x.(type) {
+			case *pointLong:
+				x2.id.internalSeriesId = nil
+				x2.id.timestamp = 0
+				x2.value = 0
+				plPool.Put(x2)
+			case *pointDouble:
+				x2.id.internalSeriesId = nil
+				x2.id.timestamp = 0
+				x2.value = 0
+				pdPool.Put(x2)
+			default:
+				panic("logic error")
+			}
 		}
 
 		// cleanup item data
