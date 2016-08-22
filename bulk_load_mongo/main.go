@@ -153,7 +153,7 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 		// ensure correct len of receiving buffer
 		l := int(binary.LittleEndian.Uint64(lenBuf))
 		itemBuf := bufPool.Get().([]byte)
-		if itemBuf == nil || cap(itemBuf) < l {
+		if cap(itemBuf) < l {
 			itemBuf = make([]byte, l)
 		}
 		itemBuf = itemBuf[:l]
