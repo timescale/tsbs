@@ -16,9 +16,9 @@ import (
 	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/pkg/profile"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/pkg/profile"
 
 	"github.com/influxdata/influxdb-comparisons/mongo_serialization"
 )
@@ -28,7 +28,7 @@ var (
 	daemonUrl    string
 	workers      int
 	batchSize    int
-	limit	     int64
+	limit        int64
 	doLoad       bool
 	writeTimeout time.Duration
 )
@@ -184,7 +184,7 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 			batch = batchPool.Get().(*Batch)
 		}
 
-		_ =  start
+		_ = start
 		//if itemsRead > 0 && itemsRead%100000 == 0 {
 		//	_ = start
 		//	//took := (time.Now().UnixNano() - start.UnixNano())
@@ -204,26 +204,27 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 }
 
 // processBatches reads byte buffers from batchChan, interprets them and writes
-// them to the target server. Note that mgo incurs a lot of overhead.
+// them to the target server. Note that mgo forcibly incurs serialization
+// overhead (it always encodes to BSON).
 func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
-	type pointLong struct {
-		id struct {
-			internalSeriesId []byte
-			timestamp        int64
-		} `bson:"_id" json:"id"`
-		value int64 `bson:"v" json:"v"`
+	type PointLong struct {
+		MeasurementName []byte
+		FieldName       []byte
+		Timestamp       int64
+		Value           int64 `bson:"v"` // json:"v"`
+		Tags            [][]byte
 	}
-	type pointDouble struct {
-		id struct {
-			internalSeriesId []byte
-			timestamp        int64
-		} `bson:"_id" json:"id"`
-		value float64 `bson:"v" json:"v"`
+	type PointDouble struct {
+		MeasurementName []byte
+		FieldName       []byte
+		Timestamp       int64
+		Value           float64 `bson:"v"` // json:"v"`
+		Tags            [][]byte
 	}
-	plPool := &sync.Pool{New: func() interface{} { return &pointLong{} }}
-	pdPool := &sync.Pool{New: func() interface{} { return &pointDouble{} }}
+	plPool := &sync.Pool{New: func() interface{} { return &PointLong{} }}
+	pdPool := &sync.Pool{New: func() interface{} { return &PointDouble{} }}
 	pvs := []interface{}{}
 
 	item := &mongo_serialization.Item{}
@@ -243,16 +244,20 @@ func processBatches(session *mgo.Session) {
 
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:
-				x := plPool.Get().(*pointLong)
-				x.id.internalSeriesId = item.SeriesIdBytes()
-				x.id.timestamp = item.TimestampNanos()
-				x.value = item.LongValue()
+				x := plPool.Get().(*PointLong)
+				x.MeasurementName = item.MeasurementNameBytes()
+				x.FieldName = item.FieldNameBytes()
+				x.Timestamp = item.TimestampNanos()
+				x.Value = item.LongValue()
+				extractInlineTags(item.InlineTagsBytes(), &x.Tags)
 				pvs[i] = x
 			case mongo_serialization.ValueTypeDouble:
-				x := pdPool.Get().(*pointDouble)
-				x.id.internalSeriesId = item.SeriesIdBytes()
-				x.id.timestamp = item.TimestampNanos()
-				x.value = item.DoubleValue()
+				x := pdPool.Get().(*PointDouble)
+				x.MeasurementName = item.MeasurementNameBytes()
+				x.FieldName = item.FieldNameBytes()
+				x.Timestamp = item.TimestampNanos()
+				x.Value = item.DoubleValue()
+				extractInlineTags(item.InlineTagsBytes(), &x.Tags)
 				pvs[i] = x
 			default:
 				panic("logic error")
@@ -263,6 +268,12 @@ func processBatches(session *mgo.Session) {
 		bulk.Insert(pvs...)
 
 		if doLoad {
+			//for i := range pvs {
+			//	err := collection.Insert(pvs[i])
+			//	if err != nil {
+			//		log.Fatalf("Insert err: %s", err.Error())
+			//	}
+			//}
 			_, err := bulk.Run()
 			if err != nil {
 				log.Fatalf("Bulk err: %s\n", err.Error())
@@ -273,15 +284,15 @@ func processBatches(session *mgo.Session) {
 		// cleanup pvs
 		for _, x := range pvs {
 			switch x2 := x.(type) {
-			case *pointLong:
-				x2.id.internalSeriesId = nil
-				x2.id.timestamp = 0
-				x2.value = 0
+			case *PointLong:
+				x2.Timestamp = 0
+				x2.Value = 0
+				x2.Tags = x2.Tags[:0]
 				plPool.Put(x2)
-			case *pointDouble:
-				x2.id.internalSeriesId = nil
-				x2.id.timestamp = 0
-				x2.value = 0
+			case *PointDouble:
+				x2.Timestamp = 0
+				x2.Value = 0
+				x2.Tags = x2.Tags[:0]
 				pdPool.Put(x2)
 			default:
 				panic("logic error")
@@ -328,6 +339,16 @@ func mustCreateCollections(daemonUrl string) {
 	err = session.DB("benchmark_db").Run(cmd, nil)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func extractInlineTags(buf []byte, dst *[][]byte) {
+	for i := 0; i < len(buf); {
+		l := int(binary.LittleEndian.Uint64(buf[i : i+8]))
+		i += 8
+		b := buf[i : i+l]
+		*dst = append(*dst, b)
+		i += l
 	}
 }
 

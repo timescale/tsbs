@@ -47,8 +47,83 @@ func (rcv *Item) SeriesIdBytes() []byte {
 	return nil
 }
 
-func (rcv *Item) TimestampNanos() int64 {
+func (rcv *Item) MeasurementName(j int) byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *Item) MeasurementNameLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *Item) MeasurementNameBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Item) InlineTags(j int) byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *Item) InlineTagsLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *Item) InlineTagsBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Item) FieldName(j int) byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *Item) FieldNameLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *Item) FieldNameBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Item) TimestampNanos() int64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
 		return rcv._tab.GetInt64(o + rcv._tab.Pos)
 	}
@@ -56,11 +131,11 @@ func (rcv *Item) TimestampNanos() int64 {
 }
 
 func (rcv *Item) MutateTimestampNanos(n int64) bool {
-	return rcv._tab.MutateInt64Slot(6, n)
+	return rcv._tab.MutateInt64Slot(12, n)
 }
 
 func (rcv *Item) ValueType() int8 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
 	if o != 0 {
 		return rcv._tab.GetInt8(o + rcv._tab.Pos)
 	}
@@ -68,11 +143,11 @@ func (rcv *Item) ValueType() int8 {
 }
 
 func (rcv *Item) MutateValueType(n int8) bool {
-	return rcv._tab.MutateInt8Slot(8, n)
+	return rcv._tab.MutateInt8Slot(14, n)
 }
 
 func (rcv *Item) LongValue() int64 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
 	if o != 0 {
 		return rcv._tab.GetInt64(o + rcv._tab.Pos)
 	}
@@ -80,11 +155,11 @@ func (rcv *Item) LongValue() int64 {
 }
 
 func (rcv *Item) MutateLongValue(n int64) bool {
-	return rcv._tab.MutateInt64Slot(10, n)
+	return rcv._tab.MutateInt64Slot(16, n)
 }
 
 func (rcv *Item) DoubleValue() float64 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
 	if o != 0 {
 		return rcv._tab.GetFloat64(o + rcv._tab.Pos)
 	}
@@ -92,11 +167,11 @@ func (rcv *Item) DoubleValue() float64 {
 }
 
 func (rcv *Item) MutateDoubleValue(n float64) bool {
-	return rcv._tab.MutateFloat64Slot(12, n)
+	return rcv._tab.MutateFloat64Slot(18, n)
 }
 
 func ItemStart(builder *flatbuffers.Builder) {
-	builder.StartObject(5)
+	builder.StartObject(8)
 }
 func ItemAddSeriesId(builder *flatbuffers.Builder, seriesId flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(seriesId), 0)
@@ -104,17 +179,35 @@ func ItemAddSeriesId(builder *flatbuffers.Builder, seriesId flatbuffers.UOffsetT
 func ItemStartSeriesIdVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
 	return builder.StartVector(1, numElems, 1)
 }
+func ItemAddMeasurementName(builder *flatbuffers.Builder, measurementName flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(measurementName), 0)
+}
+func ItemStartMeasurementNameVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
+func ItemAddInlineTags(builder *flatbuffers.Builder, inlineTags flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(inlineTags), 0)
+}
+func ItemStartInlineTagsVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
+func ItemAddFieldName(builder *flatbuffers.Builder, fieldName flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(fieldName), 0)
+}
+func ItemStartFieldNameVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
 func ItemAddTimestampNanos(builder *flatbuffers.Builder, timestampNanos int64) {
-	builder.PrependInt64Slot(1, timestampNanos, 0)
+	builder.PrependInt64Slot(4, timestampNanos, 0)
 }
 func ItemAddValueType(builder *flatbuffers.Builder, valueType int8) {
-	builder.PrependInt8Slot(2, valueType, 0)
+	builder.PrependInt8Slot(5, valueType, 0)
 }
 func ItemAddLongValue(builder *flatbuffers.Builder, longValue int64) {
-	builder.PrependInt64Slot(3, longValue, 0)
+	builder.PrependInt64Slot(6, longValue, 0)
 }
 func ItemAddDoubleValue(builder *flatbuffers.Builder, doubleValue float64) {
-	builder.PrependFloat64Slot(4, doubleValue, 0.0)
+	builder.PrependFloat64Slot(7, doubleValue, 0.0)
 }
 func ItemEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

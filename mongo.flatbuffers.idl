@@ -3,6 +3,10 @@ enum ValueType:byte { Long = 0, Double = 1 }
 table Item {
   seriesId:[ubyte];
 
+  measurement_name:[ubyte];
+  inline_tags:[ubyte];
+  field_name:[ubyte];
+
   timestamp_nanos:long;
 
   value_type:ValueType;
