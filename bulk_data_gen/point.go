@@ -271,7 +271,7 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 		mongo_serialization.ItemAddFieldName(builder, fieldNameOffset)
 
 		switch v := genericValue.(type) {
-		// (We can't switch on groups of types (e.g. int,int64) because
+		// (We can't switch on sets of types (e.g. int, int64) because
 		// that does not make v concrete.)
 		case int, int64:
 			mongo_serialization.ItemAddValueType(builder, mongo_serialization.ValueTypeLong)

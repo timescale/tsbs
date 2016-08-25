@@ -120,7 +120,7 @@ func main() {
 	took := end.Sub(start)
 	rate := float64(itemsRead) / float64(took.Seconds())
 
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
+	fmt.Printf("loaded %d values in %fsec with %d workers (mean rate %f values/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
 // scan reads length-delimited flatbuffers items from stdin.
@@ -209,22 +209,14 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
-	type PointLong struct {
-		MeasurementName []byte
-		FieldName       []byte
-		Timestamp       int64
-		Value           int64 `bson:"v"` // json:"v"`
-		Tags            [][]byte
+	type Point struct {
+		MeasurementName []byte      `bson:"measurement"`
+		FieldName       []byte      `bson:"field"`
+		Timestamp       int64       `bson:"timestamp_ns"`
+		Tags            [][]byte    `bson:"tags"`
+		Value           interface{} `bson:"value"`
 	}
-	type PointDouble struct {
-		MeasurementName []byte
-		FieldName       []byte
-		Timestamp       int64
-		Value           float64 `bson:"v"` // json:"v"`
-		Tags            [][]byte
-	}
-	plPool := &sync.Pool{New: func() interface{} { return &PointLong{} }}
-	pdPool := &sync.Pool{New: func() interface{} { return &PointDouble{} }}
+	pPool := &sync.Pool{New: func() interface{} { return &Point{} }}
 	pvs := []interface{}{}
 
 	item := &mongo_serialization.Item{}
@@ -241,39 +233,26 @@ func processBatches(session *mgo.Session) {
 			// this ui could be improved on the library side:
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
+			x := pPool.Get().(*Point)
+			x.MeasurementName = item.MeasurementNameBytes()
+			x.FieldName = item.FieldNameBytes()
+			x.Timestamp = item.TimestampNanos()
+			extractInlineTags(item.InlineTagsBytes(), &x.Tags)
 
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:
-				x := plPool.Get().(*PointLong)
-				x.MeasurementName = item.MeasurementNameBytes()
-				x.FieldName = item.FieldNameBytes()
-				x.Timestamp = item.TimestampNanos()
 				x.Value = item.LongValue()
-				extractInlineTags(item.InlineTagsBytes(), &x.Tags)
-				pvs[i] = x
 			case mongo_serialization.ValueTypeDouble:
-				x := pdPool.Get().(*PointDouble)
-				x.MeasurementName = item.MeasurementNameBytes()
-				x.FieldName = item.FieldNameBytes()
-				x.Timestamp = item.TimestampNanos()
 				x.Value = item.DoubleValue()
-				extractInlineTags(item.InlineTagsBytes(), &x.Tags)
-				pvs[i] = x
 			default:
 				panic("logic error")
 			}
+			pvs[i] = x
 
-			//fmt.Fprintf(os.Stderr, "%s - %d\n", pv.id.internalSeriesId, pv.id.timestamp)
 		}
 		bulk.Insert(pvs...)
 
 		if doLoad {
-			//for i := range pvs {
-			//	err := collection.Insert(pvs[i])
-			//	if err != nil {
-			//		log.Fatalf("Insert err: %s", err.Error())
-			//	}
-			//}
 			_, err := bulk.Run()
 			if err != nil {
 				log.Fatalf("Bulk err: %s\n", err.Error())
@@ -283,17 +262,13 @@ func processBatches(session *mgo.Session) {
 
 		// cleanup pvs
 		for _, x := range pvs {
+
 			switch x2 := x.(type) {
-			case *PointLong:
+			case *Point:
 				x2.Timestamp = 0
 				x2.Value = 0
 				x2.Tags = x2.Tags[:0]
-				plPool.Put(x2)
-			case *PointDouble:
-				x2.Timestamp = 0
-				x2.Value = 0
-				x2.Tags = x2.Tags[:0]
-				pdPool.Put(x2)
+				pPool.Put(x2)
 			default:
 				panic("logic error")
 			}
