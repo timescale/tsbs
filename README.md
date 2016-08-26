@@ -4,7 +4,7 @@ This repo contains code for benchmarking InfluxDB against other databases and ti
 Current databases supported:
 
 + InfluxDB
-+ Elasticsearch ([announcement blog here](https://influxdata.com/blog/influxdb-crushes-elasticsearch-in-time-series-data-metrics-benchmark/))
++ Elasticsearch ([announcement blog here](https://influxdata.com/blog/influxdb-markedly-elasticsearch-in-time-series-data-metrics-benchmark/))
 
 ## Testing Methodology
 In an attempt to make our performance comparison both realistic and relatable, we decided to build our benchmark suite according to real-world use cases. Micro-benchmarks are useful for database engineers, but using realistic data helps us better understand how our software performs under practical workloads.
