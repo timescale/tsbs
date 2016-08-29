@@ -209,6 +209,11 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
+		type Tag struct {
+			Key string `bson:"key"`
+			Val string `bson:"val"`
+		}
+
 	type Point struct {
 
 		// Use `string` here even though they are really `[]byte`.
@@ -216,7 +221,7 @@ func processBatches(session *mgo.Session) {
 		MeasurementName string      `bson:"measurement"`
 		FieldName       string      `bson:"field"`
 		Timestamp       int64       `bson:"timestamp_ns"`
-		Tags            []string    `bson:"tags"`
+		Tags            []Tag  `bson:"tags"`
 		Value           interface{} `bson:"value"`
 	}
 	pPool := &sync.Pool{New: func() interface{} { return &Point{} }}
@@ -237,10 +242,22 @@ func processBatches(session *mgo.Session) {
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
 			x := pPool.Get().(*Point)
+
 			x.MeasurementName = unsafeBytesToString(item.MeasurementNameBytes())
 			x.FieldName = unsafeBytesToString(item.FieldNameBytes())
 			x.Timestamp = item.TimestampNanos()
-			extractInlineTags(item.InlineTagsBytes(), &x.Tags)
+
+			tagLength := item.TagsLength()
+			if cap(x.Tags) < tagLength {
+				x.Tags = make([]Tag, 0, tagLength)
+			}
+			x.Tags = x.Tags[:tagLength]
+			for i := 0; i < tagLength; i++ {
+				dest := mongo_serialization.Tag{}
+				item.Tags(&dest, i)
+				x.Tags[i].Key = unsafeBytesToString(dest.KeyBytes())
+				x.Tags[i].Val = unsafeBytesToString(dest.ValBytes())
+			}
 
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -232,15 +231,6 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 	// with this point. The series id prefix is the base of each value's
 	// particular collection name:
 	lenBuf := bufPool8.Get().([]byte)
-	inlineTags := inlineTagsPool.Get().(*bytes.Buffer)
-	for i := 0; i < len(p.TagKeys); i++ {
-		sz := len(p.TagKeys[i]) + 1 + len(p.TagValues[i])
-		binary.LittleEndian.PutUint64(lenBuf, uint64(sz))
-		inlineTags.Write(lenBuf)
-		inlineTags.Write(p.TagKeys[i])
-		inlineTags.WriteByte(charEquals)
-		inlineTags.Write(p.TagValues[i])
-	}
 
 	// Prepare the timestamp, which is the same for each value in this
 	// Point:
@@ -253,8 +243,28 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 	// collection name (series id prefix + the name of the value)
 	// timestamp in nanos (int64)
 	// numeric value (int, int64, or float64 -- determined by reflection)
+	tagOffsets := make([]flatbuffers.UOffsetT, 0, len(p.TagKeys))
 	for fieldId := 0; fieldId < len(p.FieldKeys); fieldId++ {
+		tagOffsets = tagOffsets[:0]
 		builder.Reset()
+
+		// write the tag data, which must be separate:
+		for i := 0; i < len(p.TagKeys); i++ {
+			keyData := builder.CreateByteVector(p.TagKeys[i])
+			valData := builder.CreateByteVector(p.TagValues[i])
+			mongo_serialization.TagStart(builder)
+			mongo_serialization.TagAddKey(builder, keyData)
+			mongo_serialization.TagAddVal(builder, valData)
+
+			tagOffset := mongo_serialization.TagEnd(builder)
+			tagOffsets = append(tagOffsets, tagOffset)
+		}
+		mongo_serialization.ItemStartTagsVector(builder, len(tagOffsets))
+		for _, tagOffset := range tagOffsets {
+			builder.PrependUOffsetT(tagOffset)
+		}
+		tagsVecOffset := builder.EndVector(len(tagOffsets))
+
 
 		fieldName := p.FieldKeys[fieldId]
 		genericValue := p.FieldValues[fieldId]
@@ -262,13 +272,12 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 		// build the flatbuffer representing this point:
 		measurementNameOffset := builder.CreateByteVector(p.MeasurementName)
 		fieldNameOffset := builder.CreateByteVector(fieldName)
-		inlineTagsOffset := builder.CreateByteVector(inlineTags.Bytes())
 
 		mongo_serialization.ItemStart(builder)
 		mongo_serialization.ItemAddTimestampNanos(builder, timestampNanos)
 		mongo_serialization.ItemAddMeasurementName(builder, measurementNameOffset)
-		mongo_serialization.ItemAddInlineTags(builder, inlineTagsOffset)
 		mongo_serialization.ItemAddFieldName(builder, fieldNameOffset)
+		mongo_serialization.ItemAddTags(builder, tagsVecOffset)
 
 		switch v := genericValue.(type) {
 		// (We can't switch on sets of types (e.g. int, int64) because
@@ -310,10 +319,6 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 	// Give the flatbuffers builder back to a pool:
 	builder.Reset()
 	fbBuilderPool.Put(builder)
-
-	// Give the inline tags byte slice back to a pool:
-	inlineTags.Reset()
-	inlineTagsPool.Put(inlineTags)
 
 	// Give the 8-byte buf back to a pool:
 	bufPool8.Put(lenBuf)

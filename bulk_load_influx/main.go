@@ -17,6 +17,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/pkg/profile"
 )
 
 // Program option vars:
@@ -27,6 +29,7 @@ var (
 	batchSize int
 	backoff   time.Duration
 	doLoad    bool
+	memprofile bool
 )
 
 // Global vars
@@ -47,11 +50,16 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
 
 	flag.Parse()
 }
 
 func main() {
+	if memprofile {
+		p := profile.Start(profile.MemProfile)
+		defer p.Stop()
+	}
 	if doLoad {
 		// check that there are no pre-existing databases:
 		existingDatabases, err := listDatabases(daemonUrl)
@@ -152,23 +160,22 @@ func scan(linesPerBatch int) int64 {
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(w LineProtocolWriter) {
 	for batch := range batchChan {
-		if !doLoad {
-			continue
-		}
 		// Write the batch: try until backoff is not needed.
-		var err error
-		for {
-			_, err = w.WriteLineProtocol(batch.Bytes())
-			if err == BackoffError {
-				backingOffChan <- true
-				time.Sleep(backoff)
-			} else {
-				backingOffChan <- false
-				break
+		if doLoad {
+			var err error
+			for {
+				_, err = w.WriteLineProtocol(batch.Bytes())
+				if err == BackoffError {
+					backingOffChan <- true
+					time.Sleep(backoff)
+				} else {
+					backingOffChan <- false
+					break
+				}
 			}
-		}
-		if err != nil {
-			log.Fatalf("Error writing: %s\n", err.Error())
+			if err != nil {
+				log.Fatalf("Error writing: %s\n", err.Error())
+			}
 		}
 
 		// Return the batch buffer to the pool.

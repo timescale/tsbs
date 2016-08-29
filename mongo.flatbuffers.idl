@@ -1,10 +1,14 @@
 namespace mongo_serialization;
+table Tag {
+  key:[ubyte];
+  val:[ubyte];
+}
 enum ValueType:byte { Long = 0, Double = 1 }
 table Item {
   seriesId:[ubyte];
 
   measurement_name:[ubyte];
-  inline_tags:[ubyte];
+  tags:[Tag];
   field_name:[ubyte];
 
   timestamp_nanos:long;
