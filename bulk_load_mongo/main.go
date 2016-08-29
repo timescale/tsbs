@@ -210,10 +210,13 @@ func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
 	type Point struct {
-		MeasurementName []byte      `bson:"measurement"`
-		FieldName       []byte      `bson:"field"`
+
+		// Use `string` here even though they are really `[]byte`.
+		// This is so the mongo data is human-readable.
+		MeasurementName string      `bson:"measurement"`
+		FieldName       string      `bson:"field"`
 		Timestamp       int64       `bson:"timestamp_ns"`
-		Tags            [][]byte    `bson:"tags"`
+		Tags            []string    `bson:"tags"`
 		Value           interface{} `bson:"value"`
 	}
 	pPool := &sync.Pool{New: func() interface{} { return &Point{} }}
@@ -234,8 +237,8 @@ func processBatches(session *mgo.Session) {
 			n := flatbuffers.GetUOffsetT(itemBuf)
 			item.Init(itemBuf, n)
 			x := pPool.Get().(*Point)
-			x.MeasurementName = item.MeasurementNameBytes()
-			x.FieldName = item.FieldNameBytes()
+			x.MeasurementName = unsafeBytesToString(item.MeasurementNameBytes())
+			x.FieldName = unsafeBytesToString(item.FieldNameBytes())
 			x.Timestamp = item.TimestampNanos()
 			extractInlineTags(item.InlineTagsBytes(), &x.Tags)
 
@@ -295,6 +298,7 @@ func mustCreateCollections(daemonUrl string) {
 	// from (*mgo.Collection).Create
 	cmd := make(bson.D, 0, 4)
 	cmd = append(cmd, bson.DocElem{"create", pointCollectionName})
+
 	// wiredtiger settings
 	cmd = append(cmd, bson.DocElem{
 		"storageEngine", map[string]interface{}{
@@ -304,25 +308,18 @@ func mustCreateCollections(daemonUrl string) {
 		},
 	})
 
-	// mmapv1 settings
-	//cmd = append(cmd, bson.DocElem{
-	//		"mmapv1", map[string]interface{}{
-	//			"usePowerOf2Sizes": false,
-	//			"noPadding": true,
-	//		},
-	//})
 	err = session.DB("benchmark_db").Run(cmd, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func extractInlineTags(buf []byte, dst *[][]byte) {
+func extractInlineTags(buf []byte, dst *[]string) {
 	for i := 0; i < len(buf); {
 		l := int(binary.LittleEndian.Uint64(buf[i : i+8]))
 		i += 8
-		b := buf[i : i+l]
-		*dst = append(*dst, b)
+		s := unsafeBytesToString(buf[i : i+l])
+		*dst = append(*dst, s)
 		i += l
 	}
 }
