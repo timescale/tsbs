@@ -49,8 +49,7 @@ const (
 // bufPool holds []byte instances to reduce heap churn.
 var bufPool = &sync.Pool{
 	New: func() interface{} {
-		var x []byte
-		return x // make([]byte, 0, 1024)
+		return make([]byte, 0, 1024)
 	},
 }
 
@@ -61,7 +60,7 @@ func (b *Batch) ClearReferences() {
 	*b = (*b)[:0]
 }
 
-// bufPool holds *Batch instances to reduce heap churn.
+// batchPool holds *Batch instances to reduce heap churn.
 var batchPool = &sync.Pool{
 	New: func() interface{} {
 		return &Batch{}
@@ -80,12 +79,16 @@ func init() {
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
 	flag.Parse()
+
+	for i := 0; i < workers*batchSize; i++ {
+		bufPool.Put(bufPool.New())
+	}
 }
 
 func main() {
-	_ = profile.Start
-	//p := profile.Start(profile.MemProfile)
-	//defer p.Stop()
+	//_ = profile.Start
+	p := profile.Start(profile.MemProfile)
+	defer p.Stop()
 	if doLoad {
 		mustCreateCollections(daemonUrl)
 	}
@@ -209,25 +212,29 @@ func scan(session *mgo.Session, itemsPerBatch int) int64 {
 func processBatches(session *mgo.Session) {
 	db := session.DB(dbName)
 
-		type Tag struct {
-			Key string `bson:"key"`
-			Val string `bson:"val"`
-		}
+	type Tag struct {
+		Key string `bson:"key"`
+		Val string `bson:"val"`
+	}
 
 	type Point struct {
-
 		// Use `string` here even though they are really `[]byte`.
 		// This is so the mongo data is human-readable.
 		MeasurementName string      `bson:"measurement"`
 		FieldName       string      `bson:"field"`
 		Timestamp       int64       `bson:"timestamp_ns"`
-		Tags            []Tag  `bson:"tags"`
+		Tags            []Tag       `bson:"tags"`
 		Value           interface{} `bson:"value"`
+
+		// a private union-like section
+		longValue int64
+		doubleValue float64
 	}
 	pPool := &sync.Pool{New: func() interface{} { return &Point{} }}
 	pvs := []interface{}{}
 
 	item := &mongo_serialization.Item{}
+	destTag := &mongo_serialization.Tag{}
 	collection := db.C(pointCollectionName)
 	for batch := range batchChan {
 		bulk := collection.Bulk()
@@ -253,17 +260,22 @@ func processBatches(session *mgo.Session) {
 			}
 			x.Tags = x.Tags[:tagLength]
 			for i := 0; i < tagLength; i++ {
-				dest := mongo_serialization.Tag{}
-				item.Tags(&dest, i)
-				x.Tags[i].Key = unsafeBytesToString(dest.KeyBytes())
-				x.Tags[i].Val = unsafeBytesToString(dest.ValBytes())
+				*destTag = mongo_serialization.Tag{} // clear
+				item.Tags(destTag, i)
+				x.Tags[i].Key = unsafeBytesToString(destTag.KeyBytes())
+				x.Tags[i].Val = unsafeBytesToString(destTag.ValBytes())
 			}
 
+			// this complexity is the result of trying to minimize
+			// allocs while using an interface{} type for
+			// (*Point).Value.
 			switch item.ValueType() {
 			case mongo_serialization.ValueTypeLong:
-				x.Value = item.LongValue()
+				x.longValue = item.LongValue()
+				x.Value = &x.longValue
 			case mongo_serialization.ValueTypeDouble:
-				x.Value = item.DoubleValue()
+				x.doubleValue = item.DoubleValue()
+				x.Value = &x.doubleValue
 			default:
 				panic("logic error")
 			}
@@ -282,16 +294,13 @@ func processBatches(session *mgo.Session) {
 
 		// cleanup pvs
 		for _, x := range pvs {
-
-			switch x2 := x.(type) {
-			case *Point:
-				x2.Timestamp = 0
-				x2.Value = 0
-				x2.Tags = x2.Tags[:0]
-				pPool.Put(x2)
-			default:
-				panic("logic error")
-			}
+			p := x.(*Point)
+			p.Timestamp = 0
+			p.Value = nil
+			p.longValue = 0
+			p.doubleValue = 0
+			p.Tags = p.Tags[:0]
+			pPool.Put(p)
 		}
 
 		// cleanup item data
@@ -330,35 +339,3 @@ func mustCreateCollections(daemonUrl string) {
 		log.Fatal(err)
 	}
 }
-
-func extractInlineTags(buf []byte, dst *[]string) {
-	for i := 0; i < len(buf); {
-		l := int(binary.LittleEndian.Uint64(buf[i : i+8]))
-		i += 8
-		s := unsafeBytesToString(buf[i : i+l])
-		*dst = append(*dst, s)
-		i += l
-	}
-}
-
-//func ensureCollectionExists(session *mgo.Session, name []byte) {
-//	globalCollectionMappingMutex.RLock()
-//	_, ok := globalCollectionMapping[unsafeBytesToString(name)]
-//	globalCollectionMappingMutex.RUnlock()
-//	if ok {
-//		// nothing to do
-//		return
-//	}
-//
-//	globalCollectionMappingMutex.Lock()
-//	_, ok = globalCollectionMapping[unsafeBytesToString(name)]
-//	if ok {
-//		// another goroutine inserted this, nothing to do:
-//		globalCollectionMappingMutex.Unlock()
-//		return
-//	}
-//
-//	_, ok = globalCollectionMapping[unsafeBytesToString(name)]
-//
-//	globalCollectionMappingMutex.Unlock()
-//}
