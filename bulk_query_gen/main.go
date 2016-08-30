@@ -22,6 +22,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
 			"influx-http": NewInfluxDevopsSingleHost,
 			"es-http": NewElasticSearchDevopsSingleHost,
 			"cassandra": NewCassandraDevopsSingleHost,
+			"mongo": NewMongoDevopsSingleHost,
 		},
 		"groupby": {
 			"influx-http": NewInfluxDevopsGroupBy,
@@ -73,7 +74,6 @@ func init() {
 				}
 			}
 		}
-
 	}
 
 	flag.StringVar(&format, "format", "influx-http", "Format to emit. (Choices are in the use case matrix.)")
