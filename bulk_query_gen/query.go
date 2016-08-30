@@ -84,7 +84,7 @@ var CassandraQueryPool sync.Pool = sync.Pool{
 			MeasurementName:  []byte{},
 			FieldName:        []byte{},
 			AggregationType:  []byte{},
-			TagSets:       [][]string{},
+			TagSets:          [][]string{},
 		}
 	},
 }
@@ -125,10 +125,12 @@ func (q *CassandraQuery) Release() {
 type MongoQuery struct {
 	HumanLabel       []byte
 	HumanDescription []byte
+	BsonDoc          interface{}
 
+	// these are only for debugging. the data is encoded in BsonDoc.
 	MeasurementName []byte // e.g. "cpu"
 	FieldName       []byte // e.g. "usage_user"
-	AggregationType []byte // e.g. "avg" or "sum". used literally in the cassandra query.
+	AggregationType []byte // e.g. "avg" or "sum"
 	TimeStart       time.Time
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
@@ -140,10 +142,12 @@ var MongoQueryPool sync.Pool = sync.Pool{
 		return &MongoQuery{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
-			MeasurementName:  []byte{},
-			FieldName:        []byte{},
-			AggregationType:  []byte{},
-			TagSets:       [][]string{},
+			BsonDoc:          nil,
+
+			MeasurementName: []byte{},
+			FieldName:       []byte{},
+			AggregationType: []byte{},
+			TagSets:         [][]string{},
 		}
 	},
 }
@@ -167,6 +171,7 @@ func (q *MongoQuery) HumanDescriptionName() []byte {
 func (q *MongoQuery) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.BsonDoc = nil
 
 	q.MeasurementName = q.MeasurementName[:0]
 	q.FieldName = q.FieldName[:0]

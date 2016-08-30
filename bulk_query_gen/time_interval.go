@@ -53,3 +53,13 @@ func (ti *TimeInterval) StartString() string {
 func (ti *TimeInterval) EndString() string {
 	return ti.End.UTC().Format(time.RFC3339)
 }
+
+// StartUnixNano returns the start time as nanoseconds.
+func (ti *TimeInterval) StartUnixNano() int64 {
+	return ti.Start.UTC().UnixNano()
+}
+
+// EndUnixNano returns the end time as nanoseconds.
+func (ti *TimeInterval) EndUnixNano() int64 {
+	return ti.End.UTC().UnixNano()
+}
