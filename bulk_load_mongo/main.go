@@ -16,7 +16,6 @@ import (
 	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/pkg/profile"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -86,9 +85,6 @@ func init() {
 }
 
 func main() {
-	//_ = profile.Start
-	p := profile.Start(profile.MemProfile)
-	defer p.Stop()
 	if doLoad {
 		mustCreateCollections(daemonUrl)
 	}
