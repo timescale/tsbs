@@ -10,7 +10,9 @@ import (
 )
 
 func init() {
-	// needed to serialize the bson to stdout
+	// needed for serializing the mongo query to gob
+	gob.Register([]interface{}{})
+	gob.Register(bson.DocElem{})
 	gob.Register(bson.D{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.D{})
@@ -113,8 +115,9 @@ func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts i
 			"$project": bson.M{
 				"_id": 0,
 				"time_bucket": bson.M{
-					"$subtract": bson.D{
-						{"$timestamp_ns", bson.M{"$mod": bson.D{{"$timestamp_ns", bucketNano}}}},
+					"$subtract": []interface{}{
+						"$timestamp_ns",
+						bson.M{"$mod": []interface{}{"$timestamp_ns", bucketNano}},
 					},
 				},
 
@@ -148,6 +151,8 @@ func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts i
 	q.HumanLabel = humanLabel
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.BsonDoc = pipelineQuery
+	q.DatabaseName = []byte(dbName)
+	q.CollectionName = []byte("points_data")
 	q.FieldName = []byte("usage_user")
 	q.MeasurementName = []byte("cpu")
 	q.TimeStart = interval.Start

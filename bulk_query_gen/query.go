@@ -125,6 +125,8 @@ func (q *CassandraQuery) Release() {
 type MongoQuery struct {
 	HumanLabel       []byte
 	HumanDescription []byte
+	DatabaseName     []byte
+	CollectionName   []byte
 	BsonDoc          interface{}
 
 	// these are only for debugging. the data is encoded in BsonDoc.
@@ -142,6 +144,8 @@ var MongoQueryPool sync.Pool = sync.Pool{
 		return &MongoQuery{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
+			DatabaseName:   []byte{},
+			CollectionName:   []byte{},
 			BsonDoc:          nil,
 
 			MeasurementName: []byte{},
@@ -171,6 +175,8 @@ func (q *MongoQuery) HumanDescriptionName() []byte {
 func (q *MongoQuery) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.DatabaseName = q.DatabaseName[:0]
+	q.CollectionName = q.CollectionName[:0]
 	q.BsonDoc = nil
 
 	q.MeasurementName = q.MeasurementName[:0]
