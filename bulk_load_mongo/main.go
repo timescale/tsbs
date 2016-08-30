@@ -101,7 +101,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		session.SetMode(mgo.Eventual, false)
+
 		defer session.Close()
 	}
 
@@ -335,6 +337,19 @@ func mustCreateCollections(daemonUrl string) {
 	})
 
 	err = session.DB("benchmark_db").Run(cmd, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	collection := session.DB("benchmark_db").C("point_data")
+	index := mgo.Index{
+		Key: []string{"measurement", "tags", "field", "timestamp_ns"},
+		Unique: false, // Unique does not work on the entire array of tags!
+		DropDups: true,
+		Background: false,
+		Sparse: false,
+	}
+	err = collection.EnsureIndex(index)
 	if err != nil {
 		log.Fatal(err)
 	}
