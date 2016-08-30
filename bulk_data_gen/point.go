@@ -265,7 +265,6 @@ func (p *Point) SerializeMongo(w io.Writer) (err error) {
 		}
 		tagsVecOffset := builder.EndVector(len(tagOffsets))
 
-
 		fieldName := p.FieldKeys[fieldId]
 		genericValue := p.FieldValues[fieldId]
 

@@ -16,18 +16,18 @@ import (
 
 // query generator choices {use-case, query-type, format}
 // (This object is shown to the user when flag.Usage is called.)
-var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker {
+var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
 		"single-host": {
 			"influx-http": NewInfluxDevopsSingleHost,
-			"es-http": NewElasticSearchDevopsSingleHost,
-			"cassandra": NewCassandraDevopsSingleHost,
-			"mongo": NewMongoDevopsSingleHost,
+			"es-http":     NewElasticSearchDevopsSingleHost,
+			"cassandra":   NewCassandraDevopsSingleHost,
+			"mongo":       NewMongoDevopsSingleHost,
 		},
 		"groupby": {
 			"influx-http": NewInfluxDevopsGroupBy,
-			"es-http": NewElasticSearchDevopsGroupBy,
-			"cassandra": NewCassandraDevopsGroupBy,
+			"es-http":     NewElasticSearchDevopsGroupBy,
+			"cassandra":   NewCassandraDevopsGroupBy,
 		},
 		"8-hosts": {
 			"influx-http": NewInfluxDevops8Hosts,
@@ -105,8 +105,6 @@ func init() {
 		log.Fatal("invalid format specifier")
 	}
 
-
-
 	// the default seed is the current timestamp:
 	if seed == 0 {
 		seed = int64(time.Now().Nanosecond())
@@ -153,7 +151,7 @@ func main() {
 		q := generator.Dispatch(i, scaleVar)
 		err := enc.Encode(q)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("encoder ", err)
 		}
 		stats[string(q.HumanLabelName())]++
 

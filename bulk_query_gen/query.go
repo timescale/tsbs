@@ -127,7 +127,7 @@ type MongoQuery struct {
 	HumanDescription []byte
 	DatabaseName     []byte
 	CollectionName   []byte
-	BsonDoc          interface{}
+	BsonDoc          []M
 
 	// these are only for debugging. the data is encoded in BsonDoc.
 	MeasurementName []byte // e.g. "cpu"
@@ -144,9 +144,9 @@ var MongoQueryPool sync.Pool = sync.Pool{
 		return &MongoQuery{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
-			DatabaseName:   []byte{},
+			DatabaseName:     []byte{},
 			CollectionName:   []byte{},
-			BsonDoc:          nil,
+			BsonDoc:          []M{},
 
 			MeasurementName: []byte{},
 			FieldName:       []byte{},
