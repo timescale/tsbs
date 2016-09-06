@@ -58,7 +58,7 @@ func (d *CassandraDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVa
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
 func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(1 * time.Hour)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	tagSets := [][]string{}
@@ -70,7 +70,7 @@ func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhos
 	}
 	tagSets = append(tagSets, tagSet)
 
-	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand 1hr by 1m", nhosts)
 	q := qi.(*CassandraQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
