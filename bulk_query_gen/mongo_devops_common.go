@@ -42,39 +42,43 @@ func (d *MongoDevops) Dispatch(i, scaleVar int) Query {
 // MaxCPUUsageHourByMinuteOneHost populates a Query for getting the maximum CPU
 // usage for one host over the course of an hour.
 func (d *MongoDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 1)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 1, time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteTwoHosts populates a Query for getting the maximum CPU
 // usage for two hosts over the course of an hour.
 func (d *MongoDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 2)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 2, time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteFourHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
 func (d *MongoDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 4)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 4, time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteEightHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
 func (d *MongoDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 8)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 8, time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteSixteenHosts populates a Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
 func (d *MongoDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 16)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 16, time.Hour)
 }
 
 func (d *MongoDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 32)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 32, time.Hour)
 }
 
-func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(time.Hour)
+func (d *MongoDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 1, 12*time.Hour)
+}
+
+func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	hostnames := []string{}
@@ -128,7 +132,7 @@ func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts i
 		},
 	}
 
-	humanLabel := []byte(fmt.Sprintf("Mongo max cpu, rand %4d hosts, rand 1hr by 1m", nhosts))
+	humanLabel := []byte(fmt.Sprintf("Mongo max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange))
 	q := qi.(*MongoQuery)
 	q.HumanLabel = humanLabel
 	q.BsonDoc = pipelineQuery

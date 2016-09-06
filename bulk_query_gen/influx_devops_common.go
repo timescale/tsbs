@@ -37,33 +37,37 @@ func (d *InfluxDevops) Dispatch(i, scaleVar int) Query {
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, time.Hour)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 2)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 2, time.Hour)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 4)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 4, time.Hour)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8, time.Hour)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 16)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 16, time.Hour)
 }
 
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 32)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 32, time.Hour)
+}
+
+func (d *InfluxDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, 12*time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
-func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(1 * time.Hour)
+func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	hostnames := []string{}
@@ -82,7 +86,7 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
 
-	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand 1hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*HTTPQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

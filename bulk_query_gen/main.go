@@ -18,11 +18,17 @@ import (
 // (This object is shown to the user when flag.Usage is called.)
 var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
-		"single-host": {
+		"single-host-1-hr": {
 			"influx-http": NewInfluxDevopsSingleHost,
 			"es-http":     NewElasticSearchDevopsSingleHost,
 			"cassandra":   NewCassandraDevopsSingleHost,
 			"mongo":       NewMongoDevopsSingleHost,
+		},
+		"single-host-12-hr": {
+			"influx-http": NewInfluxDevopsSingleHost12hr,
+			"es-http":     NewElasticSearchDevopsSingleHost12hr,
+			"cassandra":   NewCassandraDevopsSingleHost12hr,
+			"mongo":       NewMongoDevopsSingleHost12hr,
 		},
 		"groupby": {
 			"influx-http": NewInfluxDevopsGroupBy,

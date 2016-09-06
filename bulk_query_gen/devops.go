@@ -9,6 +9,8 @@ type Devops interface {
 	MaxCPUUsageHourByMinuteSixteenHosts(Query, int)
 	MaxCPUUsageHourByMinuteThirtyTwoHosts(Query, int)
 
+	MaxCPUUsage12HoursByMinuteOneHost(Query, int)
+
 	MeanCPUUsageDayByHourAllHostsGroupbyHost(Query, int)
 
 	//CountCPUUsageDayByHourAllHostsGroupbyHost(Query, int)

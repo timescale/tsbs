@@ -32,33 +32,37 @@ func (d *CassandraDevops) Dispatch(i, scaleVar int) Query {
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 1)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 1, time.Hour)
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 2)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 2, time.Hour)
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 4)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 4, time.Hour)
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 8)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 8, time.Hour)
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 16)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 16, time.Hour)
 }
 
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 32)
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 32, time.Hour)
+}
+
+func (d *CassandraDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q.(*CassandraQuery), scaleVar, 1, 12*time.Hour)
 }
 
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
-func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(1 * time.Hour)
+func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	tagSets := [][]string{}
@@ -70,7 +74,7 @@ func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhos
 	}
 	tagSets = append(tagSets, tagSet)
 
-	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand 1hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*CassandraQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
