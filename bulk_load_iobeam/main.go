@@ -23,13 +23,13 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl       string
 	scriptsDir      string
 	postgresConnect string
 	workers         int
 	batchSize       int
 	doLoad          bool
-	writeTimeout    time.Duration
+	tagIndex        string
+	fieldIndex      string
 )
 
 const ProjectID = 1
@@ -61,6 +61,9 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+
+	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME, TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 
 	flag.Parse()
 }
@@ -221,6 +224,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 		value_type regtype,
 		is_partition_key boolean,
 		is_distinct boolean,
+		idx_types field_index_type[],
 		server_name TEXT,
 		PRIMARY KEY (project_id, namespace, field)
 );
@@ -232,9 +236,10 @@ CREATE OR REPLACE FUNCTION register_project_field(
 		cluster_table regclass,
 		value_type regtype,
 		is_partition_key boolean,
-		is_distinct boolean
+		is_distinct boolean,
+		idx_types field_index_type[]
 ) RETURNS VOID AS $$
-	INSERT INTO cluster.project_field (SELECT project_id, namespace, field, cluster_table, value_type, is_partition_key, is_distinct, name FROM public.cluster_name) 
+	INSERT INTO cluster.project_field (SELECT project_id, namespace, field, cluster_table, value_type, is_partition_key, is_distinct, idx_types, name FROM public.cluster_name) 
   ON CONFLICT DO NOTHING
 $$
 LANGUAGE 'sql' VOLATILE;
@@ -269,10 +274,12 @@ LANGUAGE 'sql' VOLATILE`)
 			isDistinct := idx == 0
 			isPartitioning := idx == 0
 			fieldType := "DOUBLE PRECISION"
+			idxType := fieldIndex
 			if idx == 0 {
 				fieldType = "TEXT"
+				idxType = tagIndex
 			}
-			dbBench.MustExec("SELECT 1 FROM register_project_field($1, $2, $3,$4::regclass, $5::regtype, $6, $7)", ProjectID, namespace, field, fmt.Sprintf("cluster.%d_%s_%d", ProjectID, namespace, ReplicaNo), fieldType, isPartitioning, isDistinct)
+			dbBench.MustExec("SELECT 1 FROM register_project_field($1, $2, $3,$4::regclass, $5::regtype, $6, $7, $8)", ProjectID, namespace, field, fmt.Sprintf("cluster.%d_%s_%d", ProjectID, namespace, ReplicaNo), fieldType, isPartitioning, isDistinct, fmt.Sprintf("{ %s }", idxType))
 		}
 
 	}
