@@ -25,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeamdb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}
@@ -146,6 +146,24 @@ func main() {
 		serializer = (*Point).SerializeMongo
 	case "opentsdb":
 		serializer = (*Point).SerializeOpenTSDBBulk
+	case "iobeamdb":
+		for measurementName, fields := range sim.Fields() {
+			out.WriteString(measurementName)
+			out.WriteString(",")
+			for _, key := range MachineTagKeys[0:1] {
+				out.Write(key)
+				out.WriteString(",")
+			}
+			for _, field := range fields {
+				out.Write(field)
+				out.WriteString(",")
+
+			}
+			out.WriteString("\n")
+		}
+		out.WriteString("\n")
+
+		serializer = (*Point).SerializeIobeam
 	default:
 		panic("unreachable")
 	}

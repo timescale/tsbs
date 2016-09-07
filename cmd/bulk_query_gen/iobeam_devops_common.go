@@ -1,0 +1,137 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+)
+
+// IobeamDevops produces Influx-specific queries for all the devops query types.
+type IobeamDevops struct {
+	AllInterval TimeInterval
+}
+
+// NewIobeamDevops makes an InfluxDevops object ready to generate Queries.
+func newIobeamDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	if !start.Before(end) {
+		panic("bad time order")
+	}
+
+	return &IobeamDevops{
+		AllInterval: NewTimeInterval(start, end),
+	}
+}
+
+// Dispatch fulfills the QueryGenerator interface.
+func (d *IobeamDevops) Dispatch(i, scaleVar int) Query {
+	q := NewIobeamQuery() // from pool
+	devopsDispatchAll(d, i, q, scaleVar)
+	return q
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1)
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2)
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4)
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8)
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16)
+}
+
+func (d *IobeamDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32)
+}
+
+// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
+// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
+	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	hostnameClauses := []string{}
+	for _, s := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("new_field_predicate('hostname', '=', '%s'::text)", s))
+	}
+
+	combinedHostnameClause := strings.Join(hostnameClauses, ",")
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'cpu', 
+	select_field => 'usage_user'::text, 
+	aggregate => new_aggregate('MAX', 60000000000, 'hostname'),
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('OR', ARRAY[%s]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
+
+	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
+// MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
+// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
+func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'cpu', 
+	select_field => 'usage_user'::text, 
+	aggregate => new_aggregate('MAX', 3600000000000, 'hostname'),
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> NULL,
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+))`, interval.Start.UnixNano(), interval.End.UnixNano())
+
+	humanLabel := "Iobeam mean cpu, all hosts, rand 1day by 1hour"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
+
+}
+
+//func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+//	interval := d.AllInterval.RandWindow(24*time.Hour)
+//
+//	v := url.Values{}
+//	v.Set("db", d.DatabaseName)
+//	v.Set("q", fmt.Sprintf("SELECT count(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
+//
+//	humanLabel := "Iobeam mean cpu, all hosts, rand 1day by 1hour"
+//	q := qi.(*HTTPQuery)
+//	q.HumanLabel = []byte(humanLabel)
+//	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+//	q.Method = []byte("GET")
+//	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+//	q.Body = nil
+//}

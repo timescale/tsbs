@@ -8,6 +8,7 @@ type Simulator interface {
 	Seen() int64
 	Finished() bool
 	Next(*Point)
+	Fields() map[string][][]byte
 }
 
 // SimulatedMeasurement simulates one measurement (e.g. Redis for DevOps).

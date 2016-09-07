@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -31,8 +32,7 @@ type Point struct {
 
 // Using these literals prevents the slices from escaping to the heap, saving
 // a few micros per call:
-var (
-)
+var ()
 
 // scratchBufPool helps reuse serialization scratch buffers.
 var scratchBufPool = &sync.Pool{
@@ -407,6 +407,57 @@ func (p *Point) SerializeOpenTSDBBulk(w io.Writer) error {
 	}
 
 	return nil
+}
+
+// <ns/measurement> <timestamp> <json blob>
+
+func (p *Point) SerializeIobeam(w io.Writer) (err error) {
+	buf := make([]byte, 0, 256)
+	byteBuf := bytes.NewBuffer(buf)
+
+	_, err = byteBuf.Write(p.MeasurementName)
+	if err != nil {
+		return err
+	}
+
+	_, err = byteBuf.WriteString(fmt.Sprintf(" %d %s %s ", p.Timestamp.UTC().UnixNano(), string(p.TagValues[0]), uuid.NewV4()))
+	if err != nil {
+		return err
+	}
+
+	encoder := newJSONFieldEncoder(byteBuf)
+
+	err = encoder.Start()
+	if err != nil {
+		return err
+	}
+
+	//for i := 0; i < len(p.TagKeys); i++ {
+	//only write the first as all tags are the same per host
+	//TODO: figure out how to fairly compare this.
+	for i := 0; i < 1; i++ {
+		if err := encoder.AddField(string(p.TagKeys[i]), string(p.TagValues[i])); err != nil {
+			return err
+		}
+	}
+
+	for i := 0; i < len(p.FieldKeys); i++ {
+		if err := encoder.AddField(string(p.FieldKeys[i]), p.FieldValues[i]); err != nil {
+			return err
+		}
+	}
+
+	if err := encoder.End(); err != nil {
+		return err
+	}
+
+	_, err = byteBuf.WriteString("\n")
+	if err != nil {
+		return err
+	}
+	_, err = byteBuf.WriteTo(w)
+
+	return err
 }
 
 func typeNameForCassandra(v interface{}) string {

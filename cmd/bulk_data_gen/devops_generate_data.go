@@ -65,6 +65,17 @@ func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
 	return dg
 }
 
+func (d *DevopsSimulator) Fields() map[string][][]byte {
+	data := make(map[string][][]byte)
+	for _, sm := range d.hosts[0].SimulatedMeasurements {
+		point := MakeUsablePoint()
+		sm.ToPoint(point)
+		data[string(point.MeasurementName)] = point.FieldKeys
+	}
+
+	return data
+}
+
 // Next advances a Point to the next state in the generator.
 func (d *DevopsSimulator) Next(p *Point) {
 	// switch to the next metric if needed
