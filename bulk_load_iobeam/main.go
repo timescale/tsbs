@@ -158,13 +158,13 @@ func processBatches(postgresConnect string) {
 
 		tx := dbBench.MustBegin()
 		tx.MustExec("SELECT 1 FROM  create_temp_copy_table_one_partition($1, $2, $3, $4, $5)", table_name, ProjectID, ReplicaNo, Partition, NumPartitions)
-		stmt, err := tx.Prepare(pq.CopyIn(table_name, "namespace", "time", "partition_key", "value", "uuid", "row_id"))
+		stmt, err := tx.Prepare(pq.CopyIn(table_name, "namespace", "time", "partition_key", "value"))
 		if err != nil {
 			panic(err)
 		}
 
-		for idx, row := range batch {
-			_, err := stmt.Exec(row.namespace, row.time, row.host, row.json, batch[0].uuid, idx)
+		for _, row := range batch {
+			_, err := stmt.Exec(row.namespace, row.time, row.host, row.json)
 			if err != nil {
 				panic(err)
 			}
