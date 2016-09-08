@@ -14,6 +14,18 @@ import (
 	"time"
 )
 
+var measurements = []string{
+	"redis",
+	"net",
+	"nginx",
+	"postgresl",
+	"kernel",
+	"mem",
+	"cpu",
+	"diskio",
+	"disk",
+}
+
 // query generator choices {use-case, query-type, format}
 // (This object is shown to the user when flag.Usage is called.)
 var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
@@ -46,6 +58,9 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"es-http":     NewElasticSearchDevopsGroupBy,
 			"influx-http": NewInfluxDevopsGroupBy,
 			"iobeam":      NewIobeamDevopsGroupBy,
+		},
+		"lastpoint": {
+			"iobeam": NewIobeamDevopsLastPointPerHost,
 		},
 	},
 }

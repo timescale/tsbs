@@ -81,7 +81,8 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	field_condition=> new_field_condition('OR', ARRAY[%s]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
 
 	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
@@ -108,6 +109,7 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	limit_rows => NULL,
 	limit_time_periods => NULL,
 	limit_by_field => NULL
+	total_partitions => 1,
 ))`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mean cpu, all hosts, rand 1day by 1hour"
@@ -118,6 +120,31 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	q.FieldName = []byte("usage_user")
 	q.SqlQuery = []byte(sqlQuery)
 
+}
+
+func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
+	measure := measurements[rand.Intn(len(measurements))]
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => '%s', 
+	select_field => '*'::text, 
+	aggregate => NULL,
+	time_condition => NULL,
+	field_condition=> NULL,
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => new_limit_by_field('hostname', 1),
+	total_partitions => 1
+))`, measure)
+
+	humanLabel := "Iobeam last row per host"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s", humanLabel))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
 }
 
 //func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
