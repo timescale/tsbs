@@ -1,4 +1,4 @@
-#remove all docker instances
+#!/bin/bash
 
 DATA_DIR=${DATA_DIR:-/tmp}
 POSTGRES_VERSION=${POSTGRES_VERSION:-master}
