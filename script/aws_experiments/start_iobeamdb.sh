@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATA_DIR=${DATA_DIR:-/tmp}
+DATA_DIR=${DATA_DIR:-/disk}
 POSTGRES_VERSION=${POSTGRES_VERSION:-master}
 POSTGRES_CONF=${POSTGRES_CONF:-/tmp/influxdb.conf}
 POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR:-${DATA_DIR}/1/postgres/data}

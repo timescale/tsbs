@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATA_DIR=${DATA_DIR:-/tmp}
+DATA_DIR=${DATA_DIR:-/disk}
 INFLUXDB_VERSION=${INFLUXDB_VERSION:-1.0.0-alpine}
 INFLUXDB_CONF=${INFLUXDB_CONF:-/tmp/influxdb.conf}
 INFLUXDB_META_DIR=${INFLUXDB_META_DIR:-${DATA_DIR}/1/influxdb/meta}
