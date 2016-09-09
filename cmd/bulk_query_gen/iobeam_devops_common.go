@@ -141,9 +141,9 @@ func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 	humanLabel := "Iobeam last row per host"
 	q := qi.(*IobeamQuery)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s", humanLabel))
-	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
+	q.NamespaceName = []byte(measure)
+	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 

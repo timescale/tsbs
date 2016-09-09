@@ -61,6 +61,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"lastpoint": {
 			"iobeam": NewIobeamDevopsLastPointPerHost,
+			"influx": NewInfluxDevopsLastPointPerHost,
 		},
 	},
 }

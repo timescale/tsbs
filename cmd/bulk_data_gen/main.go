@@ -25,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeamdb"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeam"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}
@@ -142,11 +142,15 @@ func main() {
 		serializer = (*Point).SerializeESBulk
 	case "cassandra":
 		serializer = (*Point).SerializeCassandra
+<<<<<<< HEAD:cmd/bulk_data_gen/main.go
 	case "mongo":
 		serializer = (*Point).SerializeMongo
 	case "opentsdb":
 		serializer = (*Point).SerializeOpenTSDBBulk
 	case "iobeamdb":
+=======
+	case "iobeam":
+>>>>>>> add lastpoint for influx; modify run script:bulk_data_gen/main.go
 		for measurementName, fields := range sim.Fields() {
 			out.WriteString(measurementName)
 			out.WriteString(",")

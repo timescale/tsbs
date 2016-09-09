@@ -98,7 +98,7 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(24*time.Hour)
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
@@ -128,3 +128,19 @@ func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 //	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 //	q.Body = nil
 //}
+
+func (d *InfluxDevops) LastPointPerHost(qi Query, _ int) {
+	measure := measurements[rand.Intn(len(measurements))]
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT * from %s LIMIT 1", measure))
+
+	humanLabel := "Influx last row per host"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
