@@ -60,8 +60,8 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"iobeam":      NewIobeamDevopsGroupBy,
 		},
 		"lastpoint": {
-			"iobeam": NewIobeamDevopsLastPointPerHost,
-			"influx": NewInfluxDevopsLastPointPerHost,
+			"iobeam":      NewIobeamDevopsLastPointPerHost,
+			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
 	},
 }

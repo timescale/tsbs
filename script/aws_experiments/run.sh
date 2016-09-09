@@ -13,7 +13,7 @@ START_REMOTE=${START_REMOTE:-true}
 DATA_DIR=${DATA_DIR:-${BASE_DIR}/${FORMAT}}
 POSTGRES_DB="benchmark"
 POSTGRES_CONNECT="host=database user=postgres sslmode=disable"
-POSTGRES_SCRIPTS_DIR=${POSTGRES_SCRIPTS_DIR:-"$GOPATH/go/src/bitbucket.org/440-labs/postgres-kafka-consumer/sql/scripts/"}
+POSTGRES_SCRIPTS_DIR=${POSTGRES_SCRIPTS_DIR:-"$GOPATH/src/bitbucket.org/440-labs/postgres-kafka-consumer/sql/scripts/"}
 
 INFLUX_URL=${INFLUX_URL:-"http://database:8086"}
 
@@ -42,6 +42,7 @@ docker ps
 ENDSSH
 fi
 
+mkdir -p $DATA_DIR
 
 cd $BENCHMARK_DIR
 cd bulk_data_gen
@@ -71,7 +72,7 @@ cd $BENCHMARK_DIR
 cd bulk_query_gen/
 go build
 ./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
-  --query-lastpoint --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-lastpoint.gz
+  --query-type=lastpoint --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-lastpoint.gz
 ./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
   --query-type=8-hosts --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-8-hosts.gz
 ./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
@@ -84,9 +85,10 @@ cd $BENCHMARK_DIR
 case "$FORMAT" in 
   iobeam)
     cd query_benchmarker_iobeam/
+    OPT="$POSTGRES_CONNECT dbname=$POSTGRES_DB"
     CMD="./query_benchmarker_iobeam \
   --workers=2 \
-  --postgres=\"$POSTGRES_CONNECT dbname=$POSTGRES_DB\""
+  --postgres='$OPT'"
     ;;
   influx)
     cd query_benchmarker_influxdb/
@@ -98,10 +100,10 @@ esac
 
 go build
 
-cat $DATA_DIR/query-lastpoint.gz| gunzip | $CMD 
-cat $DATA_DIR/query-8-hosts.gz| gunzip | $CMD 
-cat $DATA_DIR/query-single-host.gz| gunzip | $CMD 
-cat $DATA_DIR/query-groupby.gz| gunzip | $CMD 
+cat $DATA_DIR/query-lastpoint.gz| gunzip | eval $CMD 
+cat $DATA_DIR/query-8-hosts.gz| gunzip | eval $CMD 
+cat $DATA_DIR/query-single-host.gz| gunzip | eval $CMD 
+cat $DATA_DIR/query-groupby.gz| gunzip | eval $CMD 
 
 echo "done"
 
