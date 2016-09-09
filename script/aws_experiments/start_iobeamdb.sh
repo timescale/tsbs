@@ -1,11 +1,12 @@
 #remove all docker instances
-docker rm -vf $(docker ps -a -q)
 
-BASE_DATA_DIR=${BASE_DATA_DIR:-/disk}
-DATA_DIR=${DATA_DIR:-${BASE_DATA_DIR}/1/influxdb/data}
-WAL_DIR=${WAL_DIR:-${BASE_DATA_DIR}/2/influxdb/wal}
+DATA_DIR=${DATA_DIR:-/tmp}
+POSTGRES_VERSION=${POSTGRES_VERSION:-master}
+POSTGRES_CONF=${POSTGRES_CONF:-/tmp/influxdb.conf}
+POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR:-${DATA_DIR}/1/postgres/data}
+POSTGRES_WAL_DIR=${POSTGRES_WAL_DIR:-${DATA_DIR}/2/postgres/wal}
 
-rm -rf ${DATA_DIR} ${WAL_DIR}
+docker stop postgres &>/dev/null
 
 MEM=${MEM:-50000}
 let "SHARED=$MEM/3"
@@ -25,9 +26,9 @@ docker run -d --name postgres -p 5432:5432 -e POSTGRES_DB=test  -m ${MEM}m \
   -e "PGWAL=/data/wal/pgwal" \
   -e "POSTGRES_INITDB_ARGS=--xlogdir=/data/wal/pgwal" \
   -e "PGDATA=/var/lib/postgresql/data/pgdata" \
-  -v ${WAL_DIR}:/data/wal \
-  -v ${DATA_DIR}:/var/lib/postgresql/data \
-  registry.iobeam.com/iobeam/postgres-9.5-wale:master  postgres \
+  -v ${POSTGRES_WAL_DIR}:/data/wal \
+  -v ${POSTGRES_DATA_DIR}:/var/lib/postgresql/data \
+  registry.iobeam.com/iobeam/postgres-9.5-wale:${POSTGRES_VERSION} postgres \
   -cmax_locks_per_transaction=1000 \
   -cshared_preload_libraries=pg_stat_statements \
   -cvacuum_cost_delay=20 -cautovacuum_max_workers=1 \
