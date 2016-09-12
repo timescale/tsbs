@@ -108,8 +108,8 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	field_condition=> NULL,
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
-	total_partitions => 1,
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mean cpu, all hosts, rand 1day by 1hour"

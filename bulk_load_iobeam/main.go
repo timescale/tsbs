@@ -158,13 +158,13 @@ func processBatches(postgresConnect string) {
 
 		tx := dbBench.MustBegin()
 		tx.MustExec("SELECT 1 FROM  create_temp_copy_table_one_partition($1, $2, $3, $4, $5)", table_name, ProjectID, ReplicaNo, Partition, NumPartitions)
-		stmt, err := tx.Prepare(pq.CopyIn(table_name, "namespace", "time", "partition_key", "value"))
+		stmt, err := tx.Prepare(pq.CopyIn(table_name, "namespace", "time", "value"))
 		if err != nil {
 			panic(err)
 		}
 
 		for _, row := range batch {
-			_, err := stmt.Exec(row.namespace, row.time, row.host, row.json)
+			_, err := stmt.Exec(row.namespace, row.time, row.json)
 			if err != nil {
 				panic(err)
 			}
@@ -205,22 +205,14 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 	runScript(dbBench, "query.sql")
 	runScript(dbBench, "partitioning.sql")
-	runScript(dbBench, "insert.sql")
 	runScript(dbBench, "util.sql")
 	runScript(dbBench, "unoptimized.sql")
-
-	runScript(dbBench, "ioql.sql")
-	runScript(dbBench, "ioql_unoptimized.sql")
-	runScript(dbBench, "ioql_optimized.sql")
-	runScript(dbBench, "ioql_optimized_agg.sql")
-	runScript(dbBench, "ioql_optimized_nonagg.sql")
 
 	dbBench.MustExec(`	
 	CREATE TABLE IF NOT EXISTS cluster.project_field (
 		project_id BIGINT,
 		namespace TEXT,
 		field TEXT,
-		cluster_table regclass,
 		value_type regtype,
 		is_partition_key boolean,
 		is_distinct boolean,
@@ -233,17 +225,23 @@ CREATE OR REPLACE FUNCTION register_project_field(
 		project_id BIGINT,
 		namespace TEXT,
 		field TEXT,
-		cluster_table regclass,
 		value_type regtype,
 		is_partition_key boolean,
 		is_distinct boolean,
 		idx_types field_index_type[]
 ) RETURNS VOID AS $$
-	INSERT INTO cluster.project_field (SELECT project_id, namespace, field, cluster_table, value_type, is_partition_key, is_distinct, idx_types, name FROM public.cluster_name) 
+	INSERT INTO cluster.project_field (SELECT project_id, namespace, field, value_type, is_partition_key, is_distinct, idx_types, name FROM public.cluster_name) 
   ON CONFLICT DO NOTHING
 $$
 LANGUAGE 'sql' VOLATILE;
 `)
+
+	runScript(dbBench, "insert.sql")
+	runScript(dbBench, "ioql.sql")
+	runScript(dbBench, "ioql_unoptimized.sql")
+	runScript(dbBench, "ioql_optimized.sql")
+	runScript(dbBench, "ioql_optimized_agg.sql")
+	runScript(dbBench, "ioql_optimized_nonagg.sql")
 
 	dbBench.MustExec(fmt.Sprintf("DROP SERVER IF EXISTS \"local\" CASCADE"))
 	dbBench.MustExec(fmt.Sprintf("CREATE SERVER \"local\" FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'localhost', dbname 'benchmark')"))
@@ -264,9 +262,6 @@ LANGUAGE 'sql' VOLATILE`)
 		parts := strings.Split(scanner.Text(), ",")
 
 		namespace := parts[0]
-		dbBench.MustExec("SELECT 1 FROM create_cluster_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
-		dbBench.MustExec("SELECT 1 FROM create_master_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
-		dbBench.MustExec("SELECT 1 FROM create_partition_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
 		for idx, field := range parts[1:] {
 			if len(field) == 0 {
 				continue
@@ -279,8 +274,12 @@ LANGUAGE 'sql' VOLATILE`)
 				fieldType = "TEXT"
 				idxType = tagIndex
 			}
-			dbBench.MustExec("SELECT 1 FROM register_project_field($1, $2, $3,$4::regclass, $5::regtype, $6, $7, $8)", ProjectID, namespace, field, fmt.Sprintf("cluster.%d_%s_%d", ProjectID, namespace, ReplicaNo), fieldType, isPartitioning, isDistinct, fmt.Sprintf("{ %s }", idxType))
+			dbBench.MustExec("SELECT 1 FROM register_project_field($1, $2, $3, $4::regtype, $5, $6, $7)", ProjectID, namespace, field, fieldType, isPartitioning, isDistinct, fmt.Sprintf("{ %s }", idxType))
 		}
+
+		dbBench.MustExec("SELECT 1 FROM create_cluster_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
+		dbBench.MustExec("SELECT 1 FROM create_master_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
+		dbBench.MustExec("SELECT 1 FROM create_partition_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
 
 	}
 }
