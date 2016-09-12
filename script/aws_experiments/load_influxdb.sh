@@ -1,7 +1,7 @@
 #!/bin/bash
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
-DATA_FILE_NAME=${DATA_FILE_NAME:-influx-bulk.gz}
+DATA_FILE_NAME=${DATA_FILE_NAME:-influx-bulk-data.gz}
 source ${EXE_DIR}/load_common.sh
 
 cat ${DATA_FILE} | gunzip | bulk_load_influx \

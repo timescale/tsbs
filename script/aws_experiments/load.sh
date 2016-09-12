@@ -34,7 +34,7 @@ for target in ${TEST_TARGETS}; do
 
     # Run target database container
     echo "# Running database ${target}"
-    ssh ${DATABASE_HOST} '/bin/bash -s' < ${START_SCRIPT}
+    ssh ${DATABASE_HOST} "DATA_DIR=${DATA_DIR} /bin/bash -s" < ${START_SCRIPT}
     
     TARGET_DATA=${BULK_DATA_DIR}/${target}
 
@@ -42,7 +42,7 @@ for target in ${TEST_TARGETS}; do
     echo "Waiting for ${target} to start"
     sleep 3
     
-    echo "Loading ${target}"  
+    echo "Loading ${target}"
     eval ${LOAD_SCRIPT}
 done
 
