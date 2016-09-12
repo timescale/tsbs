@@ -75,8 +75,8 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
-	select_field => 'usage_user'::text, 
-	aggregate => new_aggregate('MAX', 60000000000, 'hostname'),
+	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
+	aggregate => new_aggregate(60000000000, 'hostname'),
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('OR', ARRAY[%s]),
 	limit_rows => NULL,
@@ -102,8 +102,8 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
-	select_field => 'usage_user'::text, 
-	aggregate => new_aggregate('MAX', 3600000000000, 'hostname'),
+	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
+	aggregate => new_aggregate(3600000000000, 'hostname'),
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> NULL,
 	limit_rows => NULL,
@@ -128,7 +128,7 @@ func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => '%s', 
-	select_field => '*'::text, 
+	select_field => NULL, 
 	aggregate => NULL,
 	time_condition => NULL,
 	field_condition=> NULL,
