@@ -162,3 +162,110 @@ func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 //	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 //	q.Body = nil
 //}
+
+// SELECT * where CPU > threshold and <some time period>
+// "SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+func (d *IobeamDevops) HighCPU(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'cpu', 
+	select_field => 'usage_user'::text, 
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) ]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+	total_partitions => 1,
+))`, interval.Start.UnixNano(), interval.End.UnixNano())
+
+	humanLabel := "Iobeam cpu over threshold, all hosts"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("*")
+	q.SqlQuery = []byte(sqlQuery)
+
+}
+func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	hostName := fmt.Sprintf("host_%d", rand.Int()%hosts)
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'cpu', 
+	select_field => 'usage_user'::text, 
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) , new_field_predicate('hostname', '==', '%s'::text) ]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+	total_partitions => 1,
+))`, interval.Start.UnixNano(), interval.End.UnixNano(), hostName)
+
+	humanLabel := "Iobeam cpu over threshold, all hosts"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("*")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
+// "SELECT * from mem where used_percent > 98.0 or used > 10000 or used_percent < 5.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
+
+func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'mem', 
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '>', '10000'::long) , new_field_predicate('used_percentage', '<', '5.0'::double) ]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+	total_partitions => 1,
+))`, interval.Start.UnixNano(), interval.End.UnixNano())
+
+	humanLabel := "Iobeam mem fields with or, all hosts"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("mem")
+	q.FieldName = []byte("*")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
+func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'mem', 
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '>', '10000'::long) , new_field_predicate('used_percentage', '<', '5.0'::double) ]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL
+	total_partitions => 1,
+	group_by => 'hostname',
+))`, interval.Start.UnixNano(), interval.End.UnixNano())
+
+	humanLabel := "Iobeam mem fields with or, all hosts"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("mem")
+	q.FieldName = []byte("*")
+
+	q.SqlQuery = []byte(sqlQuery)
+}
+
+// SELECT * where CPU > threshold OR battery < 5% OR free_memory < threshold and <some time period>
+// "SELECT * from cpu,mem,disk where cpu > 90.0 and free < 10.0 and used_percent < 90.0 and time >= '%s' and time < '%s' GROUP BY 'host'", interval.StartString(), interval.EndString()))
+
+// SELECT device_id, COUNT() where CPU > threshold OR battery < 5% OR free_memory < threshold and <some time period> GROUP BY device_id
+// SELECT avg(cpu) where <some time period> GROUP BY customer_id, location_id

@@ -144,3 +144,79 @@ func (d *InfluxDevops) LastPointPerHost(qi Query, _ int) {
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
 }
+
+// SELECT * where CPU > threshold and <some time period>
+func (d *InfluxDevops) HighCPU(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+
+	humanLabel := "Influx cpu over threshold"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+// SELECT * where CPU > threshold and device_type = FOO and <some time period>
+func (d *InfluxDevops) HighCPUAndField(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT * from cpu where cpu > 90.0 and host == 'host0' and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+
+	humanLabel := "Influx cpu over threshold with field"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) MultipleMemFieldsOrs(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT * from mem where used_percent > 98.0 or used > 10000 or used_percent < 5.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
+
+	humanLabel := "Influx mem fields with or"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) MultipleMemFieldsOrsGroupedByHost(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT * from mem where used_percent > 98.0 or used > 10000 or used_percent < 5.0 and time >= '%s' and time < '%s' GROUP BY 'hostname'", interval.StartString(), interval.EndString()))
+
+	humanLabel := "Influx mem fields with or by host"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+// SELECT * where CPU > threshold and <some time period>
+// "SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+
+// SELECT * where CPU > threshold and device_type = FOO and <some time period>
+// "SELECT * from cpu where cpu > 90.0 and host == 'host0' and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+
+// SELECT * where CPU > threshold OR battery < 5% OR free_memory < threshold and <some time period>
+// "SELECT * from cpu,mem,disk where cpu > 90.0 and free < 10.0 and used_percent < 90.0 and time >= '%s' and time < '%s' GROUP BY 'host'", interval.StartString(), interval.EndString()))
+
+// SELECT device_id, COUNT() where CPU > threshold OR battery < 5% OR free_memory < threshold and <some time period> GROUP BY device_id
+// SELECT avg(cpu) where <some time period> GROUP BY customer_id, location_id
