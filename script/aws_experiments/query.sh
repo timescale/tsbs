@@ -34,7 +34,7 @@ ssh ${DATABASE_HOST} "${CONTAINER_STOP_SCRIPT}"
 
 for target in ${TEST_TARGETS}; do
     START_SCRIPT=${EXE_DIR}/"start_$target.sh"
-    QUERY_SCRIPT=${EXE_DIR}/"query_influxdb.sh"
+    QUERY_SCRIPT=${EXE_DIR}/"query_$target.sh"
     
     # Run target database container
     echo "# Running database ${target}"
