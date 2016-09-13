@@ -191,7 +191,7 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 }
 func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
-	hostName := fmt.Sprintf("host_%d", rand.Int()%hosts)
+	hostName := fmt.Sprintf("host_%d", rand.Intn(hosts))
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
@@ -223,7 +223,7 @@ func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 	project_id => 1::bigint, 
 	namespace_name => 'mem', 
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '>', '10000'::long) , new_field_predicate('used_percentage', '<', '5.0'::double) ]),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
 	limit_by_field => NULL
@@ -246,7 +246,7 @@ func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	project_id => 1::bigint, 
 	namespace_name => 'mem', 
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '>', '10000'::long) , new_field_predicate('used_percentage', '<', '5.0'::double) ]),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
 	limit_by_field => NULL
