@@ -7,11 +7,11 @@ dataDir=${dataDir:-datafiles}
 declare -a formats=("influx-http" "cassandra" "iobeam")
 declare -a queryTypes=("single-host" "groupby" "8-hosts")
 
-scaleVar=${scaleVar:-"100"}
-queries=${queries:-"1000"}
+scaleVar=${scaleVar:-"1000"}
+queries=${queries:-"2500"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-02T06:00:00Z"}
+tsEnd=${tsEnd:-"2016-01-02T00:00:00Z"}
 useCase=${useCase:-"devops"}
 
 mkdir -p ${dataDir}

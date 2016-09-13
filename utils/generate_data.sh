@@ -6,10 +6,10 @@ dataDir=${dataDir:-datafiles}
 
 declare -a formats=("influx-bulk" "cassandra" "iobeamdb")
 logSeconds=${logSeconds:-"10s"}
-scaleVar=${scaleVar:-"100"}          
+scaleVar=${scaleVar:-"1000"}          
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-01T00:10:00Z"}
+tsEnd=${tsEnd:-"2016-01-02T00:00:00Z"}
 useCase=${useCase:-"devops"}
 
 mkdir -p ${dataDir}
