@@ -122,6 +122,56 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 
 }
 
+// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
+// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
+	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	hostnameClauses := []string{}
+	for _, s := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("new_field_predicate('hostname', '=', '%s'::text)", s))
+	}
+
+	combinedHostnameClause := strings.Join(hostnameClauses, ",")
+
+	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	project_id => 1::bigint, 
+	namespace_name => 'cpu', 
+	select_field => ARRAY[
+		new_select_item('usage_user', 'MAX'),
+		new_select_item('usage_system', 'MAX'),
+		new_select_item('usage_idle', 'MAX'),
+		new_select_item('usage_nice', 'MAX'),
+		new_select_item('usage_iowait', 'MAX'),
+		new_select_item('usage_irq', 'MAX'),
+		new_select_item('usage_softirq', 'MAX'),
+		new_select_item('usage_steal', 'MAX'),
+		new_select_item('usage_guest', 'MAX'),
+		new_select_item('usage_guest_nice', 'MAX')], 
+	aggregate => new_aggregate(60000000000, 'hostname'),
+	time_condition => new_time_condition(%d, %d),
+	field_condition=> new_field_condition('OR', ARRAY[%s]),
+	limit_rows => NULL,
+	limit_time_periods => NULL,
+	limit_by_field => NULL,
+	total_partitions => 1
+))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
+
+	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
 func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 	measure := measurements[rand.Intn(len(measurements))]
 
