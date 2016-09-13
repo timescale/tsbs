@@ -171,7 +171,7 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
-	select_field => 'usage_user'::text, 
+	select_field =>  ARRAY[new_select_item('usage_user'::text)], 
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) ]),
 	limit_rows => NULL,
@@ -196,7 +196,7 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
-	select_field => 'usage_user'::text, 
+	select_field =>  ARRAY[new_select_item('usage_user'::text)], 
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) , new_field_predicate('hostname', '==', '%s'::text) ]),
 	limit_rows => NULL,
