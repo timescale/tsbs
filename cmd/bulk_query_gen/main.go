@@ -79,6 +79,14 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsMultipleOrsByHost,
 			"iobeam":      NewIobeamDevopsMultipleOrsByHost,
 		},
+		"cpu-max-all-single-host": {
+			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
+			"iobeam":      NewIobeamDevopsAllMaxCPUOneHost,
+		},
+		"cpu-max-all-eight-hosts": {
+			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
+			"iobeam":      NewIobeamDevopsAllMaxCPUEightHosts,
+		},
 	},
 }
 

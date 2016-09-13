@@ -54,6 +54,14 @@ func (d *IobeamDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar i
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32)
 }
 
+func (d *IobeamDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
+	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 1)
+}
+
+func (d *IobeamDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 8)
+}
+
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
 func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {

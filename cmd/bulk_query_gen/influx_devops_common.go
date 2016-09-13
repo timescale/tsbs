@@ -68,7 +68,7 @@ func (d *InfluxDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
 	d.maxAllCPUHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1)
 }
 
-func (d *InfluxDevops) MaxAllCPUHourByMinuteEightHost(q Query, scaleVar int) {
+func (d *InfluxDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
 	d.maxAllCPUHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8)
 }
 
