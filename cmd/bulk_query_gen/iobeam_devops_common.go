@@ -219,9 +219,9 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
-	project_id => 1::bigint, 
-	namespace_name => 'cpu', 
-	select_field =>  ARRAY[new_select_item('usage_user'::text)], 
+	project_id => 1::bigint,
+	namespace_name => 'cpu',
+	select_field => 'usage_user'::text,
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) ]),
 	limit_rows => NULL,
@@ -244,9 +244,9 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	hostName := fmt.Sprintf("host_%d", rand.Intn(hosts))
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
-	project_id => 1::bigint, 
-	namespace_name => 'cpu', 
-	select_field =>  ARRAY[new_select_item('usage_user'::text)], 
+	project_id => 1::bigint,
+	namespace_name => 'cpu',
+	select_field => 'usage_user'::text,
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) , new_field_predicate('hostname', '==', '%s'::text) ]),
 	limit_rows => NULL,
@@ -270,8 +270,8 @@ func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
-	project_id => 1::bigint, 
-	namespace_name => 'mem', 
+	project_id => 1::bigint,
+	namespace_name => 'mem',
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
 	limit_rows => NULL,
@@ -293,8 +293,8 @@ func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
-	project_id => 1::bigint, 
-	namespace_name => 'mem', 
+	project_id => 1::bigint,
+	namespace_name => 'mem',
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
 	limit_rows => NULL,
