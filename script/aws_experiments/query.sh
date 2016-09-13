@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#
 # QUERIES_FILE=/path/to/queries/file ./query.sh influxdb
 #
 # Overridable variables are mostly in common.sh and load_common.sh

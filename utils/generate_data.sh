@@ -2,11 +2,11 @@
 
 binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
-dataDir=${dataDir:-datafiles}
+dataDir=${dataDir:-/disk/1/bulk_data}
 
-declare -a formats=("influx-bulk" "cassandra" "iobeamdb")
+declare -a formats=("influx-bulk" "cassandra" "iobeam")
 logSeconds=${logSeconds:-"10s"}
-scaleVar=${scaleVar:-"1000"}          
+scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
 tsEnd=${tsEnd:-"2016-01-02T00:00:00Z"}
