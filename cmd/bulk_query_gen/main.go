@@ -36,7 +36,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost,
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
-			"iobeam":      NewIobeamDevopsSingleHost,
+			"iobeamdb":    NewIobeamDevopsSingleHost,
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleHost12hr,
@@ -51,41 +51,41 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevops8Hosts,
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,
-			"iobeam":      NewIobeamDevops8Hosts,
+			"iobeamdb":    NewIobeamDevops8Hosts,
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy,
 			"es-http":     NewElasticSearchDevopsGroupBy,
 			"influx-http": NewInfluxDevopsGroupBy,
-			"iobeam":      NewIobeamDevopsGroupBy,
+			"iobeamdb":    NewIobeamDevopsGroupBy,
 		},
 		"lastpoint": {
-			"iobeam":      NewIobeamDevopsLastPointPerHost,
+			"iobeamdb":    NewIobeamDevopsLastPointPerHost,
 			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
 		"high-cpu": {
 			"influx-http": NewInfluxDevopsHighCPU,
-			"iobeam":      NewIobeamDevopsHighCpu,
+			"iobeamdb":    NewIobeamDevopsHighCpu,
 		},
 		"high-cpu-and-field": {
 			"influx-http": NewInfluxDevopsHighCPUAndField,
-			"iobeam":      NewIobeamDevopsHighCPUAndField,
+			"iobeamdb":    NewIobeamDevopsHighCPUAndField,
 		},
 		"multiple-ors": {
 			"influx-http": NewInfluxDevopsMultipleOrs,
-			"iobeam":      NewIobeamDevopsMultipleOrs,
+			"iobeamdb":    NewIobeamDevopsMultipleOrs,
 		},
 		"multiple-ors-by-host": {
 			"influx-http": NewInfluxDevopsMultipleOrsByHost,
-			"iobeam":      NewIobeamDevopsMultipleOrsByHost,
+			"iobeamdb":    NewIobeamDevopsMultipleOrsByHost,
 		},
 		"cpu-max-all-single-host": {
 			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
-			"iobeam":      NewIobeamDevopsAllMaxCPUOneHost,
+			"iobeamdb":    NewIobeamDevopsAllMaxCPUOneHost,
 		},
 		"cpu-max-all-eight-hosts": {
 			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
-			"iobeam":      NewIobeamDevopsAllMaxCPUEightHosts,
+			"iobeamdb":    NewIobeamDevopsAllMaxCPUEightHosts,
 		},
 	},
 }

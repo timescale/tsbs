@@ -25,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeam"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeamdb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}

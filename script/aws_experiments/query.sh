@@ -19,6 +19,8 @@ set -e
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 export EXE_DIR
 source ${EXE_DIR}/common.sh
+QUERIES_DATA_DIR=${QUERIES_DATA_DIR:-${DATA_DIR}/1/queries}
+
 
 CONTAINER_STOP_SCRIPT=`cat <<'ENDSSH'
 # remove all docker instances
@@ -47,12 +49,12 @@ for target in ${TEST_TARGETS}; do
     sleep 10
 
     if [ -z ${QUERIES_FILE} ]; then 
-        for QUERIES_FILE in `ls -1 queries_${target}*`; do
+        for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/queries_${target}*`; do
             echo "Querying ${target} using ${QUERIES_FILE}"
-            eval ${QUERY_SCRIPT}
+            source ${QUERY_SCRIPT}
         done
     else
-        eval ${QUERY_SCRIPT}
+        source ${QUERY_SCRIPT}
     fi
 done
 

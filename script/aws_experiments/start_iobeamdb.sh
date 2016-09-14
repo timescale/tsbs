@@ -2,9 +2,8 @@
 
 DATA_DIR=${DATA_DIR:-/disk}
 POSTGRES_VERSION=${POSTGRES_VERSION:-master}
-POSTGRES_CONF=${POSTGRES_CONF:-/tmp/influxdb.conf}
-POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR:-${DATA_DIR}/1/postgres/data}
-POSTGRES_WAL_DIR=${POSTGRES_WAL_DIR:-${DATA_DIR}/2/postgres/wal}
+POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR:-${DATA_DIR}/1/iobeamdb/data}
+POSTGRES_WAL_DIR=${POSTGRES_WAL_DIR:-${DATA_DIR}/2/iobeamdb/wal}
 
 docker stop postgres &>/dev/null
 

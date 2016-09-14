@@ -40,9 +40,9 @@ for target in ${TEST_TARGETS}; do
 
     # Let database start
     echo "Waiting for ${target} to start"
-    sleep 3
+    sleep 10
     
     echo "Loading ${target}"
-    eval ${LOAD_SCRIPT}
+    source ${LOAD_SCRIPT}
 done
 

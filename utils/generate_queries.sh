@@ -2,9 +2,9 @@
 set -x 
 binName=$(which bulk_query_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
-dataDir=${dataDir:-datafiles}
+dataDir=${dataDir:-/disk/1/queries}
 
-declare -a formats=("influx-http" "cassandra" "iobeam")
+declare -a formats=("influx-http" "cassandra" "iobeamdb")
 declare -a queryTypes=("single-host" "groupby" "8-hosts")
 
 scaleVar=${scaleVar:-"1000"}
@@ -24,6 +24,7 @@ for queryType in "${queryTypes[@]}"; do
         echo "$fname"
         if [ ! -f "$fname" ]; then
             $binName -format $format -queries $queries -query-type $queryType -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -use-case $useCase | gzip  > $fname
+            rm $format-${queryType}-queries.gz
             ln -s $fname $format-${queryType}-queries.gz
         else
             echo "File exists"
