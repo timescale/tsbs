@@ -9,8 +9,8 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -29,6 +29,7 @@ import (
 // Program option vars:
 var (
 	postgresConnect      string
+	queryMethod          string
 	workers              int
 	debug                int
 	prettyPrintResponses bool
@@ -50,6 +51,7 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable dbname=benchmark", "Postgres connection url")
+	flag.StringVar(&queryMethod, "query-method", "cursor", "choice of json, record, or cursor")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
@@ -165,9 +167,46 @@ func processQueries() {
 
 		query := string(q.SqlQuery)
 		start := time.Now()
-		rows, err := db.Query(query)
-		if err != nil {
-			panic(err)
+		switch queryMethod {
+		case "json":
+			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s)", query))
+			if err != nil {
+				panic(err)
+			}
+			rows.Close()
+		case "record":
+			var sql string
+			err := db.Get(&sql, fmt.Sprintf("SELECT * FROM ioql_exec_query_record_sql(%s)", query))
+			if err != nil {
+				panic(err)
+			}
+
+			rows, err := db.Queryx(sql)
+			if err != nil {
+				panic(err)
+			}
+			/*for rows.Next() {
+				results := make(map[string]interface{})
+				err = rows.MapScan(results)
+				fmt.Println("Row ", results)
+			}*/
+			rows.Close()
+		case "cursor":
+			tx := db.MustBegin()
+			tx.MustExec(fmt.Sprintf("SELECT * FROM ioql_exec_query_record_cursor(%s, 'res')", query))
+			rows, err := tx.Queryx("FETCH ALL IN res")
+			if err != nil {
+				panic(err)
+			}
+			/*for rows.Next() {
+				results := make(map[string]interface{})
+				err = rows.MapScan(results)
+				fmt.Println("Row ", results)
+			}*/
+			rows.Close()
+			tx.Commit()
+		default:
+			panic("unknown query method")
 		}
 		if debug > 0 {
 			fmt.Println(query)
@@ -175,7 +214,7 @@ func processQueries() {
 
 		if prettyPrintResponses {
 			var result bytes.Buffer
-			
+
 			for rows.Next() {
 				var jsonRow string
 				err = rows.Scan(&jsonRow)
@@ -183,7 +222,7 @@ func processQueries() {
 				if err != nil {
 					panic(err)
 				}
-				
+
 				var pretty bytes.Buffer
 				prefix := fmt.Sprintf("ID %d: ", q.ID)
 				err = json.Indent(&pretty, []byte(jsonRow), prefix, "  ")
@@ -191,7 +230,7 @@ func processQueries() {
 				if err != nil {
 					return
 				}
-				
+
 				_, err = fmt.Fprintf(&result, "%s%s\n", prefix, pretty.Bytes())
 				if err != nil {
 					return
@@ -201,6 +240,7 @@ func processQueries() {
 			result.WriteTo(os.Stderr)
 		}
 		rows.Close()
+
 		lag := float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
 
 		stat := statPool.Get().(*Stat)
@@ -208,9 +248,7 @@ func processQueries() {
 		statChan <- stat
 
 		queryPool.Put(q)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
-		}
+
 	}
 	workersGroup.Done()
 }

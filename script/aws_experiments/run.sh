@@ -29,6 +29,9 @@ case $FORMAT in
   influx)
     FORMAT_QUERY_GEN="influx-http"
     ;;
+  iobeam)
+    FORMAT_QUERY_GEN="iobeamdb"
+    ;;
 esac
 
 

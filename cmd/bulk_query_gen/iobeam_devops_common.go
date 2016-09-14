@@ -80,7 +80,7 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 
 	combinedHostnameClause := strings.Join(hostnameClauses, ",")
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
 	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
@@ -91,7 +91,7 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
+)`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
 
 	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
 	q := qi.(*IobeamQuery)
@@ -107,7 +107,7 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
 	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')],
@@ -118,7 +118,7 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano())
+)`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mean cpu, all hosts, rand 1day by 1hour"
 	q := qi.(*IobeamQuery)
@@ -148,7 +148,7 @@ func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 
 	combinedHostnameClause := strings.Join(hostnameClauses, ",")
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
 	select_field => ARRAY[
@@ -169,7 +169,7 @@ func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
+)`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
 
 	humanLabel := fmt.Sprintf("Iobeam max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
 	q := qi.(*IobeamQuery)
@@ -183,7 +183,7 @@ func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 	measure := measurements[rand.Intn(len(measurements))]
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => '%s', 
 	select_field => NULL, 
@@ -194,7 +194,7 @@ func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 	limit_time_periods => NULL,
 	limit_by_field => new_limit_by_field('hostname', 1),
 	total_partitions => 1
-))`, measure)
+)`, measure)
 
 	humanLabel := "Iobeam last row per host"
 	q := qi.(*IobeamQuery)
@@ -226,7 +226,7 @@ func (d *IobeamDevops) LastPointPerHost(qi Query, _ int) {
 func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'cpu',
 	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
@@ -236,7 +236,7 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano())
+)`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam cpu over threshold, all hosts"
 	q := qi.(*IobeamQuery)
@@ -251,7 +251,7 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	hostName := fmt.Sprintf("host_%d", rand.Intn(hosts))
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'cpu',
 	select_field => NULL, 
@@ -261,7 +261,7 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano(), hostName)
+)`, interval.Start.UnixNano(), interval.End.UnixNano(), hostName)
 
 	humanLabel := "Iobeam cpu over threshold, all hosts"
 	q := qi.(*IobeamQuery)
@@ -277,7 +277,7 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'mem',
 	select_field => NULL, 
@@ -287,7 +287,7 @@ func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano())
+)`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mem fields with or, all hosts"
 	q := qi.(*IobeamQuery)
@@ -301,7 +301,7 @@ func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
+	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'mem',
 	select_field => ARRAY[new_select_item('used_percent'::text, 'MAX')],
@@ -312,7 +312,7 @@ func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	limit_time_periods => NULL,
 	limit_by_field => NULL,
 	total_partitions => 1
-))`, interval.Start.UnixNano(), interval.End.UnixNano())
+)`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mem fields with or, all hosts"
 	q := qi.(*IobeamQuery)
