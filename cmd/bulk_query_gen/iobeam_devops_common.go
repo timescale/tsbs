@@ -171,7 +171,7 @@ func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano(), combinedHostnameClause)
 
-	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("Iobeam max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
 	q := qi.(*IobeamQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

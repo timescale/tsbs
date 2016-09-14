@@ -79,6 +79,11 @@ go build
   --query-type=single-host --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-single-host.gz
 ./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
   --query-type=groupby --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-groupby.gz
+./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
+  --query-type=cpu-max-all-single-host --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-cpu-max-all-single-host.gz
+./bulk_query_gen --debug=0 --seed=321 --format=$FORMAT_QUERY_GEN \
+  --query-type=cpu-max-all-eight-hosts --scale-var=$SCALE_VAR | gzip > $DATA_DIR/query-cpu-max-all-eight-hosts.gz
+
 
 cd $BENCHMARK_DIR
 
@@ -104,6 +109,8 @@ cat $DATA_DIR/query-lastpoint.gz| gunzip | eval $CMD
 cat $DATA_DIR/query-8-hosts.gz| gunzip | eval $CMD 
 cat $DATA_DIR/query-single-host.gz| gunzip | eval $CMD 
 cat $DATA_DIR/query-groupby.gz| gunzip | eval $CMD 
+cat $DATA_DIR/query-cpu-max-all-single-host.gz| gunzip | eval $CMD 
+cat $DATA_DIR/query-cpu-max-all-eight-hosts.gz| gunzip | eval $CMD 
 
 echo "done"
 
