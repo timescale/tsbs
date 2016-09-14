@@ -49,7 +49,7 @@ for target in ${TEST_TARGETS}; do
     sleep 10
 
     if [ -z ${QUERIES_FILE} ]; then 
-        for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/queries_${target}*`; do
+        for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/${target}-*`; do
             echo "Querying ${target} using ${QUERIES_FILE}"
             source ${QUERY_SCRIPT}
         done
