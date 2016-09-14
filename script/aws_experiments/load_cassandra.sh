@@ -7,4 +7,4 @@ source ${EXE_DIR}/load_common.sh
 cat ${DATA_FILE} | gunzip | bulk_load_cassandra \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-                                --url=http://${DATABASE_HOST}:8086 # <--- UPDATE
+                                --url=${DATABASE_HOST}:9042 
