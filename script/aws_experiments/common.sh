@@ -5,7 +5,7 @@ set -e
 BENCHMARK_DIR=${BENCHMARK_DIR:-${EXE_DIR}}
 DATABASE_HOST=${DATABASE_HOST:-database}
 DATA_DIR=${DATA_DIR:-/disk}
-TEST_TARGETS=${@:-"influxdb postgres cassandra"}
+TEST_TARGETS=${@:-"influxdb iobeamdb cassandra"}
 
 echo "# Test targets are: ${TEST_TARGETS}"
 
