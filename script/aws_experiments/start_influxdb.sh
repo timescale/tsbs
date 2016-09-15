@@ -12,6 +12,7 @@ docker stop influxdb &> /dev/null
 # Generate default config
 echo "Generating default config ${INFLUXDB_CONF}"
 docker run --rm influxdb:${INFLUXDB_VERSION} influxd config > $INFLUXDB_CONF
+chmod a+wr $INFLUXDB_CONF
 
 echo "Data dirs: ${DATA_DIR} ${INFLUXDB_DATA_DIR}"
 docker run -d \

@@ -23,9 +23,9 @@ if [ -n "${CONTAINERS}" ]; then
 fi
 ENDSSH
 `
-ssh ${DATABASE_HOST} "${CONTAINER_CLEANUP_SCRIPT}"
 
 for target in ${TEST_TARGETS}; do
+    ssh ${DATABASE_HOST} "${CONTAINER_CLEANUP_SCRIPT}"
     START_SCRIPT=${EXE_DIR}/"start_$target.sh"
     LOAD_SCRIPT=${EXE_DIR}/"load_$target.sh"
 
@@ -43,6 +43,6 @@ for target in ${TEST_TARGETS}; do
     sleep 10
     
     echo "Loading ${target}"
-    source ${LOAD_SCRIPT}
+    ./${LOAD_SCRIPT}
 done
 
