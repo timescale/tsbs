@@ -229,13 +229,13 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'cpu',
-	select_field => 'usage_user'::text,
+	select_field => NULL,
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) ]),
+	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::text) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
-	total_partitions => 1,
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam cpu over threshold, all hosts"
@@ -254,13 +254,13 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'cpu',
-	select_field => 'usage_user'::text,
+	select_field => NULL, 
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::double) , new_field_predicate('hostname', '==', '%s'::text) ]),
+	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('cpu', '>', '90.0'::text) , new_field_predicate('hostname', '==', '%s'::text) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
-	total_partitions => 1,
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano(), hostName)
 
 	humanLabel := "Iobeam cpu over threshold, all hosts"
@@ -280,12 +280,13 @@ func (d *IobeamDevops) MultipleMemOrs(qi Query, hosts int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'mem',
+	select_field => NULL, 
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('used_percent', '>', '98.0'::text) , new_field_predicate('used', '<', '1000'::text) , new_field_predicate('used_percent', '<', '10.0'::text) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
-	total_partitions => 1,
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mem fields with or, all hosts"
@@ -303,13 +304,14 @@ func (d *IobeamDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	sqlQuery := fmt.Sprintf(`SELECT * FROM ioql_exec_query(new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'mem',
+	select_field => ARRAY[new_select_item('used_percent'::text, 'MAX')],
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('user_percentage', '>', '98.0'::double) , new_field_predicate('used', '<', '1000'::long) , new_field_predicate('used_percentage', '<', '99.0'::double) ]),
+	field_condition=> new_field_condition('OR', ARRAY[ new_field_predicate('used_percent', '>', '98.0'::text) , new_field_predicate('used', '<', '1000'::text) , new_field_predicate('used_percent', '<', '10.0'::text) ]),
+	aggregate => new_aggregate(3600000000000, 'hostname'),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
-	limit_by_field => NULL
-	total_partitions => 1,
-	group_by => 'hostname',
+	limit_by_field => NULL,
+	total_partitions => 1
 ))`, interval.Start.UnixNano(), interval.End.UnixNano())
 
 	humanLabel := "Iobeam mem fields with or, all hosts"

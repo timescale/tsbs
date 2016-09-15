@@ -9,6 +9,7 @@ type Query struct {
 	NamespaceName []byte // e.g. "cpu"
 	FieldName     []byte // e.g. "usage_user"
 	SqlQuery      []byte
+	ID               int64	
 }
 
 // String produces a debug-ready description of a Query.

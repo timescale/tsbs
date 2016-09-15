@@ -10,6 +10,8 @@ package main
 import (
 	"bufio"
 	"encoding/gob"
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -146,7 +148,7 @@ func scan(r io.Reader) {
 			log.Fatal(err)
 		}
 
-		//		q.ID = n
+		q.ID = n
 
 		queryChan <- q
 
@@ -169,6 +171,34 @@ func processQueries() {
 		}
 		if debug > 0 {
 			fmt.Println(query)
+		}
+
+		if prettyPrintResponses {
+			var result bytes.Buffer
+			
+			for rows.Next() {
+				var jsonRow string
+				err = rows.Scan(&jsonRow)
+
+				if err != nil {
+					panic(err)
+				}
+				
+				var pretty bytes.Buffer
+				prefix := fmt.Sprintf("ID %d: ", q.ID)
+				err = json.Indent(&pretty, []byte(jsonRow), prefix, "  ")
+
+				if err != nil {
+					return
+				}
+				
+				_, err = fmt.Fprintf(&result, "%s%s\n", prefix, pretty.Bytes())
+				if err != nil {
+					return
+				}
+			}
+
+			result.WriteTo(os.Stderr)
 		}
 		rows.Close()
 		lag := float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds

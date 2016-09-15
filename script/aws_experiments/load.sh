@@ -19,6 +19,7 @@ CONTAINER_CLEANUP_SCRIPT=`cat <<'ENDSSH'
 # remove all docker instances
 CONTAINERS=$(docker ps -a -q)
 if [ -n "${CONTAINERS}" ]; then
+  docker stop ${CONTAINERS};
   docker rm -vf ${CONTAINERS}; 
 fi
 ENDSSH

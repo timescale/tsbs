@@ -26,6 +26,7 @@ CONTAINER_STOP_SCRIPT=`cat <<'ENDSSH'
 # remove all docker instances
 CONTAINERS=$(docker ps -q -a)
 if [ -n "${CONTAINERS}" ]; then
+  docker stop ${CONTAINERS};
   docker rm -vf ${CONTAINERS}; 
 fi
 ENDSSH
@@ -46,8 +47,8 @@ for target in ${TEST_TARGETS}; do
     ssh ${DATABASE_HOST} "DATA_DIR=${DATA_DIR} /bin/bash -s" < ${START_SCRIPT}
     
     # Let database start
-    echo "Waiting 10s for ${target} to start"
-    sleep 10   
+    #echo "Waiting 10s for ${target} to start"
+    #sleep 10   
 
     if [ -z ${QUERIES_FILE} ]; then
 	# Remove "db" ending from influxdb target. This is a hack needed because the 
@@ -62,7 +63,7 @@ for target in ${TEST_TARGETS}; do
             ${QUERY_SCRIPT} 2>&1 | tee ${RESULTS_FILE}
         done
     else
-	export DATA_DIR QUERIES_DATA_DIR QUERIES_FILE
+	export DATA_DIR QUERIES_DATA_DIR QUERIES_FILE PRINT_RESPONSES
         QUERIES_FILE_BASE=$(basename ${QUERIES_FILE})
         ${QUERY_SCRIPT} 2>&1 | tee ${RESULTS_DIR}/${QUERIES_FILE_BASE}.results
     fi

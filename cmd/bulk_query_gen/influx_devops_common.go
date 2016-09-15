@@ -220,7 +220,7 @@ func (d *InfluxDevops) MultipleMemFieldsOrs(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from mem where used_percent > 98.0 or used < 1000 or used_percent < 99.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT * from mem where used < 1000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx mem fields with or"
 	q := qi.(*HTTPQuery)
@@ -235,7 +235,7 @@ func (d *InfluxDevops) MultipleMemFieldsOrsGroupedByHost(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from mem where used_percent > 98.0 or used > 10000 or used_percent < 5.0 and time >= '%s' and time < '%s' GROUP BY 'hostname'", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT MAX(used_percent) from mem where used < 10000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' GROUP BY time(1h),hostname", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx mem fields with or by host"
 	q := qi.(*HTTPQuery)

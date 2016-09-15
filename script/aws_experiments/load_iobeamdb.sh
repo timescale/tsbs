@@ -14,6 +14,11 @@ popd
 
 echo "Using commit (for sql scripts inside postgres-kafka-consumer): $COMMIT ON branch $BRANCH" 
 
+until ssh ${DATABASE_HOST} docker exec postgres gosu postgres pg_ctl status 2>&1 >/dev/null; do
+    echo "Waiting for ${target}"
+    sleep 1
+done
+
 cat ${DATA_FILE} | gunzip | bulk_load_iobeam \
                                 --scriptsDir="$SQL_DIR" \
                                 --postgres="$POSTGRES_CONNECT" \
