@@ -36,8 +36,8 @@ for target in ${TEST_TARGETS}; do
     echo "# Running database ${target}"
     ssh ${DATABASE_HOST} "DATA_DIR=${DATA_DIR} /bin/bash -s" < ${START_SCRIPT}
     
-    TARGET_DATA=${BULK_DATA_DIR}/${target}
-
+    export DATA_DIR BULK_DATA_DIR
+    
     # Let database start
     echo "Waiting for ${target} to start"
     sleep 10
