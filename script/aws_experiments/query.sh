@@ -30,13 +30,13 @@ if [ -n "${CONTAINERS}" ]; then
 fi
 ENDSSH
 `
-echo "Stopping and removing running containers on host ${DATABASE_HOST}"
-
-ssh ${DATABASE_HOST} "${CONTAINER_STOP_SCRIPT}"
 
 for target in ${TEST_TARGETS}; do
     START_SCRIPT=${EXE_DIR}/"start_$target.sh"
     QUERY_SCRIPT=${EXE_DIR}/"query_$target.sh"
+
+    echo "Stopping and removing running containers on host ${DATABASE_HOST}"
+    ssh ${DATABASE_HOST} "${CONTAINER_STOP_SCRIPT}"
     
     # Run target database container
     echo "# Running database ${target}"
@@ -51,10 +51,10 @@ for target in ${TEST_TARGETS}; do
     if [ -z ${QUERIES_FILE} ]; then 
         for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/${target}-*`; do
             echo "Querying ${target} using ${QUERIES_FILE}"
-            source ${QUERY_SCRIPT}
+           ${QUERY_SCRIPT}
         done
     else
-        source ${QUERY_SCRIPT}
+        ${QUERY_SCRIPT}
     fi
 done
 

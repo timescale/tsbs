@@ -43,6 +43,6 @@ for target in ${TEST_TARGETS}; do
     sleep 10
     
     echo "Loading ${target}"
-    ./${LOAD_SCRIPT}
+    ${LOAD_SCRIPT}
 done
 
