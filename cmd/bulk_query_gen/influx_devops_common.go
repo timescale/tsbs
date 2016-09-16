@@ -188,7 +188,7 @@ func (d *InfluxDevops) HighCPU(qi Query, _ int) {
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx cpu over threshold"
 	q := qi.(*HTTPQuery)
@@ -205,7 +205,7 @@ func (d *InfluxDevops) HighCPUAndField(qi Query, hosts int) {
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from cpu where cpu > 90.0 and host == 'host_%d' and time >= '%s' and time < '%s'", rand.Intn(hosts), interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 and host == 'host_%d' and time >= '%s' and time < '%s'", rand.Intn(hosts), interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx cpu over threshold with field"
 	q := qi.(*HTTPQuery)
