@@ -229,7 +229,7 @@ func (d *IobeamDevops) HighCPU(qi Query, _ int) {
 	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint,
 	namespace_name => 'cpu',
-	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
+	select_field => NULL,
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('usage_user', '>', '90.0'::text) ]),
 	limit_rows => NULL,

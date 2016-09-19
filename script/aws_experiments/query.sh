@@ -47,8 +47,11 @@ for target in ${TEST_TARGETS}; do
     ssh ${DATABASE_HOST} "DATA_DIR=${DATA_DIR} /bin/bash -s" < ${START_SCRIPT}
     
     # Let database start
-    #echo "Waiting 10s for ${target} to start"
-    #sleep 10   
+    WAIT_TIME_S=${WAIT_TIME_S:-5}
+    echo "Waiting ${WAIT_TIME_S}s for ${target} to start"
+    sleep ${WAIT_TIME_S}
+
+    export DATA_DIR QUERIES_DATA_DIR PRINT_RESPONSES
 
     if [ -z ${QUERIES_FILE} ]; then
 	# Remove "db" ending from influxdb target. This is a hack needed because the 
@@ -56,14 +59,15 @@ for target in ${TEST_TARGETS}; do
 	FORMAT=`echo ${target} | sed s/influxdb/influx/`
 
         for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/${FORMAT}-*`; do
-	    export QUERIES_FILE
             QUERIES_FILE_BASE=$(basename ${QUERIES_FILE})
 	    RESULTS_FILE=${RESULTS_DIR}/${QUERIES_FILE_BASE}.results
-	    echo "Querying ${target} using ${QUERIES_FILE} and writing results to ${RESULTS_FILE}"
+e	    echo "Querying ${target} using ${QUERIES_FILE} and writing results to ${RESULTS_FILE}"
+	    export QUERIES_FILE
             ${QUERY_SCRIPT} 2>&1 | tee ${RESULTS_FILE}
         done
+	unset QUERIES_FILE
     else
-	export DATA_DIR QUERIES_DATA_DIR QUERIES_FILE PRINT_RESPONSES
+	export QUERIES_FILE
         QUERIES_FILE_BASE=$(basename ${QUERIES_FILE})
         ${QUERY_SCRIPT} 2>&1 | tee ${RESULTS_DIR}/${QUERIES_FILE_BASE}.results
     fi

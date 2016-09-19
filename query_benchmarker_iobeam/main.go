@@ -10,6 +10,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"database/sql"
 	"encoding/gob"
 	"encoding/json"
 	"flag"
@@ -159,6 +160,35 @@ func scan(r io.Reader) {
 	}
 }
 
+func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
+	var result bytes.Buffer
+
+	for rows.Next() {
+		var jsonRow string
+		err := rows.Scan(&jsonRow)
+
+		if err != nil {
+			panic(err)
+		}
+
+		var pretty bytes.Buffer
+		prefix := fmt.Sprintf("ID %d: ", q.ID)
+		err = json.Indent(&pretty, []byte(jsonRow), prefix, "  ")
+
+		if err != nil {
+			return
+		}
+
+		_, err = fmt.Fprintf(&result, "%s%s\n", prefix, pretty.Bytes())
+		if err != nil {
+			return
+		}
+	}
+
+	result.WriteTo(os.Stderr)
+}
+
+
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries() {
@@ -167,11 +197,16 @@ func processQueries() {
 
 		query := string(q.SqlQuery)
 		start := time.Now()
+
 		switch queryMethod {
 		case "json":
 			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s)", query))
 			if err != nil {
 				panic(err)
+			}
+
+			if prettyPrintResponses {
+				prettyPrintJsonResponse(rows, q)
 			}
 			rows.Close()
 		case "record":
@@ -211,35 +246,6 @@ func processQueries() {
 		if debug > 0 {
 			fmt.Println(query)
 		}
-
-		if prettyPrintResponses {
-			var result bytes.Buffer
-
-			for rows.Next() {
-				var jsonRow string
-				err = rows.Scan(&jsonRow)
-
-				if err != nil {
-					panic(err)
-				}
-
-				var pretty bytes.Buffer
-				prefix := fmt.Sprintf("ID %d: ", q.ID)
-				err = json.Indent(&pretty, []byte(jsonRow), prefix, "  ")
-
-				if err != nil {
-					return
-				}
-
-				_, err = fmt.Fprintf(&result, "%s%s\n", prefix, pretty.Bytes())
-				if err != nil {
-					return
-				}
-			}
-
-			result.WriteTo(os.Stderr)
-		}
-		rows.Close()
 
 		lag := float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
 
