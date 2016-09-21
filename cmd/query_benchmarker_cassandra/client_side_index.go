@@ -209,7 +209,5 @@ func FetchSeriesCollection(daemonUrl string, timeout time.Duration) []Series {
 		}
 	}
 
-	fmt.Printf("seriesCollection %v\n", seriesCollection)
-	fmt.Printf("#series %v\n", len(seriesCollection))
 	return seriesCollection
 }
