@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -66,6 +67,10 @@ func (d *IobeamDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
 func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
+
+	if nhosts > scaleVar {
+		log.Fatal("nhosts > scaleVar")
+	}
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	hostnames := []string{}
@@ -134,6 +139,11 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
 func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
+
+	if nhosts > scaleVar {
+		log.Fatal("nhosts > scaleVar")
+	}
+
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	hostnames := []string{}
