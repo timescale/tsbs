@@ -85,7 +85,6 @@ func main() {
 			}
 		},
 	}
-
 	// Make data and control channels:
 	queryChan = make(chan *Query, workers)
 	statChan = make(chan *Stat, workers)
@@ -160,6 +159,8 @@ func scan(r io.Reader) {
 	}
 }
 
+var mutex = &sync.Mutex{}
+
 func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
 	var result bytes.Buffer
 
@@ -171,9 +172,26 @@ func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
 			panic(err)
 		}
 
+		var response = make(map[string]interface{})
+		err = json.Unmarshal([]byte(jsonRow), &response)
+
+		if err != nil {
+			panic(err)
+		}
+
+		ts := int64(response["group_time"].(float64))
+		splitFactor := int64(1000000000)
+		timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
+		response["group_time"] = timeStruct.Format(time.RFC3339)
+
+		modifiedResponse, err := json.Marshal(response)
+		if err != nil {
+			panic(err)
+		}
 		var pretty bytes.Buffer
 		prefix := fmt.Sprintf("ID %d: ", q.ID)
-		err = json.Indent(&pretty, []byte(jsonRow), prefix, "  ")
+
+		err = json.Indent(&pretty, modifiedResponse, prefix, "  ")
 
 		if err != nil {
 			return
@@ -185,9 +203,11 @@ func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
 		}
 	}
 
+	mutex.Lock()
+	defer mutex.Unlock()
 	result.WriteTo(os.Stderr)
-}
 
+}
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.

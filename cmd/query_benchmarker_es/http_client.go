@@ -95,7 +95,7 @@ func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err e
 			// Assumes the response is JSON! This holds for Influx
 			// and Elastic.
 
-			r pretty bytes.Buffer
+			var pretty bytes.Buffer
 			prefix := fmt.Sprintf("ID %d: ", q.ID)
 			err = json.Indent(&pretty, resp.Body(), prefix, "  ")
 			if err != nil {
