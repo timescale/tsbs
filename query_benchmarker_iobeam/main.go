@@ -179,10 +179,19 @@ func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
 			panic(err)
 		}
 
-		ts := int64(response["group_time"].(float64))
 		splitFactor := int64(1000000000)
-		timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
-		response["group_time"] = timeStruct.Format(time.RFC3339)
+
+		if _, ok := response["group_time"]; ok {
+			ts := int64(response["group_time"].(float64))
+			timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
+			response["group_time"] = timeStruct.Format(time.RFC3339)
+		}
+
+		if _, ok := response["time"]; ok {
+			ts := int64(response["time"].(float64))
+			timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
+			response["time"] = timeStruct.Format(time.RFC3339)
+		}
 
 		modifiedResponse, err := json.Marshal(response)
 		if err != nil {
