@@ -13,4 +13,5 @@ done
 cat ${QUERIES_FILE} | gunzip | query_benchmarker_iobeam \
 				   --print-responses=${PRINT_RESPONSES} \
                                    --workers=${NUM_WORKERS} \
+				   --query-method json \
                                    --postgres="$POSTGRES_CONNECT dbname=$POSTGRES_DB"

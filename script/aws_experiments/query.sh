@@ -61,7 +61,7 @@ for target in ${TEST_TARGETS}; do
         for QUERIES_FILE in `ls -1 ${QUERIES_DATA_DIR}/${FORMAT}-*`; do
             QUERIES_FILE_BASE=$(basename ${QUERIES_FILE})
 	    RESULTS_FILE=${RESULTS_DIR}/${QUERIES_FILE_BASE}.results
-e	    echo "Querying ${target} using ${QUERIES_FILE} and writing results to ${RESULTS_FILE}"
+	    echo "Querying ${target} using ${QUERIES_FILE} and writing results to ${RESULTS_FILE}"
 	    export QUERIES_FILE
             ${QUERY_SCRIPT} 2>&1 | tee ${RESULTS_FILE}
         done
