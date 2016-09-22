@@ -89,7 +89,7 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
 	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')], 
-	aggregate => new_aggregate(60000000000, 'hostname'),
+	aggregate => new_aggregate(60000000000, NULL),
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('OR', ARRAY[%s]),
 	limit_rows => NULL,
