@@ -167,16 +167,15 @@ func (d *InfluxDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 //}
 
 func (d *InfluxDevops) LastPointPerHost(qi Query, _ int) {
-	measure := measurements[rand.Intn(len(measurements))]
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from %s LIMIT 1", measure))
+	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
 
 	humanLabel := "Influx last row per host"
 	q := qi.(*HTTPQuery)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
+	q.HumanDescription = []byte(fmt.Sprintf("%s: cpu", humanLabel))
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil
@@ -235,7 +234,7 @@ func (d *InfluxDevops) MultipleMemFieldsOrsGroupedByHost(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT MAX(used_percent) from mem where used < 10000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' GROUP BY time(1h),hostname", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT MAX(used_percent) from mem where used < 1000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' GROUP BY time(1h),hostname", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx mem fields with or by host"
 	q := qi.(*HTTPQuery)

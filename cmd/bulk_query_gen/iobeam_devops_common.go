@@ -266,7 +266,7 @@ func (d *IobeamDevops) HighCPUAndField(qi Query, hosts int) {
 	namespace_name => 'cpu',
 	select_field => NULL, 
 	time_condition => new_time_condition(%d, %d),
-	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('usage_user', '>', '90.0'::text) , new_field_predicate('hostname', '==', '%s'::text) ]),
+	field_condition=> new_field_condition('AND', ARRAY[ new_field_predicate('usage_user', '>', '90.0'::text) , new_field_predicate('hostname', '=', '%s'::text) ]),
 	limit_rows => NULL,
 	limit_time_periods => NULL,
 	limit_by_field => NULL,

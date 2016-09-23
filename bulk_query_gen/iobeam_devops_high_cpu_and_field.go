@@ -15,6 +15,6 @@ func NewIobeamDevopsHighCPUAndField(dbConfig DatabaseConfig, start, end time.Tim
 
 func (d *IobeamDevopsHighCPUAndField) Dispatch(i, scaleVar int) Query {
 	q := NewIobeamQuery() // from pool
-	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
+	d.HighCPUAndField(q, scaleVar)
 	return q
 }
