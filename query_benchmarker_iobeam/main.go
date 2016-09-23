@@ -229,7 +229,7 @@ func processQueries() {
 
 		switch queryMethod {
 		case "json":
-			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s)", query))
+			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s) ORDER BY (json::jsonb)->>'group_time'", query))
 			if err != nil {
 				panic(err)
 			}
@@ -262,11 +262,14 @@ func processQueries() {
 			if err != nil {
 				panic(err)
 			}
-			/*for rows.Next() {
+
+			if prettyPrintResponses {
+			   for rows.Next() {
 				results := make(map[string]interface{})
 				err = rows.MapScan(results)
 				fmt.Println("Row ", results)
-			}*/
+				}
+			}
 			rows.Close()
 			tx.Commit()
 		default:

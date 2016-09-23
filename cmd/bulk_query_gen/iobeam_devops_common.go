@@ -115,7 +115,7 @@ func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int)
 	sqlQuery := fmt.Sprintf(`new_ioql_query(
 	project_id => 1::bigint, 
 	namespace_name => 'cpu', 
-	select_field => ARRAY[new_select_item('usage_user'::text, 'MAX')],
+	select_field => ARRAY[new_select_item('usage_user'::text, 'AVG')],
 	aggregate => new_aggregate(3600000000000, 'hostname'),
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> NULL,
@@ -172,7 +172,7 @@ func (d *IobeamDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 		new_select_item('usage_steal', 'MAX'),
 		new_select_item('usage_guest', 'MAX'),
 		new_select_item('usage_guest_nice', 'MAX')], 
-	aggregate => new_aggregate(60000000000, 'hostname'),
+	aggregate => new_aggregate(60000000000, NULL),
 	time_condition => new_time_condition(%d, %d),
 	field_condition=> new_field_condition('OR', ARRAY[%s]),
 	limit_rows => NULL,
