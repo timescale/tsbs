@@ -5,6 +5,7 @@
 // ElasticSearch bulk load format
 // Cassandra query format
 // Mongo custom format
+// OpenTSDB bulk HTTP format
 //
 // Supported use cases:
 // Devops: scale_var is the number of hosts to simulate, with log messages
@@ -24,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "iot"}
@@ -126,6 +127,8 @@ func main() {
 		serializer = (*Point).SerializeCassandra
 	case "mongo":
 		serializer = (*Point).SerializeMongo
+	case "opentsdb":
+		serializer = (*Point).SerializeOpenTSDBBulk
 	default:
 		panic("unreachable")
 	}
