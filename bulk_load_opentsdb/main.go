@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkg/profile"
+	"github.com/klauspost/compress/gzip"
 )
 
 // Program option vars:
@@ -110,6 +111,7 @@ func main() {
 // When the requested number of lines per batch is met, send a batch over batchChan for the workers to write.
 func scan(linesPerBatch int) int64 {
 	buf := bufPool.Get().(*bytes.Buffer)
+	zw := gzip.NewWriter(buf)
 
 	var n int
 	var itemsRead int64
@@ -119,28 +121,31 @@ func scan(linesPerBatch int) int64 {
 	commaspace := []byte(", ")
 	newline := []byte("\n")
 
-	buf.Write(openbracket)
-	buf.Write(newline)
+	zw.Write(openbracket)
+	zw.Write(newline)
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 	for scanner.Scan() {
 		itemsRead++
+		if n > 0 {
+			zw.Write(commaspace)
+			zw.Write(newline)
+		}
 
-		buf.Write(scanner.Bytes())
+		zw.Write(scanner.Bytes())
 
 		n++
-		if n < linesPerBatch {
-			buf.Write(commaspace)
-			buf.Write(newline)
-		} else {
-			buf.Write(newline)
-			buf.Write(closebracket)
+		if n >= linesPerBatch {
+			zw.Write(newline)
+			zw.Write(closebracket)
+			zw.Close()
 
 			batchChan <- buf
 
 			buf = bufPool.Get().(*bytes.Buffer)
-			buf.Write(openbracket)
-			buf.Write(newline)
+			zw = gzip.NewWriter(buf)
+			zw.Write(openbracket)
+			zw.Write(newline)
 			n = 0
 		}
 	}
@@ -151,7 +156,9 @@ func scan(linesPerBatch int) int64 {
 
 	// Finished reading input, make sure last batch goes out.
 	if n > 0 {
-		buf.Write(closebracket)
+		zw.Write(newline)
+		zw.Write(closebracket)
+		zw.Close()
 		batchChan <- buf
 	}
 

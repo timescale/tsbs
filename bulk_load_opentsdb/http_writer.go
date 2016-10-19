@@ -51,7 +51,7 @@ func NewHTTPWriter(c HTTPWriterConfig) LineProtocolWriter {
 
 var (
 	post      = []byte("POST")
-	textPlain = []byte("text/plain")
+	applicationJsonHeader = []byte("application/json")
 )
 
 // WriteLineProtocol writes the given byte slice to the HTTP server described in the Writer's HTTPWriterConfig.
@@ -59,7 +59,8 @@ var (
 // or it returns a new error if the HTTP response isn't as expected.
 func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 	req := fasthttp.AcquireRequest()
-	req.Header.SetContentTypeBytes(textPlain)
+	req.Header.SetContentTypeBytes(applicationJsonHeader)
+	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.SetMethodBytes(post)
 	req.Header.SetRequestURIBytes(w.url)
 	req.SetBody(body)
@@ -70,9 +71,9 @@ func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 	lat := time.Since(start).Nanoseconds()
 	if err == nil {
 		sc := resp.StatusCode()
-		if sc == 500 && backpressurePred(resp.Body()) {
-			err = BackoffError
-		} else if sc != fasthttp.StatusNoContent {
+		//if sc == 500 && backpressurePred(resp.Body()) {
+		//	err = BackoffError
+		if (sc != fasthttp.StatusNoContent && sc != fasthttp.StatusOK) {
 			err = fmt.Errorf("Invalid write response (status %d): %s", sc, resp.Body())
 		}
 	}
