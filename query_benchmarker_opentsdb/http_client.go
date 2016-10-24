@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -93,14 +92,55 @@ func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err e
 			// Assumes the response is JSON! This holds for Influx
 			// and Elastic and OpenTSDB.
 
-			var pretty bytes.Buffer
-			prefix := fmt.Sprintf("ID %d: ", q.ID)
-			err = json.Indent(&pretty, resp.Body(), prefix, "  ")
+			// "Why does OpenTSDB return more data than I asked for in my query?"
+			// http://opentsdb.net/faq.html 2016/10/24
+			//
+			// Due to the fact that OpenTSDB returns extra data
+			// outside the requested time bounds, here we prune
+			// those values:
+			type Payload struct {
+				Outputs []struct{
+					// actually a slice of {int64,float64}
+					// but go's json does not support
+					// inline fields:
+					// https://github.com/golang/go/issues/6213
+					Dps [][]interface{} `json:"dps"`
+				} `json:"outputs"`
+			}
+
+			x := &Payload{}
+			err = json.Unmarshal(resp.Body(), &x)
 			if err != nil {
 				return
 			}
 
-			_, err = fmt.Fprintf(os.Stderr, "%s%s\n", prefix, pretty.Bytes())
+			// this modified the Payload in-place, so keep it in a block
+			{
+				startMillis := q.StartTimestamp / 1e6
+				endMillis := q.EndTimestamp / 1e6
+				if len(x.Outputs) > 0 {
+					for i := range x.Outputs{
+						filteredPoints := make([][]interface{}, 0, len(x.Outputs[i].Dps))
+						for _, untypedValue := range x.Outputs[i].Dps {
+							//fmt.Printf("%d, %d\n", int64(untypedValue[0].(float64)), startMillis)
+							timestamp := int64(untypedValue[0].(float64)) // json does not have integers
+							if timestamp >= startMillis && timestamp <= endMillis {
+								filteredPoints = append(filteredPoints, untypedValue)
+							}
+						}
+						x.Outputs[i].Dps = filteredPoints
+					}
+				}
+			}
+
+			prefix := fmt.Sprintf("ID %d: ", q.ID)
+			var pretty []byte
+			pretty, err = json.MarshalIndent(&x, prefix, "  ")
+			if err != nil {
+				return
+			}
+
+			_, err = fmt.Fprintf(os.Stderr, "%s%s\n", prefix, pretty)
 			if err != nil {
 				return
 			}

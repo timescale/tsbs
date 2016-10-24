@@ -10,6 +10,8 @@ type Query struct {
 	Path             []byte
 	Body             []byte
 	ID               int64
+	StartTimestamp   int64
+	EndTimestamp     int64
 }
 
 // String produces a debug-ready description of a Query.

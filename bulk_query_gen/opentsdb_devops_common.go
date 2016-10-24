@@ -142,8 +142,10 @@ func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhost
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.Method = []byte("POST")
-	q.Path = []byte("/api/query/exp")
+	q.Path = []byte("/api/v1/query/exp")
 	q.Body = bodyWriter.Bytes()
+	q.StartTimestamp = interval.StartUnixNano()
+	q.EndTimestamp = interval.EndUnixNano()
 }
 
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
