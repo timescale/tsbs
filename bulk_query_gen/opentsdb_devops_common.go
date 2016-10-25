@@ -79,9 +79,6 @@ func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhost
   	startTimestamp := interval.StartUnixNano() / 1e6
 	endTimestamp := interval.EndUnixNano() / 1e6
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
-
 	const tmplString = `
 {
    "time": {
