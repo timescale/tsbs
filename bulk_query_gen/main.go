@@ -18,29 +18,29 @@ import (
 // (This object is shown to the user when flag.Usage is called.)
 var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
-		"single-host-1-hr": {
-			"influx-http": NewInfluxDevopsSingleHost,
-			"es-http":     NewElasticSearchDevopsSingleHost,
+		"1-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleHost,
+			"es-http":     NewElasticSearchDevopsSingleHost,
+			"influx-http": NewInfluxDevopsSingleHost,
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
 		},
-		"single-host-12-hr": {
-			"influx-http": NewInfluxDevopsSingleHost12hr,
-			"es-http":     NewElasticSearchDevopsSingleHost12hr,
+		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleHost12hr,
+			"es-http":     NewElasticSearchDevopsSingleHost12hr,
+			"influx-http": NewInfluxDevopsSingleHost12hr,
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
 		},
-		"groupby": {
-			"influx-http": NewInfluxDevopsGroupBy,
-			"es-http":     NewElasticSearchDevopsGroupBy,
-			"cassandra":   NewCassandraDevopsGroupBy,
-		},
-		"8-hosts": {
+		"8-host-1-hr": {
+			"cassandra":   NewCassandraDevops8Hosts,
 			"influx-http": NewInfluxDevops8Hosts,
-			//"es-http": NewElasticSearchDevops8Hosts,
-			"cassandra": NewCassandraDevops8Hosts,
+			"opentsdb":    NewOpenTSDBDevops8Hosts,
+		},
+		"groupby": {
+			"cassandra":   NewCassandraDevopsGroupBy,
+			"es-http":     NewElasticSearchDevopsGroupBy,
+			"influx-http": NewInfluxDevopsGroupBy,
 		},
 	},
 }
