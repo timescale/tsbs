@@ -114,7 +114,7 @@ func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err e
 				return
 			}
 
-			// this modified the Payload in-place, so keep it in a block
+			// this modifies the Payload in-place, so keep it in a block
 			{
 				startMillis := q.StartTimestamp / 1e6
 				endMillis := q.EndTimestamp / 1e6
@@ -122,10 +122,18 @@ func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err e
 					for i := range x.Outputs{
 						filteredPoints := make([][]interface{}, 0, len(x.Outputs[i].Dps))
 						for _, untypedValue := range x.Outputs[i].Dps {
-							//fmt.Printf("%d, %d\n", int64(untypedValue[0].(float64)), startMillis)
-							timestamp := int64(untypedValue[0].(float64)) // json does not have integers
-							if timestamp >= startMillis && timestamp <= endMillis {
-								filteredPoints = append(filteredPoints, untypedValue)
+							// json does not have integers, so force it:
+							timestampMillis := int64(untypedValue[0].(float64))
+
+							// include OpenTSDB values only if they are within the requested time range,
+							// and convert them to a UTC RFC3339 string for human-friendliness:
+							if timestampMillis >= startMillis && timestampMillis <= endMillis {
+								timestampNanos := timestampMillis*1e6
+								humanFriendly := []interface{}{
+									time.Unix(0, timestampNanos).UTC().Format(time.RFC3339),
+									untypedValue[1],
+								}
+								filteredPoints = append(filteredPoints, humanFriendly)
 							}
 						}
 						x.Outputs[i].Dps = filteredPoints
