@@ -11,21 +11,23 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/profile"
 	"github.com/klauspost/compress/gzip"
+	"github.com/pkg/profile"
 )
 
 // Program option vars:
 var (
-	daemonUrl string
-	workers   int
-	batchSize int
-	backoff   time.Duration
-	doLoad    bool
-	memprofile bool
+	csvDaemonUrls string
+	daemonUrls    []string
+	workers       int
+	batchSize     int
+	backoff       time.Duration
+	doLoad        bool
+	memprofile    bool
 )
 
 // Global vars
@@ -40,7 +42,7 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&daemonUrl, "url", "http://localhost:8086", "OpenTSDB URL.")
+	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "OpenTSDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	//flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
@@ -48,6 +50,12 @@ func init() {
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
 
 	flag.Parse()
+
+	daemonUrls = strings.Split(csvDaemonUrls, ",")
+	if len(daemonUrls) == 0 {
+		log.Fatal("missing 'urls' flag")
+	}
+	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
 func main() {
@@ -57,7 +65,7 @@ func main() {
 	}
 	if doLoad {
 		// check that there are no pre-existing databases:
-		existingDatabases, err := listDatabases(daemonUrl)
+		existingDatabases, err := listDatabases(daemonUrls[0])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -80,9 +88,10 @@ func main() {
 	backingOffDone = make(chan struct{})
 
 	for i := 0; i < workers; i++ {
+		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
-			Host:     daemonUrl,
+			Host: daemonUrl,
 		}
 		go processBatches(NewHTTPWriter(cfg))
 	}
@@ -214,7 +223,7 @@ func processBackoffMessages() {
 		}
 	}
 	fmt.Printf("backoffs took a total of %fsec of runtime\n", totalBackoffSecs)
-	backingOffDone<-struct{}{}
+	backingOffDone <- struct{}{}
 }
 
 // TODO(rw): listDatabases lists the existing data in OpenTSDB.
