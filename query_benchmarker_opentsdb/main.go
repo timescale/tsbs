@@ -17,13 +17,15 @@ import (
 	"os"
 	"runtime/pprof"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
 
 // Program option vars:
 var (
-	daemonUrl            string
+	csvDaemonUrls        string
+	daemonUrls           []string
 	workers              int
 	debug                int
 	prettyPrintResponses bool
@@ -44,7 +46,7 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&daemonUrl, "url", "http://localhost:4242", "Daemon URL.")
+	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:4242", "OpenTSDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
@@ -53,6 +55,12 @@ func init() {
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
+
+	daemonUrls = strings.Split(csvDaemonUrls, ",")
+	if len(daemonUrls) == 0 {
+		log.Fatal("missing 'urls' flag")
+	}
+	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
 func main() {
@@ -88,6 +96,7 @@ func main() {
 
 	// Launch the query processors:
 	for i := 0; i < workers; i++ {
+		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
 		w := NewHTTPClient(daemonUrl, debug)
 		go processQueries(w)
