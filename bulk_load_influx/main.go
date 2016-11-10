@@ -23,13 +23,14 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl string
-	dbName    string
-	workers   int
-	batchSize int
-	backoff   time.Duration
-	doLoad    bool
-	memprofile bool
+	daemonUrl         string
+	dbName            string
+	replicationFactor int
+	workers           int
+	batchSize         int
+	backoff           time.Duration
+	doLoad            bool
+	memprofile        bool
 )
 
 // Global vars
@@ -46,6 +47,7 @@ var (
 func init() {
 	flag.StringVar(&daemonUrl, "url", "http://localhost:8086", "Influxd URL.")
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
+	flag.IntVar(&replicationFactor, "replication-factor", 2, "Cluster replication factor (only applies to clustered databases).")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
@@ -71,7 +73,7 @@ func main() {
 			log.Fatalf("There are databases already in the data store. If you know what you are doing, run the command:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", existingDatabases[0])
 		}
 
-		err = createDb(daemonUrl, dbName)
+		err = createDb(daemonUrl, dbName, replicationFactor)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -202,10 +204,10 @@ func processBackoffMessages() {
 		}
 	}
 	fmt.Printf("backoffs took a total of %fsec of runtime\n", totalBackoffSecs)
-	backingOffDone<-struct{}{}
+	backingOffDone <- struct{}{}
 }
 
-func createDb(daemon_url, dbname string) error {
+func createDb(daemon_url, dbname string, replicationFactor int) error {
 	u, err := url.Parse(daemon_url)
 	if err != nil {
 		return err
@@ -214,7 +216,7 @@ func createDb(daemon_url, dbname string) error {
 	// serialize params the right way:
 	u.Path = "query"
 	v := u.Query()
-	v.Set("q", fmt.Sprintf("CREATE DATABASE %s", dbname))
+	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbname, replicationFactor))
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest("GET", u.String(), nil)
