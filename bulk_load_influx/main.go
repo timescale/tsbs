@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,13 +24,16 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl         string
+	csvDaemonUrls string
+	daemonUrls    []string
 	dbName            string
 	replicationFactor int
 	workers           int
+	lineLimit         int64
 	batchSize         int
 	backoff           time.Duration
 	doLoad            bool
+	doAbortOnExist    bool
 	memprofile        bool
 )
 
@@ -39,22 +43,30 @@ var (
 	batchChan      chan *bytes.Buffer
 	inputDone      chan struct{}
 	workersGroup   sync.WaitGroup
-	backingOffChan chan bool
-	backingOffDone chan struct{}
+	backingOffChans []chan bool
+	backingOffDones []chan struct{}
 )
 
 // Parse args:
 func init() {
-	flag.StringVar(&daemonUrl, "url", "http://localhost:8086", "Influxd URL.")
+	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
 	flag.IntVar(&replicationFactor, "replication-factor", 2, "Cluster replication factor (only applies to clustered databases).")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.Int64Var(&lineLimit, "line-limit", -1, "Number of lines to read from stdin before quitting.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
 
 	flag.Parse()
+
+	daemonUrls = strings.Split(csvDaemonUrls, ",")
+	if len(daemonUrls) == 0 {
+		log.Fatal("missing 'urls' flag")
+	}
+	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
 func main() {
@@ -64,18 +76,25 @@ func main() {
 	}
 	if doLoad {
 		// check that there are no pre-existing databases:
-		existingDatabases, err := listDatabases(daemonUrl)
+		existingDatabases, err := listDatabases(daemonUrls[0])
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if len(existingDatabases) > 0 {
-			log.Fatalf("There are databases already in the data store. If you know what you are doing, run the command:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", existingDatabases[0])
+			if doAbortOnExist {
+				log.Fatalf("There are databases already in the data store. If you know what you are doing, run the command:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", existingDatabases[0])
+			} else {
+				log.Printf("Info: there are databases already in the data store.")
+			}
 		}
 
-		err = createDb(daemonUrl, dbName, replicationFactor)
-		if err != nil {
-			log.Fatal(err)
+		if len(existingDatabases) == 0 {
+			err = createDb(daemonUrls[0], dbName, replicationFactor)
+			if err != nil {
+				log.Fatal(err)
+			}
+			time.Sleep(1000*time.Millisecond)
 		}
 	}
 
@@ -88,19 +107,24 @@ func main() {
 	batchChan = make(chan *bytes.Buffer, workers)
 	inputDone = make(chan struct{})
 
-	backingOffChan = make(chan bool, 100)
-	backingOffDone = make(chan struct{})
+	backingOffChans = make([]chan bool, workers)
+	backingOffDones = make([]chan struct{}, workers)
 
 	for i := 0; i < workers; i++ {
+		daemonUrl := daemonUrls[i%len(daemonUrls)]
+		backingOffChans[i] = make(chan bool, 100)
+		backingOffDones[i] = make(chan struct{})
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
-			Host:     daemonUrl,
-			Database: dbName,
+			DebugInfo: fmt.Sprintf("worker #%d, dest url: %s", i, daemonUrl),
+			Host:      daemonUrl,
+			Database:  dbName,
+			BackingOffChan: backingOffChans[i],
+			BackingOffDone: backingOffDones[i],
 		}
-		go processBatches(NewHTTPWriter(cfg))
+		go processBatches(NewHTTPWriter(cfg), backingOffChans[i], backingOffDones[i])
+		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 	}
-
-	go processBackoffMessages()
 
 	start := time.Now()
 	itemsRead := scan(batchSize)
@@ -110,8 +134,10 @@ func main() {
 
 	workersGroup.Wait()
 
-	close(backingOffChan)
-	<-backingOffDone
+	for i := range backingOffChans {
+		close(backingOffChans[i])
+		<-backingOffDones[i]
+	}
 
 	end := time.Now()
 	took := end.Sub(start)
@@ -131,6 +157,10 @@ func scan(linesPerBatch int) int64 {
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 	for scanner.Scan() {
+		if itemsRead == lineLimit {
+			break
+		}
+
 		itemsRead++
 
 		buf.Write(scanner.Bytes())
@@ -160,7 +190,7 @@ func scan(linesPerBatch int) int64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(w LineProtocolWriter) {
+func processBatches(w LineProtocolWriter, backoffSrc chan bool, backoffDst chan struct{}) {
 	for batch := range batchChan {
 		// Write the batch: try until backoff is not needed.
 		if doLoad {
@@ -168,10 +198,10 @@ func processBatches(w LineProtocolWriter) {
 			for {
 				_, err = w.WriteLineProtocol(batch.Bytes())
 				if err == BackoffError {
-					backingOffChan <- true
+					backoffSrc <- true
 					time.Sleep(backoff)
 				} else {
-					backingOffChan <- false
+					backoffSrc <- false
 					break
 				}
 			}
@@ -187,24 +217,24 @@ func processBatches(w LineProtocolWriter) {
 	workersGroup.Done()
 }
 
-func processBackoffMessages() {
+func processBackoffMessages(workerId int, src chan bool, dst chan struct{}) {
 	var totalBackoffSecs float64
 	var start time.Time
 	last := false
-	for this := range backingOffChan {
+	for this := range src {
 		if this && !last {
 			start = time.Now()
 			last = true
 		} else if !this && last {
 			took := time.Now().Sub(start)
-			fmt.Printf("backoff took %.02fsec\n", took.Seconds())
+			fmt.Printf("[worker %d] backoff took %.02fsec\n", workerId, took.Seconds())
 			totalBackoffSecs += took.Seconds()
 			last = false
 			start = time.Now()
 		}
 	}
-	fmt.Printf("backoffs took a total of %fsec of runtime\n", totalBackoffSecs)
-	backingOffDone <- struct{}{}
+	fmt.Printf("[worker %d] backoffs took a total of %fsec of runtime\n", workerId, totalBackoffSecs)
+	dst <- struct{}{}
 }
 
 func createDb(daemon_url, dbname string, replicationFactor int) error {
@@ -216,6 +246,7 @@ func createDb(daemon_url, dbname string, replicationFactor int) error {
 	// serialize params the right way:
 	u.Path = "query"
 	v := u.Query()
+	v.Set("consistency", "all")
 	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbname, replicationFactor))
 	u.RawQuery = v.Encode()
 

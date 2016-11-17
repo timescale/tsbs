@@ -13,7 +13,8 @@ import (
 
 var (
 	BackoffError error = fmt.Errorf("backpressure is needed")
-	backoffMagicWords []byte = []byte("engine: cache maximum memory size exceeded")
+	backoffMagicWords0 []byte = []byte("engine: cache maximum memory size exceeded")
+	backoffMagicWords1 []byte = []byte("write failed: hinted handoff queue not empty")
 )
 
 // LineProtocolWriter is the interface used to write InfluxDB Line Protocol to a remote server.
@@ -33,6 +34,12 @@ type HTTPWriterConfig struct {
 
 	// Name of the target database into which points will be written.
 	Database string
+
+	BackingOffChan chan bool
+	BackingOffDone chan struct{}
+
+	// Debug label for more informative errors.
+	DebugInfo string
 }
 
 // HTTPWriter is a Writer that writes to an InfluxDB HTTP server.
@@ -79,7 +86,7 @@ func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 		if sc == 500 && backpressurePred(resp.Body()) {
 			err = BackoffError
 		} else if sc != fasthttp.StatusNoContent {
-			err = fmt.Errorf("Invalid write response (status %d): %s", sc, resp.Body())
+			err = fmt.Errorf("[DebugInfo: %s] Invalid write response (status %d): %s", w.c.DebugInfo, sc, resp.Body())
 		}
 	}
 
@@ -90,5 +97,11 @@ func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
 }
 
 func backpressurePred(body []byte) bool {
-	return bytes.Contains(body, backoffMagicWords)
+	if bytes.Contains(body, backoffMagicWords0) {
+		return true
+	} else if bytes.Contains(body, backoffMagicWords1) {
+		return true
+	} else {
+		return false
+	}
 }
