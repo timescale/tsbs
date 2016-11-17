@@ -6,13 +6,16 @@ Current databases supported:
 + InfluxDB
 + Elasticsearch ([announcement blog here](https://influxdata.com/blog/influxdb-markedly-elasticsearch-in-time-series-data-metrics-benchmark/))
 + Cassandra ([InfluxDB Tops Cassandra in Time-Series Data & Metrics Benchmark](https://www.influxdata.com/influxdb-vs-cassandra-benchmark-time-series-metrics/))
++ MongoDB ([InfluxDB is 27x Faster vs MongoDB for Time-Series Workloads](https://www.influxdata.com/influxdb-is-27x-faster-vs-mongodb-for-time-series-workloads/))
++ OpenTSDB
 
 ## Testing Methodology
+
 In an attempt to make our performance comparison both realistic and relatable, we decided to build our benchmark suite according to real-world use cases. Micro-benchmarks are useful for database engineers, but using realistic data helps us better understand how our software performs under practical workloads.
 
 Currently, the benchmarking tools focus on the DevOps use case. We create data and queries that mimic what a system administrator would see when operating a fleet of hundreds or thousands of virtual machines. We create and query values like CPU load; RAM usage; number of active, sleeping, or stalled processes; and disk used. Future benchmarks will expand to include the IoT and application monitoring use cases.
 
-We benchmark bulk load performance and synchronous query execution performance. The benchmark suite is written in Go, and attempts to be as fair to each database as possible by removing test-related computational overhead (by pre-generating our datasets and queries). 
+We benchmark bulk load performance and synchronous query execution performance. The benchmark suite is written in Go, and attempts to be as fair to each database as possible by removing test-related computational overhead (by pre-generating our datasets and queries, and using database-specific drivers where possible).
 
 Although the data is randomly generated, our data and queries are entirely deterministic. By supplying the same PRNG (pseudo-random number generator) seed to the test generation code, each database is loaded with identical data and queried using identical queries.
 
@@ -22,7 +25,7 @@ There are five phases when using the benchmark suite: data generation, data load
 
 ### Phase 1: Data generation
 
-Each benchmark begins with data generation. 
+Each benchmark begins with data generation.
 
 The DevOps data generator creates time series points that correspond to server telemetry, similar to what a server fleet would send at regular intervals to a metrics collections service (like Telegraf or collectd). Our DevOps data generator runs a simulation for a pre-specified number of hosts, and emits serialized points to stdout. For each simulated machine, nine different measurements are written in 10-second intervals.
 
@@ -80,10 +83,17 @@ Generated data is written in a database-specific format that directly equates to
 For InfluxDB, the bulk load protocol is described at:
 https://docs.influxdata.com/influxdb/v0.12/guides/writing_data/#writing-multiple-points
 
-For Elastic, the bulk load protocol is described at:
+For Elasticsearch, the bulk load protocol is described at:
 https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
-Note that both of these formats are human-readable.
+For Cassandra, the native protocol version 4 described at:
+https://github.com/apache/cassandra/blob/trunk/doc/native_protocol_v4.spec
+
+For MongoDB, we use standard BSON with the mgo client:
+http://labix.org/mgo
+
+For OpenTSDB, we use the standard HTTP query interface (not the batch input tool) described at:
+http://opentsdb.net/docs/build/html/api_http/put.html
 
 ### Phase 2: Data loading
 
@@ -107,11 +117,14 @@ InfluxDB:
 Number of workers to use to make bulk load writes in parallel, and
 How many points to include in each write batch.
 
+Loader programs for the other databases take similar parameters.
+
 (For calibration, there is also an option to disable writing to the database; this mode is used to check the speed of data deserialization.)
 
 Note that the bulk loaders will not start writing data if there is already data in the destination database at the beginning of a test. This helps ensure that the database is empty, as if it were newly-installed. It also prevents users from clobbering existing data.
 
 #### Elasticsearch-specific configuration
+
 Both Elasticsearch and InfluxDB are ready out-of-the-tarball for storing time series data. However, after meeting with Elasticsearch experts, we decided to make some reasonable configuration tweaks to Elasticsearch to try to optimize its performance.
 
 First, the configuration for the Elasticsearch daemon was changed to set the ES_HEAP_SIZE environment variable to half of the server machine’s available RAM. For example, on a 32GB machine, ES_HEAP_SIZE is 16g. This is standard practice when administering Elasticsearch.
