@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -31,10 +32,18 @@ type Point struct {
 // Using these literals prevents the slices from escaping to the heap, saving
 // a few micros per call:
 var (
-	charComma  = byte(',')
-	charEquals = byte('=')
-	charSpace  = byte(' ')
+	charComma   = byte(',')
+	charEquals  = byte('=')
+	charSpace   = byte(' ')
+	charNewline = byte('\n')
 )
+
+// scratchBufPool helps reuse serialization scratch buffers.
+var scratchBufPool = &sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 0, 1024)
+	},
+}
 
 func (p *Point) Reset() {
 	p.MeasurementName = nil
@@ -74,7 +83,7 @@ func (p *Point) AppendField(key []byte, value interface{}) {
 //
 // TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
-	buf := make([]byte, 0, 256)
+	buf := scratchBufPool.Get().([]byte)
 	buf = append(buf, p.MeasurementName...)
 
 	for i := 0; i < len(p.TagKeys); i++ {
@@ -106,8 +115,13 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 		}
 	}
 
-	buf = append(buf, []byte(fmt.Sprintf(" %d\n", p.Timestamp.UTC().UnixNano()))...)
+	buf = append(buf, charSpace)
+	buf = fastFormatAppend(p.Timestamp.UTC().UnixNano(), buf)
+	buf = append(buf, charNewline)
 	_, err = w.Write(buf)
+
+	buf = buf[:0]
+	scratchBufPool.Put(buf)
 
 	return err
 }
