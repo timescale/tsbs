@@ -46,6 +46,9 @@ var (
 	timestampStart time.Time
 	timestampEnd   time.Time
 
+	interleavedGenerationGroupID uint
+	interleavedGenerationGroups  uint
+
 	seed  int64
 	debug int
 )
@@ -63,7 +66,14 @@ func init() {
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
 
+	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
+	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
+
 	flag.Parse()
+
+	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
+		log.Fatal("incorrect interleaved groups configuration")
+	}
 
 	validFormat := false
 	for _, s := range formatChoices {
@@ -133,16 +143,27 @@ func main() {
 		panic("unreachable")
 	}
 
+	var currentInterleavedGroup uint = 0
+
 	point := MakeUsablePoint()
 	for !sim.Finished() {
 		sim.Next(point)
 
-		err := serializer(point, out)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// in the default case this is always true
+		if currentInterleavedGroup == interleavedGenerationGroupID {
+			//println("printing")
+			err := serializer(point, out)
+			if err != nil {
+				log.Fatal(err)
+			}
 
+		}
 		point.Reset()
+
+		currentInterleavedGroup++
+		if currentInterleavedGroup == interleavedGenerationGroups {
+			currentInterleavedGroup = 0
+		}
 	}
 
 	err := out.Flush()
