@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pkg/profile"
+	"github.com/valyala/fasthttp"
 )
 
 // Program option vars:
@@ -33,6 +34,7 @@ var (
 	batchSize         int
 	backoff           time.Duration
 	doLoad            bool
+	useGzip           bool
 	doAbortOnExist    bool
 	memprofile        bool
 )
@@ -56,6 +58,7 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.Int64Var(&lineLimit, "line-limit", -1, "Number of lines to read from stdin before quitting.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
+	flag.BoolVar(&useGzip, "gzip", false, "Whether to gzip encode requests.")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
@@ -94,7 +97,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(1000*time.Millisecond)
+			time.Sleep(2000*time.Millisecond)
 		}
 	}
 
@@ -190,13 +193,24 @@ func scan(linesPerBatch int) int64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(w LineProtocolWriter, backoffSrc chan bool, backoffDst chan struct{}) {
+func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}) {
 	for batch := range batchChan {
 		// Write the batch: try until backoff is not needed.
 		if doLoad {
 			var err error
 			for {
-				_, err = w.WriteLineProtocol(batch.Bytes())
+				if useGzip {
+					compressedBatch := bufPool.Get().(*bytes.Buffer)
+					fasthttp.WriteGzip(compressedBatch, batch.Bytes())
+					_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
+					// Return the compressed batch buffer to the pool.
+					compressedBatch.Reset()
+					bufPool.Put(compressedBatch)
+				} else {
+					_, err = w.WriteLineProtocol(batch.Bytes(), false)
+				}
+
+
 				if err == BackoffError {
 					backoffSrc <- true
 					time.Sleep(backoff)
