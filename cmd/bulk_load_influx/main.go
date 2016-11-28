@@ -134,7 +134,7 @@ func main() {
 	}
 
 	start := time.Now()
-	itemsRead := scan(batchSize)
+	itemsRead, bytesRead := scan(batchSize)
 
 	<-inputDone
 	close(batchChan)
@@ -148,18 +148,19 @@ func main() {
 
 	end := time.Now()
 	took := end.Sub(start)
-	rate := float64(itemsRead) / float64(took.Seconds())
+	itemsRate := float64(itemsRead) / float64(took.Seconds())
+	bytesRate := float64(bytesRead) / float64(took.Seconds())
 
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
+	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec, %.2fMB/sec from stdin)\n", itemsRead, took.Seconds(), workers, itemsRate, bytesRate / (1<<20))
 }
 
 // scan reads one line at a time from stdin.
 // When the requested number of lines per batch is met, send a batch over batchChan for the workers to write.
-func scan(linesPerBatch int) int64 {
+func scan(linesPerBatch int) (int64, int64) {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
-	var itemsRead int64
+	var itemsRead, bytesRead int64
 	newline := []byte("\n")
 	var deadline time.Time
 	if timeLimit >= 0 {
@@ -183,6 +184,7 @@ outer:
 			if timeLimit >= 0 && time.Now().After(deadline) {
 				break outer
 			}
+			bytesRead += int64(buf.Len())
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
 			n = 0
@@ -201,7 +203,7 @@ outer:
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
 	close(inputDone)
 
-	return itemsRead
+	return itemsRead, bytesRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
