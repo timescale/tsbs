@@ -12,7 +12,7 @@ var (
 	addr = flag.String("addr", ":8080", "TCP address to listen to")
 )
 
-var body = []byte("OK")
+var body = []byte("\n")
 
 func main() {
 	flag.Parse()
@@ -22,14 +22,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := fasthttp.Serve(ln, requestHandler); err != nil {
+	if err := fasthttp.Serve(ln, defaultRequestHandler); err != nil {
 		log.Fatalf("Error in ListenAndServe: %s", err)
 	}
 }
 
-func requestHandler(ctx *fasthttp.RequestCtx) {
-	_, err := ctx.Write(body)
-	if err != nil {
-		log.Fatal(err)
-	}
+func defaultRequestHandler(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusNoContent)
 }
