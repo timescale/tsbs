@@ -61,7 +61,7 @@ func init() {
 	flag.Int64Var(&lineLimit, "line-limit", -1, "Number of lines to read from stdin before quitting.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
-	flag.BoolVar(&useGzip, "gzip", false, "Whether to gzip encode requests.")
+	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
