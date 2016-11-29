@@ -164,12 +164,15 @@ func scan(linesPerBatch int) (int64, int64) {
 	var n int
 	var itemsRead, bytesRead int64
 	newline := []byte("\n")
-	start := time.Now()
 	var deadline time.Time
-	var nextProgress time.Time
 	if timeLimit >= 0 {
 		deadline = time.Now().Add(timeLimit)
 	}
+
+	// interval tracking
+	intervalStart := time.Now()
+	var nextProgress time.Time
+	var intervalLinesRead int64
 	if progressInterval >= 0 {
 		nextProgress = time.Now().Add(progressInterval)
 	}
@@ -182,6 +185,7 @@ outer:
 		}
 
 		itemsRead++
+		intervalLinesRead++
 
 		buf.Write(scanner.Bytes())
 		buf.Write(newline)
@@ -192,10 +196,16 @@ outer:
 			if timeLimit >= 0 && now.After(deadline) {
 				break outer
 			}
+
+			// interval tracking
 			if progressInterval >= 0 && now.After(nextProgress) {
-				fmt.Printf("[progress] scanned %d total items from stdin in %s\n", itemsRead, time.Now().Sub(start))
+				fmt.Printf("[interval_progress_items] %s, %s, %d\n", intervalStart.Format(time.RFC3339), now.Format(time.RFC3339), intervalLinesRead)
 				nextProgress = now.Add(progressInterval)
+				intervalLinesRead = 0
+				intervalStart = now
 			}
+
+
 			bytesRead += int64(buf.Len())
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
