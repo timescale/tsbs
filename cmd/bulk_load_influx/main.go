@@ -34,6 +34,7 @@ var (
 	batchSize         int
 	backoff           time.Duration
 	timeLimit         time.Duration
+	progressInterval  time.Duration
 	doLoad            bool
 	doDBCreate        bool
 	useGzip           bool
@@ -61,6 +62,7 @@ func init() {
 	flag.Int64Var(&lineLimit, "line-limit", -1, "Number of lines to read from stdin before quitting.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
+	flag.DurationVar(&progressInterval, "progress-interval", -1, "Duration between printing progress messages.")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
@@ -162,9 +164,14 @@ func scan(linesPerBatch int) (int64, int64) {
 	var n int
 	var itemsRead, bytesRead int64
 	newline := []byte("\n")
+	start := time.Now()
 	var deadline time.Time
+	var nextProgress time.Time
 	if timeLimit >= 0 {
 		deadline = time.Now().Add(timeLimit)
+	}
+	if progressInterval >= 0 {
+		nextProgress = time.Now().Add(progressInterval)
 	}
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
@@ -181,8 +188,13 @@ outer:
 
 		n++
 		if n >= linesPerBatch {
-			if timeLimit >= 0 && time.Now().After(deadline) {
+			now := time.Now()
+			if timeLimit >= 0 && now.After(deadline) {
 				break outer
+			}
+			if progressInterval >= 0 && now.After(nextProgress) {
+				fmt.Printf("[progress] scanned %d total items from stdin in %s\n", itemsRead, time.Now().Sub(start))
+				nextProgress = now.Add(progressInterval)
 			}
 			bytesRead += int64(buf.Len())
 			batchChan <- buf
