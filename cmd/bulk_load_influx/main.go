@@ -17,6 +17,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/profile"
@@ -50,6 +51,8 @@ var (
 	workersGroup    sync.WaitGroup
 	backingOffChans []chan bool
 	backingOffDones []chan struct{}
+
+	progressIntervalItems uint64
 )
 
 // Parse args:
@@ -135,6 +138,22 @@ func main() {
 		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 	}
 
+	if progressInterval >= 0 {
+		go func() {
+			var allTotal uint64
+			allStart := time.Now()
+			intervalStart := allStart
+			for end := range time.NewTicker(progressInterval).C {
+				n := atomic.SwapUint64(&progressIntervalItems, 0)
+				allTotal += n
+				allMillis := end.Sub(allStart).Nanoseconds() / 1e6
+				intervalMillis := end.Sub(intervalStart).Nanoseconds() / 1e6
+				fmt.Printf("[interval_progress_items] %dms, %d, %dms, %d\n", allMillis, allTotal, intervalMillis, n)
+				intervalStart = end
+			}
+		}()
+	}
+
 	start := time.Now()
 	itemsRead, bytesRead := scan(batchSize)
 
@@ -169,13 +188,7 @@ func scan(linesPerBatch int) (int64, int64) {
 		deadline = time.Now().Add(timeLimit)
 	}
 
-	// interval tracking
-	intervalStart := time.Now()
-	var nextProgress time.Time
-	var intervalLinesRead int64
-	if progressInterval >= 0 {
-		nextProgress = time.Now().Add(progressInterval)
-	}
+	var batchItemCount uint64
 
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 outer:
@@ -185,7 +198,7 @@ outer:
 		}
 
 		itemsRead++
-		intervalLinesRead++
+		batchItemCount++
 
 		buf.Write(scanner.Bytes())
 		buf.Write(newline)
@@ -197,14 +210,8 @@ outer:
 				break outer
 			}
 
-			// interval tracking
-			if progressInterval >= 0 && now.After(nextProgress) {
-				fmt.Printf("[interval_progress_items] %s, %s, %d\n", intervalStart.Format(time.RFC3339), now.Format(time.RFC3339), intervalLinesRead)
-				nextProgress = now.Add(progressInterval)
-				intervalLinesRead = 0
-				intervalStart = now
-			}
-
+			atomic.AddUint64(&progressIntervalItems, batchItemCount)
+			batchItemCount = 0
 
 			bytesRead += int64(buf.Len())
 			batchChan <- buf
