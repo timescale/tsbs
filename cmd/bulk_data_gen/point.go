@@ -36,6 +36,9 @@ var (
 	charEquals  = byte('=')
 	charSpace   = byte(' ')
 	charNewline = byte('\n')
+
+	elasticsearchActionPrefix = []byte("{ \"create\" : { \"_index\" : \"")
+	elasticsearchActionSuffix = []byte("\", \"_type\" : \"point\" } }\n")
 )
 
 // scratchBufPool helps reuse serialization scratch buffers.
@@ -139,32 +142,34 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 //
 // TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeESBulk(w io.Writer) error {
-	action := "{ \"create\" : { \"_index\" : \"%s\", \"_type\" : \"point\" } }\n"
-	_, err := fmt.Fprintf(w, action, p.MeasurementName)
-	if err != nil {
-		return err
-	}
+	buf := scratchBufPool.Get().([]byte)
+	buf = append(buf, elasticsearchActionPrefix...)
+	buf = append(buf, p.MeasurementName...)
+	buf = append(buf, elasticsearchActionSuffix...)
 
-	buf := make([]byte, 0, 256)
-	buf = append(buf, []byte("{")...)
+	buf = append(buf, '{')
 
 	for i := 0; i < len(p.TagKeys); i++ {
 		if i > 0 {
-			buf = append(buf, []byte(", ")...)
+			buf = append(buf, ", "...)
 		}
-		buf = append(buf, []byte(fmt.Sprintf("\"%s\": ", p.TagKeys[i]))...)
-		buf = append(buf, []byte(fmt.Sprintf("\"%s\"", p.TagValues[i]))...)
+		buf = append(buf, "\""...)
+		buf = append(buf, p.TagKeys[i]...)
+		buf = append(buf, "\": \""...)
+		buf = append(buf, p.TagValues[i]...)
+		buf = append(buf, "\""...)
 	}
 
 	if len(p.TagKeys) > 0 && len(p.FieldKeys) > 0 {
-		buf = append(buf, []byte(", ")...)
+		buf = append(buf, ',')
+		buf = append(buf, ' ')
 	}
 
 	for i := 0; i < len(p.FieldKeys); i++ {
 		if i > 0 {
-			buf = append(buf, []byte(", ")...)
+			buf = append(buf, ", "...)
 		}
-		buf = append(buf, "\""...)
+		buf = append(buf, '"')
 		buf = append(buf, p.FieldKeys[i]...)
 		buf = append(buf, "\": "...)
 
@@ -173,12 +178,18 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 	}
 
 	if len(p.TagKeys) > 0 || len(p.FieldKeys) > 0 {
-		buf = append(buf, []byte(", ")...)
+		buf = append(buf, ", "...)
 	}
 	// Timestamps in ES must be millisecond precision:
-	buf = append(buf, []byte(fmt.Sprintf("\"timestamp\": %d }\n", p.Timestamp.UTC().UnixNano()/1e6))...)
+	buf = append(buf, "\"timestamp\": "...)
+	buf = fastFormatAppend(p.Timestamp.UTC().UnixNano()/1e6, buf)
+	buf = append(buf, " }\n"...)
 
-	_, err = w.Write(buf)
+	_, err := w.Write(buf)
+
+	buf = buf[:0]
+	scratchBufPool.Put(buf)
+
 	if err != nil {
 		return err
 	}
