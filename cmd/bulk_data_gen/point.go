@@ -32,13 +32,6 @@ type Point struct {
 // Using these literals prevents the slices from escaping to the heap, saving
 // a few micros per call:
 var (
-	charComma   = byte(',')
-	charEquals  = byte('=')
-	charSpace   = byte(' ')
-	charNewline = byte('\n')
-
-	elasticsearchActionPrefix = []byte("{ \"create\" : { \"_index\" : \"")
-	elasticsearchActionSuffix = []byte("\", \"_type\" : \"point\" } }\n")
 )
 
 // scratchBufPool helps reuse serialization scratch buffers.
@@ -90,19 +83,19 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 	buf = append(buf, p.MeasurementName...)
 
 	for i := 0; i < len(p.TagKeys); i++ {
-		buf = append(buf, charComma)
+		buf = append(buf, ',')
 		buf = append(buf, p.TagKeys[i]...)
-		buf = append(buf, charEquals)
+		buf = append(buf, '=')
 		buf = append(buf, p.TagValues[i]...)
 	}
 
 	if len(p.FieldKeys) > 0 {
-		buf = append(buf, charSpace)
+		buf = append(buf, ' ')
 	}
 
 	for i := 0; i < len(p.FieldKeys); i++ {
 		buf = append(buf, p.FieldKeys[i]...)
-		buf = append(buf, charEquals)
+		buf = append(buf, '=')
 
 		v := p.FieldValues[i]
 		buf = fastFormatAppend(v, buf)
@@ -110,17 +103,17 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 		// Influx uses 'i' to indicate integers:
 		switch v.(type) {
 		case int, int64:
-			buf = append(buf, byte('i'))
+			buf = append(buf, 'i')
 		}
 
 		if i+1 < len(p.FieldKeys) {
-			buf = append(buf, charComma)
+			buf = append(buf, ',')
 		}
 	}
 
-	buf = append(buf, charSpace)
+	buf = append(buf, ' ')
 	buf = fastFormatAppend(p.Timestamp.UTC().UnixNano(), buf)
-	buf = append(buf, charNewline)
+	buf = append(buf, '\n')
 	_, err = w.Write(buf)
 
 	buf = buf[:0]
@@ -143,9 +136,10 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 // TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeESBulk(w io.Writer) error {
 	buf := scratchBufPool.Get().([]byte)
-	buf = append(buf, elasticsearchActionPrefix...)
+
+	buf = append(buf, "{ \"create\" : { \"_index\" : \""...)
 	buf = append(buf, p.MeasurementName...)
-	buf = append(buf, elasticsearchActionSuffix...)
+	buf = append(buf, "\", \"_type\" : \"point\" } }\n"...)
 
 	buf = append(buf, '{')
 
@@ -190,11 +184,7 @@ func (p *Point) SerializeESBulk(w io.Writer) error {
 	buf = buf[:0]
 	scratchBufPool.Put(buf)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // SerializeCassandra writes Point data to the given writer, conforming to the
@@ -210,9 +200,9 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 	seriesIdPrefix := make([]byte, 0, 256)
 	seriesIdPrefix = append(seriesIdPrefix, p.MeasurementName...)
 	for i := 0; i < len(p.TagKeys); i++ {
-		seriesIdPrefix = append(seriesIdPrefix, charComma)
+		seriesIdPrefix = append(seriesIdPrefix, ',')
 		seriesIdPrefix = append(seriesIdPrefix, p.TagKeys[i]...)
-		seriesIdPrefix = append(seriesIdPrefix, charEquals)
+		seriesIdPrefix = append(seriesIdPrefix, '=')
 		seriesIdPrefix = append(seriesIdPrefix, p.TagValues[i]...)
 	}
 
@@ -233,8 +223,7 @@ func (p *Point) SerializeCassandra(w io.Writer) (err error) {
 		buf = append(buf, byte('#'))
 		buf = append(buf, []byte(timestampBucket)...)
 		buf = append(buf, byte('\''))
-		buf = append(buf, charComma)
-		buf = append(buf, charSpace)
+		buf = append(buf, ", "...)
 		buf = append(buf, []byte(fmt.Sprintf("%d, ", timestampNanos))...)
 
 		buf = fastFormatAppend(v, buf)
