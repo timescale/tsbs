@@ -140,11 +140,14 @@ func main() {
 
 	if progressInterval >= 0 {
 		go func() {
+			start := time.Now()
 			for end := range time.NewTicker(progressInterval).C {
 				n := atomic.SwapUint64(&progressIntervalItems, 0)
 
-				absoluteMillis := end.Add(-progressInterval).UnixNano() / 1e6
+				//absoluteMillis := end.Add(-progressInterval).UnixNano() / 1e6
+				absoluteMillis := start.UTC().UnixNano() / 1e6
 				fmt.Printf("[interval_progress_items] %dms, %d\n", absoluteMillis, n)
+				start = end
 			}
 		}()
 	}

@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	BackoffError error = fmt.Errorf("backpressure is needed")
-	backoffMagicWords0 []byte = []byte("engine: cache maximum memory size exceeded")
-	backoffMagicWords1 []byte = []byte("write failed: hinted handoff queue not empty")
+	BackoffError        error  = fmt.Errorf("backpressure is needed")
+	backoffMagicWords0  []byte = []byte("engine: cache maximum memory size exceeded")
+	backoffMagicWords1  []byte = []byte("write failed: hinted handoff queue not empty")
 	backoffMagicWords2a []byte = []byte("write failed: read message type: read tcp")
 	backoffMagicWords2b []byte = []byte("i/o timeout")
+	backoffMagicWords3  []byte = []byte("write failed: engine: cache-max-memory-size exceeded")
+	backoffMagicWords4  []byte = []byte("timeout")
+	backoffMagicWords5  []byte = []byte("write failed: can not exceed max connections of 500")
 )
 
 // HTTPWriterConfig is the configuration used to create an HTTPWriter.
@@ -97,6 +100,12 @@ func backpressurePred(body []byte) bool {
 	} else if bytes.Contains(body, backoffMagicWords1) {
 		return true
 	} else if bytes.Contains(body, backoffMagicWords2a) && bytes.Contains(body, backoffMagicWords2b) {
+		return true
+	} else if bytes.Contains(body, backoffMagicWords3) {
+		return true
+	} else if bytes.Contains(body, backoffMagicWords4) {
+		return true
+	} else if bytes.Contains(body, backoffMagicWords5) {
 		return true
 	} else {
 		return false
