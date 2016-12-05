@@ -25,6 +25,7 @@ var (
 	refreshEachBatch  bool
 	workers           int
 	batchSize         int
+	itemLimit         int64
 	indexTemplateName string
 	doLoad            bool
 )
@@ -117,6 +118,7 @@ var aggregationTemplate = []byte(`
 func init() {
 	flag.StringVar(&daemonUrl, "url", "http://localhost:9200", "ElasticSearch URL.")
 	flag.BoolVar(&refreshEachBatch, "refresh", true, "Whether each batch is immediately indexed.")
+	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (2 lines of input = 1 item)")
 
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
@@ -191,26 +193,34 @@ func main() {
 	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
-// scan reads lines from stdin. It expects input in the ElasticSearch bulk
+// scan reads items from stdin. It expects input in the ElasticSearch bulk
 // format: two line pairs, the first line being an 'action' and the second line
-// being the payload.
+// being the payload. (2 lines = 1 item)
 func scan(itemsPerBatch int) int64 {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
 	var linesRead int64
+	var itemsRead int64
+	var itemsThisBatch int
 	scanner := bufio.NewScanner(os.Stdin)
+
 	for scanner.Scan() {
 		linesRead++
 
 		buf.Write(scanner.Bytes())
 		buf.Write([]byte("\n"))
 
-		n++
-		if n%2 == 0 && (n/2) >= itemsPerBatch {
+		//n++
+		if linesRead%2 == 0 {
+			itemsRead++
+			itemsThisBatch++
+		}
+
+		if itemsThisBatch == itemsPerBatch {
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
-			n = 0
+			itemsThisBatch = 0
 		}
 	}
 
@@ -230,7 +240,6 @@ func scan(itemsPerBatch int) int64 {
 	if linesRead%2 != 0 {
 		log.Fatalf("the number of lines read was not a multiple of 2, which indicates a bad bulk format for Elastic")
 	}
-	itemsRead := linesRead / 2
 
 	return itemsRead
 }

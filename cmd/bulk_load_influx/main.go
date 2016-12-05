@@ -31,7 +31,7 @@ var (
 	dbName            string
 	replicationFactor int
 	workers           int
-	lineLimit         int64
+	itemLimit         int64
 	batchSize         int
 	backoff           time.Duration
 	timeLimit         time.Duration
@@ -60,9 +60,9 @@ func init() {
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
 	flag.IntVar(&replicationFactor, "replication-factor", 2, "Cluster replication factor (only applies to clustered databases).")
-	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (input lines).")
+	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (1 line of input = 1 item).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
-	flag.Int64Var(&lineLimit, "line-limit", -1, "Number of lines to read from stdin before quitting.")
+	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (1 item per 1 line of input.)")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
 	flag.DurationVar(&progressInterval, "progress-interval", -1, "Duration between printing progress messages.")
@@ -170,12 +170,12 @@ func main() {
 	itemsRate := float64(itemsRead) / float64(took.Seconds())
 	bytesRate := float64(bytesRead) / float64(took.Seconds())
 
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec, %.2fMB/sec from stdin)\n", itemsRead, took.Seconds(), workers, itemsRate, bytesRate / (1<<20))
+	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec, %.2fMB/sec from stdin)\n", itemsRead, took.Seconds(), workers, itemsRate, bytesRate/(1<<20))
 }
 
-// scan reads one line at a time from stdin.
-// When the requested number of lines per batch is met, send a batch over batchChan for the workers to write.
-func scan(linesPerBatch int) (int64, int64) {
+// scan reads one item at a time from stdin. 1 item = 1 line.
+// When the requested number of items per batch is met, send a batch over batchChan for the workers to write.
+func scan(itemsPerBatch int) (int64, int64) {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
@@ -191,7 +191,7 @@ func scan(linesPerBatch int) (int64, int64) {
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 outer:
 	for scanner.Scan() {
-		if itemsRead == lineLimit {
+		if itemsRead == itemLimit {
 			break
 		}
 
@@ -202,7 +202,7 @@ outer:
 		buf.Write(newline)
 
 		n++
-		if n >= linesPerBatch {
+		if n >= itemsPerBatch {
 			now := time.Now()
 			if timeLimit >= 0 && now.After(deadline) {
 				break outer
