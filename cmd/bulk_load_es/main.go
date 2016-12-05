@@ -217,7 +217,7 @@ func scan(itemsPerBatch int) int64 {
 			itemsThisBatch++
 		}
 
-		hitLimit := itemsRead >= itemLimit
+		hitLimit := itemLimit >= 0 && itemsRead >= itemLimit
 
 		if itemsThisBatch == itemsPerBatch || hitLimit {
 			batchChan <- buf
