@@ -190,7 +190,7 @@ func main() {
 	took := end.Sub(start)
 	rate := float64(itemsRead) / float64(took.Seconds())
 
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
+	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f items/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
 // scan reads items from stdin. It expects input in the ElasticSearch bulk
@@ -217,10 +217,16 @@ func scan(itemsPerBatch int) int64 {
 			itemsThisBatch++
 		}
 
-		if itemsThisBatch == itemsPerBatch {
+		hitLimit := itemsRead >= itemLimit
+
+		if itemsThisBatch == itemsPerBatch || hitLimit {
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
 			itemsThisBatch = 0
+		}
+
+		if hitLimit {
+			break
 		}
 	}
 
