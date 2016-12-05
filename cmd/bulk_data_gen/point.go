@@ -130,14 +130,14 @@ func (p *Point) SerializeInfluxBulk(w io.Writer) (err error) {
 // <tags, fields, and timestamp>
 //
 // For example:
-// { "create" : { "_index" : "measurement_otqio", "_type" : "point" } }\n
+// { "index" : { "_index" : "measurement_otqio", "_type" : "point" } }\n
 // { "tag_launx": "btkuw", "tag_gaijk": "jiypr", "field_wokxf": 0.08463898963964356, "field_zqstf": -0.043641533500086316, "timestamp": 171300 }\n
 //
 // TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (p *Point) SerializeESBulk(w io.Writer) error {
 	buf := scratchBufPool.Get().([]byte)
 
-	buf = append(buf, "{ \"create\" : { \"_index\" : \""...)
+	buf = append(buf, "{ \"index\" : { \"_index\" : \""...)
 	buf = append(buf, p.MeasurementName...)
 	buf = append(buf, "\", \"_type\" : \"point\" } }\n"...)
 

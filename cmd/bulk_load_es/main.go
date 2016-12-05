@@ -17,6 +17,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 // Program option vars:
@@ -27,6 +29,7 @@ var (
 	batchSize         int
 	itemLimit         int64
 	indexTemplateName string
+	useGzip           bool
 	doLoad            bool
 )
 
@@ -124,6 +127,8 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
 	flag.StringVar(&indexTemplateName, "index-template", "default", "ElasticSearch index template to use (choices: default, aggregation).")
+
+	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
@@ -251,14 +256,26 @@ func scan(itemsPerBatch int) int64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(w LineProtocolWriter) {
+func processBatches(w *HTTPWriter) {
 	for batch := range batchChan {
 		if !doLoad {
 			continue
 		}
 
+		var err error
+
 		// Write the batch.
-		_, err := w.WriteLineProtocol(batch.Bytes())
+		if useGzip {
+			compressedBatch := bufPool.Get().(*bytes.Buffer)
+			fasthttp.WriteGzip(compressedBatch, batch.Bytes())
+			_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
+			// Return the compressed batch buffer to the pool.
+			compressedBatch.Reset()
+			bufPool.Put(compressedBatch)
+		} else {
+			_, err = w.WriteLineProtocol(batch.Bytes(), false)
+		}
+
 		if err != nil {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}

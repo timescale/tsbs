@@ -11,16 +11,6 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-// LineProtocolWriter is the interface used to write InfluxDB Line Protocol to a remote server.
-type LineProtocolWriter interface {
-	// WriteLineProtocol writes the given byte slice containing line protocol data
-	// to an implementation-specific remote server.
-	// Returns the latency, in nanoseconds, of executing the write against the remote server and applicable errors.
-	// Implementers must return errors returned by the underlying transport but are free to return
-	// other, context-specific errors.
-	WriteLineProtocol([]byte) (latencyNs int64, err error)
-}
-
 // HTTPWriterConfig is the configuration used to create an HTTPWriter.
 type HTTPWriterConfig struct {
 	// URL of the host, in form "http://example.com:8086"
@@ -39,7 +29,7 @@ type HTTPWriter struct {
 }
 
 // NewHTTPWriter returns a new HTTPWriter from the supplied HTTPWriterConfig.
-func NewHTTPWriter(c HTTPWriterConfig, refreshEachBatch bool) LineProtocolWriter {
+func NewHTTPWriter(c HTTPWriterConfig, refreshEachBatch bool) *HTTPWriter {
 	u := []byte(c.Host + "/_bulk")
 	if refreshEachBatch {
 		u = append(u, []byte("?refresh=true")...)
@@ -62,11 +52,14 @@ var (
 // WriteLineProtocol writes the given byte slice to the HTTP server described in the Writer's HTTPWriterConfig.
 // It returns the latency in nanoseconds and any error received while sending the data over HTTP,
 // or it returns a new error if the HTTP response isn't as expected.
-func (w *HTTPWriter) WriteLineProtocol(body []byte) (int64, error) {
+func (w *HTTPWriter) WriteLineProtocol(body []byte, isGzip bool) (int64, error) {
 	req := fasthttp.AcquireRequest()
 	req.Header.SetContentTypeBytes(textPlain)
 	req.Header.SetMethodBytes(post)
 	req.Header.SetRequestURIBytes(w.url)
+	if isGzip {
+		req.Header.Add("Content-Encoding", "gzip")
+	}
 	req.SetBody(body)
 
 	resp := fasthttp.AcquireResponse()
