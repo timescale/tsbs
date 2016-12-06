@@ -28,7 +28,8 @@ var (
 	debug                int
 	prettyPrintResponses bool
 	limit                int64
-	printInterval        int64
+	burnIn               uint64
+	printInterval        uint64
 	memProfile           string
 )
 
@@ -48,7 +49,8 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
-	flag.Int64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
+	flag.Uint64Var(&burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
+	flag.Uint64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
@@ -183,8 +185,19 @@ func processStats() {
 		allQueriesLabel: &StatGroup{},
 	}
 
-	i := int64(0)
+	i := uint64(0)
 	for stat := range statChan {
+		if i < burnIn {
+			i++
+			statPool.Put(stat)
+			continue
+		} else if i == burnIn && burnIn > 0 {
+			_, err := fmt.Fprintf(os.Stderr, "burn-in complete after %d queries with %d workers\n", burnIn, workers)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 		if _, ok := statMapping[string(stat.Label)]; !ok {
 			statMapping[string(stat.Label)] = &StatGroup{}
 		}
@@ -197,8 +210,8 @@ func processStats() {
 		i++
 
 		// print stats to stderr (if printInterval is greater than zero):
-		if printInterval > 0 && i > 0 && i%printInterval == 0 && (i < limit || limit < 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i, workers)
+		if printInterval > 0 && i > 0 && i%printInterval == 0 && (int64(i) < limit || limit < 0) {
+			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i - burnIn, workers)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -211,7 +224,7 @@ func processStats() {
 	}
 
 	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i, workers)
+	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i - burnIn, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
