@@ -126,11 +126,6 @@ func main() {
 
 // scan reads length-delimited flatbuffers items from stdin.
 func scan(session *mgo.Session, itemsPerBatch int) int64 {
-	//var batch *gocql.Batch
-	if doLoad {
-		//batch = session.NewBatch(gocql.LoggedBatch)
-	}
-
 	var n int
 	var itemsRead int64
 	r := bufio.NewReaderSize(os.Stdin, 32<<20)
@@ -225,7 +220,7 @@ func processBatches(session *mgo.Session) {
 		Value           interface{} `bson:"value"`
 
 		// a private union-like section
-		longValue int64
+		longValue   int64
 		doubleValue float64
 	}
 	pPool := &sync.Pool{New: func() interface{} { return &Point{} }}
@@ -339,11 +334,11 @@ func mustCreateCollections(daemonUrl string) {
 
 	collection := session.DB("benchmark_db").C("point_data")
 	index := mgo.Index{
-		Key: []string{"measurement", "tags", "field", "timestamp_ns"},
-		Unique: false, // Unique does not work on the entire array of tags!
-		DropDups: true,
+		Key:        []string{"measurement", "tags", "field", "timestamp_ns"},
+		Unique:     false, // Unique does not work on the entire array of tags!
+		DropDups:   true,
 		Background: false,
-		Sparse: false,
+		Sparse:     false,
 	}
 	err = collection.EnsureIndex(index)
 	if err != nil {
