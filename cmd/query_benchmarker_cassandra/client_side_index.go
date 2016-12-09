@@ -191,8 +191,8 @@ func (s *Series) MatchesTagSets(tagsets [][]string) bool {
 
 // FetchSeriesCollection returns all series in Cassandra that can be used for
 // fulfilling a query.
-func FetchSeriesCollection(daemonUrl string) []Series {
-	session := NewCassandraSession(daemonUrl)
+func FetchSeriesCollection(daemonUrl string, timeout time.Duration) []Series {
+	session := NewCassandraSession(daemonUrl, timeout)
 	defer session.Close()
 
 	seriesCollection := []Series{}

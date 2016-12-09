@@ -46,6 +46,8 @@ var (
 	workers              int
 	aggrPlanLabel        string
 	subQueryParallelism  int
+	requestTimeout       time.Duration
+	csiTimeout           time.Duration
 	debug                int
 	prettyPrintResponses bool
 	limit                int64
@@ -79,6 +81,8 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
 	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
+	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
+	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
 	flag.Uint64Var(&burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
@@ -118,10 +122,10 @@ func main() {
 	}
 
 	// Make client-side index:
-	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl))
+	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
 
 	// Make database connection pool:
-	session := NewCassandraSession(daemonUrl)
+	session := NewCassandraSession(daemonUrl, requestTimeout)
 	defer session.Close()
 
 	// Make data and stat channels:
@@ -275,7 +279,7 @@ func processStats() {
 
 		// print stats to stderr (if printInterval is greater than zero):
 		if printInterval > 0 && i > 0 && i%printInterval == 0 && (int64(i) < limit || limit < 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i - burnIn, workers)
+			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i-burnIn, workers)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -288,7 +292,7 @@ func processStats() {
 	}
 
 	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i - burnIn, workers)
+	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i-burnIn, workers)
 	if err != nil {
 		log.Fatal(err)
 	}
