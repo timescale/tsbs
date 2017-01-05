@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,8 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl         string
+	csvDaemonUrls     string
+	daemonUrls        []string
 	refreshEachBatch  bool
 	workers           int
 	batchSize         int
@@ -119,7 +121,7 @@ var aggregationTemplate = []byte(`
 
 // Parse args:
 func init() {
-	flag.StringVar(&daemonUrl, "url", "http://localhost:9200", "ElasticSearch URL.")
+	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:9200", "ElasticSearch URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.BoolVar(&refreshEachBatch, "refresh", true, "Whether each batch is immediately indexed.")
 	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (2 lines of input = 1 item)")
 
@@ -134,6 +136,12 @@ func init() {
 
 	flag.Parse()
 
+	daemonUrls = strings.Split(csvDaemonUrls, ",")
+	if len(daemonUrls) == 0 {
+		log.Fatal("missing 'urls' flag")
+	}
+	fmt.Printf("daemon URLs: %v\n", daemonUrls)
+
 	if _, ok := indexTemplateChoices[indexTemplateName]; !ok {
 		log.Fatalf("invalid index template type")
 	}
@@ -142,7 +150,7 @@ func init() {
 func main() {
 	if doLoad {
 		// check that there are no pre-existing index templates:
-		existingIndexTemplates, err := listIndexTemplates(daemonUrl)
+		existingIndexTemplates, err := listIndexTemplates(daemonUrls[0])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -152,7 +160,7 @@ func main() {
 		}
 
 		// check that there are no pre-existing indices:
-		existingIndices, err := listIndices(daemonUrl)
+		existingIndices, err := listIndices(daemonUrls[0])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -163,7 +171,7 @@ func main() {
 
 		// create the index template:
 		indexTemplate := indexTemplateChoices[indexTemplateName]
-		err = createESTemplate(daemonUrl, "measurements_template", indexTemplate)
+		err = createESTemplate(daemonUrls[0], "measurements_template", indexTemplate)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -178,6 +186,7 @@ func main() {
 	inputDone = make(chan struct{})
 
 	for i := 0; i < workers; i++ {
+		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
 			Host: daemonUrl,
