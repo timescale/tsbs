@@ -33,6 +33,7 @@ var (
 	indexTemplateName string
 	useGzip           bool
 	doLoad            bool
+	doDBCreate        bool
 )
 
 // Global vars
@@ -133,6 +134,7 @@ func init() {
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 
 	flag.Parse()
 
@@ -148,7 +150,7 @@ func init() {
 }
 
 func main() {
-	if doLoad {
+	if doLoad && doDBCreate {
 		// check that there are no pre-existing index templates:
 		existingIndexTemplates, err := listIndexTemplates(daemonUrls[0])
 		if err != nil {
@@ -323,36 +325,36 @@ func createESTemplate(daemonUrl, templateName string, templateBody []byte) error
 	return nil
 }
 
-func createDb(daemon_url, dbname string) error {
-	u, err := url.Parse(daemon_url)
-	if err != nil {
-		return err
-	}
-
-	// serialize params the right way:
-	u.Path = "query"
-	v := u.Query()
-	v.Set("q", fmt.Sprintf("CREATE DATABASE %s", dbname))
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return err
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	// does the body need to be read into the void?
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad db create")
-	}
-	return nil
-}
+//func createDb(daemon_url, dbname string) error {
+//	u, err := url.Parse(daemon_url)
+//	if err != nil {
+//		return err
+//	}
+//
+//	// serialize params the right way:
+//	u.Path = "query"
+//	v := u.Query()
+//	v.Set("q", fmt.Sprintf("CREATE DATABASE %s", dbname))
+//	u.RawQuery = v.Encode()
+//
+//	req, err := http.NewRequest("GET", u.String(), nil)
+//	if err != nil {
+//		return err
+//	}
+//
+//	client := &http.Client{}
+//	resp, err := client.Do(req)
+//	if err != nil {
+//		return err
+//	}
+//	defer resp.Body.Close()
+//	// does the body need to be read into the void?
+//
+//	if resp.StatusCode != 200 {
+//		return fmt.Errorf("bad db create")
+//	}
+//	return nil
+//}
 
 // listIndexTemplates lists the existing index templates in ElasticSearch.
 func listIndexTemplates(daemonUrl string) (map[string]interface{}, error) {
