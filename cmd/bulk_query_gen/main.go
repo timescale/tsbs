@@ -65,6 +65,9 @@ var (
 
 	seed  int64
 	debug int
+
+	interleavedGenerationGroupID uint
+	interleavedGenerationGroups  uint
 )
 
 // Parse args:
@@ -100,7 +103,14 @@ func init() {
 	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1) (default 0).")
 
+	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
+	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
+
 	flag.Parse()
+
+	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
+		log.Fatal("incorrect interleaved groups configuration")
+	}
 
 	if _, ok := useCaseMatrix[useCase]; !ok {
 		log.Fatal("invalid use case specifier")
@@ -154,33 +164,44 @@ func main() {
 	defer out.Flush()
 
 	// Create request instances, serializing them to stdout and collecting
-	// counts for each kind:
+	// counts for each kind. If applicable, only prints queries that
+	// belong to this interleaved group id:
+	var currentInterleavedGroup uint = 0
+
 	enc := gob.NewEncoder(out)
 	for i := 0; i < queryCount; i++ {
 		q := generator.Dispatch(i, scaleVar)
-		err := enc.Encode(q)
-		if err != nil {
-			log.Fatal("encoder ", err)
-		}
-		stats[string(q.HumanLabelName())]++
 
-		if debug == 1 {
-			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabelName())
+		if currentInterleavedGroup == interleavedGenerationGroupID {
+			err := enc.Encode(q)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal("encoder ", err)
 			}
-		} else if debug == 2 {
-			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescriptionName())
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else if debug >= 3 {
-			_, err := fmt.Fprintf(os.Stderr, "%s\n", q.String())
-			if err != nil {
-				log.Fatal(err)
+			stats[string(q.HumanLabelName())]++
+
+			if debug == 1 {
+				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabelName())
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else if debug == 2 {
+				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescriptionName())
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else if debug >= 3 {
+				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.String())
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 		q.Release()
+
+		currentInterleavedGroup++
+		if currentInterleavedGroup == interleavedGenerationGroups {
+			currentInterleavedGroup = 0
+		}
 	}
 
 	// Print stats:
