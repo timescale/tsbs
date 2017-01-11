@@ -19,29 +19,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 	"github.com/valyala/fasthttp"
 )
 
 // Program option vars:
 var (
-	csvDaemonUrls     string
-	daemonUrls        []string
-	refreshEachBatch  bool
-	workers           int
-	batchSize         int
-	itemLimit         int64
-	indexTemplateName string
-	useGzip           bool
-	doLoad            bool
-	doDBCreate        bool
+	csvDaemonUrls           string
+	daemonUrls              []string
+	refreshEachBatch        bool
+	workers                 int
+	batchSize               int
+	itemLimit               int64
+	indexTemplateName       string
+	useGzip                 bool
+	doLoad                  bool
+	doDBCreate              bool
+	telemetryHost           string
+	telemetryStderr         bool
+	telemetryBatchSize      uint
+	telemetryExperimentName string
 )
 
 // Global vars
 var (
-	bufPool      sync.Pool
-	batchChan    chan *bytes.Buffer
-	inputDone    chan struct{}
-	workersGroup sync.WaitGroup
+	bufPool             sync.Pool
+	batchChan           chan *bytes.Buffer
+	inputDone           chan struct{}
+	workersGroup        sync.WaitGroup
+	telemetryChanPoints chan *telemetry.Point
+	telemetryChanDone   chan struct{}
 )
 
 // Args parsing vars
@@ -136,6 +143,11 @@ func init() {
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 
+	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
+	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
+	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
+	flag.UintVar(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
+
 	flag.Parse()
 
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
@@ -143,6 +155,13 @@ func init() {
 		log.Fatal("missing 'urls' flag")
 	}
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
+
+	if telemetryHost != "" {
+		fmt.Printf("telemetry destination: %v\n", telemetryHost)
+		if telemetryBatchSize == 0 {
+			panic("invalid telemetryBatchSize")
+		}
+	}
 
 	if _, ok := indexTemplateChoices[indexTemplateName]; !ok {
 		log.Fatalf("invalid index template type")
@@ -187,13 +206,18 @@ func main() {
 	batchChan = make(chan *bytes.Buffer, workers)
 	inputDone = make(chan struct{})
 
+	if telemetryHost != "" {
+		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr)
+	}
+
 	for i := 0; i < workers; i++ {
 		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
 			Host: daemonUrl,
 		}
-		go processBatches(NewHTTPWriter(cfg, refreshEachBatch))
+		go processBatches(NewHTTPWriter(cfg, refreshEachBatch), telemetryChanPoints, fmt.Sprintf("%d", i))
 	}
 
 	start := time.Now()
@@ -267,23 +291,28 @@ func scan(itemsPerBatch int) int64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(w *HTTPWriter) {
+func processBatches(w *HTTPWriter, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
+	var batchesSeen int64
 	for batch := range batchChan {
+		batchesSeen++
 		if !doLoad {
 			continue
 		}
 
 		var err error
+		var bodySize int
 
 		// Write the batch.
 		if useGzip {
 			compressedBatch := bufPool.Get().(*bytes.Buffer)
 			fasthttp.WriteGzip(compressedBatch, batch.Bytes())
+			bodySize = len(compressedBatch.Bytes())
 			_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
 			// Return the compressed batch buffer to the pool.
 			compressedBatch.Reset()
 			bufPool.Put(compressedBatch)
 		} else {
+			bodySize = len(batch.Bytes())
 			_, err = w.WriteLineProtocol(batch.Bytes(), false)
 		}
 
@@ -294,6 +323,17 @@ func processBatches(w *HTTPWriter) {
 		// Return the batch buffer to the pool.
 		batch.Reset()
 		bufPool.Put(batch)
+
+		// Report telemetry, if applicable:
+		if telemetrySink != nil {
+			p := telemetry.GetPointFromGlobalPool()
+			p.Init("benchmark_write", time.Now().UnixNano())
+			p.AddTag("worker_id", telemetryWorkerLabel)
+			p.AddInt64Field("worker_req_num", batchesSeen)
+			p.AddBoolField("gzip", useGzip)
+			p.AddInt64Field("body_bytes", int64(bodySize))
+			telemetrySink <- p
+		}
 	}
 	workersGroup.Done()
 }
