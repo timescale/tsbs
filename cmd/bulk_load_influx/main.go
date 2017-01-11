@@ -306,7 +306,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
-			p.Init("write_request", 0)
+			p.Init("benchmark_write", 0)
 			p.AddTag("worker_id", telemetryWorkerLabel)
 			p.AddTag("worker_req_num", fmt.Sprintf("%d", batchesSeen))
 			p.AddBoolField("gzip", useGzip)
