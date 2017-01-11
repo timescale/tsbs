@@ -90,9 +90,9 @@ func init() {
 		log.Fatal("missing 'urls' flag")
 	}
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
-	fmt.Printf("telemetry destination: %v\n", telemetryHost)
 
 	if telemetryHost != "" {
+		fmt.Printf("telemetry destination: %v\n", telemetryHost)
 		if telemetryBatchSize == 0 {
 			panic("invalid telemetryBatchSize")
 		}
@@ -263,7 +263,7 @@ outer:
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
-	batchesSeen := 0
+	var batchesSeen int64
 	for batch := range batchChan {
 		batchesSeen++
 
@@ -306,9 +306,9 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
-			p.Init("benchmark_write", 0)
+			p.Init("benchmark_write", time.Now().UnixNano())
 			p.AddTag("worker_id", telemetryWorkerLabel)
-			p.AddTag("worker_req_num", fmt.Sprintf("%d", batchesSeen))
+			p.AddInt64Field("worker_req_num", batchesSeen)
 			p.AddBoolField("gzip", useGzip)
 			p.AddInt64Field("body_bytes", int64(bodySize))
 			telemetrySink <- p
