@@ -49,6 +49,7 @@ var (
 	workersGroup        sync.WaitGroup
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
+	telemetryHostname   string
 )
 
 // Args parsing vars
@@ -160,6 +161,11 @@ func init() {
 		fmt.Printf("telemetry destination: %v\n", telemetryHost)
 		if telemetryBatchSize == 0 {
 			panic("invalid telemetryBatchSize")
+		}
+		var err error
+		telemetryHostname, err = os.Hostname()
+		if err != nil {
+			log.Fatalf("os.Hostname() error: %s", err.Error())
 		}
 	}
 
@@ -328,6 +334,7 @@ func processBatches(w *HTTPWriter, telemetrySink chan *telemetry.Point, telemetr
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
 			p.Init("benchmark_write", time.Now().UnixNano())
+			p.AddTag("hostname", telemetryHostname)
 			p.AddTag("worker_id", telemetryWorkerLabel)
 			p.AddInt64Field("worker_req_num", batchesSeen)
 			p.AddBoolField("gzip", useGzip)
