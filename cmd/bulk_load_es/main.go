@@ -236,6 +236,11 @@ func main() {
 	took := end.Sub(start)
 	rate := float64(itemsRead) / float64(took.Seconds())
 
+	if telemetryHost != "" {
+		close(telemetryChanPoints)
+		<-telemetryChanDone
+	}
+
 	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f items/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
