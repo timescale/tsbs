@@ -17,6 +17,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/influxdata/influxdb-comparisons/util/telemetry"
@@ -35,6 +36,8 @@ var (
 	useGzip                 bool
 	doLoad                  bool
 	doDBCreate              bool
+	numberOfReplicas        uint
+	numberOfShards          uint
 	telemetryHost           string
 	telemetryStderr         bool
 	telemetryBatchSize      uint
@@ -65,7 +68,9 @@ var defaultTemplate = []byte(`
   "template": "*",
   "settings": {
     "index": {
-      "refresh_interval": "5s"
+      "refresh_interval": "5s",
+      "number_of_replicas": {{.NumberOfReplicas}},
+      "number_of_shards": {{.NumberOfShards}}
     }
   },
   "mappings": {
@@ -85,7 +90,9 @@ var aggregationTemplate = []byte(`
   "template": "*",
   "settings": {
     "index": {
-      "refresh_interval": "5s"
+      "refresh_interval": "5s",
+      "number_of_replicas": {{.NumberOfReplicas}},
+      "number_of_shards": {{.NumberOfShards}}
     }
   },
   "mappings": {
@@ -144,6 +151,9 @@ func init() {
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 
+	flag.UintVar(&numberOfReplicas, "number-of-replicas", 0, "Number of ES replicas (note: replicas == replication_factor - 1). Zero replicas means RF of 1.")
+	flag.UintVar(&numberOfShards, "number-of-shards", 5, "Number of ES shards. Typically you will set this to the number of nodes in the cluster.")
+
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
@@ -198,7 +208,7 @@ func main() {
 
 		// create the index template:
 		indexTemplate := indexTemplateChoices[indexTemplateName]
-		err = createESTemplate(daemonUrls[0], "measurements_template", indexTemplate)
+		err = createESTemplate(daemonUrls[0], "measurements_template", indexTemplate, numberOfReplicas, numberOfShards)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -351,15 +361,33 @@ func processBatches(w *HTTPWriter, telemetrySink chan *telemetry.Point, telemetr
 	workersGroup.Done()
 }
 
-func createESTemplate(daemonUrl, templateName string, templateBody []byte) error {
+// createESTemplate uses a Go text/template to create an ElasticSearch index
+// template. (This terminological conflict is mostly unavoidable).
+func createESTemplate(daemonUrl, indexTemplateName string, indexTemplateBodyTemplate []byte, numberOfReplicas, numberOfShards uint) error {
+	// set up URL:
 	u, err := url.Parse(daemonUrl)
 	if err != nil {
 		return err
 	}
+	u.Path = fmt.Sprintf("_template/%s", indexTemplateName)
 
-	u.Path = fmt.Sprintf("_template/%s", templateName)
+	// parse and execute the text/template:
+	t := template.Must(template.New("index_template").Parse(string(indexTemplateBodyTemplate)))
+	var body bytes.Buffer
+	params := struct {
+		NumberOfReplicas uint
+		NumberOfShards   uint
+	}{
+		NumberOfReplicas: numberOfReplicas,
+		NumberOfShards:   numberOfShards,
+	}
+	err = t.Execute(&body, params)
+	if err != nil {
+		return err
+	}
 
-	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(templateBody))
+	// do the HTTP PUT request with the body data:
+	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(body.Bytes()))
 	if err != nil {
 		return err
 	}
