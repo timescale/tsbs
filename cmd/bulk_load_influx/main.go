@@ -314,8 +314,8 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
 			p.Init("benchmark_write", time.Now().UnixNano())
-			p.AddTag("src_hostname", telemetryHostname)
-			p.AddTag("dst_hostname", w.c.Host)
+			p.AddTag("src_addr", telemetryHostname)
+			p.AddTag("dst_addr", w.c.Host)
 			p.AddTag("worker_id", telemetryWorkerLabel)
 			p.AddInt64Field("worker_req_num", batchesSeen)
 			p.AddBoolField("gzip", useGzip)
