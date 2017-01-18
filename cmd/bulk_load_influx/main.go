@@ -67,7 +67,7 @@ var (
 func init() {
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
-	flag.IntVar(&replicationFactor, "replication-factor", 2, "Cluster replication factor (only applies to clustered databases).")
+	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (1 line of input = 1 item).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (1 item per 1 line of input.)")
