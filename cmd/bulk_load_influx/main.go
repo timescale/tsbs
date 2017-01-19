@@ -42,6 +42,7 @@ var (
 	useGzip                 bool
 	doAbortOnExist          bool
 	memprofile              bool
+	consistency             string
 	telemetryHost           string
 	telemetryStderr         bool
 	telemetryBatchSize      uint
@@ -63,11 +64,19 @@ var (
 	progressIntervalItems uint64
 )
 
+var consistencyChoices = map[string]struct{}{
+	"any": struct{}{},
+	"one": struct{}{},
+	"quorum": struct{}{},
+	"all": struct{}{},
+}
+
 // Parse args:
 func init() {
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
+	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (1 line of input = 1 item).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (1 item per 1 line of input.)")
@@ -85,6 +94,10 @@ func init() {
 	flag.UintVar(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
 
 	flag.Parse()
+
+	if _, ok := consistencyChoices[consistency]; !ok {
+		log.Fatalf("invalid consistency settings")
+	}
 
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
 	if len(daemonUrls) == 0 {
@@ -164,7 +177,7 @@ func main() {
 			BackingOffChan: backingOffChans[i],
 			BackingOffDone: backingOffDones[i],
 		}
-		go processBatches(NewHTTPWriter(cfg), backingOffChans[i], backingOffDones[i], telemetryChanPoints, fmt.Sprintf("%d", i))
+		go processBatches(NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i], telemetryChanPoints, fmt.Sprintf("%d", i))
 		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 	}
 

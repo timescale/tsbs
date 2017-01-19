@@ -46,14 +46,14 @@ type HTTPWriter struct {
 }
 
 // NewHTTPWriter returns a new HTTPWriter from the supplied HTTPWriterConfig.
-func NewHTTPWriter(c HTTPWriterConfig) *HTTPWriter {
+func NewHTTPWriter(c HTTPWriterConfig, consistency string) *HTTPWriter {
 	return &HTTPWriter{
 		client: fasthttp.Client{
 			Name: "bulk_load_influx",
 		},
 
 		c:   c,
-		url: []byte(c.Host + "/write?db=" + url.QueryEscape(c.Database)),
+		url: []byte(c.Host + "/write?consistency=" + consistency + "&db=" + url.QueryEscape(c.Database)),
 	}
 }
 
