@@ -215,10 +215,10 @@ func (c *Collector) SendBatch() error {
 	return err
 }
 
-// EZRunAsync runs a collection loop with many defaults already est. It will
+// EZRunAsync runs a collection loop with many defaults already set. It will
 // abort the program if an error occurs. Assumes points are owned by the
-// GlobalPointPool
-func EZRunAsync(c *Collector, batchSize uint, experimentName string, writeToStderr bool) (src chan *Point, done chan struct{}) {
+// GlobalPointPool.
+func EZRunAsync(c *Collector, batchSize uint64, experimentName string, writeToStderr bool, skipN uint64) (src chan *Point, done chan struct{}) {
 	src = make(chan *Point, 100)
 	done = make(chan struct{})
 
@@ -242,9 +242,14 @@ func EZRunAsync(c *Collector, batchSize uint, experimentName string, writeToStde
 	}
 
 	go func() {
-		var i uint
+		var i uint64
 		for p := range src {
 			i++
+
+			if i <= skipN {
+				continue
+			}
+
 			p.AddTag("experiment", experimentName)
 			c.Put(p)
 			if i % batchSize == 0 {
