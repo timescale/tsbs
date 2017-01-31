@@ -45,7 +45,7 @@ var (
 	consistency             string
 	telemetryHost           string
 	telemetryStderr         bool
-	telemetryBatchSize      uint
+	telemetryBatchSize      uint64
 	telemetryExperimentName string
 )
 
@@ -59,7 +59,7 @@ var (
 	backingOffDones     []chan struct{}
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
-	telemetryHostname   string
+	telemetrySrcAddr    string
 
 	progressIntervalItems uint64
 )
@@ -91,7 +91,7 @@ func init() {
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
-	flag.UintVar(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
+	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
 
 	flag.Parse()
 
@@ -112,10 +112,11 @@ func init() {
 		}
 
 		var err error
-		telemetryHostname, err = os.Hostname()
+		telemetrySrcAddr, err = os.Hostname()
 		if err != nil {
 			log.Fatalf("os.Hostname() error: %s", err.Error())
 		}
+		fmt.Printf("src addr for telemetry: %v\n", telemetrySrcAddr)
 	}
 }
 
@@ -162,7 +163,7 @@ func main() {
 
 	if telemetryHost != "" {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr)
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, 0)
 	}
 
 	for i := 0; i < workers; i++ {
@@ -327,7 +328,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
 			p.Init("benchmark_write", time.Now().UnixNano())
-			p.AddTag("src_addr", telemetryHostname)
+			p.AddTag("src_addr", telemetrySrcAddr)
 			p.AddTag("dst_addr", w.c.Host)
 			p.AddTag("worker_id", telemetryWorkerLabel)
 			p.AddInt64Field("worker_req_num", batchesSeen)

@@ -224,7 +224,7 @@ func main() {
 
 	if telemetryHost != "" {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr)
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, 0)
 	}
 
 	for i := 0; i < workers; i++ {

@@ -34,6 +34,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevops8Hosts,
+			"es-http":     NewElasticSearchDevops8Hosts,
 			"influx-http": NewInfluxDevops8Hosts,
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,

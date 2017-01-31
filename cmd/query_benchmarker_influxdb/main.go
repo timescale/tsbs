@@ -20,29 +20,38 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 )
 
 // Program option vars:
 var (
-	csvDaemonUrls        string
-	daemonUrls           []string
-	workers              int
-	debug                int
-	prettyPrintResponses bool
-	limit                int64
-	burnIn               uint64
-	printInterval        uint64
-	memProfile           string
+	csvDaemonUrls           string
+	daemonUrls              []string
+	workers                 int
+	debug                   int
+	prettyPrintResponses    bool
+	limit                   int64
+	burnIn                  uint64
+	printInterval           uint64
+	memProfile              string
+	telemetryHost           string
+	telemetryStderr         bool
+	telemetryBatchSize      uint64
+	telemetryExperimentName string
 )
 
 // Global vars:
 var (
-	queryPool    sync.Pool
-	queryChan    chan *Query
-	statPool     sync.Pool
-	statChan     chan *Stat
-	workersGroup sync.WaitGroup
-	statGroup    sync.WaitGroup
+	queryPool           sync.Pool
+	queryChan           chan *Query
+	statPool            sync.Pool
+	statChan            chan *Stat
+	workersGroup        sync.WaitGroup
+	statGroup           sync.WaitGroup
+	telemetryChanPoints chan *telemetry.Point
+	telemetryChanDone   chan struct{}
+	telemetrySrcAddr   string
 )
 
 // Parse args:
@@ -55,6 +64,10 @@ func init() {
 	flag.Uint64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
+	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
+	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
+	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
+	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 1000, "Telemetry batch size (lines).")
 
 	flag.Parse()
 
@@ -63,6 +76,20 @@ func init() {
 		log.Fatal("missing 'urls' flag")
 	}
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
+
+	if telemetryHost != "" {
+		fmt.Printf("telemetry destination: %v\n", telemetryHost)
+		if telemetryBatchSize == 0 {
+			panic("invalid telemetryBatchSize")
+		}
+
+		var err error
+		telemetrySrcAddr, err = os.Hostname()
+		if err != nil {
+			log.Fatalf("os.Hostname() error: %s", err.Error())
+		}
+		fmt.Printf("src addr for telemetry: %v\n", telemetrySrcAddr)
+	}
 }
 
 func main() {
@@ -96,12 +123,17 @@ func main() {
 	statGroup.Add(1)
 	go processStats()
 
+	if telemetryHost != "" {
+		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, burnIn)
+	}
+
 	// Launch the query processors:
 	for i := 0; i < workers; i++ {
 		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
 		w := NewHTTPClient(daemonUrl, debug)
-		go processQueries(w)
+		go processQueries(w, telemetryChanPoints, fmt.Sprintf("%d", i))
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -123,6 +155,13 @@ func main() {
 	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds())/1e9)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if telemetryHost != "" {
+		fmt.Println("shutting down telemetry...")
+		close(telemetryChanPoints)
+		<-telemetryChanDone
+		fmt.Println("done shutting down telemetry.")
 	}
 
 	// (Optional) create a memory profile:
@@ -166,21 +205,37 @@ func scan(r io.Reader) {
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(w *HTTPClient) {
+func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
 	opts := &HTTPClientDoOptions{
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+	var queriesSeen int64
 	for q := range queryChan {
-		lag, err := w.Do(q, opts)
+		queriesSeen++
+
+		ts := time.Now().UnixNano()
+		lagMillis, err := w.Do(q, opts)
 
 		stat := statPool.Get().(*Stat)
-		stat.Init(q.HumanLabel, lag)
+		stat.Init(q.HumanLabel, lagMillis)
 		statChan <- stat
 
 		queryPool.Put(q)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
+		}
+
+		// Report telemetry, if applicable:
+		if telemetrySink != nil {
+			p := telemetry.GetPointFromGlobalPool()
+			p.Init("benchmark_query", ts)
+			p.AddTag("src_addr", telemetrySrcAddr)
+			p.AddTag("dst_addr", w.HostString)
+			p.AddTag("worker_id", telemetryWorkerLabel)
+			p.AddFloat64Field("rtt_ms", lagMillis)
+			p.AddInt64Field("worker_req_num", queriesSeen)
+			telemetrySink <- p
 		}
 	}
 	workersGroup.Done()

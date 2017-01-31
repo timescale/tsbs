@@ -14,15 +14,16 @@ var bytesSlash = []byte("/") // heap optimization
 
 // HTTPClient is a reusable HTTP Client.
 type HTTPClient struct {
-	client fasthttp.Client
-	host   []byte
-	uri    []byte
-	debug  int
+	client     fasthttp.Client
+	Host       []byte
+	HostString string
+	uri        []byte
+	debug      int
 }
 
 // HTTPClientDoOptions wraps options uses when calling `Do`.
 type HTTPClientDoOptions struct {
-	Debug int
+	Debug                int
 	PrettyPrintResponses bool
 }
 
@@ -32,9 +33,10 @@ func NewHTTPClient(host string, debug int) *HTTPClient {
 		client: fasthttp.Client{
 			Name: "query_benchmarker",
 		},
-		host:  []byte(host),
-		uri:   []byte{}, // heap optimization
-		debug: debug,
+		Host:       []byte(host),
+		HostString: host,
+		uri:        []byte{}, // heap optimization
+		debug:      debug,
 	}
 }
 
@@ -43,7 +45,7 @@ func NewHTTPClient(host string, debug int) *HTTPClient {
 func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err error) {
 	// populate uri from the reusable byte slice:
 	w.uri = w.uri[:0]
-	w.uri = append(w.uri, w.host...)
+	w.uri = append(w.uri, w.Host...)
 	w.uri = append(w.uri, bytesSlash...)
 	w.uri = append(w.uri, q.Path...)
 
