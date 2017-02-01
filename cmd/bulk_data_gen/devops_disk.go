@@ -9,16 +9,16 @@ import (
 const OneTerabyte = 1 << 40
 
 var (
-	DiskByteString = []byte("disk") // heap optimization
-	TotalByteString = []byte("total")
-	FreeByteString = []byte("free")
-	UsedByteString = []byte("used")
+	DiskByteString        = []byte("disk") // heap optimization
+	TotalByteString       = []byte("total")
+	FreeByteString        = []byte("free")
+	UsedByteString        = []byte("used")
 	UsedPercentByteString = []byte("used_percent")
 	INodesTotalByteString = []byte("inodes_total")
-	INodesFreeByteString = []byte("inodes_total")
-	INodesUsedByteString = []byte("inodes_used")
+	INodesFreeByteString  = []byte("inodes_free")
+	INodesUsedByteString  = []byte("inodes_used")
 
-	DiskTags       = [][]byte{
+	DiskTags = [][]byte{
 		[]byte("path"),
 		[]byte("fstype"),
 	}
@@ -32,7 +32,7 @@ var (
 type DiskMeasurement struct {
 	timestamp time.Time
 
-	path, fsType []byte
+	path, fsType  []byte
 	uptime        time.Duration
 	freeBytesDist Distribution
 }
@@ -41,7 +41,7 @@ func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 	path := []byte(fmt.Sprintf("/dev/sda%d", rand.Intn(10)))
 	fsType := DiskFSTypeChoices[rand.Intn(len(DiskFSTypeChoices))]
 	return &DiskMeasurement{
-		path: path,
+		path:   path,
 		fsType: fsType,
 
 		timestamp:     start,
@@ -74,7 +74,7 @@ func (m *DiskMeasurement) ToPoint(p *Point) {
 	inodesFree := free / 4096
 	inodesUsed := used / 4096
 
-	p.AppendField(TotalByteString, total )
+	p.AppendField(TotalByteString, total)
 	p.AppendField(FreeByteString, free)
 	p.AppendField(UsedByteString, used)
 	p.AppendField(UsedPercentByteString, usedPercent)

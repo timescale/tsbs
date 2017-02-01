@@ -18,7 +18,7 @@ import (
 	"bitbucket.org/440-labs/postgres-kafka-consumer/meta"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 // Program option vars:
@@ -32,22 +32,14 @@ var (
 	fieldIndex      string
 )
 
-const ProjectID = 1
-const ReplicaNo = 1
-const NumPartitions = 1
-const Partition = 0
-
-type row struct {
-	namespace string
-	time      string
-	host      string
-	uuid      string
-	json      string
+type hypertableBatch struct {
+	hypertable string
+	rows       []string
 }
 
 // Global vars
 var (
-	batchChan    chan []row
+	batchChan    chan *hypertableBatch
 	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
 )
@@ -62,10 +54,11 @@ func init() {
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
-	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME, TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 
 	flag.Parse()
+
 }
 
 func main() {
@@ -81,7 +74,7 @@ func main() {
 		}
 	}
 
-	batchChan = make(chan []row, workers)
+	batchChan = make(chan *hypertableBatch, workers)
 	inputDone = make(chan struct{})
 
 	for i := 0; i < workers; i++ {
@@ -102,25 +95,26 @@ func main() {
 	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
 }
 
-// scan reads lines from stdin. It expects input in the Cassandra CQL format.
+// scan reads lines from stdin. It expects input in the Iobeam format.
 func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
-	var batch []row
-	batch = make([]row, 0, itemsPerBatch)
-
+	batch := make(map[string][]string) // hypertable => copy lines
 	var n int
 	var linesRead int64
 	for scanner.Scan() {
 		linesRead++
 
-		parts := strings.SplitN(scanner.Text(), " ", 5)
-		dataRow := row{parts[0], parts[1], parts[2], parts[3], parts[4]}
+		parts := strings.SplitN(scanner.Text(), ",", 2) //hypertable, copy line
+		hypertable := parts[0]
 
-		batch = append(batch, dataRow)
+		batch[hypertable] = append(batch[hypertable], parts[1])
 
 		n++
 		if n >= itemsPerBatch {
-			batchChan <- batch
-			batch = make([]row, 0, itemsPerBatch)
+			for hypertable, rows := range batch {
+				batchChan <- &hypertableBatch{hypertable, rows}
+			}
+
+			batch = make(map[string][]string)
 			n = 0
 		}
 	}
@@ -131,7 +125,9 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 
 	// Finished reading input, make sure last batch goes out.
 	if n > 0 {
-		batchChan <- batch
+		for hypertable, rows := range batch {
+			batchChan <- &hypertableBatch{hypertable, rows}
+		}
 	}
 
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
@@ -145,26 +141,28 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(postgresConnect string) {
-	connect1 := meta.NewRemoteInfo(postgresConnect + " dbname=benchmark name=benchmark1")
-	dbBench := sqlx.MustConnect("postgres", connect1.ConnectionString())
+	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
 	defer dbBench.Close()
 
-	for batch := range batchChan {
+	for hypertableBatch := range batchChan {
 		if !doLoad {
 			continue
 		}
 
-		table_name := "copy_t"
+		hypertable := hypertableBatch.hypertable
 
 		tx := dbBench.MustBegin()
-		tx.MustExec("SELECT 1 FROM  create_temp_copy_table_one_partition($1, $2, $3, $4, $5)", table_name, ProjectID, ReplicaNo, Partition, NumPartitions)
-		stmt, err := tx.Prepare(pq.CopyIn(table_name, "namespace", "time", "value"))
+		stmt, err := tx.Prepare(fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable))
 		if err != nil {
 			panic(err)
 		}
-
-		for _, row := range batch {
-			_, err := stmt.Exec(row.namespace, row.time, row.json)
+		for _, line := range hypertableBatch.rows {
+			sp := strings.Split(line, ",")
+			in := make([]interface{}, len(sp))
+			for ind, value := range sp {
+				in[ind] = value
+			}
+			_, err := stmt.Exec(in...)
 			if err != nil {
 				panic(err)
 			}
@@ -178,13 +176,11 @@ func processBatches(postgresConnect string) {
 		if err != nil {
 			panic(err)
 		}
-		tx.MustExec("SELECT 1 FROM  insert_data_one_partition($1, $2, $3, $4, $5)", table_name, ProjectID, ReplicaNo, Partition, NumPartitions)
-		tx.Commit()
-		/*	// Write the batch.
-			err := session.ExecuteBatch(batch)
-			if err != nil {
-				log.Fatalf("Error writing: %s\n", err.Error())
-			}*/
+		err = tx.Commit()
+		if err != nil {
+			panic(err)
+		}
+
 	}
 	workersGroup.Done()
 }
@@ -200,59 +196,12 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	dbBench := sqlx.MustConnect("postgres", connect1.ConnectionString())
 	defer dbBench.Close()
 
-	runScript(dbBench, "extensions.sql")
-	runScript(dbBench, "tables.sql")
-
-	runScript(dbBench, "query.sql")
-	runScript(dbBench, "partitioning.sql")
-	runScript(dbBench, "util.sql")
-	runScript(dbBench, "unoptimized.sql")
-
-	dbBench.MustExec(`	
-	CREATE TABLE IF NOT EXISTS cluster.project_field (
-		project_id BIGINT,
-		namespace TEXT,
-		field TEXT,
-		value_type regtype,
-		is_partition_key boolean,
-		is_distinct boolean,
-		idx_types field_index_type[],
-		server_name TEXT,
-		PRIMARY KEY (project_id, namespace, field)
-);
-
-CREATE OR REPLACE FUNCTION register_project_field(
-		project_id BIGINT,
-		namespace TEXT,
-		field TEXT,
-		value_type regtype,
-		is_partition_key boolean,
-		is_distinct boolean,
-		idx_types field_index_type[]
-) RETURNS VOID AS $$
-	INSERT INTO cluster.project_field (SELECT project_id, namespace, field, value_type, is_partition_key, is_distinct, idx_types, name FROM public.cluster_name) 
-  ON CONFLICT DO NOTHING
-$$
-LANGUAGE 'sql' VOLATILE;
-`)
-
-	runScript(dbBench, "insert.sql")
-	runScript(dbBench, "ioql.sql")
-	runScript(dbBench, "ioql_unoptimized.sql")
-	runScript(dbBench, "ioql_optimized.sql")
-	runScript(dbBench, "ioql_optimized_agg.sql")
-	runScript(dbBench, "ioql_optimized_nonagg.sql")
-
-	dbBench.MustExec(fmt.Sprintf("DROP SERVER IF EXISTS \"local\" CASCADE"))
-	dbBench.MustExec(fmt.Sprintf("CREATE SERVER \"local\" FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'localhost', dbname 'benchmark')"))
-	dbBench.MustExec(fmt.Sprintf("CREATE USER MAPPING FOR CURRENT_USER SERVER \"local\" OPTIONS (user 'postgres')"))
-
-	dbBench.MustExec(`CREATE OR REPLACE FUNCTION register_global_table(
-	local_table_name text, 
-	cluster_table_name text
-) RETURNS VOID AS $$
-	$$
-LANGUAGE 'sql' VOLATILE`)
+	dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS iobeamdb CASCADE")
+	dbBench.MustExec("SELECT setup_meta()")
+	dbBench.MustExec("SELECT setup_main()")
+	dbBench.MustExec("SELECT add_cluster_user('postgres', NULL)")
+	dbBench.MustExec("SELECT set_meta('benchmark' :: NAME, 'fakehost')")
+	dbBench.MustExec("SELECT add_node('benchmark' :: NAME, 'fakehost')")
 
 	for scanner.Scan() {
 		if len(scanner.Bytes()) == 0 {
@@ -261,26 +210,42 @@ LANGUAGE 'sql' VOLATILE`)
 
 		parts := strings.Split(scanner.Text(), ",")
 
-		namespace := parts[0]
+		hypertable := parts[0]
+		partitioning_field := ""
+		field_def := []string{}
+		indexes := []string{}
+
 		for idx, field := range parts[1:] {
 			if len(field) == 0 {
 				continue
 			}
-			isDistinct := idx == 0
-			isPartitioning := idx == 0
 			fieldType := "DOUBLE PRECISION"
 			idxType := fieldIndex
 			if idx == 0 {
+				partitioning_field = field
 				fieldType = "TEXT"
 				idxType = tagIndex
 			}
-			dbBench.MustExec("SELECT 1 FROM register_project_field($1, $2, $3, $4::regtype, $5, $6, $7)", ProjectID, namespace, field, fieldType, isPartitioning, isDistinct, fmt.Sprintf("{ %s }", idxType))
+
+			field_def = append(field_def, fmt.Sprintf("%s %s", field, fieldType))
+			for _, idx := range strings.Split(idxType, ",") {
+				index_def := ""
+				if idx == "TIME-VALUE" {
+					index_def = fmt.Sprintf("CREATE INDEX ON %s(time, %s)", hypertable, field)
+				} else if idx == "VALUE-TIME" {
+					index_def = fmt.Sprintf("CREATE INDEX ON %s(%s,time)", hypertable, field)
+				} else if idx != "" {
+					panic(fmt.Sprintf("Unknown index type %v", idx))
+				}
+				indexes = append(indexes, index_def)
+			}
 		}
 
-		dbBench.MustExec("SELECT 1 FROM create_cluster_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
-		dbBench.MustExec("SELECT 1 FROM create_master_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
-		dbBench.MustExec("SELECT 1 FROM create_partition_table($1, $2, $3, $4, $5)", ProjectID, namespace, ReplicaNo, Partition, NumPartitions)
-
+		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+		for _, idx_def := range indexes {
+			dbBench.MustExec(idx_def)
+		}
+		dbBench.MustExec(fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s')", hypertable, partitioning_field))
 	}
 }
 

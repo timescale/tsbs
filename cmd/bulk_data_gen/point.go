@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -409,54 +408,31 @@ func (p *Point) SerializeOpenTSDBBulk(w io.Writer) error {
 	return nil
 }
 
-// <ns/measurement> <timestamp> <json blob>
+// <measurement>,<timestamp>,<tag value>,<field_value,...>
 
 func (p *Point) SerializeIobeam(w io.Writer) (err error) {
 	buf := make([]byte, 0, 256)
-	byteBuf := bytes.NewBuffer(buf)
-
-	_, err = byteBuf.Write(p.MeasurementName)
-	if err != nil {
-		return err
-	}
-
-	_, err = byteBuf.WriteString(fmt.Sprintf(" %d %s %s ", p.Timestamp.UTC().UnixNano(), string(p.TagValues[0]), uuid.NewV4()))
-	if err != nil {
-		return err
-	}
-
-	encoder := newJSONFieldEncoder(byteBuf)
-
-	err = encoder.Start()
-	if err != nil {
-		return err
-	}
+	buf = append(buf, p.MeasurementName...)
+	buf = append(buf, charComma)
+	buf = append(buf, []byte(fmt.Sprintf("%d", p.Timestamp.UTC().UnixNano()))...)
 
 	//for i := 0; i < len(p.TagKeys); i++ {
 	//only write the first as all tags are the same per host
 	//TODO: figure out how to fairly compare this.
 	for i := 0; i < 1; i++ {
-		if err := encoder.AddField(string(p.TagKeys[i]), string(p.TagValues[i])); err != nil {
-			return err
-		}
+		buf = append(buf, charComma)
+		//buf = append(buf, p.TagKeys[i]...)
+		//buf = append(buf, charEquals)
+		buf = append(buf, p.TagValues[i]...)
 	}
 
 	for i := 0; i < len(p.FieldKeys); i++ {
-		if err := encoder.AddField(string(p.FieldKeys[i]), p.FieldValues[i]); err != nil {
-			return err
-		}
+		buf = append(buf, charComma)
+		v := p.FieldValues[i]
+		buf = fastFormatAppend(v, buf)
 	}
-
-	if err := encoder.End(); err != nil {
-		return err
-	}
-
-	_, err = byteBuf.WriteString("\n")
-	if err != nil {
-		return err
-	}
-	_, err = byteBuf.WriteTo(w)
-
+	buf = append(buf, charNewline)
+	_, err = w.Write(buf)
 	return err
 }
 
