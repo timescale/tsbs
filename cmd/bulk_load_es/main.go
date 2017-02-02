@@ -40,7 +40,7 @@ var (
 	numberOfShards          uint
 	telemetryHost           string
 	telemetryStderr         bool
-	telemetryBatchSize      uint
+	telemetryBatchSize      uint64
 	telemetryExperimentName string
 )
 
@@ -157,7 +157,7 @@ func init() {
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
-	flag.UintVar(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
+	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 100, "Telemetry batch size (lines).")
 
 	flag.Parse()
 
