@@ -16,8 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"bitbucket.org/440-labs/postgres-kafka-consumer/meta"
-
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -263,9 +261,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	db.MustExec("DROP DATABASE IF EXISTS benchmark")
 	db.MustExec("CREATE DATABASE benchmark")
 
-	connect1 := meta.NewRemoteInfo(postgresConnect + " dbname=benchmark name=benchmark1")
-
-	dbBench := sqlx.MustConnect("postgres", connect1.ConnectionString())
+	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
 	defer dbBench.Close()
 
 	dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS iobeamdb CASCADE")
