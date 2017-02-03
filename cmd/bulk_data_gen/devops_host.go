@@ -1,4 +1,5 @@
 package main
+
 import (
 	"fmt"
 	"math/rand"
@@ -13,7 +14,6 @@ const (
 	MachineServiceChoices           = 20
 	MachineServiceVersionChoices    = 2
 )
-
 
 type Region struct {
 	Name        []byte
@@ -127,9 +127,6 @@ var (
 	}
 )
 
-
-
-
 // Type Host models a machine being monitored by Telegraf.
 type Host struct {
 	SimulatedMeasurements []SimulatedMeasurement
@@ -192,7 +189,6 @@ func (h *Host) TickAll(d time.Duration) {
 		h.SimulatedMeasurements[i].Tick(d)
 	}
 }
-
 
 func randChoice(choices [][]byte) []byte {
 	idx := rand.Int63n(int64(len(choices)))

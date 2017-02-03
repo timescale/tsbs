@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bitbucket.org/440-labs/postgres-kafka-consumer/meta"
@@ -28,9 +29,18 @@ var (
 	workers         int
 	batchSize       int
 	doLoad          bool
+	makeHypertable  bool
 	tagIndex        string
 	fieldIndex      string
+	chunkSize       int
+
+	//telemetry(atomic)
+	columnCount int64
+	rowCount    int64
 )
+
+var useUnlog = false
+var useTemp = true
 
 type hypertableBatch struct {
 	hypertable string
@@ -53,9 +63,11 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&makeHypertable, "make-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.IntVar(&chunkSize, "chunk-size", 1073741824, "Chunk size bytes")
 
 	flag.Parse()
 
@@ -74,6 +86,11 @@ func main() {
 		}
 	}
 
+	if !makeHypertable {
+		useTemp = false
+		useUnlog = false
+	}
+
 	batchChan = make(chan *hypertableBatch, workers)
 	inputDone = make(chan struct{})
 
@@ -82,17 +99,47 @@ func main() {
 		go processBatches(postgresConnect)
 	}
 
+	go report()
+
 	start := time.Now()
-	itemsRead := scan(batchSize, scanner)
+	rowsRead := scan(batchSize, scanner)
 
 	<-inputDone
 	close(batchChan)
 	workersGroup.Wait()
 	end := time.Now()
 	took := end.Sub(start)
-	rate := float64(itemsRead) / float64(took.Seconds())
+	columnsRead := columnCount
+	rowRate := float64(rowsRead) / float64(took.Seconds())
+	columnRate := float64(columnsRead) / float64(took.Seconds())
 
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
+	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowsRead, took.Seconds(), workers, rowRate)
+	fmt.Printf("loaded %d columns in %fsec with %d workers (mean rate %f/sec)\n", columnsRead, took.Seconds(), workers, columnRate)
+}
+
+func report() {
+	c := time.Tick(20 * time.Second)
+	start := time.Now()
+	prevTime := start
+	prevColCount := int64(0)
+	prevRowCount := int64(0)
+
+	for now := range c {
+		colCount := atomic.LoadInt64(&columnCount)
+		rowCount := atomic.LoadInt64(&rowCount)
+
+		took := now.Sub(prevTime)
+		colrate := float64(colCount-prevColCount) / float64(took.Seconds())
+		rowrate := float64(rowCount-prevRowCount) / float64(took.Seconds())
+		overallRowrate := float64(rowCount) / float64(now.Sub(start).Seconds())
+
+		fmt.Printf("REPORT: col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", colrate, rowrate, overallRowrate, float64(rowCount))
+
+		prevColCount = colCount
+		prevRowCount = rowCount
+		prevTime = now
+	}
+
 }
 
 // scan reads lines from stdin. It expects input in the Iobeam format.
@@ -133,7 +180,6 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
 	close(inputDone)
 
-	// The Cassandra query format uses 1 line per item:
 	itemsRead := linesRead
 
 	return itemsRead
@@ -144,6 +190,7 @@ func processBatches(postgresConnect string) {
 	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
 	defer dbBench.Close()
 
+	columnCountWorker := int64(0)
 	for hypertableBatch := range batchChan {
 		if !doLoad {
 			continue
@@ -152,13 +199,25 @@ func processBatches(postgresConnect string) {
 		hypertable := hypertableBatch.hypertable
 
 		tx := dbBench.MustBegin()
-		stmt, err := tx.Prepare(fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable))
+		copy_cmd := fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable)
+
+		if useTemp {
+			tx.MustExec(fmt.Sprintf("CREATE TEMP TABLE IF NOT EXISTS \"%s_temp\"( LIKE %s)", hypertable, hypertable))
+			copy_cmd = fmt.Sprintf("COPY \"%s_temp\" FROM STDIN", hypertable)
+		}
+
+		if useUnlog {
+			copy_cmd = fmt.Sprintf("COPY \"%s_unlog\" FROM STDIN", hypertable)
+		}
+
+		stmt, err := tx.Prepare(copy_cmd)
 		if err != nil {
 			panic(err)
 		}
 		for _, line := range hypertableBatch.rows {
 			sp := strings.Split(line, ",")
 			in := make([]interface{}, len(sp))
+			columnCountWorker += int64(len(sp))
 			for ind, value := range sp {
 				in[ind] = value
 			}
@@ -167,6 +226,9 @@ func processBatches(postgresConnect string) {
 				panic(err)
 			}
 		}
+		atomic.AddInt64(&columnCount, columnCountWorker)
+		atomic.AddInt64(&rowCount, int64(len(hypertableBatch.rows)))
+		columnCountWorker = 0
 		/*_, err = stmt.Exec()
 		if err != nil {
 			panic(err)
@@ -175,6 +237,16 @@ func processBatches(postgresConnect string) {
 		err = stmt.Close()
 		if err != nil {
 			panic(err)
+		}
+
+		if useTemp {
+			tx.MustExec(fmt.Sprintf(`            
+			SELECT _iobeamdb_internal.insert_data(
+                (SELECT id FROM _iobeamdb_catalog.hypertable h
+                WHERE h.schema_name = 'public' AND h.table_name = '%s')
+				, '%s_temp'::regclass)`, hypertable, hypertable))
+			tx.MustExec(fmt.Sprintf("TRUNCATE TABLE \"%s_temp\"", hypertable))
+
 		}
 		err = tx.Commit()
 		if err != nil {
@@ -231,21 +303,57 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			for _, idx := range strings.Split(idxType, ",") {
 				index_def := ""
 				if idx == "TIME-VALUE" {
-					index_def = fmt.Sprintf("CREATE INDEX ON %s(time, %s)", hypertable, field)
+					index_def = fmt.Sprintf("(time, %s)", field)
 				} else if idx == "VALUE-TIME" {
-					index_def = fmt.Sprintf("CREATE INDEX ON %s(%s,time)", hypertable, field)
+					index_def = fmt.Sprintf("(%s,time)", field)
 				} else if idx != "" {
 					panic(fmt.Sprintf("Unknown index type %v", idx))
 				}
-				indexes = append(indexes, index_def)
+
+				if idx != "" {
+					indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, index_def))
+					if useTemp {
+						indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s_temp_fake %s", hypertable, index_def))
+					}
+				}
 			}
 		}
-
 		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+
+		if useUnlog {
+			dbBench.MustExec(fmt.Sprintf("CREATE UNLOGGED TABLE %s_unlog (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+			dbBench.MustExec(fmt.Sprintf(`
+CREATE OR REPLACE FUNCTION _iobeamdb_internal.on_modify_%s()
+    RETURNS TRIGGER LANGUAGE PLPGSQL AS
+$BODY$
+BEGIN
+    EXECUTE format(
+        $$
+            SELECT _iobeamdb_internal.insert_data(
+                (SELECT id FROM _iobeamdb_catalog.hypertable h
+                WHERE h.schema_name = 'public' AND h.table_name = '%s')
+                , %s)
+        $$, TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_RELID);
+    RETURN NEW;
+END
+$BODY$;
+`, hypertable, hypertable, "%3$L"))
+			dbBench.MustExec(fmt.Sprintf(`CREATE TRIGGER insert_trigger AFTER INSERT ON %s_unlog
+                FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`, hypertable, hypertable))
+
+		}
+
+		if useTemp {
+			dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s_temp_fake (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+		}
+
 		for _, idx_def := range indexes {
 			dbBench.MustExec(idx_def)
 		}
-		dbBench.MustExec(fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s')", hypertable, partitioning_field))
+
+		if makeHypertable {
+			dbBench.MustExec(fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v)", hypertable, partitioning_field, chunkSize))
+		}
 
 		dbBench.MustExec(fmt.Sprintf(`
 			CREATE OR REPLACE FUNCTION io2ts(
@@ -256,7 +364,6 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 				SELECT to_timestamp(ts / 1000000000)::timestamp;
 			$BODY$;
 			`))
-
 	}
 }
 
