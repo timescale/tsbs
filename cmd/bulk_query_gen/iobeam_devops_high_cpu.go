@@ -3,18 +3,18 @@ package main
 import "time"
 
 // IobeamDevopsSingleHost produces Iobeam-specific queries for the devops single-host case.
-type IobeamDevopsHighCpu struct {
+type IobeamDevopsHighCPU struct {
 	IobeamDevops
 }
 
-func NewIobeamDevopsHighCpu(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewIobeamDevopsHighCPU(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
 	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsHighCpu{
+	return &IobeamDevopsHighCPU{
 		IobeamDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsHighCpu) Dispatch(i, scaleVar int) Query {
+func (d *IobeamDevopsHighCPU) Dispatch(i, scaleVar int) Query {
 	q := NewIobeamQuery() // from pool
 	d.HighCPU(q, scaleVar)
 	return q

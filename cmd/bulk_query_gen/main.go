@@ -44,6 +44,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost12hr,
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
+			"iobeamdb":    NewIobeamDevopsSingleHost,
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevops8Hosts,
@@ -65,7 +66,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"high-cpu": {
 			"influx-http": NewInfluxDevopsHighCPU,
-			"iobeamdb":    NewIobeamDevopsHighCpu,
+			"iobeamdb":    NewIobeamDevopsHighCPU,
 		},
 		"high-cpu-and-field": {
 			"influx-http": NewInfluxDevopsHighCPUAndField,

@@ -228,7 +228,7 @@ func processQueries() {
 		start := time.Now()
 
 		switch queryMethod {
-		case "json":
+		/*	case "json":
 			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s) ORDER BY (json::jsonb)->>'group_time'", query))
 			if err != nil {
 				panic(err)
@@ -237,10 +237,10 @@ func processQueries() {
 			if prettyPrintResponses {
 				prettyPrintJsonResponse(rows, q)
 			}
-			rows.Close()
+			rows.Close()*/
 		case "record":
 			var sql string
-			err := db.Get(&sql, fmt.Sprintf("SELECT * FROM ioql_exec_query_record_sql(%s)", query))
+			err := db.Get(&sql, query)
 			if err != nil {
 				panic(err)
 			}
@@ -255,23 +255,23 @@ func processQueries() {
 				fmt.Println("Row ", results)
 			}*/
 			rows.Close()
-		case "cursor":
-			tx := db.MustBegin()
-			tx.MustExec(fmt.Sprintf("SELECT * FROM ioql_exec_query_record_cursor(%s, 'res')", query))
-			rows, err := tx.Queryx("FETCH ALL IN res")
-			if err != nil {
-				panic(err)
-			}
+			/*		case "cursor":
+					tx := db.MustBegin()
+					tx.MustExec(fmt.Sprintf("SELECT * FROM ioql_exec_query_record_cursor(%s, 'res')", query))
+					rows, err := tx.Queryx("FETCH ALL IN res")
+					if err != nil {
+						panic(err)
+					}
 
-			if prettyPrintResponses {
-			   for rows.Next() {
-				results := make(map[string]interface{})
-				err = rows.MapScan(results)
-				fmt.Println("Row ", results)
-				}
-			}
-			rows.Close()
-			tx.Commit()
+					if prettyPrintResponses {
+					   for rows.Next() {
+						results := make(map[string]interface{})
+						err = rows.MapScan(results)
+						fmt.Println("Row ", results)
+						}
+					}
+					rows.Close()
+					tx.Commit() */
 		default:
 			panic("unknown query method")
 		}

@@ -47,7 +47,7 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
-	flag.StringVar(&scriptsDir, "scriptsDir", "/Users/arye/Development/go/src/bitbucket.org/440-labs/postgres-kafka-consumer/sql/scripts/", "Postgres connection url")
+	//flag.StringVar(&scriptsDir, "scriptsDir", "/Users/arye/Development/go/src/bitbucket.org/440-labs/postgres-kafka-consumer/sql/scripts/", "Postgres connection url")
 
 	flag.IntVar(&batchSize, "batch-size", 100, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
@@ -246,6 +246,17 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			dbBench.MustExec(idx_def)
 		}
 		dbBench.MustExec(fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s')", hypertable, partitioning_field))
+
+		dbBench.MustExec(fmt.Sprintf(`
+			CREATE OR REPLACE FUNCTION io2ts(
+				ts       bigint
+			)
+				RETURNS timestamp LANGUAGE SQL STABLE AS
+			$BODY$
+				SELECT to_timestamp(ts / 1000000000)::timestamp;
+			$BODY$;
+			`))
+
 	}
 }
 

@@ -2,7 +2,6 @@
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-iobeam-data.gz}
-SQL_DIR=${SQL_DIR:-"${GOPATH}/src/bitbucket.org/440-labs/postgres-kafka-consumer/sql/scripts/"}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/iobeamdb.conf

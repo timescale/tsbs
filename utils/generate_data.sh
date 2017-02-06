@@ -5,6 +5,7 @@ binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/bulk_data}
 
 declare -a formats=("influx-bulk" "cassandra" "iobeam")
+
 logSeconds=${logSeconds:-"10s"}
 scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}
