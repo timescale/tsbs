@@ -30,7 +30,6 @@ import (
 // Program option vars:
 var (
 	postgresConnect      string
-	queryMethod          string
 	workers              int
 	debug                int
 	prettyPrintResponses bool
@@ -52,7 +51,6 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable dbname=benchmark", "Postgres connection url")
-	flag.StringVar(&queryMethod, "query-method", "cursor", "choice of json, record, or cursor")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
@@ -227,54 +225,31 @@ func processQueries() {
 		query := string(q.SqlQuery)
 		start := time.Now()
 
-		switch queryMethod {
-		/*	case "json":
-			rows, err := db.Query(fmt.Sprintf("SELECT * FROM ioql_exec_query(%s) ORDER BY (json::jsonb)->>'group_time'", query))
-			if err != nil {
-				panic(err)
-			}
+		rows, err := db.Queryx(query)
+		if err != nil {
+			panic(err)
+		}
 
-			if prettyPrintResponses {
-				prettyPrintJsonResponse(rows, q)
-			}
-			rows.Close()*/
-		case "record":
-			var sql string
-			err := db.Get(&sql, query)
-			if err != nil {
-				panic(err)
-			}
-
-			rows, err := db.Queryx(sql)
-			if err != nil {
-				panic(err)
-			}
-			/*for rows.Next() {
+		if prettyPrintResponses {
+			for rows.Next() {
 				results := make(map[string]interface{})
 				err = rows.MapScan(results)
-				fmt.Println("Row ", results)
-			}*/
-			rows.Close()
-			/*		case "cursor":
-					tx := db.MustBegin()
-					tx.MustExec(fmt.Sprintf("SELECT * FROM ioql_exec_query_record_cursor(%s, 'res')", query))
-					rows, err := tx.Queryx("FETCH ALL IN res")
-					if err != nil {
-						panic(err)
-					}
 
-					if prettyPrintResponses {
-					   for rows.Next() {
-						results := make(map[string]interface{})
-						err = rows.MapScan(results)
-						fmt.Println("Row ", results)
-						}
-					}
-					rows.Close()
-					tx.Commit() */
-		default:
-			panic("unknown query method")
+				if err != nil {
+					panic(err)
+				}
+
+				line, err := json.MarshalIndent(results, "", "  ")
+				if err != nil {
+					panic(err)
+				}
+
+				fmt.Println(string(line))
+			}
 		}
+
+		rows.Close()
+
 		if debug > 0 {
 			fmt.Println(query)
 		}
