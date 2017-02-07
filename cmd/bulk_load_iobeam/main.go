@@ -38,7 +38,7 @@ var (
 )
 
 var useUnlog = false
-var useTemp = true
+var useTemp = false
 
 type hypertableBatch struct {
 	hypertable string
@@ -189,6 +189,7 @@ func processBatches(postgresConnect string) {
 	defer dbBench.Close()
 
 	columnCountWorker := int64(0)
+	createdHypertables := make(map[string]bool)
 	for hypertableBatch := range batchChan {
 		if !doLoad {
 			continue
@@ -200,7 +201,12 @@ func processBatches(postgresConnect string) {
 		copy_cmd := fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable)
 
 		if useTemp {
-			tx.MustExec(fmt.Sprintf("CREATE TEMP TABLE IF NOT EXISTS \"%s_temp\"( LIKE %s)", hypertable, hypertable))
+			if !createdHypertables[hypertable] {
+				tx.MustExec(fmt.Sprintf("CREATE TEMP TABLE IF NOT EXISTS \"%s_temp\"() INHERITS (%s) ON COMMIT DELETE ROWS", hypertable, hypertable))
+				tx.MustExec(fmt.Sprintf(`CREATE TRIGGER insert_trigger AFTER INSERT ON %s_temp
+                FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`, hypertable, hypertable))
+			}
+			createdHypertables[hypertable] = true
 			copy_cmd = fmt.Sprintf("COPY \"%s_temp\" FROM STDIN", hypertable)
 		}
 
@@ -227,6 +233,7 @@ func processBatches(postgresConnect string) {
 		atomic.AddInt64(&columnCount, columnCountWorker)
 		atomic.AddInt64(&rowCount, int64(len(hypertableBatch.rows)))
 		columnCountWorker = 0
+
 		/*_, err = stmt.Exec()
 		if err != nil {
 			panic(err)
@@ -237,15 +244,6 @@ func processBatches(postgresConnect string) {
 			panic(err)
 		}
 
-		if useTemp {
-			tx.MustExec(fmt.Sprintf(`            
-			SELECT _iobeamdb_internal.insert_data(
-                (SELECT id FROM _iobeamdb_catalog.hypertable h
-                WHERE h.schema_name = 'public' AND h.table_name = '%s')
-				, '%s_temp'::regclass)`, hypertable, hypertable))
-			tx.MustExec(fmt.Sprintf("TRUNCATE TABLE \"%s_temp\"", hypertable))
-
-		}
 		err = tx.Commit()
 		if err != nil {
 			panic(err)
@@ -264,13 +262,10 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
 	defer dbBench.Close()
 
-	dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS iobeamdb CASCADE")
-	dbBench.MustExec("SELECT setup_meta()")
-	dbBench.MustExec("SELECT setup_main()")
-	dbBench.MustExec("SELECT add_cluster_user('postgres', NULL)")
-	dbBench.MustExec("SELECT set_meta('benchmark' :: NAME, 'fakehost')")
-	dbBench.MustExec("SELECT add_node('benchmark' :: NAME, 'fakehost')")
-
+	if makeHypertable {
+		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS iobeamdb CASCADE")
+		dbBench.MustExec("SELECT setup_single_node(hostname => 'fakehost')")
+	}
 	for scanner.Scan() {
 		if len(scanner.Bytes()) == 0 {
 			return
@@ -308,16 +303,12 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 				if idx != "" {
 					indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, index_def))
-					if useTemp {
-						indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s_temp_fake %s", hypertable, index_def))
-					}
 				}
 			}
 		}
 		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
 
-		if useUnlog {
-			dbBench.MustExec(fmt.Sprintf("CREATE UNLOGGED TABLE %s_unlog (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+		if useUnlog || useTemp {
 			dbBench.MustExec(fmt.Sprintf(`
 CREATE OR REPLACE FUNCTION _iobeamdb_internal.on_modify_%s()
     RETURNS TRIGGER LANGUAGE PLPGSQL AS
@@ -334,13 +325,19 @@ BEGIN
 END
 $BODY$;
 `, hypertable, hypertable, "%3$L"))
-			dbBench.MustExec(fmt.Sprintf(`CREATE TRIGGER insert_trigger AFTER INSERT ON %s_unlog
-                FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`, hypertable, hypertable))
 
 		}
 
-		if useTemp {
-			dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s_temp_fake (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+		if useUnlog {
+			dbBench.MustExec(
+				fmt.Sprintf("CREATE UNLOGGED TABLE %s_unlog (time bigint, %s)",
+					hypertable, strings.Join(field_def, ",")))
+
+			dbBench.MustExec(fmt.Sprintf(`
+			CREATE TRIGGER insert_trigger AFTER INSERT ON %s_unlog
+            FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`,
+				hypertable, hypertable))
+
 		}
 
 		for _, idx_def := range indexes {
@@ -348,7 +345,9 @@ $BODY$;
 		}
 
 		if makeHypertable {
-			dbBench.MustExec(fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v)", hypertable, partitioning_field, chunkSize))
+			dbBench.MustExec(
+				fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v)",
+					hypertable, partitioning_field, chunkSize))
 		}
 
 		dbBench.MustExec(fmt.Sprintf(`

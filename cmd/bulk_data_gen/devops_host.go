@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-const NHostSims = 9
-
 // Count of choices for auto-generated tag values:
 const (
 	MachineRackChoicesPerDatacenter = 100
@@ -149,14 +147,38 @@ func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
 		NewRedisMeasurement(start),
 	}
 
-	if len(sm) != NHostSims {
-		panic("logic error: incorrect number of measurements")
+	return sm
+}
+
+func NewCPUOnlyHostMeasurements(start time.Time) []SimulatedMeasurement {
+	sm := []SimulatedMeasurement{
+		NewCPUMeasurement(start),
 	}
+
+	return sm
+}
+
+func NewRandHostMeasurements(start time.Time) []SimulatedMeasurement {
+	sm := []SimulatedMeasurement{
+		NewRandMeasurement(start),
+	}
+
 	return sm
 }
 
 func NewHost(i int, start time.Time) Host {
-	sm := NewHostMeasurements(start)
+	return NewHostWithMeasurementGenerator(i, start, NewHostMeasurements)
+}
+func NewCPUOnlyHost(i int, start time.Time) Host {
+	return NewHostWithMeasurementGenerator(i, start, NewCPUOnlyHostMeasurements)
+}
+
+func NewRandHost(i int, start time.Time) Host {
+	return NewHostWithMeasurementGenerator(i, start, NewRandHostMeasurements)
+}
+
+func NewHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []SimulatedMeasurement) Host {
+	sm := generator(start)
 
 	region := &Regions[rand.Intn(len(Regions))]
 	rackId := rand.Int63n(MachineRackChoicesPerDatacenter)

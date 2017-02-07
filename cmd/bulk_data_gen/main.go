@@ -28,7 +28,7 @@ import (
 var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeamdb"}
 
 // Use case choices:
-var useCaseChoices = []string{"devops", "iot"}
+var useCaseChoices = []string{"devops", "cpu-only", "one-rand"}
 
 // Program option vars:
 var (
@@ -127,7 +127,26 @@ func main() {
 			Start: timestampStart,
 			End:   timestampEnd,
 
-			HostCount: scaleVar,
+			HostCount:       scaleVar,
+			HostConstructor: NewHost,
+		}
+		sim = cfg.ToSimulator()
+	case "cpu-only":
+		cfg := &DevopsSimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			HostCount:       scaleVar,
+			HostConstructor: NewCPUOnlyHost,
+		}
+		sim = cfg.ToSimulator()
+	case "one-rand":
+		cfg := &DevopsSimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			HostCount:       scaleVar,
+			HostConstructor: NewRandHost,
 		}
 		sim = cfg.ToSimulator()
 	default:

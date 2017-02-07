@@ -37,17 +37,18 @@ type DevopsSimulatorConfig struct {
 	Start time.Time
 	End   time.Time
 
-	HostCount int64
+	HostCount       int64
+	HostConstructor func(i int, start time.Time) Host
 }
 
 func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
-		hostInfos[i] = NewHost(i, d.Start)
+		hostInfos[i] = d.HostConstructor(i, d.Start)
 	}
 
 	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
-	maxPoints := epochs * (d.HostCount * NHostSims)
+	maxPoints := epochs * (d.HostCount * int64(len(hostInfos[0].SimulatedMeasurements)))
 	dg := &DevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
@@ -84,7 +85,7 @@ func (d *DevopsSimulator) Next(p *Point) {
 		d.simulatedMeasurementIndex++
 	}
 
-	if d.simulatedMeasurementIndex == NHostSims {
+	if d.simulatedMeasurementIndex == len(d.hosts[0].SimulatedMeasurements) {
 		d.simulatedMeasurementIndex = 0
 
 		for i := 0; i < len(d.hosts); i++ {
