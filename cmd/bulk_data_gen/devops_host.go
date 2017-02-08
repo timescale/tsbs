@@ -158,6 +158,7 @@ func NewCPUOnlyHostMeasurements(start time.Time) []SimulatedMeasurement {
 	return sm
 }
 
+/*
 func NewRandHostMeasurements(start time.Time) []SimulatedMeasurement {
 	sm := []SimulatedMeasurement{
 		NewRandMeasurement(start),
@@ -165,7 +166,7 @@ func NewRandHostMeasurements(start time.Time) []SimulatedMeasurement {
 
 	return sm
 }
-
+*/
 func NewHost(i int, start time.Time) Host {
 	return NewHostWithMeasurementGenerator(i, start, NewHostMeasurements)
 }
@@ -173,9 +174,11 @@ func NewCPUOnlyHost(i int, start time.Time) Host {
 	return NewHostWithMeasurementGenerator(i, start, NewCPUOnlyHostMeasurements)
 }
 
+/*
 func NewRandHost(i int, start time.Time) Host {
 	return NewHostWithMeasurementGenerator(i, start, NewRandHostMeasurements)
 }
+*/
 
 func NewHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []SimulatedMeasurement) Host {
 	sm := generator(start)

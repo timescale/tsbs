@@ -140,15 +140,15 @@ func main() {
 			HostConstructor: NewCPUOnlyHost,
 		}
 		sim = cfg.ToSimulator()
-	case "one-rand":
-		cfg := &DevopsSimulatorConfig{
-			Start: timestampStart,
-			End:   timestampEnd,
+		/*	case "one-rand":
+			cfg := &DevopsSimulatorConfig{
+				Start: timestampStart,
+				End:   timestampEnd,
 
-			HostCount:       scaleVar,
-			HostConstructor: NewRandHost,
-		}
-		sim = cfg.ToSimulator()
+				HostCount:       scaleVar,
+				HostConstructor: NewRandHost,
+			}
+			sim = cfg.ToSimulator()*/
 	default:
 		panic("unreachable")
 	}

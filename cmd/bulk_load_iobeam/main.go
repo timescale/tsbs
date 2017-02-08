@@ -32,6 +32,7 @@ var (
 	fieldIndex      string
 	fieldIndexCount int
 	chunkSize       int
+	reportingPeriod int
 
 	//telemetry(atomic)
 	columnCount int64
@@ -68,6 +69,7 @@ func init() {
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 	flag.IntVar(&chunkSize, "chunk-size", 1073741824, "Chunk size bytes")
+	flag.IntVar(&reportingPeriod, "reporting-period", 1000, "Period to report stats")
 
 	flag.Parse()
 
@@ -99,7 +101,7 @@ func main() {
 		go processBatches(postgresConnect)
 	}
 
-	go report()
+	go report(reportingPeriod)
 
 	start := time.Now()
 	rowsRead := scan(batchSize, scanner)
@@ -117,8 +119,8 @@ func main() {
 	fmt.Printf("loaded %d columns in %fsec with %d workers (mean rate %f/sec)\n", columnsRead, took.Seconds(), workers, columnRate)
 }
 
-func report() {
-	c := time.Tick(20 * time.Second)
+func report(periodMs int) {
+	c := time.Tick(time.Duration(periodMs) * time.Millisecond)
 	start := time.Now()
 	prevTime := start
 	prevColCount := int64(0)
@@ -133,7 +135,7 @@ func report() {
 		rowrate := float64(rowCount-prevRowCount) / float64(took.Seconds())
 		overallRowrate := float64(rowCount) / float64(now.Sub(start).Seconds())
 
-		fmt.Printf("REPORT: col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", colrate, rowrate, overallRowrate, float64(rowCount))
+		fmt.Printf("REPORT: time %f col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", now, colrate, rowrate, overallRowrate, float64(rowCount))
 
 		prevColCount = colCount
 		prevRowCount = rowCount
