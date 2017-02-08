@@ -30,6 +30,7 @@ var (
 	makeHypertable  bool
 	tagIndex        string
 	fieldIndex      string
+	fieldIndexCount int
 	chunkSize       int
 
 	//telemetry(atomic)
@@ -65,6 +66,7 @@ func init() {
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 	flag.IntVar(&chunkSize, "chunk-size", 1073741824, "Chunk size bytes")
 
 	flag.Parse()
@@ -291,18 +293,20 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			}
 
 			field_def = append(field_def, fmt.Sprintf("%s %s", field, fieldType))
-			for _, idx := range strings.Split(idxType, ",") {
-				index_def := ""
-				if idx == "TIME-VALUE" {
-					index_def = fmt.Sprintf("(time, %s)", field)
-				} else if idx == "VALUE-TIME" {
-					index_def = fmt.Sprintf("(%s,time)", field)
-				} else if idx != "" {
-					panic(fmt.Sprintf("Unknown index type %v", idx))
-				}
+			if fieldIndexCount == -1 || idx <= fieldIndexCount {
+				for _, idx := range strings.Split(idxType, ",") {
+					index_def := ""
+					if idx == "TIME-VALUE" {
+						index_def = fmt.Sprintf("(time, %s)", field)
+					} else if idx == "VALUE-TIME" {
+						index_def = fmt.Sprintf("(%s,time)", field)
+					} else if idx != "" {
+						panic(fmt.Sprintf("Unknown index type %v", idx))
+					}
 
-				if idx != "" {
-					indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, index_def))
+					if idx != "" {
+						indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, index_def))
+					}
 				}
 			}
 		}
