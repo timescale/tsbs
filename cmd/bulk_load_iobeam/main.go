@@ -28,6 +28,7 @@ var (
 	batchSize       int
 	doLoad          bool
 	makeHypertable  bool
+	logBatches      bool
 	tagIndex        string
 	fieldIndex      string
 	fieldIndexCount int
@@ -64,6 +65,7 @@ func init() {
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&makeHypertable, "make-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
+	flag.BoolVar(&logBatches, "log-batches", true, "Whether to time individual batches.")
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
@@ -135,7 +137,7 @@ func report(periodMs int) {
 		rowrate := float64(rowCount-prevRowCount) / float64(took.Seconds())
 		overallRowrate := float64(rowCount) / float64(now.Sub(start).Seconds())
 
-		fmt.Printf("REPORT: time %f col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", now, colrate, rowrate, overallRowrate, float64(rowCount))
+		fmt.Printf("REPORT: time %d col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", now.Unix(), colrate, rowrate, overallRowrate, float64(rowCount))
 
 		prevColCount = colCount
 		prevRowCount = rowCount
@@ -200,6 +202,7 @@ func processBatches(postgresConnect string) {
 		}
 
 		hypertable := hypertableBatch.hypertable
+		start := time.Now()
 
 		tx := dbBench.MustBegin()
 		copy_cmd := fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable)
@@ -251,6 +254,12 @@ func processBatches(postgresConnect string) {
 		err = tx.Commit()
 		if err != nil {
 			panic(err)
+		}
+
+		if logBatches {
+			now := time.Now()
+			took := start.Sub(now)
+			fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec\n", now.Unix(), batchSize, float64(batchSize)/float64(took.Seconds()))
 		}
 
 	}
