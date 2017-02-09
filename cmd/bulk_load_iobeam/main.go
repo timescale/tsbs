@@ -258,7 +258,7 @@ func processBatches(postgresConnect string) {
 
 		if logBatches {
 			now := time.Now()
-			took := start.Sub(now)
+			took := now.Sub(start)
 			fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec\n", now.Unix(), batchSize, float64(batchSize)/float64(took.Seconds()))
 		}
 
