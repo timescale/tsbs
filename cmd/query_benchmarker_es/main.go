@@ -26,15 +26,15 @@ import (
 
 // Program option vars:
 var (
-	csvDaemonUrls        string
-	daemonUrls           []string
-	workers              int
-	debug                int
-	prettyPrintResponses bool
-	limit                int64
-	burnIn               uint64
-	printInterval        uint64
-	memProfile           string
+	csvDaemonUrls           string
+	daemonUrls              []string
+	workers                 int
+	debug                   int
+	prettyPrintResponses    bool
+	limit                   int64
+	burnIn                  uint64
+	printInterval           uint64
+	memProfile              string
 	telemetryHost           string
 	telemetryStderr         bool
 	telemetryBatchSize      uint64
@@ -43,15 +43,15 @@ var (
 
 // Global vars:
 var (
-	queryPool    sync.Pool
-	queryChan    chan *Query
-	statPool     sync.Pool
-	statChan     chan *Stat
-	workersGroup sync.WaitGroup
-	statGroup    sync.WaitGroup
+	queryPool           sync.Pool
+	queryChan           chan *Query
+	statPool            sync.Pool
+	statChan            chan *Stat
+	workersGroup        sync.WaitGroup
+	statGroup           sync.WaitGroup
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
-	telemetrySrcAddr   string
+	telemetrySrcAddr    string
 )
 
 // Parse args:
@@ -211,7 +211,8 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		PrettyPrintResponses: prettyPrintResponses,
 	}
 	for q := range queryChan {
-		lag, err := w.Do(q, opts)
+		ts := time.Now().UnixNano()
+		lagMillis, err := w.Do(q, opts)
 
 		stat := statPool.Get().(*Stat)
 		stat.Init(q.HumanLabel, lag)
@@ -220,6 +221,18 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		queryPool.Put(q)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
+		}
+
+		// Report telemetry, if applicable:
+		if telemetrySink != nil {
+			p := telemetry.GetPointFromGlobalPool()
+			p.Init("benchmark_query", ts)
+			p.AddTag("src_addr", telemetrySrcAddr)
+			p.AddTag("dst_addr", w.HostString)
+			p.AddTag("worker_id", telemetryWorkerLabel)
+			p.AddFloat64Field("rtt_ms", lagMillis)
+			p.AddInt64Field("worker_req_num", queriesSeen)
+			telemetrySink <- p
 		}
 	}
 	workersGroup.Done()
