@@ -51,7 +51,7 @@ var (
 	statGroup           sync.WaitGroup
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
-	telemetrySrcAddr   string
+	telemetrySrcAddr    string
 )
 
 // Parse args:
@@ -212,8 +212,6 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 	}
 	var queriesSeen int64
 	for q := range queryChan {
-		queriesSeen++
-
 		ts := time.Now().UnixNano()
 		lagMillis, err := w.Do(q, opts)
 
@@ -237,6 +235,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 			p.AddInt64Field("worker_req_num", queriesSeen)
 			telemetrySink <- p
 		}
+		queriesSeen++
 	}
 	workersGroup.Done()
 }

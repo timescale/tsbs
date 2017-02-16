@@ -210,6 +210,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+	var queriesSeen int64
 	for q := range queryChan {
 		ts := time.Now().UnixNano()
 		lagMillis, err := w.Do(q, opts)
@@ -234,6 +235,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 			p.AddInt64Field("worker_req_num", queriesSeen)
 			telemetrySink <- p
 		}
+		queriesSeen++
 	}
 	workersGroup.Done()
 }
