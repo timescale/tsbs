@@ -216,7 +216,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		lagMillis, err := w.Do(q, opts)
 
 		stat := statPool.Get().(*Stat)
-		stat.Init(q.HumanLabel, lag)
+		stat.Init(q.HumanLabel, lagMillis)
 		statChan <- stat
 
 		queryPool.Put(q)
