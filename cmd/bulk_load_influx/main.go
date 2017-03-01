@@ -291,6 +291,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		batchesSeen++
 
 		var bodySize int
+		ts := time.Now().UnixNano()
 
 		// Write the batch: try until backoff is not needed.
 		if doLoad {
@@ -322,6 +323,10 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 			}
 		}
 
+		// lagMillis intentionally includes backoff time,
+		// and incidentally includes compression time:
+		lagMillis := float64(time.Now().UnixNano() - ts) / 1e6
+
 		// Return the batch buffer to the pool.
 		batch.Reset()
 		bufPool.Put(batch)
@@ -334,6 +339,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 			p.AddTag("dst_addr", w.c.Host)
 			p.AddTag("worker_id", telemetryWorkerLabel)
 			p.AddInt64Field("worker_req_num", batchesSeen)
+			p.AddFloat64Field("rtt_ms_total", lagMillis)
 			p.AddBoolField("gzip", useGzip)
 			p.AddInt64Field("body_bytes", int64(bodySize))
 			telemetrySink <- p
