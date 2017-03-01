@@ -40,6 +40,7 @@ var (
 	telemetryBatchSize      uint64
 	telemetryExperimentName string
 	telemetryTagsCSV        string
+	telemetryBasicAuth      string
 )
 
 // Global vars:
@@ -69,6 +70,7 @@ func init() {
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.StringVar(&telemetryTagsCSV, "telemetry-tags", "", "Tag(s) for telemetry. Format: key0:val0,key1:val1,...")
+	flag.StringVar(&telemetryBasicAuth, "telemetry-basic-auth", "", "basic auth (username:password) for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
 	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 1000, "Telemetry batch size (lines).")
 
@@ -137,7 +139,7 @@ func main() {
 	go processStats()
 
 	if telemetryHost != "" {
-		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
+		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
 		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, burnIn)
 	}
 
