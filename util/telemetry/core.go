@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 )
 
 type valueKind byte
+
 const (
 	invalidValueKind valueKind = iota
 	float64ValueKind
@@ -36,11 +38,11 @@ func (t *Tag) Serialize(w io.Writer) {
 // Implementor's note: this type uses more memory than is ideal, but it avoids
 // unsafe and it avoids reflection.
 type Field struct {
-	key string
-	int64Value int64
+	key          string
+	int64Value   int64
 	float64Value float64
-	boolValue bool
-	mode valueKind
+	boolValue    bool
+	mode         valueKind
 }
 
 func (f *Field) SetFloat64(key string, x float64) {
@@ -82,9 +84,9 @@ func (f *Field) Serialize(w io.Writer) {
 // Its primary purpose is to be serialized out to a []byte.
 // Users should prefer to keep the strings as long-lived items.
 type Point struct {
-	Measurement string
-	Tags []Tag
-	Fields []Field
+	Measurement   string
+	Tags          []Tag
+	Fields        []Field
 	TimestampNano int64
 }
 
@@ -123,7 +125,7 @@ func (p *Point) Serialize(w io.Writer) {
 		}
 
 		tag.Serialize(w)
-		if i < len(p.Tags) - 1 {
+		if i < len(p.Tags)-1 {
 			fmt.Fprint(w, ",")
 		}
 	}
@@ -133,7 +135,7 @@ func (p *Point) Serialize(w io.Writer) {
 		}
 
 		field.Serialize(w)
-		if i < len(p.Fields) - 1 {
+		if i < len(p.Fields)-1 {
 			fmt.Fprint(w, ",")
 		}
 	}
@@ -149,7 +151,7 @@ func (p *Point) Reset() {
 	p.TimestampNano = 0
 }
 
-var GlobalPointPool *sync.Pool = &sync.Pool{New: func() interface{}{ return &Point{} } }
+var GlobalPointPool *sync.Pool = &sync.Pool{New: func() interface{} { return &Point{} }}
 
 func GetPointFromGlobalPool() *Point {
 	return GlobalPointPool.Get().(*Point)
@@ -162,20 +164,26 @@ func PutPointIntoGlobalPool(p *Point) {
 type Collector struct {
 	Points []*Point
 
-	client *fasthttp.Client
-	uri string
+	client           *fasthttp.Client
+	uri              string
+	encodedBasicAuth string
 
 	buf *bytes.Buffer
 }
 
-func NewCollector(influxhost, dbname string) *Collector {
+func NewCollector(influxhost, dbname, basicAuth string) *Collector {
+	encodedBasicAuth := ""
+	if basicAuth != "" {
+		encodedBasicAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(basicAuth))
+	}
 	return &Collector{
-		buf: new(bytes.Buffer),
+		buf:    new(bytes.Buffer),
 		Points: make([]*Point, 0, 0),
 		client: &fasthttp.Client{
 			Name: "collector",
 		},
-		uri: influxhost + "/write?db=" + url.QueryEscape(dbname),
+		uri:              influxhost + "/write?db=" + url.QueryEscape(dbname),
+		encodedBasicAuth: encodedBasicAuth,
 	}
 }
 
@@ -199,6 +207,9 @@ func (c *Collector) SendBatch() error {
 	req := fasthttp.AcquireRequest()
 	req.Header.SetMethod("POST")
 	req.Header.SetRequestURI(c.uri)
+	if c.encodedBasicAuth != "" {
+		req.Header.Set("Authorization", c.encodedBasicAuth)
+	}
 	req.SetBody(c.buf.Bytes())
 
 	// Perform the request while tracking latency:
@@ -210,7 +221,7 @@ func (c *Collector) SendBatch() error {
 	}
 
 	fasthttp.ReleaseResponse(resp)
-        fasthttp.ReleaseRequest(req)
+	fasthttp.ReleaseRequest(req)
 
 	return err
 }
@@ -252,7 +263,7 @@ func EZRunAsync(c *Collector, batchSize uint64, experimentName string, writeToSt
 
 			p.AddTag("experiment", experimentName)
 			c.Put(p)
-			if i % batchSize == 0 {
+			if i%batchSize == 0 {
 				send()
 				c.Reset()
 			}
@@ -261,7 +272,7 @@ func EZRunAsync(c *Collector, batchSize uint64, experimentName string, writeToSt
 			send()
 			c.Reset()
 		}
-		done<-struct{}{}
+		done <- struct{}{}
 	}()
 
 	return
