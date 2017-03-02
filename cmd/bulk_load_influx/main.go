@@ -47,6 +47,7 @@ var (
 	telemetryStderr         bool
 	telemetryBatchSize      uint64
 	telemetryExperimentName string
+	telemetryTagsCSV        string
 	telemetryBasicAuth      string
 )
 
@@ -61,6 +62,7 @@ var (
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
 	telemetrySrcAddr    string
+	telemetryTags       [][2]string
 
 	progressIntervalItems uint64
 )
@@ -92,6 +94,7 @@ func init() {
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.StringVar(&telemetryBasicAuth, "telemetry-basic-auth", "", "basic auth (username:password) for telemetry.")
+	flag.StringVar(&telemetryTagsCSV, "telemetry-tags", "", "Tag(s) for telemetry. Format: key0:val0,key1:val1,...")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
 	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
 
@@ -119,6 +122,16 @@ func init() {
 			log.Fatalf("os.Hostname() error: %s", err.Error())
 		}
 		fmt.Printf("src addr for telemetry: %v\n", telemetrySrcAddr)
+
+		if telemetryTagsCSV != "" {
+			pairs := strings.Split(telemetryTagsCSV, ",")
+			for _, pair := range pairs {
+				fields := strings.SplitN(pair, ":", 2)
+				tagpair := [2]string{fields[0], fields[1]}
+				telemetryTags = append(telemetryTags, tagpair)
+			}
+		}
+		fmt.Printf("telemetry tags: %v\n", telemetryTags)
 	}
 }
 
@@ -335,6 +348,9 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 		if telemetrySink != nil {
 			p := telemetry.GetPointFromGlobalPool()
 			p.Init("benchmark_write", time.Now().UnixNano())
+			for _, tagpair := range telemetryTags {
+				p.AddTag(tagpair[0], tagpair[1])
+			}
 			p.AddTag("src_addr", telemetrySrcAddr)
 			p.AddTag("dst_addr", w.c.Host)
 			p.AddTag("worker_id", telemetryWorkerLabel)
