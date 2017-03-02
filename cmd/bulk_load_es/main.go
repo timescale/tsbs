@@ -42,6 +42,7 @@ var (
 	telemetryStderr         bool
 	telemetryBatchSize      uint64
 	telemetryExperimentName string
+	telemetryBasicAuth      string
 )
 
 // Global vars
@@ -158,6 +159,7 @@ func init() {
 	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
 	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 100, "Telemetry batch size (lines).")
+	flag.StringVar(&telemetryBasicAuth, "telemetry-basic-auth", "", "basic auth (username:password) for telemetry.")
 
 	flag.Parse()
 
@@ -223,7 +225,7 @@ func main() {
 	inputDone = make(chan struct{})
 
 	if telemetryHost != "" {
-		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf")
+		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
 		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, 0)
 	}
 
