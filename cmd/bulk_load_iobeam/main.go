@@ -22,19 +22,19 @@ import (
 
 // Program option vars:
 var (
-	scriptsDir      string
-	postgresConnect string
-	workers         int
-	batchSize       int
-	doLoad          bool
-	makeHypertable  bool
-	logBatches      bool
-	tagIndex        string
-	fieldIndex      string
-	fieldIndexCount int
-	chunkSize       int
-	reportingPeriod int
-
+	scriptsDir       string
+	postgresConnect  string
+	workers          int
+	batchSize        int
+	doLoad           bool
+	makeHypertable   bool
+	logBatches       bool
+	tagIndex         string
+	fieldIndex       string
+	fieldIndexCount  int
+	chunkSize        int
+	reportingPeriod  int
+	numberPartitions int
 	//telemetry(atomic)
 	columnCount int64
 	rowCount    int64
@@ -71,10 +71,10 @@ func init() {
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 	flag.IntVar(&chunkSize, "chunk-size", 1073741824, "Chunk size bytes")
+	flag.IntVar(&numberPartitions, "number_partitions", 1, "Number of patitions")
 	flag.IntVar(&reportingPeriod, "reporting-period", 1000, "Period to report stats")
 
 	flag.Parse()
-
 }
 
 func main() {
@@ -361,8 +361,8 @@ $BODY$;
 
 		if makeHypertable {
 			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v)",
-					hypertable, partitioning_field, chunkSize))
+				fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v, number_partitions => %v)",
+					hypertable, partitioning_field, chunkSize, numberPartitions))
 		}
 
 		dbBench.MustExec(fmt.Sprintf(`
