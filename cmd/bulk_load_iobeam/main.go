@@ -65,7 +65,7 @@ func init() {
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&makeHypertable, "make-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
-	flag.BoolVar(&logBatches, "log-batches", true, "Whether to time individual batches.")
+	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
@@ -276,8 +276,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	defer dbBench.Close()
 
 	if makeHypertable {
-		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS iobeamdb CASCADE")
-		dbBench.MustExec("SELECT setup_single_node(hostname => 'fakehost')")
+		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+		dbBench.MustExec("SELECT setup_db()")
 	}
 	for scanner.Scan() {
 		if len(scanner.Bytes()) == 0 {
@@ -361,8 +361,8 @@ $BODY$;
 
 		if makeHypertable {
 			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s', 'time', '%s', chunk_size_bytes => %v, number_partitions => %v)",
-					hypertable, partitioning_field, chunkSize, numberPartitions))
+				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_size_bytes => %v::bigint)",
+					hypertable, partitioning_field, numberPartitions, chunkSize))
 		}
 
 		dbBench.MustExec(fmt.Sprintf(`
