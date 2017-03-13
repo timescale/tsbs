@@ -41,7 +41,7 @@ var (
 	telemetryHost           string
 	telemetryStderr         bool
 	telemetryBatchSize      uint64
-	telemetryExperimentName string
+	telemetryTagsCSV        string
 	telemetryBasicAuth      string
 )
 
@@ -54,6 +54,7 @@ var (
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
 	telemetryHostname   string
+	telemetryTags       [][2]string
 )
 
 // Args parsing vars
@@ -156,10 +157,10 @@ func init() {
 	flag.UintVar(&numberOfShards, "number-of-shards", 5, "Number of ES shards. Typically you will set this to the number of nodes in the cluster.")
 
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
-	flag.StringVar(&telemetryExperimentName, "telemetry-experiment-name", "unnamed_experiment", "Experiment name for telemetry.")
 	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
 	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 100, "Telemetry batch size (lines).")
 	flag.StringVar(&telemetryBasicAuth, "telemetry-basic-auth", "", "basic auth (username:password) for telemetry.")
+	flag.StringVar(&telemetryTagsCSV, "telemetry-tags", "", "Tag(s) for telemetry. Format: key0:val0,key1:val1,...")
 
 	flag.Parse()
 
@@ -179,6 +180,17 @@ func init() {
 		if err != nil {
 			log.Fatalf("os.Hostname() error: %s", err.Error())
 		}
+		fmt.Printf("src addr for telemetry: %v\n", telemetryHostname)
+
+		if telemetryTagsCSV != "" {
+			pairs := strings.Split(telemetryTagsCSV, ",")
+			for _, pair := range pairs {
+				fields := strings.SplitN(pair, ":", 2)
+				tagpair := [2]string{fields[0], fields[1]}
+				telemetryTags = append(telemetryTags, tagpair)
+			}
+		}
+		fmt.Printf("telemetry tags: %v\n", telemetryTags)
 	}
 
 	if _, ok := indexTemplateChoices[indexTemplateName]; !ok {
@@ -226,7 +238,7 @@ func main() {
 
 	if telemetryHost != "" {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryExperimentName, telemetryStderr, 0)
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, 0)
 	}
 
 	for i := 0; i < workers; i++ {
