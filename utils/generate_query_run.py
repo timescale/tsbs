@@ -42,7 +42,7 @@ def load_queries_file_names(filename):
         for query in queries:
             query = query.split('#')[0]
             if len(query) > 0:
-                l.append(query)
+                l.append(query.strip())
 
     return l
 
