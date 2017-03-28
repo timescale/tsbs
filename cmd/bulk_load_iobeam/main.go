@@ -277,7 +277,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 	if makeHypertable {
 		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-		dbBench.MustExec("SELECT setup_db()")
+		dbBench.MustExec("SELECT setup_timescaledb()")
 	}
 	for scanner.Scan() {
 		if len(scanner.Bytes()) == 0 {
