@@ -55,27 +55,31 @@ func (d *IobeamDevops) Dispatch(i, scaleVar int) Query {
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2, time.Hour)
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4, time.Hour)
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16, time.Hour)
 }
 
 func (d *IobeamDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32)
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32, time.Hour)
+}
+
+func (d *IobeamDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
 }
 
 func (d *IobeamDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
@@ -88,12 +92,12 @@ func (d *IobeamDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
 
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
-func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute'::text, io2ts(time)) AS minute, max(usage_user) FROM cpu where %s AND time >= %d AND time < %d GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.UnixNano(), interval.End.UnixNano())
 
-	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand 12hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("Iobeam max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*IobeamQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
