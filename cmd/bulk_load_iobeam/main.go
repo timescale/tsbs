@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -230,7 +231,16 @@ func processBatches(postgresConnect string) {
 			in := make([]interface{}, len(sp))
 			columnCountWorker += int64(len(sp))
 			for ind, value := range sp {
-				in[ind] = value
+				if ind == 0 {
+					timeInt, err := strconv.ParseInt(value, 10, 64)
+					if err != nil {
+						panic(err)
+					}
+					secs := timeInt / 1000000000
+					in[ind] = time.Unix(secs, timeInt % 1000000000).Format("2006-01-02 15:04:05.999999 -7:00")
+				} else {
+					in[ind] = value
+				}
 			}
 			_, err := stmt.Exec(in...)
 			if err != nil {
@@ -321,7 +331,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 				}
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time bigint, %s)", hypertable, strings.Join(field_def, ",")))
+		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, %s)", hypertable, strings.Join(field_def, ",")))
 
 		if useUnlog || useTemp {
 			dbBench.MustExec(fmt.Sprintf(`

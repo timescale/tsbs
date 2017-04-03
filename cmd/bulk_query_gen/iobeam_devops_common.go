@@ -106,6 +106,23 @@ func (d *IobeamDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	q.SqlQuery = []byte(sqlQuery)
 }
 
+func (d *IobeamDevops) GroupByOrderByLimit(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	timeStr := interval.End.Format("2006-01-02 15:04:05.999999 -7:00")
+
+	where := fmt.Sprintf("WHERE time < '%s'", timeStr)
+
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
+
+	humanLabel := "TimescaleDB max cpu, rand 12hr by 1m, limit 5"
+	q := qi.(*IobeamQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *IobeamDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
