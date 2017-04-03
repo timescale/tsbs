@@ -413,25 +413,25 @@ func (p *Point) SerializeOpenTSDBBulk(w io.Writer) error {
 func (p *Point) SerializeIobeam(w io.Writer) (err error) {
 	buf := make([]byte, 0, 256)
 	buf = append(buf, p.MeasurementName...)
-	buf = append(buf, charComma)
+	buf = append(buf, ',')
 	buf = append(buf, []byte(fmt.Sprintf("%d", p.Timestamp.UTC().UnixNano()))...)
 
 	//for i := 0; i < len(p.TagKeys); i++ {
 	//only write the first as all tags are the same per host
 	//TODO: figure out how to fairly compare this.
 	for i := 0; i < 1; i++ {
-		buf = append(buf, charComma)
+		buf = append(buf, ',')
 		//buf = append(buf, p.TagKeys[i]...)
 		//buf = append(buf, charEquals)
 		buf = append(buf, p.TagValues[i]...)
 	}
 
 	for i := 0; i < len(p.FieldKeys); i++ {
-		buf = append(buf, charComma)
+		buf = append(buf, ',')
 		v := p.FieldValues[i]
 		buf = fastFormatAppend(v, buf)
 	}
-	buf = append(buf, charNewline)
+	buf = append(buf, '\n')
 	_, err = w.Write(buf)
 	return err
 }
