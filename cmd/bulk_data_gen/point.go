@@ -410,7 +410,7 @@ func (p *Point) SerializeOpenTSDBBulk(w io.Writer) error {
 
 // <measurement>,<timestamp>,<tag value>,<field_value,...>
 
-func (p *Point) SerializeIobeam(w io.Writer) (err error) {
+func (p *Point) SerializeTimescaleDB(w io.Writer) (err error) {
 	buf := make([]byte, 0, 256)
 	buf = append(buf, p.MeasurementName...)
 	buf = append(buf, ',')

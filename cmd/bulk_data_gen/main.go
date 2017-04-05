@@ -182,7 +182,7 @@ func main() {
 		}
 		out.WriteString("\n")
 
-		serializer = (*Point).SerializeIobeam
+		serializer = (*Point).SerializeTimescaleDB
 	default:
 		panic("unreachable")
 	}

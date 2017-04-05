@@ -2,21 +2,21 @@ package main
 
 import "time"
 
-// IobeamDevopsGroupby produces Iobeam-specific queries for the devops groupby case.
-type IobeamDevopsLastPointPerHost struct {
-	IobeamDevops
+// TimescaleDBDevopsGroupby produces TimescaleDB-specific queries for the devops groupby case.
+type TimescaleDBDevopsLastPointPerHost struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsLastPointPerHost{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsLastPointPerHost{
+		TimescaleDBDevops: *underlying,
 	}
 
 }
 
-func (d *IobeamDevopsLastPointPerHost) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsLastPointPerHost) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.LastPointPerHost(q, scaleVar)
 	return q
 }

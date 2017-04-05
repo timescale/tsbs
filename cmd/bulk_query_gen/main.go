@@ -36,7 +36,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost,
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
-			"timescaledb":    NewIobeamDevopsSingleHost,
+			"timescaledb": NewTimescaleDBDevopsSingleHost,
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleHost12hr,
@@ -44,7 +44,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost12hr,
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
-			"timescaledb":    NewIobeamDevopsSingleHost,
+			"timescaledb": NewTimescaleDBDevopsSingleHost,
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevops8Hosts,
@@ -52,44 +52,44 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevops8Hosts,
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,
-			"timescaledb":    NewIobeamDevops8Hosts,
+			"timescaledb": NewTimescaleDBDevops8Hosts,
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy,
 			"es-http":     NewElasticSearchDevopsGroupBy,
 			"influx-http": NewInfluxDevopsGroupBy,
-			"timescaledb":    NewIobeamDevopsGroupBy,
+			"timescaledb": NewTimescaleDBDevopsGroupBy,
 		},
 		"lastpoint": {
-			"timescaledb":    NewIobeamDevopsLastPointPerHost,
+			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
 			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
 		"high-cpu": {
 			"influx-http": NewInfluxDevopsHighCPU,
-			"timescaledb":    NewIobeamDevopsHighCPU,
+			"timescaledb": NewTimescaleDBDevopsHighCPU,
 		},
 		"high-cpu-and-field": {
 			"influx-http": NewInfluxDevopsHighCPUAndField,
-			"timescaledb":    NewIobeamDevopsHighCPUAndField,
+			"timescaledb": NewTimescaleDBDevopsHighCPUAndField,
 		},
 		"multiple-ors": {
 			"influx-http": NewInfluxDevopsMultipleOrs,
-			"timescaledb":    NewIobeamDevopsMultipleOrs,
+			"timescaledb": NewTimescaleDBDevopsMultipleOrs,
 		},
 		"multiple-ors-by-host": {
 			"influx-http": NewInfluxDevopsMultipleOrsByHost,
-			"timescaledb":    NewIobeamDevopsMultipleOrsByHost,
+			"timescaledb": NewTimescaleDBDevopsMultipleOrsByHost,
 		},
 		"cpu-max-all-single-host": {
 			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
-			"timescaledb":    NewIobeamDevopsAllMaxCPUOneHost,
+			"timescaledb": NewTimescaleDBDevopsAllMaxCPUOneHost,
 		},
 		"cpu-max-all-eight-hosts": {
 			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
-			"timescaledb":    NewIobeamDevopsAllMaxCPUEightHosts,
+			"timescaledb": NewTimescaleDBDevopsAllMaxCPUEightHosts,
 		},
 		"groupby-orderby-limit": {
-			"timescaledb": NewIobeamDevopsGroupByOrderByLimit,
+			"timescaledb": NewTimescaleDBDevopsGroupByOrderByLimit,
 		},
 	},
 }

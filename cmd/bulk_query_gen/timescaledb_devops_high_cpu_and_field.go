@@ -2,19 +2,19 @@ package main
 
 import "time"
 
-type IobeamDevopsHighCPUAndField struct {
-	IobeamDevops
+type TimescaleDBDevopsHighCPUAndField struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsHighCPUAndField(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsHighCPUAndField{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsHighCPUAndField(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsHighCPUAndField{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsHighCPUAndField) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsHighCPUAndField) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.HighCPUAndField(q, scaleVar)
 	return q
 }

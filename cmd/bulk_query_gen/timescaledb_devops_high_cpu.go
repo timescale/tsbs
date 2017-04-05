@@ -2,20 +2,20 @@ package main
 
 import "time"
 
-// IobeamDevopsSingleHost produces Iobeam-specific queries for the devops single-host case.
-type IobeamDevopsHighCPU struct {
-	IobeamDevops
+// TimescaleDBDevopsSingleHost produces TimescaleDB-specific queries for the devops single-host case.
+type TimescaleDBDevopsHighCPU struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsHighCPU(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsHighCPU{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsHighCPU(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsHighCPU{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsHighCPU) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsHighCPU) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.HighCPU(q, scaleVar)
 	return q
 }

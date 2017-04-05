@@ -2,20 +2,20 @@ package main
 
 import "time"
 
-// IobeamDevops8Hosts produces Iobeam-specific queries for the devops groupby case.
-type IobeamDevops8Hosts struct {
-	IobeamDevops
+// TimescaleDBDevops8Hosts produces TimescaleDB-specific queries for the devops groupby case.
+type TimescaleDBDevops8Hosts struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevops8Hosts(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevops8Hosts{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevops8Hosts(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevops8Hosts{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevops8Hosts) Dispatch(_, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevops8Hosts) Dispatch(_, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.MaxCPUUsageHourByMinuteEightHosts(q, scaleVar)
 	return q
 }

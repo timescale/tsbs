@@ -2,19 +2,19 @@ package main
 
 import "time"
 
-type IobeamDevopsMultipleOrs struct {
-	IobeamDevops
+type TimescaleDBDevopsMultipleOrs struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsMultipleOrs{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsMultipleOrs{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsMultipleOrs) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsMultipleOrs) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.MultipleMemOrs(q, scaleVar)
 	return q
 }

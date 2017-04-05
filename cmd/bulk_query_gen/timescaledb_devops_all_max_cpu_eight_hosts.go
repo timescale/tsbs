@@ -2,20 +2,20 @@ package main
 
 import "time"
 
-// IobeamDevopsSingleHost produces Iobeam-specific queries for the devops single-host case.
-type IobeamDevopsAllMaxCPUEightHosts struct {
-	IobeamDevops
+// TimescaleDBDevopsSingleHost produces TimescaleDB-specific queries for the devops single-host case.
+type TimescaleDBDevopsAllMaxCPUEightHosts struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsAllMaxCPUEightHosts(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsAllMaxCPUEightHosts{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsAllMaxCPUEightHosts(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsAllMaxCPUEightHosts{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsAllMaxCPUEightHosts) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsAllMaxCPUEightHosts) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.MaxAllCPUHourByMinuteEightHosts(q, scaleVar)
 	return q
 }

@@ -2,20 +2,20 @@ package main
 
 import "time"
 
-// IobeamDevopsSingleHost produces Iobeam-specific queries for the devops single-host case.
-type IobeamDevopsGroupByOrderByLimit struct {
-	IobeamDevops
+// TimescaleDBDevopsSingleHost produces TimescaleDB-specific queries for the devops single-host case.
+type TimescaleDBDevopsGroupByOrderByLimit struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsGroupByOrderByLimit(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsGroupByOrderByLimit{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsGroupByOrderByLimit(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsGroupByOrderByLimit{
+		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *IobeamDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.GroupByOrderByLimit(q, scaleVar)
 	return q
 }

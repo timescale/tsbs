@@ -2,21 +2,21 @@ package main
 
 import "time"
 
-// IobeamDevopsGroupby produces Iobeam-specific queries for the devops groupby case.
-type IobeamDevopsGroupby struct {
-	IobeamDevops
+// TimescaleDBDevopsGroupby produces TimescaleDB-specific queries for the devops groupby case.
+type TimescaleDBDevopsGroupby struct {
+	TimescaleDBDevops
 }
 
-func NewIobeamDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newIobeamDevopsCommon(dbConfig, start, end).(*IobeamDevops)
-	return &IobeamDevopsGroupby{
-		IobeamDevops: *underlying,
+func NewTimescaleDBDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+	underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+	return &TimescaleDBDevopsGroupby{
+		TimescaleDBDevops: *underlying,
 	}
 
 }
 
-func (d *IobeamDevopsGroupby) Dispatch(i, scaleVar int) Query {
-	q := NewIobeamQuery() // from pool
+func (d *TimescaleDBDevopsGroupby) Dispatch(i, scaleVar int) Query {
+	q := NewTimescaleDBQuery() // from pool
 	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, scaleVar)
 	return q
 }

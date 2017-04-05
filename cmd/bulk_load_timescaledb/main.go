@@ -147,7 +147,7 @@ func report(periodMs int) {
 
 }
 
-// scan reads lines from stdin. It expects input in the Iobeam format.
+// scan reads lines from stdin. It expects input in the TimescaleDB format.
 func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 	batch := make(map[string][]string) // hypertable => copy lines
 	var n int
@@ -237,7 +237,7 @@ func processBatches(postgresConnect string) {
 						panic(err)
 					}
 					secs := timeInt / 1000000000
-					in[ind] = time.Unix(secs, timeInt % 1000000000).Format("2006-01-02 15:04:05.999999 -7:00")
+					in[ind] = time.Unix(secs, timeInt%1000000000).Format("2006-01-02 15:04:05.999999 -7:00")
 				} else {
 					in[ind] = value
 				}

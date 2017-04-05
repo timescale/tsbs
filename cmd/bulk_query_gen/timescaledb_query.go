@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// IobeamQuery encodes a Iobeam request. This will be serialized for use
+// TimescaleDBQuery encodes a TimescaleDB request. This will be serialized for use
 // by the query_benchmarker program.
-type IobeamQuery struct {
+type TimescaleDBQuery struct {
 	HumanLabel       []byte
 	HumanDescription []byte
 
@@ -16,9 +16,9 @@ type IobeamQuery struct {
 	SqlQuery      []byte
 }
 
-var IobeamQueryPool sync.Pool = sync.Pool{
+var TimescaleDBQueryPool sync.Pool = sync.Pool{
 	New: func() interface{} {
-		return &IobeamQuery{
+		return &TimescaleDBQuery{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
 			NamespaceName:    []byte{},
@@ -28,23 +28,23 @@ var IobeamQueryPool sync.Pool = sync.Pool{
 	},
 }
 
-func NewIobeamQuery() *IobeamQuery {
-	return IobeamQueryPool.Get().(*IobeamQuery)
+func NewTimescaleDBQuery() *TimescaleDBQuery {
+	return TimescaleDBQueryPool.Get().(*TimescaleDBQuery)
 }
 
 // String produces a debug-ready description of a Query.
-func (q *IobeamQuery) String() string {
+func (q *TimescaleDBQuery) String() string {
 	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, NamespaceName: %s, FieldName: %s, Query: %s", q.HumanLabel, q.HumanDescription, q.NamespaceName, q.FieldName, q.SqlQuery)
 }
 
-func (q *IobeamQuery) HumanLabelName() []byte {
+func (q *TimescaleDBQuery) HumanLabelName() []byte {
 	return q.HumanLabel
 }
-func (q *IobeamQuery) HumanDescriptionName() []byte {
+func (q *TimescaleDBQuery) HumanDescriptionName() []byte {
 	return q.HumanDescription
 }
 
-func (q *IobeamQuery) Release() {
+func (q *TimescaleDBQuery) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
 
@@ -52,5 +52,5 @@ func (q *IobeamQuery) Release() {
 	q.FieldName = q.FieldName[:0]
 	q.SqlQuery = q.SqlQuery[:0]
 
-	IobeamQueryPool.Put(q)
+	TimescaleDBQueryPool.Put(q)
 }
