@@ -4,7 +4,7 @@ binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/bulk_data}
 
-declare -a formats=("influx-bulk" "cassandra" "iobeam")
+declare -a formats=("influx-bulk" "cassandra" "timescaledb")
 
 logSeconds=${logSeconds:-"10s"}
 scaleVar=${scaleVar:-"1000"}
@@ -30,7 +30,7 @@ done
 
 
   # -format string
-  #   	Format to emit. (choices: influx-bulk, es-bulk, cassandra, iobeamdb) (default "influx-bulk")
+  #   	Format to emit. (choices: influx-bulk, es-bulk, cassandra, timescaledb) (default "influx-bulk")
   # -logSeconds duration
   #   	duration between host data points (default 10s)
   # -scale-var int

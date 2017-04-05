@@ -25,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "iobeamdb"}
+var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "timescaledb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "cpu-only", "one-rand"}
@@ -165,7 +165,7 @@ func main() {
 		serializer = (*Point).SerializeMongo
 	case "opentsdb":
 		serializer = (*Point).SerializeOpenTSDBBulk
-	case "iobeamdb":
+	case "timescaledb":
 		for measurementName, fields := range sim.Fields() {
 			out.WriteString(measurementName)
 			out.WriteString(",")

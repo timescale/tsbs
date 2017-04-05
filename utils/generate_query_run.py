@@ -12,7 +12,7 @@ def get_load_str(hypertable, load_file, batch_size, chunk_size, workers, num_par
     logfilename = 'load_{}_{}_{}.log'.format(table_type, batch_size, reporting_period)
 
     return 'cat {} | gunzip | ' \
-           'bulk_load_iobeam  -batch-size {} ' \
+           'bulk_load_timescaledb  -batch-size {} ' \
            '-field-index=VALUE-TIME -field-index-count=1 ' \
            '-make-hypertable={} -number_partitions {} -chunk-size {} -workers {} -postgres "{}" -reporting-period {} ' \
            '| tee {}'\
@@ -29,7 +29,7 @@ def get_load_str(hypertable, load_file, batch_size, chunk_size, workers, num_par
 def get_query_str(queryfile, label, workers=10, limit=None,
                   postgresstr='host=localhost user=postgres sslmode=disable database=benchmark'):
     postgresstr += " timescaledb.disable_optimizations={}".format('false' if label is 'hypertable' else 'true')
-    return 'cat {} | gunzip | query_benchmarker_iobeam -workers {} -postgres "{}" {} | tee {}'\
+    return 'cat {} | gunzip | query_benchmarker_timescaledb -workers {} -postgres "{}" {} | tee {}'\
         .format(queryfile, workers, postgresstr, '-limit {}'.format(limit) if limit is not None else '',
                 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0])
 

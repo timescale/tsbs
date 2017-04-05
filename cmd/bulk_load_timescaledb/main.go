@@ -212,7 +212,7 @@ func processBatches(postgresConnect string) {
 			if !createdHypertables[hypertable] {
 				tx.MustExec(fmt.Sprintf("CREATE TEMP TABLE IF NOT EXISTS \"%s_temp\"() INHERITS (%s) ON COMMIT DELETE ROWS", hypertable, hypertable))
 				tx.MustExec(fmt.Sprintf(`CREATE TRIGGER insert_trigger AFTER INSERT ON %s_temp
-                FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`, hypertable, hypertable))
+                FOR EACH STATEMENT EXECUTE PROCEDURE _timescaledb_internal.on_modify_%s();`, hypertable, hypertable))
 			}
 			createdHypertables[hypertable] = true
 			copy_cmd = fmt.Sprintf("COPY \"%s_temp\" FROM STDIN", hypertable)
@@ -335,14 +335,14 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 		if useUnlog || useTemp {
 			dbBench.MustExec(fmt.Sprintf(`
-CREATE OR REPLACE FUNCTION _iobeamdb_internal.on_modify_%s()
+CREATE OR REPLACE FUNCTION _timescaledb_internal.on_modify_%s()
     RETURNS TRIGGER LANGUAGE PLPGSQL AS
 $BODY$
 BEGIN
     EXECUTE format(
         $$
-            SELECT _iobeamdb_internal.insert_data(
-                (SELECT id FROM _iobeamdb_catalog.hypertable h
+            SELECT _timescaledb_internal.insert_data(
+                (SELECT id FROM _timescaledb_catalog.hypertable h
                 WHERE h.schema_name = 'public' AND h.table_name = '%s')
                 , %s)
         $$, TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_RELID);
@@ -360,7 +360,7 @@ $BODY$;
 
 			dbBench.MustExec(fmt.Sprintf(`
 			CREATE TRIGGER insert_trigger AFTER INSERT ON %s_unlog
-            FOR EACH STATEMENT EXECUTE PROCEDURE _iobeamdb_internal.on_modify_%s();`,
+            FOR EACH STATEMENT EXECUTE PROCEDURE _timescaledb_internal.on_modify_%s();`,
 				hypertable, hypertable))
 
 		}

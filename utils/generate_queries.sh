@@ -4,7 +4,7 @@ binName=$(which bulk_query_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/queries}
 
-formats=${formats:-"influx-http cassandra iobeamdb"}
+formats=${formats:-"influx-http cassandra timescaledb"}
 queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby lastpoint multiple-ors-by-host cpu-max-all-eight-hosts groupby high-cpu high-cpu-and-field multiple-ors cpu-max-all-single-host groupby-orderby-limit"}
 
 scaleVar=${scaleVar:-"1000"}
