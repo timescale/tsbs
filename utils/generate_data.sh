@@ -4,9 +4,8 @@ binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/bulk_data}
 
-declare -a formats=("influx-bulk" "cassandra" "timescaledb")
+declare -a formats=("influx-bulk" "timescaledb")
 
-logSeconds=${logSeconds:-"10s"}
 scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
@@ -19,10 +18,10 @@ pushd ${dataDir}
 
 for format in "${formats[@]}"
 do
-    fname="import_${format}_${binVersion}_${logSeconds}_${scaleVar}_${seed}_${tsStart}_${tsEnd}_${useCase}.dat.gz"
+    fname="import_${format}_${binVersion}_${scaleVar}_${seed}_${tsStart}_${tsEnd}_${useCase}.dat.gz"
     echo "$fname"
     if [ ! -f "$fname" ]; then
-        $binName -format $format -logSeconds $logSeconds -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -use-case $useCase | gzip > $fname
+        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -use-case $useCase -interleaved-generation-groups 4 | gzip > $fname
         ln -s $fname ${format}-data.gz
     fi
    # or do whatever with individual element of the array
