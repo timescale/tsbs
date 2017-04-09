@@ -26,7 +26,7 @@ def get_load_str(hypertable, load_file, batch_size, chunk_size, workers, num_par
                     reporting_period,
                     logfilename)
 
-def get_query_str(queryfile, label, workers=10, limit=None,
+def get_query_str(queryfile, label, workers=8, limit=None,
                   postgresstr='host=localhost user=postgres sslmode=disable database=benchmark'):
     postgresstr += " timescaledb.disable_optimizations={}".format('false' if label is 'hypertable' else 'true')
     return 'cat {} | gunzip | query_benchmarker_timescaledb -workers {} -postgres "{}" {} | tee {}'\
@@ -47,7 +47,7 @@ def load_queries_file_names(filename):
 
     return l
 
-def generate_run_file(queries_file, load_file, num_partitions, chunk_size, batch_sizes, workers=10):
+def generate_run_file(queries_file, load_file, num_partitions, chunk_size, batch_sizes, workers=8):
 
     print '#!/bin/bash'
     queries = None
@@ -60,7 +60,7 @@ def generate_run_file(queries_file, load_file, num_partitions, chunk_size, batch
             #print get_dump_oids_str(batch_size)
 
             for query in queries:
-                print get_query_str(query, 'hypertable' if hypertable else 'plain')
+                print get_query_str(query, 'hypertable' if hypertable else 'plain', workers=workers)
 
 
 if __name__ == "__main__":
