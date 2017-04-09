@@ -99,8 +99,10 @@ func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar in
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -7:00"
 
-// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
-// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+// SELECT minute, MAX(usage_user) FROM cpu
+// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY minute ORDER BY minute ASC
 func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
@@ -116,7 +118,10 @@ func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nh
 }
 
 // GroupByOrderByLimit benchmarks a query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
-// SELECT date_trunc('minute', time) as t, MAX(cpu) FROM cpu WHERE time < '$TIME' GROUP BY t ORDER BY t DESC LIMIT $LIMIT
+// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// WHERE time < '$TIME'
+// GROUP BY t ORDER BY t DESC
+//LIMIT $LIMIT
 func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
@@ -151,12 +156,22 @@ func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _
 
 }
 
-// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
-// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
+// SELECT MAX(usage_user) FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N') AND time >= '$HOUR_START' AND time < '$HOUR_END' GROUP BY hour ORDER BY hour
 func (d *TimescaleDBDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour, max(usage_user) as max_usage_user FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
+    max(usage_user) AS max_usage_user,
+    max(usage_system) AS max_usage_system,
+    max(usage_idle) AS max_usage_idle,
+    max(usage_nice) AS max_usage_nice,
+    max(usage_iowait) AS max_usage_iowait,
+    max(usage_irq) AS max_usage_irq,
+    max(usage_softirq) AS max_usage_softirq,
+    max(usage_steal) AS max_usage_steal,
+    max(usage_guest) AS max_usage_guest,
+    max(usage_guest_nice) AS max_usage_guest_nice
+    FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
 	q := qi.(*TimescaleDBQuery)
@@ -180,22 +195,6 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
-
-//func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-//	interval := d.AllInterval.RandWindow(24*time.Hour)
-//
-//	v := url.Values{}
-//	v.Set("db", d.DatabaseName)
-//	v.Set("q", fmt.Sprintf("SELECT count(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
-//
-//	humanLabel := "TimescaleDB mean cpu, all hosts, rand 1day by 1hour"
-//	q := qi.(*HTTPQuery)
-//	q.HumanLabel = []byte(humanLabel)
-//	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-//	q.Method = []byte("GET")
-//	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-//	q.Body = nil
-//}
 
 // SELECT * where CPU > threshold and <some time period>
 // "SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
