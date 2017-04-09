@@ -42,9 +42,9 @@ func (d *TimescaleDBDevops) getHostWhereString(scaleVar int, nhosts int) string 
 		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
 	}
 
-	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+	combinedHostnameClause := strings.Join(hostnameClauses, " OR ")
 
-	return combinedHostnameClause
+	return "(" + combinedHostnameClause + ")"
 }
 
 // Dispatch fulfills the QueryGenerator interface.
@@ -233,7 +233,7 @@ func (d *TimescaleDBDevops) HighCPUAndField(qi Query, hosts int) {
 func (d *TimescaleDBDevops) MultipleMemOrs(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM mem WHERE used_percent > 98.0 OR used > 10000 OR used_percent < 5.0 AND time >= '%s' AND time < '%s'`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+	sqlQuery := fmt.Sprintf(`SELECT * FROM mem WHERE (used_percent > 98.0 OR used > 10000 OR used_percent < 5.0) AND (time >= '%s' AND time < '%s')`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB mem fields with or, all hosts"
 	q := qi.(*TimescaleDBQuery)
@@ -247,7 +247,7 @@ func (d *TimescaleDBDevops) MultipleMemOrs(qi Query, hosts int) {
 func (d *TimescaleDBDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour, MAX(used_percent) from mem where used < 1000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' GROUP BY hour,hostname`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour, MAX(used_percent) from mem where (used < 1000 OR used_percent > 98.0 OR used_percent < 10.0) and (time >= '%s' and time < '%s') GROUP BY hour,hostname`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB mem fields with or, all hosts"
 	q := qi.(*TimescaleDBQuery)
