@@ -89,6 +89,21 @@ func (d *TimescaleDBDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar 
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
 }
 
+// CPU5MetricsHourByMinuteOneHost is a query for 5 CPU metrics per minute over 1 hour on 1 host
+func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
+}
+
+// CPU5Metrics12HoursByMinuteOneHost is a query for 5 CPU metrics per minute over 12 hours on 1 host
+func (d *TimescaleDBDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
+}
+
+// CPU5MetricsHourByMinuteEightHosts is a query for 5 CPU metrics per minute over 1 hour on 8 hosts
+func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
+}
+
 func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
 	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 1)
 }
@@ -109,6 +124,32 @@ func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nh
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	q := qi.(*TimescaleDBQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.NamespaceName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+	q.SqlQuery = []byte(sqlQuery)
+}
+
+// SELECT minute, metric1, metric2, metric3, metric4, metric5
+// FROM cpu
+// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY minute ORDER BY minute ASC
+func (d *TimescaleDBDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
+
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
+    max(usage_user),
+    max(usage_system) AS max_usage_system,
+    max(usage_idle) AS max_usage_idle,
+    max(usage_guest) AS max_usage_guest
+    FROM cpu
+    WHERE %s AND time >= '%s' AND time < '%s'
+    GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+
+	humanLabel := fmt.Sprintf("TimescaleDB 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
