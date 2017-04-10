@@ -121,7 +121,7 @@ func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nh
 // SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
-//LIMIT $LIMIT
+// LIMIT $LIMIT
 func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
@@ -130,7 +130,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
 
-	humanLabel := "TimescaleDB max cpu, rand 12hr by 1m, limit 5"
+	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (rand end)"
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

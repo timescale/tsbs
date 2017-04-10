@@ -103,6 +103,29 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	q.Body = nil
 }
 
+// GroupByOrderByLimit benchmarks a query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// WHERE time < '$TIME'
+// GROUP BY t ORDER BY t DESC
+// LIMIT $LIMIT
+func (d *InfluxDevops) GroupByOrderByLimit(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(12 * time.Hour)
+
+	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where))
+
+	humanLabel := "Influx max cpu over last 5 min-intervals (rand end)"
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {

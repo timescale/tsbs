@@ -89,6 +89,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPUEightHosts,
 		},
 		"groupby-orderby-limit": {
+			"influx-http": NewInfluxDevopsGroupByOrderByLimit,
 			"timescaledb": NewTimescaleDBDevopsGroupByOrderByLimit,
 		},
 	},
