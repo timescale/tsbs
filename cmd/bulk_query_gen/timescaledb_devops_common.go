@@ -178,7 +178,7 @@ func (d *TimescaleDBDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhos
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
+	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -196,30 +196,33 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// SELECT * where CPU > threshold and <some time period>
-// "SELECT * from cpu where cpu > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+// HighCPU populates a query that gets CPU metrics when the CPU has high
+// usage between a time period across all hosts
+// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END'
 func (d *TimescaleDBDevops) HighCPU(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
-
-	sqlQuery := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '%s' AND time < '%s'`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
-
-	humanLabel := "TimescaleDB cpu over threshold, all hosts"
-	q := qi.(*TimescaleDBQuery)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("*")
-	q.SqlQuery = []byte(sqlQuery)
-
+	d.highCPUForHost(qi, "")
 }
 
+// HighCPUAndField populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a particular host
+// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END' AND hostname = '$HOST'
 func (d *TimescaleDBDevops) HighCPUAndField(qi Query, hosts int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	hostName := fmt.Sprintf("host_%d", rand.Intn(hosts))
+	d.highCPUForHost(qi, "AND hostname = '"+hostName+"'")
+}
 
-	sqlQuery := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' and hostname = '%s'`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostName)
+func (d *TimescaleDBDevops) highCPUForHost(qi Query, hostWhereClause string) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	humanLabel := "TimescaleDB cpu over threshold, all hosts"
+	sqlQuery := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' %s`,
+		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostWhereClause)
+
+	humanLabel := "TimescaleDB CPU over threshold, "
+	if len(hostWhereClause) > 0 {
+		humanLabel += "one host"
+	} else {
+		humanLabel += "all hosts"
+	}
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
