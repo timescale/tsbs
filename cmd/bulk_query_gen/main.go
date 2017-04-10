@@ -61,12 +61,15 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsGroupBy,
 		},
 		"5-metrics-1-host-1-hr": {
+			"influx-http": NewInfluxDevops5Metrics1Host1Hr,
 			"timescaledb": NewTimescaleDBDevops5Metrics1Host1Hr,
 		},
 		"5-metrics-1-host-12-hr": {
+			"influx-http": NewInfluxDevops5Metrics1Host12Hrs,
 			"timescaledb": NewTimescaleDBDevops5Metrics1Host12Hrs,
 		},
 		"5-metrics-8-host-1-hr": {
+			"influx-http": NewInfluxDevops5Metrics8Hosts1Hr,
 			"timescaledb": NewTimescaleDBDevops5Metrics8Hosts1Hr,
 		},
 		"lastpoint": {

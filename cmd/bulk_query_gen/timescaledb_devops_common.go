@@ -141,9 +141,10 @@ func (d *TimescaleDBDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nh
 	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
-    max(usage_user),
+    max(usage_user) AS max_usage_user,
     max(usage_system) AS max_usage_system,
     max(usage_idle) AS max_usage_idle,
+    max(usage_nice) AS max_usage_nice,
     max(usage_guest) AS max_usage_guest
     FROM cpu
     WHERE %s AND time >= '%s' AND time < '%s'
@@ -154,7 +155,7 @@ func (d *TimescaleDBDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nh
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
+	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 

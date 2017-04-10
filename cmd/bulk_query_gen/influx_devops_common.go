@@ -64,6 +64,21 @@ func (d *InfluxDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) 
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, 12*time.Hour)
 }
 
+// CPU5MetricsHourByMinuteOneHost is a query for 5 CPU metrics per minute over 1 hour on 1 host
+func (d *InfluxDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
+}
+
+// CPU5Metrics12HoursByMinuteOneHost is a query for 5 CPU metrics per minute over 12 hours on 1 host
+func (d *InfluxDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
+}
+
+// CPU5MetricsHourByMinuteEightHosts is a query for 5 CPU metrics per minute over 1 hour on 8 hosts
+func (d *InfluxDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
+}
+
 func (d *InfluxDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
 	d.maxAllCPUHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1)
 }
@@ -95,6 +110,35 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	q := qi.(*HTTPQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.Method = []byte("GET")
+	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
+	q.Body = nil
+}
+
+func (d *InfluxDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	hostnameClauses := []string{}
+	for _, s := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
+	}
+
+	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+
+	v := url.Values{}
+	v.Set("db", d.DatabaseName)
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_guest) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
+
+	humanLabel := fmt.Sprintf("Influx 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*HTTPQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
