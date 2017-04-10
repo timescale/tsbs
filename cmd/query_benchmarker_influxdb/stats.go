@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // Stat represents one statistical measurement.
 type Stat struct {
@@ -22,6 +25,11 @@ type StatGroup struct {
 	Mean float64
 	Sum  float64
 
+	// used for stddev calculations
+	m      float64
+	s      float64
+	StdDev float64
+
 	Count int64
 }
 
@@ -33,6 +41,10 @@ func (s *StatGroup) Push(n float64) {
 		s.Mean = n
 		s.Count = 1
 		s.Sum = n
+
+		s.m = n
+		s.s = 0.0
+		s.StdDev = 0.0
 		return
 	}
 
@@ -50,9 +62,14 @@ func (s *StatGroup) Push(n float64) {
 	s.Mean = sum / float64(s.Count+1)
 
 	s.Count++
+
+	oldM := s.m
+	s.m += (n - oldM) / float64(s.Count)
+	s.s += (n - oldM) * (n - s.m)
+	s.StdDev = math.Sqrt(s.s / (float64(s.Count) - 1.0))
 }
 
 // String makes a simple description of a StatGroup.
 func (s *StatGroup) String() string {
-	return fmt.Sprintf("min: %f, max: %f, mean: %f, count: %d, sum: %f", s.Min, s.Max, s.Mean, s.Count, s.Sum)
+	return fmt.Sprintf("min: %f, max: %f, mean: %f, count: %d, sum: %f, stddev: %f", s.Min, s.Max, s.Mean, s.Count, s.Sum, s.StdDev)
 }
