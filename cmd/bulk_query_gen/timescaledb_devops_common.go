@@ -54,62 +54,39 @@ func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) Query {
 	return q
 }
 
-// MaxCPUUsageHourByMinuteOneHost runs benchmark for max(cpu) per minute over 1 hour on 1 host
+// MaxCPUUsageHourByMinuteOneHost populates a Query for max(cpu) per minute over 1 hour on 1 host
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteTwoHosts runs benchmark for max(cpu) per minute over 1 hour on 2 hosts
+// MaxCPUUsageHourByMinuteTwoHosts populates a Query for max(cpu) per minute over 1 hour on 2 hosts
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteFourHosts runs benchmark for max(cpu) per minute over 1 hour on 4 hosts
+// MaxCPUUsageHourByMinuteFourHosts populates a Query for max(cpu) per minute over 1 hour on 4 hosts
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteEightHosts runs benchmark for max(cpu) per minute over 1 hour on 8 hosts
+// MaxCPUUsageHourByMinuteEightHosts populates a Query for max(cpu) per minute over 1 hour on 8 hosts
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteSixteenHosts runs benchmark for max(cpu) per minute over 1 hour on 16 hosts
+// MaxCPUUsageHourByMinuteSixteenHosts populates a Query for max(cpu) per minute over 1 hour on 16 hosts
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteThirtyTwoHosts runs benchmark for max(cpu) per minute over 1 hour on 32 hosts
+// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query for max(cpu) per minute over 1 hour on 32 hosts
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32, time.Hour)
 }
 
-// MaxCPUUsage12HoursByMinuteOneHost runs benchmark for max(cpu) per minute over 12 hours on 1 host
+// MaxCPUUsage12HoursByMinuteOneHost populates a Query for max(cpu) per minute over 12 hours on 1 host
 func (d *TimescaleDBDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
-}
-
-// CPU5MetricsHourByMinuteOneHost is a query for 5 CPU metrics per minute over 1 hour on 1 host
-func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
-}
-
-// CPU5Metrics12HoursByMinuteOneHost is a query for 5 CPU metrics per minute over 12 hours on 1 host
-func (d *TimescaleDBDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
-}
-
-// CPU5MetricsHourByMinuteEightHosts is a query for 5 CPU metrics per minute over 1 hour on 8 hosts
-func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
-}
-
-func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 1)
-}
-
-func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 8)
 }
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -7:00"
@@ -130,6 +107,21 @@ func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nh
 	q.NamespaceName = []byte("cpu")
 	q.FieldName = []byte("usage_user")
 	q.SqlQuery = []byte(sqlQuery)
+}
+
+// CPU5MetricsHourByMinuteOneHost populates a Query for 5 CPU metrics per minute over 1 hour on 1 host
+func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
+}
+
+// CPU5Metrics12HoursByMinuteOneHost populates a Query for 5 CPU metrics per minute over 12 hours on 1 host
+func (d *TimescaleDBDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
+}
+
+// CPU5MetricsHourByMinuteEightHosts populates a Query for 5 CPU metrics per minute over 1 hour on 8 hosts
+func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
 }
 
 // SELECT minute, metric1, metric2, metric3, metric4, metric5
@@ -159,7 +151,7 @@ func (d *TimescaleDBDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nh
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// GroupByOrderByLimit benchmarks a query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// GroupByOrderByLimit populates a Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
 // SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
@@ -181,7 +173,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
+// MeanCPUUsageDayByHourAllHostsGroupbyHost populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
@@ -195,10 +187,22 @@ func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _
 	q.NamespaceName = []byte("cpu")
 	q.FieldName = []byte("usage_user")
 	q.SqlQuery = []byte(sqlQuery)
-
 }
 
-// SELECT MAX(usage_user) FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N') AND time >= '$HOUR_START' AND time < '$HOUR_END' GROUP BY hour ORDER BY hour
+// MaxAllCPUHourByMinuteOneHost populates a Query to get the max of all CPU metrics per hour over 12 hours on 1 host
+func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
+	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 1)
+}
+
+// MaxAllCPUHourByMinuteEightHosts populates a Query to get the max of all CPU metrics per hour over 12 hours on 8 hosts
+func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 8)
+}
+
+// SELECT MAX(metric1), ..., MAX(metricN)
+// FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour ORDER BY hour
 func (d *TimescaleDBDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 
