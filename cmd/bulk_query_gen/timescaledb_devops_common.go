@@ -176,16 +176,51 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 // MeanCPUUsageDayByHourAllHostsGroupbyHost populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+	humanLabel := "TimescaleDB mean cpu usage, all hosts, rand 1day by 1hour"
+	d.meanCPUDayByHourAllHostsGroupbyHost(qi, []string{"usage_user"}, humanLabel)
+}
+
+// MeanCPUMetricsDayByHourAllHostsGroupbyHost populates a Query with a query that looks like:
+// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
+func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+	metrics := []string{
+		"usage_user",
+		"usage_system",
+		"usage_idle",
+		"usage_nice",
+		"usage_iowait",
+		"usage_irq",
+		"usage_softirq",
+		"usage_steal",
+		"usage_guest",
+		"usage_guest_nice",
+	}
+	humanLabel := "TimescaleDB mean all cpu metrics, all hosts, rand 1day by 1hour"
+	d.meanCPUDayByHourAllHostsGroupbyHost(qi, metrics, humanLabel)
+}
+
+func (d *TimescaleDBDevops) meanCPUDayByHourAllHostsGroupbyHost(qi Query, metrics []string, label string) {
+	if len(metrics) < 0 {
+		panic("no metrics given")
+	}
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) as hour, hostname, avg(usage_user) as mean_usage_user FROM cpu WHERE time >= '%s' AND time < '%s' GROUP BY hour, hostname ORDER BY hour`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+	selectClauses := make([]string, len(metrics))
+	for i, m := range metrics {
+		selectClauses[i] = fmt.Sprintf("avg(%s) as mean_%s", m, m)
+	}
 
-	humanLabel := "TimescaleDB mean cpu, all hosts, rand 1day by 1hour"
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) as hour, hostname,
+    %s
+    FROM cpu WHERE time >= '%s' AND time < '%s'
+    GROUP BY hour, hostname ORDER BY hour`, strings.Join(selectClauses, ","), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+
+	humanLabel := label
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
+	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
