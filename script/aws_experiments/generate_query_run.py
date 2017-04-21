@@ -18,7 +18,7 @@ def get_query_str(queryfile, label, workers=10, limit=None):
                 '-limit {}'.format(limit) if limit is not None else '',
                 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0])
 
-def load_queries_file_names(filename, label, query_dir='/mnt/devops'):
+def load_queries_file_names(filename, label, query_dir='/mnt/queries'):
     l = list()
     with open(filename, 'r') as queries:
         for query in queries:
