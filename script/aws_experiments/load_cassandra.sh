@@ -10,6 +10,7 @@ while ! nc -z ${DATABASE_HOST} 9042; do
     sleep 1
 done
 
+cqlsh -e 'drop keyspace measurements;'
 cat ${DATA_FILE} | gunzip | bulk_load_cassandra \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${CASSANDRA_BATCH_SIZE} \
