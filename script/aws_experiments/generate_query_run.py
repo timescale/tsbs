@@ -2,21 +2,26 @@ import argparse
 import os
 
 def get_load_str(load_file, label, batch_size, workers, reporting_period=20000):
-    logfilename = 'load_{}_{}_{}.log'.format(label, batch_size, reporting_period)
+    logfilename = 'load_{}_{}_{}.out'.format(label, batch_size, reporting_period)
 
-    if label == "influxdb":
+    if label == 'influxdb':
         return 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR=/mnt/devops DATABASE_HOST=localhost BATCH_SIZE={} ./load_{}.sh | tee {}'.format(
             workers, batch_size, label, logfilename)
-    elif label == "cassandra":
+    elif label == 'cassandra':
         return 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR=/mnt/devops DATABASE_HOST=localhost CASSANDRA_BATCH_SIZE={} ./load_{}.sh | tee {}'.format(
             workers, batch_size, label, logfilename)
 
 
 def get_query_str(queryfile, label, workers=10, limit=None):
-    return 'cat {} | gunzip | query_benchmarker_{} -workers {} {} | tee {}'\
-        .format(queryfile, label, workers,
-                '-limit {}'.format(limit) if limit is not None else '',
-                'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0])
+    extra_args = ''
+    if label == 'cassandra':
+        extra_args = '--aggregation-plan client'
+
+    limit_arg = '-limit {}'.format(limit) if limit is not None else ''
+    output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
+
+    return 'cat {} | gunzip | query_benchmarker_{} -workers {} {} {} | tee {}.out'.format(
+        queryfile, label, workers, limit_arg, extra_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir='/mnt/queries'):
     l = list()
@@ -24,7 +29,8 @@ def load_queries_file_names(filename, label, query_dir='/mnt/queries'):
         for query in queries:
             query = query.split('#')[0]
             if len(query) > 0:
-                l.append(os.path.join(query_dir, "{}-{}-queries.gz".format(label, query.strip())))
+                n = label if label != "influxdb" else "influx-http"
+                l.append(os.path.join(query_dir, "{}-{}-queries.gz".format(n, query.strip())))
 
     return l
 

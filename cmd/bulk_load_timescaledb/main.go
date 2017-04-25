@@ -371,8 +371,8 @@ $BODY$;
 
 		if makeHypertable {
 			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_size_bytes => %v::bigint)",
-					hypertable, partitioning_field, numberPartitions, chunkSize))
+				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => 28800000000)",
+					hypertable, partitioning_field, numberPartitions))
 		}
 
 		dbBench.MustExec(fmt.Sprintf(`
