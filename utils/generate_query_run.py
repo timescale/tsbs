@@ -31,7 +31,7 @@ def get_query_str(queryfile, label, workers=8, limit=None,
     postgresstr += " timescaledb.disable_optimizations={}".format('false' if label is 'hypertable' else 'true')
     return 'cat {} | gunzip | query_benchmarker_timescaledb -workers {} -postgres "{}" {} | tee {}'\
         .format(queryfile, workers, postgresstr, '-limit {}'.format(limit) if limit is not None else '',
-                'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0])
+                'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0] + '.out')
 
 def get_dump_oids_str(name):
     return 'psql -U postgres -d benchmark -h localhost  -A -F"," -c "select relname,relnamespace,oid from pg_class" > pg_class_oid_{}.csv'.format(name)
