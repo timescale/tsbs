@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -105,7 +106,11 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 // It executes at most one CQLQuery per series.
 func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
-	seriesChoices := csi.SeriesForMeasurementAndField(string(q.MeasurementName), string(q.FieldName))
+	fields := strings.Split(string(q.FieldName), ",")
+	seriesChoices := make([]Series, 0)
+	for _, f := range fields {
+		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
+	}
 
 	// Build the time buckets used for 'group by time'-type queries.
 	//
@@ -116,13 +121,26 @@ func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp 
 	// For each known db series, use it for querying only if it matches
 	// this HLQuery:
 	applicableSeries := []Series{}
+
+outer:
 	for _, s := range seriesChoices {
 		if !s.MatchesMeasurementName(string(q.MeasurementName)) {
 			continue
 		}
-		if !s.MatchesFieldName(string(q.FieldName)) {
-			continue
+
+		// Supports multiple fields separated by commas
+		fieldFound := false
+		for _, f := range fields {
+			if !s.MatchesFieldName(f) {
+				continue
+			}
+			fieldFound = true
+			break
 		}
+		if !fieldFound {
+			continue outer
+		}
+
 		if !s.MatchesTagSets(q.TagSets) {
 			continue
 		}
@@ -140,14 +158,15 @@ func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp 
 		cqlQueries = append(cqlQueries, q)
 	}
 
-	qp, err = NewQueryPlanWithoutServerAggregation(string(q.AggregationType), q.GroupByDuration, timeBuckets, cqlQueries)
+	qp, err = NewQueryPlanWithoutServerAggregation(string(q.AggregationType), q.GroupByDuration, fields, timeBuckets, cqlQueries)
 	return
 }
 
-// Type CQLQuery wraps data needed to execute a gocql.Query.
+// CQLQuery wraps data needed to execute a gocql.Query.
 type CQLQuery struct {
 	PreparableQueryString string
 	Args                  []interface{}
+	Field                 string
 }
 
 // NewCQLQuery builds a CQLQuery, using prepared CQL statements.
@@ -160,12 +179,13 @@ func NewCQLQuery(aggrLabel, tableName, rowName string, timeStartNanos, timeEndNa
 		preparableQueryString = fmt.Sprintf("SELECT %s(value) FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", aggrLabel, tableName)
 	}
 	args := []interface{}{rowName, timeStartNanos, timeEndNanos}
-	return CQLQuery{preparableQueryString, args}
+	rowParts := strings.Split(rowName, "#")
+	return CQLQuery{preparableQueryString, args, rowParts[len(rowParts)-2]}
 }
 
-// Type CQLResult holds a result from a set of CQL aggregation queries.
+// CQLResult holds a result from a set of CQL aggregation queries.
 // Used for debug printing.
 type CQLResult struct {
 	TimeInterval
-	Value float64
+	Values []float64
 }

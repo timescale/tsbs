@@ -90,10 +90,59 @@ func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhos
 	q.TagSets = tagSets
 }
 
+// CPU5MetricsHourByMinuteOneHost populates a Query for 5 CPU metrics per minute over 1 hour on 1 host
+func (d *CassandraDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
+}
+
+// CPU5Metrics12HoursByMinuteOneHost populates a Query for 5 CPU metrics per minute over 12 hours on 1 host
+func (d *CassandraDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
+}
+
+// CPU5MetricsHourByMinuteEightHosts populates a Query for 5 CPU metrics per minute over 1 hour on 8 hosts
+func (d *CassandraDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
+	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
+}
+
+// SELECT minute, metric1, metric2, metric3, metric4, metric5
+// FROM cpu
+// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY minute ORDER BY minute ASC
+func (d *CassandraDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+	interval := d.AllInterval.RandWindow(timeRange)
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	tagSets := [][]string{}
+	tagSet := []string{}
+	for _, n := range nn {
+		hostname := fmt.Sprintf("host_%d", n)
+		tag := fmt.Sprintf("hostname=%s", hostname)
+		tagSet = append(tagSet, tag)
+	}
+	tagSets = append(tagSets, tagSet)
+
+	humanLabel := fmt.Sprintf("Cassandra 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	q := qi.(*CassandraQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+
+	q.AggregationType = []byte("max")
+	q.MeasurementName = []byte("cpu")
+	q.FieldName = []byte("usage_user,usage_system,usage_idle,usage_nice,usage_guest")
+
+	q.TimeStart = interval.Start
+	q.TimeEnd = interval.End
+	q.GroupByDuration = time.Minute
+
+	q.TagSets = tagSets
+}
+
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(24*time.Hour)
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	humanLabel := "Cassandra mean cpu, all hosts, rand 1day by 1hour"
 	q := qi.(*CassandraQuery)
