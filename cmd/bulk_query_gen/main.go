@@ -96,10 +96,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsMultipleOrsByHost,
 		},
 		"cpu-max-all-single-host": {
+			"cassandra":   NewCassandraDevopsAllMaxCPUHosts(1),
 			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPUOneHost,
 		},
 		"cpu-max-all-eight-hosts": {
+			"cassandra":   NewCassandraDevopsAllMaxCPUHosts(8),
 			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPUEightHosts,
 		},
@@ -218,7 +220,7 @@ func main() {
 
 	// Make the query generator:
 	maker := useCaseMatrix[useCase][queryType][format]
-	var generator QueryGenerator = maker(dbConfig, timestampStart, timestampEnd)
+	generator := maker(dbConfig, timestampStart, timestampEnd)
 
 	// Set up bookkeeping:
 	stats := make(map[string]int64)
@@ -230,7 +232,7 @@ func main() {
 	// Create request instances, serializing them to stdout and collecting
 	// counts for each kind. If applicable, only prints queries that
 	// belong to this interleaved group id:
-	var currentInterleavedGroup uint = 0
+	currentInterleavedGroup := uint(0)
 
 	enc := gob.NewEncoder(out)
 	for i := 0; i < queryCount; i++ {
@@ -270,7 +272,7 @@ func main() {
 
 	// Print stats:
 	keys := []string{}
-	for k, _ := range stats {
+	for k := range stats {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)

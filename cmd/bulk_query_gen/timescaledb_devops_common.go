@@ -254,7 +254,7 @@ func (d *TimescaleDBDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhos
     max(usage_guest_nice) AS max_usage_guest_nice
     FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
-	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
+	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
