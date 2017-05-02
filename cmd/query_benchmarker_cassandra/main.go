@@ -108,6 +108,7 @@ func main() {
 				MeasurementName:  make([]byte, 0, 1024),
 				FieldName:        make([]byte, 0, 1024),
 				AggregationType:  make([]byte, 0, 1024),
+				WhereClause:      make([]byte, 0, 1024),
 				TagSets:          make([][]string, 0, 10),
 			}
 		},

@@ -80,10 +80,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
 		"high-cpu": {
+			"cassandra":   NewCassandraDevopsHighCPU,
 			"influx-http": NewInfluxDevopsHighCPU,
 			"timescaledb": NewTimescaleDBDevopsHighCPU,
 		},
 		"high-cpu-and-field": {
+			"cassandra":   NewCassandraDevopsHighCPUAndField,
 			"influx-http": NewInfluxDevopsHighCPUAndField,
 			"timescaledb": NewTimescaleDBDevopsHighCPUAndField,
 		},

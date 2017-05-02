@@ -201,6 +201,58 @@ func (d *CassandraDevops) maxAllCPUHostsN(qi Query, scaleVar, nhosts int) {
 	q.TagSets = tagSets
 }
 
+// HighCPU populates a query that gets CPU metrics when the CPU has high
+// usage between a time period across all hosts
+// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END'
+func (d *CassandraDevops) HighCPU(qi Query, _ int) {
+	d.highCPUForHost(qi, []string{})
+}
+
+// HighCPUAndField populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a particular host
+// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END' AND hostname = '$HOST'
+func (d *CassandraDevops) HighCPUAndField(qi Query, scaleVar int) {
+	nn := rand.Perm(scaleVar)[:1]
+	tagSet := []string{}
+	for _, n := range nn {
+		hostname := fmt.Sprintf("host_%d", n)
+		tag := fmt.Sprintf("hostname=%s", hostname)
+		tagSet = append(tagSet, tag)
+	}
+	d.highCPUForHost(qi, tagSet)
+}
+
+func (d *CassandraDevops) highCPUForHost(qi Query, tagSet []string) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	tagSets := [][]string{}
+	if len(tagSet) > 0 {
+		tagSets = append(tagSets, tagSet)
+	}
+
+	humanLabel := "Cassandra CPU over threshold, "
+	if len(tagSet) > 0 {
+		humanLabel += "one host"
+	} else {
+		humanLabel += "all hosts"
+	}
+
+	q := qi.(*CassandraQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+
+	q.AggregationType = []byte("")
+	q.MeasurementName = []byte("cpu")
+	q.FieldName = []byte("usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice")
+
+	q.TimeStart = interval.Start
+	q.TimeEnd = interval.End
+	q.GroupByDuration = time.Hour
+	q.WhereClause = []byte("usage_user,>,90.0")
+
+	q.TagSets = tagSets
+}
+
 //func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
 //	interval := d.AllInterval.RandWindow(24*time.Hour)
 //

@@ -79,6 +79,7 @@ type CassandraQuery struct {
 	TimeStart       time.Time
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
+	WhereClause     []byte
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
 }
 
@@ -90,6 +91,7 @@ var CassandraQueryPool sync.Pool = sync.Pool{
 			MeasurementName:  []byte{},
 			FieldName:        []byte{},
 			AggregationType:  []byte{},
+			WhereClause:      []byte{},
 			TagSets:          [][]string{},
 		}
 	},
@@ -121,6 +123,7 @@ func (q *CassandraQuery) Release() {
 	q.GroupByDuration = 0
 	q.TimeStart = time.Time{}
 	q.TimeEnd = time.Time{}
+	q.WhereClause = q.WhereClause[:0]
 	q.TagSets = q.TagSets[:0]
 
 	CassandraQueryPool.Put(q)

@@ -50,13 +50,17 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 	// build the query plan:
 	var qp QueryPlan
 	qpStart := time.Now()
-	switch opts.AggregationPlan {
-	case AggrPlanTypeWithServerAggregation:
-		qp, err = q.ToQueryPlanWithServerAggregation(qe.csi)
-	case AggrPlanTypeWithoutServerAggregation:
-		qp, err = q.ToQueryPlanWithoutServerAggregation(qe.csi)
-	default:
-		panic("logic error: invalid aggregation plan option")
+	if string(q.AggregationType) == "" {
+		qp, err = q.ToQueryPlanNoAggregation(qe.csi)
+	} else {
+		switch opts.AggregationPlan {
+		case AggrPlanTypeWithServerAggregation:
+			qp, err = q.ToQueryPlanWithServerAggregation(qe.csi)
+		case AggrPlanTypeWithoutServerAggregation:
+			qp, err = q.ToQueryPlanWithoutServerAggregation(qe.csi)
+		default:
+			panic("logic error: invalid aggregation plan option")
+		}
 	}
 	qpLagMs = float64(time.Now().Sub(qpStart).Nanoseconds()) / 1e6
 
