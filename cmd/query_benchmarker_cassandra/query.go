@@ -23,6 +23,8 @@ type HLQuery struct {
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
 	WhereClause     []byte
+	OrderBy         []byte
+	Limit           int
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
 }
 
@@ -92,7 +94,7 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 				end = q.TimeEnd
 			}
 
-			cqlQueries[i] = NewCQLQuery(string(q.AggregationType), ser.Table, ser.Id, start.UnixNano(), end.UnixNano())
+			cqlQueries[i] = NewCQLQuery(string(q.AggregationType), ser.Table, ser.Id, string(q.OrderBy), start.UnixNano(), end.UnixNano())
 		}
 		cqlBuckets[ti] = cqlQueries
 	}
@@ -112,12 +114,22 @@ func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp 
 	for _, f := range fields {
 		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
 	}
+	orderBy := string(q.OrderBy)
 
 	// Build the time buckets used for 'group by time'-type queries.
 	//
 	// It is important to populate these even if they end up being empty,
 	// so that we get correct results for empty 'time buckets'.
 	timeBuckets := bucketTimeIntervals(q.TimeStart, q.TimeEnd, q.GroupByDuration)
+
+	// TODO more generalized?
+	// Sort time buckets in reverse order if time descending for more
+	// efficient query planning
+	if orderBy == "timestamp_ns DESC" {
+		for i, j := 0, len(timeBuckets)-1; i < j; i, j = i+1, j-1 {
+			timeBuckets[i], timeBuckets[j] = timeBuckets[j], timeBuckets[i]
+		}
+	}
 
 	// For each known db series, use it for querying only if it matches
 	// this HLQuery:
@@ -155,11 +167,10 @@ outer:
 	// Build CQLQuery objects that will be used to fulfill this HLQuery:
 	cqlQueries := []CQLQuery{}
 	for _, ser := range applicableSeries {
-		q := NewCQLQuery("", ser.Table, ser.Id, q.TimeStart.UnixNano(), q.TimeEnd.UnixNano())
-		cqlQueries = append(cqlQueries, q)
+		cqlQueries = append(cqlQueries, NewCQLQuery("", ser.Table, ser.Id, orderBy, q.TimeStart.UnixNano(), q.TimeEnd.UnixNano()))
 	}
 
-	qp, err = NewQueryPlanWithoutServerAggregation(string(q.AggregationType), q.GroupByDuration, fields, timeBuckets, cqlQueries)
+	qp, err = NewQueryPlanWithoutServerAggregation(string(q.AggregationType), q.GroupByDuration, fields, timeBuckets, q.Limit, cqlQueries)
 	return
 }
 
@@ -211,8 +222,7 @@ outer:
 	cqlQueries := []CQLQuery{}
 	whereClause := string(q.WhereClause)
 	for _, ser := range applicableSeries {
-		q := NewCQLQuery("", ser.Table, ser.Id, q.TimeStart.UnixNano(), q.TimeEnd.UnixNano())
-		cqlQueries = append(cqlQueries, q)
+		cqlQueries = append(cqlQueries, NewCQLQuery("", ser.Table, ser.Id, string(q.OrderBy), q.TimeStart.UnixNano(), q.TimeEnd.UnixNano()))
 	}
 
 	return NewQueryPlanNoAggregation(fields, whereClause, cqlQueries)
@@ -226,11 +236,16 @@ type CQLQuery struct {
 }
 
 // NewCQLQuery builds a CQLQuery, using prepared CQL statements.
-func NewCQLQuery(aggrLabel, tableName, rowName string, timeStartNanos, timeEndNanos int64) CQLQuery {
+func NewCQLQuery(aggrLabel, tableName, rowName, orderBy string, timeStartNanos, timeEndNanos int64) CQLQuery {
 	var preparableQueryString string
 
-	if aggrLabel == "" {
-		preparableQueryString = fmt.Sprintf("SELECT timestamp_ns, value FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", tableName)
+	if len(aggrLabel) == 0 {
+		orderByClause := ""
+		if len(orderBy) > 0 {
+			orderByClause = "ORDER BY " + orderBy
+		}
+
+		preparableQueryString = fmt.Sprintf("SELECT timestamp_ns, value FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ? %s", tableName, orderByClause)
 	} else {
 		preparableQueryString = fmt.Sprintf("SELECT %s(value) FROM %s WHERE series_id = ? AND timestamp_ns >= ? AND timestamp_ns < ?", aggrLabel, tableName)
 	}

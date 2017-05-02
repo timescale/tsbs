@@ -139,6 +139,30 @@ func (d *CassandraDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhos
 	q.TagSets = tagSets
 }
 
+// GroupByOrderByLimit populates a Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// WHERE time < '$TIME'
+// GROUP BY t ORDER BY t DESC
+// LIMIT $LIMIT
+func (d *CassandraDevops) GroupByOrderByLimit(qi Query, _ int) {
+	interval := d.AllInterval.RandWindow(12 * time.Hour)
+
+	humanLabel := "Cassandra max cpu over last 5 min-intervals (rand end)"
+	q := qi.(*CassandraQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+
+	q.AggregationType = []byte("max")
+	q.MeasurementName = []byte("cpu")
+	q.FieldName = []byte("usage_user")
+
+	q.TimeStart = d.AllInterval.Start
+	q.TimeEnd = interval.End
+	q.GroupByDuration = time.Minute
+	q.OrderBy = []byte("timestamp_ns DESC")
+	q.Limit = 5
+}
+
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
 func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {

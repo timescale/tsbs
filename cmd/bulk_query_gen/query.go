@@ -80,6 +80,8 @@ type CassandraQuery struct {
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
 	WhereClause     []byte
+	OrderBy         []byte
+	Limit           int
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
 }
 
@@ -124,6 +126,8 @@ func (q *CassandraQuery) Release() {
 	q.TimeStart = time.Time{}
 	q.TimeEnd = time.Time{}
 	q.WhereClause = q.WhereClause[:0]
+	q.OrderBy = q.OrderBy[:0]
+	q.Limit = 0
 	q.TagSets = q.TagSets[:0]
 
 	CassandraQueryPool.Put(q)

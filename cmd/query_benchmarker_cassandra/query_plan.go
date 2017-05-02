@@ -112,14 +112,18 @@ type QueryPlanWithoutServerAggregation struct {
 	GroupByDuration time.Duration
 	Fields          []string
 	TimeBuckets     []TimeInterval
+	limit           int
 	CQLQueries      []CQLQuery
 }
 
 // NewQueryPlanWithoutServerAggregation builds a QueryPlanWithoutServerAggregation.
 // It is typically called via (*HLQuery).ToQueryPlanWithoutServerAggregation.
-func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time.Duration, fields []string, timeBuckets []TimeInterval, cqlQueries []CQLQuery) (*QueryPlanWithoutServerAggregation, error) {
+func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time.Duration, fields []string, timeBuckets []TimeInterval, limit int, cqlQueries []CQLQuery) (*QueryPlanWithoutServerAggregation, error) {
 	aggrs := make(map[TimeInterval]map[string]Aggregator, len(timeBuckets))
 	for _, ti := range timeBuckets {
+		if len(aggrs) == limit {
+			break
+		}
 		aggrs[ti] = make(map[string]Aggregator)
 		for _, f := range fields {
 			aggr, err := GetAggregator(aggrLabel)
@@ -136,6 +140,7 @@ func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time
 		GroupByDuration: groupByDuration,
 		Fields:          fields,
 		TimeBuckets:     timeBuckets,
+		limit:           limit,
 		CQLQueries:      cqlQueries,
 	}
 	return qp, nil
@@ -161,6 +166,11 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 				End:   tsTruncated.Add(qp.GroupByDuration),
 			}
 
+			// Due to limits, bucket is not needed, skip
+			if _, ok := qp.Aggregators[bucketKey]; !ok {
+				continue
+			}
+
 			qp.Aggregators[bucketKey][q.Field].Put(value)
 		}
 		if err := iter.Close(); err != nil {
@@ -171,6 +181,10 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 	// perform client-side aggregation across all buckets:
 	results := make([]CQLResult, 0, len(qp.TimeBuckets))
 	for _, ti := range qp.TimeBuckets {
+		if _, ok := qp.Aggregators[ti]; !ok {
+			continue
+		}
+
 		res := CQLResult{TimeInterval: ti, Values: make([]float64, len(qp.Fields))}
 		for i, f := range qp.Fields {
 			res.Values[i] = qp.Aggregators[ti][f].Get()
