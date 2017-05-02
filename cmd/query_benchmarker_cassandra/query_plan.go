@@ -229,25 +229,81 @@ func (a int64arr) Less(i, j int) bool { return a[i] < a[j] }
 // TODO(rw): support parallel execution.
 func (qp *QueryPlanNoAggregation) Execute(session *gocql.Session) ([]CQLResult, error) {
 	res := make(map[int64]map[string][]float64)
-	for _, q := range qp.cqlQueries {
-		iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
+	// Useful index for placing values in a row correctly
+	fieldPos := make(map[string]int)
+	for i, f := range qp.fields {
+		fieldPos[f] = i
+	}
 
-		var timestampNs int64
-		var value float64
+	whereParts := strings.Split(qp.where, ",")
 
-		key := strings.Replace(q.Args[0].(string), q.Field, "", 1)
-		for iter.Scan(&timestampNs, &value) {
-			if _, ok := res[timestampNs]; !ok {
-				res[timestampNs] = make(map[string][]float64)
+	// If a where clause exists, cycle through queries finding the ones
+	// that are queries on the field in the where clause.
+	//
+	// First execute those to find the set of (timestamp, series) that
+	// match the where cluase. Then, execute the rest of the queries
+	// while checking that their timestamp, series match.
+	//
+	// This approach allows us to discard rows that don't match instead
+	// of pulling all rows and then filtering afterwards.
+	if len(whereParts) == 3 {
+		whereFn := getWhereFn(whereParts[1], whereParts[2])
+
+		// First pass of all queries
+		for _, q := range qp.cqlQueries {
+			if q.Field == whereParts[0] { // only handle queries for where clause field
+				iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
+
+				var timestampNs int64
+				var value float64
+
+				key := strings.Replace(q.Args[0].(string), q.Field, "", 1)
+				for iter.Scan(&timestampNs, &value) {
+					// Skip rows that do not match where clause
+					if !whereFn(value) {
+						continue
+					}
+
+					if _, ok := res[timestampNs]; !ok {
+						res[timestampNs] = make(map[string][]float64)
+					}
+					if _, ok := res[timestampNs][key]; !ok {
+						res[timestampNs][key] = make([]float64, len(qp.fields))
+					}
+					res[timestampNs][key][fieldPos[q.Field]] = value
+				}
+				if err := iter.Close(); err != nil {
+					return nil, err
+				}
 			}
-			if _, ok := res[timestampNs][key]; !ok {
-				res[timestampNs][key] = make([]float64, 0)
+		}
+
+		// Second pass for non-where clause fields
+		for _, q := range qp.cqlQueries {
+			if q.Field != whereParts[0] {
+				iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
+
+				var timestampNs int64
+				var value float64
+
+				key := strings.Replace(q.Args[0].(string), q.Field, "", 1)
+				for iter.Scan(&timestampNs, &value) {
+					// First pass added the only timestamps or series we accept
+					if _, ok := res[timestampNs]; !ok {
+						continue
+					}
+					if _, ok := res[timestampNs][key]; !ok {
+						continue
+					}
+					res[timestampNs][key][fieldPos[q.Field]] = value
+				}
+				if err := iter.Close(); err != nil {
+					return nil, err
+				}
 			}
-			res[timestampNs][key] = append(res[timestampNs][key], value)
 		}
-		if err := iter.Close(); err != nil {
-			return nil, err
-		}
+	} else {
+		// TODO support no where clause?
 	}
 
 	keys := make(int64arr, len(res))
@@ -258,21 +314,12 @@ func (qp *QueryPlanNoAggregation) Execute(session *gocql.Session) ([]CQLResult, 
 	}
 	sort.Sort(keys)
 
-	whereParts := strings.Split(qp.where, ",")
-	whereFn := func(_ float64) bool { return true }
-	if len(whereParts) == 3 {
-		whereFn = getWhereFn(whereParts[1], whereParts[2])
-	}
-
 	results := make([]CQLResult, 0, len(res))
 	for _, ts := range keys {
 		tst := time.Unix(0, ts)
 		for _, vals := range res[ts] {
-			// TODO support other columns filter
-			if whereFn(vals[0]) {
-				temp := CQLResult{TimeInterval: NewTimeInterval(tst, tst), Values: vals}
-				results = append(results, temp)
-			}
+			temp := CQLResult{TimeInterval: NewTimeInterval(tst, tst), Values: vals}
+			results = append(results, temp)
 		}
 	}
 
