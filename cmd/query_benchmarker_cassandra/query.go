@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,8 +23,9 @@ type HLQuery struct {
 	TimeStart       time.Time
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
-	WhereClause     []byte
-	OrderBy         []byte
+	ForEveryN       []byte // e.g. "hostname,1"
+	WhereClause     []byte // e.g. "usage_user,>,90.0"
+	OrderBy         []byte // e.g. "timestamp_ns DESC"
 	Limit           int
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
 }
@@ -174,6 +176,8 @@ outer:
 	return
 }
 
+// ToQueryPlanNoAggregation combines an HLQuery with a
+// ClientSideIndex to make a QueryPlanNoAggregation.
 func (q *HLQuery) ToQueryPlanNoAggregation(csi *ClientSideIndex) (*QueryPlanNoAggregation, error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
 	fields := strings.Split(string(q.FieldName), ",")
@@ -226,6 +230,70 @@ outer:
 	}
 
 	return NewQueryPlanNoAggregation(fields, whereClause, cqlQueries)
+}
+
+// ToQueryPlanForEvery combines an HLQuery with a
+// ClientSideIndex to make a QueryPlanForEvery.
+func (q *HLQuery) ToQueryPlanForEvery(csi *ClientSideIndex) (*QueryPlanForEvery, error) {
+	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	fields := strings.Split(string(q.FieldName), ",")
+	forEveryArgs := strings.Split(string(q.ForEveryN), ",")
+	forEveryTag := forEveryArgs[0]
+	forEveryNum, err := strconv.ParseInt(forEveryArgs[1], 10, 0)
+	if err != nil {
+		panic("unparseable ForEveryN field: " + string(q.ForEveryN))
+	}
+
+	seriesChoices := make([]Series, 0)
+	for _, f := range fields {
+		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
+	}
+
+	// For each known db series, use it for querying only if it matches
+	// this HLQuery:
+	applicableSeries := []Series{}
+outer:
+	for _, s := range seriesChoices {
+		if !s.MatchesMeasurementName(string(q.MeasurementName)) {
+			continue
+		}
+
+		// Supports multiple fields separated by commas
+		fieldFound := false
+		for _, f := range fields {
+			if !s.MatchesFieldName(f) {
+				continue
+			}
+			fieldFound = true
+			break
+		}
+		if !fieldFound {
+			continue outer
+		}
+
+		// If no tagsets given, return all that match field, measure, and time
+		if len(q.TagSets) > 0 {
+			if !s.MatchesTagSets(q.TagSets) {
+				continue
+			}
+		}
+
+		if !s.MatchesTimeInterval(&hlQueryInterval) {
+			continue
+		}
+
+		applicableSeries = append(applicableSeries, s)
+	}
+
+	// Build CQLQuery objects that will be used to fulfill this HLQuery:
+	cqlQueries := []CQLQuery{}
+	for _, ser := range applicableSeries {
+		cqlQ := NewCQLQuery("", ser.Table, ser.Id, "timestamp_ns DESC", q.TimeStart.UnixNano(), q.TimeEnd.UnixNano())
+		cqlQ.PreparableQueryString += " LIMIT 1"
+		cqlQueries = append(cqlQueries, cqlQ)
+	}
+
+	return NewQueryPlanForEvery(fields, forEveryTag, forEveryNum, cqlQueries)
 }
 
 // CQLQuery wraps data needed to execute a gocql.Query.

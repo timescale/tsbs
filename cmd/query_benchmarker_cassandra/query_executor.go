@@ -50,8 +50,10 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 	// build the query plan:
 	var qp QueryPlan
 	qpStart := time.Now()
-	if string(q.AggregationType) == "" {
+	if len(string(q.AggregationType)) == 0 && len(string(q.ForEveryN)) == 0 {
 		qp, err = q.ToQueryPlanNoAggregation(qe.csi)
+	} else if len(string(q.AggregationType)) == 0 {
+		qp, err = q.ToQueryPlanForEvery(qe.csi)
 	} else {
 		switch opts.AggregationPlan {
 		case AggrPlanTypeWithServerAggregation:

@@ -79,8 +79,9 @@ type CassandraQuery struct {
 	TimeStart       time.Time
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
-	WhereClause     []byte
-	OrderBy         []byte
+	ForEveryN       []byte // e.g. "hostname,1"
+	WhereClause     []byte // e.g. "usage_user,>,90.0"
+	OrderBy         []byte // e.g. "timestamp_ns DESC"
 	Limit           int
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
 }
@@ -93,7 +94,9 @@ var CassandraQueryPool sync.Pool = sync.Pool{
 			MeasurementName:  []byte{},
 			FieldName:        []byte{},
 			AggregationType:  []byte{},
+			ForEveryN:        []byte{},
 			WhereClause:      []byte{},
+			OrderBy:          []byte{},
 			TagSets:          [][]string{},
 		}
 	},
@@ -125,6 +128,7 @@ func (q *CassandraQuery) Release() {
 	q.GroupByDuration = 0
 	q.TimeStart = time.Time{}
 	q.TimeEnd = time.Time{}
+	q.ForEveryN = q.ForEveryN[:0]
 	q.WhereClause = q.WhereClause[:0]
 	q.OrderBy = q.OrderBy[:0]
 	q.Limit = 0

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,7 +169,7 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 
 			// Due to limits, bucket is not needed, skip
 			if _, ok := qp.Aggregators[bucketKey]; !ok {
-				continue
+				break
 			}
 
 			qp.Aggregators[bucketKey][q.Field].Put(value)
@@ -356,12 +357,106 @@ func (qp *QueryPlanNoAggregation) DebugQueries(level int) {
 func getWhereFn(op, pred string) func(float64) bool {
 	p, err := strconv.ParseFloat(pred, 64)
 	if err != nil {
-		panic("unknown operator in where clause: " + op)
+		panic("unknown predicate in where clause: " + pred)
 	}
 	if op == ">" {
 		return func(x float64) bool { return x > p }
-	} else {
-		// TODO fill in other ops
-		return nil
+	}
+	panic("unsupported operator in where clause: " + op)
+}
+
+// QueryPlanForEvery fulfills an HLQuery by performing queries on the
+// server and combining columns into a row on the client.
+type QueryPlanForEvery struct {
+	fields      []string
+	forEveryTag string
+	forEveryNum int64
+	cqlQueries  []CQLQuery
+}
+
+// NewQueryPlanForEvery builds a QueryPlanForEvery.
+func NewQueryPlanForEvery(fields []string, forEveryTag string, forEveryNum int64, cqlQueries []CQLQuery) (*QueryPlanForEvery, error) {
+	return &QueryPlanForEvery{
+		fields:      fields,
+		forEveryTag: forEveryTag,
+		forEveryNum: forEveryNum,
+		cqlQueries:  cqlQueries,
+	}, nil
+}
+
+// Execute runs all CQLQueries in the QueryPlan and collects the results.
+//
+// TODO(rw): support parallel execution.
+func (qp *QueryPlanForEvery) Execute(session *gocql.Session) ([]CQLResult, error) {
+	res := make(map[string]map[int64][]float64)
+	seriesTracker := make(map[string]int)
+	// Useful index for placing values in a row correctly
+	fieldPos := make(map[string]int)
+	for i, f := range qp.fields {
+		fieldPos[f] = i
+	}
+	r, err := regexp.Compile(qp.forEveryTag + "=(.+?),")
+	if err != nil {
+		panic("could not compile regex for tag: " + qp.forEveryTag)
+	}
+
+	for _, q := range qp.cqlQueries {
+		iter := session.Query(q.PreparableQueryString, q.Args...).Iter()
+
+		rm := r.FindSubmatch([]byte(q.Args[0].(string)))
+		key := string(rm[1])
+		if _, ok := res[key]; !ok {
+			res[key] = make(map[int64][]float64)
+			seriesTracker[key] = 0
+		} else if seriesTracker[key] == len(qp.fields) {
+			continue // this series is done
+		}
+
+		var timestampNs int64
+		var value float64
+
+		for iter.Scan(&timestampNs, &value) {
+			if len(res[key]) == 0 {
+				res[key][timestampNs] = make([]float64, 0)
+			}
+
+			if _, ok := res[key][timestampNs]; !ok {
+				break // sorted descending so everything after is no longer latest
+			}
+
+			res[key][timestampNs] = append(res[key][timestampNs], value)
+			seriesTracker[key]++
+			if seriesTracker[key] == len(qp.fields) {
+				break
+			}
+		}
+		if err := iter.Close(); err != nil {
+			return nil, err
+		}
+	}
+
+	results := make([]CQLResult, 0, len(res))
+	// TODO should print out each host
+	for _, map2 := range res {
+		for ts, vals := range map2 {
+			tst := time.Unix(0, ts)
+			temp := CQLResult{TimeInterval: NewTimeInterval(tst, tst), Values: vals}
+			results = append(results, temp)
+		}
+	}
+
+	return results, nil
+}
+
+// DebugQueries prints debugging information.
+func (qp *QueryPlanForEvery) DebugQueries(level int) {
+	if level >= 1 {
+		fmt.Printf("[qpfe] query with no aggregation plan has %d CQLQuery objects\n", len(qp.cqlQueries))
+	}
+
+	if level >= 2 {
+		for i, q := range qp.cqlQueries {
+			fmt.Printf("[qpfe] CQL: %d, %s\n", i, q)
+		}
 	}
 }

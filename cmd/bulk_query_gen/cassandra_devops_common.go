@@ -150,7 +150,7 @@ func (d *CassandraDevops) GroupByOrderByLimit(qi Query, _ int) {
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (rand end)"
 	q := qi.(*CassandraQuery)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.AllInterval.StartString()))
 
 	q.AggregationType = []byte("max")
 	q.MeasurementName = []byte("cpu")
@@ -223,6 +223,21 @@ func (d *CassandraDevops) maxAllCPUHostsN(qi Query, scaleVar, nhosts int) {
 	q.GroupByDuration = time.Hour
 
 	q.TagSets = tagSets
+}
+
+func (d *CassandraDevops) LastPointPerHost(qi Query, _ int) {
+	humanLabel := "Cassandra last row per host"
+	q := qi.(*CassandraQuery)
+	q.HumanLabel = []byte(humanLabel)
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.AllInterval.StartString()))
+
+	q.MeasurementName = []byte("cpu")
+	q.FieldName = []byte("usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice")
+
+	q.TimeStart = d.AllInterval.Start
+	q.TimeEnd = d.AllInterval.End
+
+	q.ForEveryN = []byte("hostname,1")
 }
 
 // HighCPU populates a query that gets CPU metrics when the CPU has high

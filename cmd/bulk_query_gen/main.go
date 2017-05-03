@@ -76,6 +76,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevops5Metrics8Hosts1Hr,
 		},
 		"lastpoint": {
+			"cassandra":   NewCassandraDevopsLastPointPerHost,
 			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
 			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
