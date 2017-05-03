@@ -61,17 +61,17 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsGroupBy,
 		},
 		"5-metrics-1-host-1-hr": {
-			"cassandra":   NewCassandraDevops5Metrics1Host1Hr,
+			"cassandra":   NewCassandraDevops5Metrics(1, 1),
 			"influx-http": NewInfluxDevops5Metrics1Host1Hr,
 			"timescaledb": NewTimescaleDBDevops5Metrics1Host1Hr,
 		},
 		"5-metrics-1-host-12-hr": {
-			"cassandra":   NewCassandraDevops5Metrics1Host12Hrs,
+			"cassandra":   NewCassandraDevops5Metrics(1, 12),
 			"influx-http": NewInfluxDevops5Metrics1Host12Hrs,
 			"timescaledb": NewTimescaleDBDevops5Metrics1Host12Hrs,
 		},
 		"5-metrics-8-host-1-hr": {
-			"cassandra":   NewCassandraDevops5Metrics8Hosts1Hr,
+			"cassandra":   NewCassandraDevops5Metrics(8, 1),
 			"influx-http": NewInfluxDevops5Metrics8Hosts1Hr,
 			"timescaledb": NewTimescaleDBDevops5Metrics8Hosts1Hr,
 		},
@@ -99,12 +99,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsMultipleOrsByHost,
 		},
 		"cpu-max-all-single-host": {
-			"cassandra":   NewCassandraDevopsAllMaxCPUHosts(1),
+			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
 			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPUOneHost,
 		},
 		"cpu-max-all-eight-hosts": {
-			"cassandra":   NewCassandraDevopsAllMaxCPUHosts(8),
+			"cassandra":   NewCassandraDevopsAllMaxCPU(8),
 			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPUEightHosts,
 		},

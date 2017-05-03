@@ -2,49 +2,26 @@ package main
 
 import "time"
 
-// NewCassandraDevopsAllMaxCPUHosts is a factory method for getting the constructor of a AllMaxCPU QueryGenerator
-func NewCassandraDevopsAllMaxCPUHosts(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
-	if hosts == 1 {
-		return newCassandraDevopsAllMaxCPUOneHost
-	} else if hosts == 8 {
-		return newCassandraDevopsAllMaxCPUEightHosts
-	} else {
-		panic("unknown number of hosts: " + string(hosts))
-	}
-}
-
-// CassandraDevopsAllMaxCPUOneHost produces Cassandra-specific queries for the devops single-host case.
-type CassandraDevopsAllMaxCPUOneHost struct {
+// CassandraDevopsAllMaxCPU contains info for Cassandra-devops test 'cpu-max-all-*'
+type CassandraDevopsAllMaxCPU struct {
 	CassandraDevops
+	hosts int
 }
 
-func newCassandraDevopsAllMaxCPUOneHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
-	return &CassandraDevopsAllMaxCPUOneHost{
-		CassandraDevops: *underlying,
+// NewCassandraDevopsAllMaxCPU produces a new function that produces a new CassandraDevopsAllMaxCPU
+func NewCassandraDevopsAllMaxCPU(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
+	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+		underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
+		return &CassandraDevopsAllMaxCPU{
+			CassandraDevops: *underlying,
+			hosts:           hosts,
+		}
 	}
 }
 
-func (d *CassandraDevopsAllMaxCPUOneHost) Dispatch(i, scaleVar int) Query {
+// Dispatch fills in the Query
+func (d *CassandraDevopsAllMaxCPU) Dispatch(_, scaleVar int) Query {
 	q := NewCassandraQuery() // from pool
-	d.MaxAllCPUOneHost(q, scaleVar)
-	return q
-}
-
-// CassandraDevopsAllMaxCPUEightHosts produces Cassandra-specific queries for the devops single-host case.
-type CassandraDevopsAllMaxCPUEightHosts struct {
-	CassandraDevops
-}
-
-func newCassandraDevopsAllMaxCPUEightHosts(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
-	return &CassandraDevopsAllMaxCPUEightHosts{
-		CassandraDevops: *underlying,
-	}
-}
-
-func (d *CassandraDevopsAllMaxCPUEightHosts) Dispatch(i, scaleVar int) Query {
-	q := NewCassandraQuery() // from pool
-	d.MaxAllCPUEightHosts(q, scaleVar)
+	d.MaxAllCPU(q, scaleVar, d.hosts)
 	return q
 }

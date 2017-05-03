@@ -90,27 +90,15 @@ func (d *CassandraDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhos
 	q.TagSets = tagSets
 }
 
-// CPU5MetricsHourByMinuteOneHost populates a Query for 5 CPU metrics per minute over 1 hour on 1 host
-func (d *CassandraDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
-}
-
-// CPU5Metrics12HoursByMinuteOneHost populates a Query for 5 CPU metrics per minute over 12 hours on 1 host
-func (d *CassandraDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
-}
-
-// CPU5MetricsHourByMinuteEightHosts populates a Query for 5 CPU metrics per minute over 1 hour on 8 hosts
-func (d *CassandraDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
-}
-
-// SELECT minute, metric1, metric2, metric3, metric4, metric5
+// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
+// SELECT minute, max(metric1), ..., max(metric5)
 // FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *CassandraDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *CassandraDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
@@ -182,21 +170,14 @@ func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ i
 	q.GroupByDuration = time.Hour
 }
 
-// MaxAllCPUOneHost populates a Query to get the max of all CPU metrics per hour over 12 hours on 1 host
-func (d *CassandraDevops) MaxAllCPUOneHost(q Query, scaleVar int) {
-	d.maxAllCPUHostsN(q, scaleVar, 1)
-}
-
-// MaxAllCPUEightHosts populates a Query to get the max of all CPU metrics per hour over 12 hours on 8 hosts
-func (d *CassandraDevops) MaxAllCPUEightHosts(q Query, scaleVar int) {
-	d.maxAllCPUHostsN(q, scaleVar, 8)
-}
-
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
 // SELECT MAX(metric1), ..., MAX(metricN)
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *CassandraDevops) maxAllCPUHostsN(qi Query, scaleVar, nhosts int) {
+func (d *CassandraDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
