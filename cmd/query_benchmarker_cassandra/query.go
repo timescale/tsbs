@@ -105,6 +105,15 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 	return
 }
 
+func (csi *ClientSideIndex) getSeriesChoicesForFieldsAndMeasurement(fields []string, measurement string) []Series {
+	seriesChoices := make([]Series, 0)
+	for _, f := range fields {
+		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(measurement, f)...)
+	}
+
+	return seriesChoices
+}
+
 // ToQueryPlanWithoutServerAggregation combines an HLQuery with a
 // ClientSideIndex to make a QueryPlanWithoutServerAggregation.
 //
@@ -112,10 +121,7 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
 	fields := strings.Split(string(q.FieldName), ",")
-	seriesChoices := make([]Series, 0)
-	for _, f := range fields {
-		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
-	}
+	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 	orderBy := string(q.OrderBy)
 
 	// Build the time buckets used for 'group by time'-type queries.
@@ -181,34 +187,13 @@ outer:
 func (q *HLQuery) ToQueryPlanNoAggregation(csi *ClientSideIndex) (*QueryPlanNoAggregation, error) {
 	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
 	fields := strings.Split(string(q.FieldName), ",")
-	seriesChoices := make([]Series, 0)
-	for _, f := range fields {
-		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
-	}
+	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 
 	// For each known db series, use it for querying only if it matches
-	// this HLQuery:
+	// this HLQuery (its tagsets and time interval):
 	applicableSeries := []Series{}
-outer:
 	for _, s := range seriesChoices {
-		if !s.MatchesMeasurementName(string(q.MeasurementName)) {
-			continue
-		}
-
-		// Supports multiple fields separated by commas
-		fieldFound := false
-		for _, f := range fields {
-			if !s.MatchesFieldName(f) {
-				continue
-			}
-			fieldFound = true
-			break
-		}
-		if !fieldFound {
-			continue outer
-		}
-
-		// If no tagsets given, return all that match field, measure, and time
+		// If no tagsets given, return all that match time
 		if len(q.TagSets) > 0 {
 			if !s.MatchesTagSets(q.TagSets) {
 				continue
@@ -235,8 +220,6 @@ outer:
 // ToQueryPlanForEvery combines an HLQuery with a
 // ClientSideIndex to make a QueryPlanForEvery.
 func (q *HLQuery) ToQueryPlanForEvery(csi *ClientSideIndex) (*QueryPlanForEvery, error) {
-	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
-	fields := strings.Split(string(q.FieldName), ",")
 	forEveryArgs := strings.Split(string(q.ForEveryN), ",")
 	forEveryTag := forEveryArgs[0]
 	forEveryNum, err := strconv.ParseInt(forEveryArgs[1], 10, 0)
@@ -244,34 +227,16 @@ func (q *HLQuery) ToQueryPlanForEvery(csi *ClientSideIndex) (*QueryPlanForEvery,
 		panic("unparseable ForEveryN field: " + string(q.ForEveryN))
 	}
 
-	seriesChoices := make([]Series, 0)
-	for _, f := range fields {
-		seriesChoices = append(seriesChoices, csi.SeriesForMeasurementAndField(string(q.MeasurementName), f)...)
-	}
+	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	fields := strings.Split(string(q.FieldName), ",")
+	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 
 	// For each known db series, use it for querying only if it matches
-	// this HLQuery:
+	// this HLQuery (its tagsets and time interval):
 	applicableSeries := []Series{}
-outer:
 	for _, s := range seriesChoices {
-		if !s.MatchesMeasurementName(string(q.MeasurementName)) {
-			continue
-		}
 
-		// Supports multiple fields separated by commas
-		fieldFound := false
-		for _, f := range fields {
-			if !s.MatchesFieldName(f) {
-				continue
-			}
-			fieldFound = true
-			break
-		}
-		if !fieldFound {
-			continue outer
-		}
-
-		// If no tagsets given, return all that match field, measure, and time
+		// If no tagsets given, return all that match time
 		if len(q.TagSets) > 0 {
 			if !s.MatchesTagSets(q.TagSets) {
 				continue

@@ -147,6 +147,18 @@ func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time
 	return qp, nil
 }
 
+func csiDebugQueries(cqlQueries []CQLQuery, label string, level int) {
+	if level >= 1 {
+		fmt.Printf("[%s] query with client aggregation plan has %d CQLQuery objects\n", label, len(cqlQueries))
+	}
+
+	if level >= 2 {
+		for i, q := range cqlQueries {
+			fmt.Printf("[%s] CQL: %d, %s\n", label, i, q)
+		}
+	}
+}
+
 // Execute runs all CQLQueries in the QueryPlan and collects the results.
 //
 // TODO(rw): support parallel execution.
@@ -198,25 +210,11 @@ func (qp *QueryPlanWithoutServerAggregation) Execute(session *gocql.Session) ([]
 
 // DebugQueries prints debugging information.
 func (qp *QueryPlanWithoutServerAggregation) DebugQueries(level int) {
-	if level >= 1 {
-		fmt.Printf("[qpca] query with client aggregation plan has %d CQLQuery objects\n", len(qp.CQLQueries))
-	}
-
-	if level >= 2 {
-		for i, q := range qp.CQLQueries {
-			fmt.Printf("[qpca] CQL: %d, %s\n", i, q)
-		}
-	}
+	csiDebugQueries(qp.CQLQueries, "qpca", level)
 }
 
 // QueryPlanNoAggregation fulfills an HLQuery by performing queries on the
-// server and combining columns into a row on the client.
-//
-// It has 1) a map of Aggregators (one for each time bucket) which merge data
-// on the client, 2) a GroupByDuration, which is used to reconstruct time
-// buckets from a server response, 3) a set of TimeBuckets, which are used to
-// store final aggregated items, and 4) a set of CQLQueries used to fulfill
-// this plan.
+// server and combining columns into a row on the client when there is no aggregator.
 type QueryPlanNoAggregation struct {
 	fields     []string
 	where      string
@@ -343,17 +341,10 @@ func (qp *QueryPlanNoAggregation) Execute(session *gocql.Session) ([]CQLResult, 
 
 // DebugQueries prints debugging information.
 func (qp *QueryPlanNoAggregation) DebugQueries(level int) {
-	if level >= 1 {
-		fmt.Printf("[qpna] query with no aggregation plan has %d CQLQuery objects\n", len(qp.cqlQueries))
-	}
-
-	if level >= 2 {
-		for i, q := range qp.cqlQueries {
-			fmt.Printf("[qpna] CQL: %d, %s\n", i, q)
-		}
-	}
+	csiDebugQueries(qp.cqlQueries, "qpna", level)
 }
 
+// getWhereFn creates a function to evaluate a single WHERE clause true or false
 func getWhereFn(op, pred string) func(float64) bool {
 	p, err := strconv.ParseFloat(pred, 64)
 	if err != nil {
@@ -361,12 +352,22 @@ func getWhereFn(op, pred string) func(float64) bool {
 	}
 	if op == ">" {
 		return func(x float64) bool { return x > p }
+	} else if op == "<" {
+		return func(x float64) bool { return x < p }
+	} else if op == ">=" {
+		return func(x float64) bool { return x >= p }
+	} else if op == "<=" {
+		return func(x float64) bool { return x <= p }
 	}
 	panic("unsupported operator in where clause: " + op)
 }
 
 // QueryPlanForEvery fulfills an HLQuery by performing queries on the
-// server and combining columns into a row on the client.
+// server and combining columns into a row on the client to create
+// fulfill an N-for-every query.
+//
+// An N-for-every query retries the last N (TODO - first N) for every
+// particular tag. For example, the last 1 row for every host.
 type QueryPlanForEvery struct {
 	fields      []string
 	forEveryTag string
@@ -390,11 +391,8 @@ func NewQueryPlanForEvery(fields []string, forEveryTag string, forEveryNum int64
 func (qp *QueryPlanForEvery) Execute(session *gocql.Session) ([]CQLResult, error) {
 	res := make(map[string]map[int64][]float64)
 	seriesTracker := make(map[string]int)
-	// Useful index for placing values in a row correctly
-	fieldPos := make(map[string]int)
-	for i, f := range qp.fields {
-		fieldPos[f] = i
-	}
+
+	// Use a regex to match a particular tag
 	r, err := regexp.Compile(qp.forEveryTag + "=(.+?),")
 	if err != nil {
 		panic("could not compile regex for tag: " + qp.forEveryTag)
@@ -405,25 +403,36 @@ func (qp *QueryPlanForEvery) Execute(session *gocql.Session) ([]CQLResult, error
 
 		rm := r.FindSubmatch([]byte(q.Args[0].(string)))
 		key := string(rm[1])
+
+		// Only run the query if this forEveryTag has not been filled
+		// up yet. Once we have all the values for this value, no need
+		// to run other queries that have the same value.
+		// TODO - Generalize for N instead of 1
 		if _, ok := res[key]; !ok {
 			res[key] = make(map[int64][]float64)
 			seriesTracker[key] = 0
 		} else if seriesTracker[key] == len(qp.fields) {
-			continue // this series is done
+			// Collected values for each field in the row, no need to
+			// do more queries
+			continue
 		}
 
 		var timestampNs int64
 		var value float64
-
 		for iter.Scan(&timestampNs, &value) {
+			// Haven't encountered this host yet
+			// TODO - for N, need to keep making timestamp secondary keys until N
 			if len(res[key]) == 0 {
 				res[key][timestampNs] = make([]float64, 0)
 			}
 
 			if _, ok := res[key][timestampNs]; !ok {
-				break // sorted descending so everything after is no longer latest
+				// Sorted by descending, so once we encounter one not in our
+				// map, we can skip. It will be added to the map in previous step.
+				break
 			}
 
+			// TODO put in proper position according to field
 			res[key][timestampNs] = append(res[key][timestampNs], value)
 			seriesTracker[key]++
 			if seriesTracker[key] == len(qp.fields) {
@@ -450,13 +459,5 @@ func (qp *QueryPlanForEvery) Execute(session *gocql.Session) ([]CQLResult, error
 
 // DebugQueries prints debugging information.
 func (qp *QueryPlanForEvery) DebugQueries(level int) {
-	if level >= 1 {
-		fmt.Printf("[qpfe] query with no aggregation plan has %d CQLQuery objects\n", len(qp.cqlQueries))
-	}
-
-	if level >= 2 {
-		for i, q := range qp.cqlQueries {
-			fmt.Printf("[qpfe] CQL: %d, %s\n", i, q)
-		}
-	}
+	csiDebugQueries(qp.cqlQueries, "qpfe", level)
 }
