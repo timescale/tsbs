@@ -109,27 +109,15 @@ func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nh
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// CPU5MetricsHourByMinuteOneHost populates a Query for 5 CPU metrics per minute over 1 hour on 1 host
-func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
-}
-
-// CPU5Metrics12HoursByMinuteOneHost populates a Query for 5 CPU metrics per minute over 12 hours on 1 host
-func (d *TimescaleDBDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
-}
-
-// CPU5MetricsHourByMinuteEightHosts populates a Query for 5 CPU metrics per minute over 1 hour on 8 hosts
-func (d *TimescaleDBDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
-}
-
-// SELECT minute, metric1, metric2, metric3, metric4, metric5
+// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
+// SELECT minute, max(metric1), ..., max(metric5)
 // FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
@@ -224,21 +212,14 @@ func (d *TimescaleDBDevops) meanCPUDayByHourAllHostsGroupbyHost(qi Query, metric
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// MaxAllCPUHourByMinuteOneHost populates a Query to get the max of all CPU metrics per hour over 12 hours on 1 host
-func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 1)
-}
-
-// MaxAllCPUHourByMinuteEightHosts populates a Query to get the max of all CPU metrics per hour over 12 hours on 8 hosts
-func (d *TimescaleDBDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q, scaleVar, 8)
-}
-
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
 // SELECT MAX(metric1), ..., MAX(metricN)
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *TimescaleDBDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
+func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
