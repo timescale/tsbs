@@ -23,6 +23,7 @@ import (
 // Program option vars:
 var (
 	postgresConnect  string
+	databaseName     string
 	workers          int
 	batchSize        int
 	doLoad           bool
@@ -35,11 +36,19 @@ var (
 	numberPartitions int
 	columnCount      int64
 	rowCount         int64
+	useJSON          bool
+
+	tableCols map[string][]string
 )
+
+type insertData struct {
+	tags   string
+	fields string
+}
 
 type hypertableBatch struct {
 	hypertable string
-	rows       []string
+	rows       []insertData
 }
 
 // Global vars
@@ -52,6 +61,7 @@ var (
 // Parse args:
 func init() {
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
+	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to store data")
 
 	flag.IntVar(&batchSize, "batch-size", 10000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
@@ -59,6 +69,7 @@ func init() {
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&makeHypertable, "make-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
+	flag.BoolVar(&useJSON, "jsonb-tags", false, "Whether tags should be stored as JSONB")
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
@@ -67,6 +78,7 @@ func init() {
 	flag.IntVar(&reportingPeriod, "reporting-period", 1000, "Period to report stats")
 
 	flag.Parse()
+	tableCols = make(map[string][]string)
 }
 
 func main() {
@@ -108,6 +120,10 @@ func main() {
 	fmt.Printf("loaded %d columns in %fsec with %d workers (mean rate %f/sec)\n", columnsRead, took.Seconds(), workers, columnRate)
 }
 
+func getConnectString() string {
+	return postgresConnect + " dbname=" + databaseName
+}
+
 func report(periodMs int) {
 	c := time.Tick(time.Duration(periodMs) * time.Millisecond)
 	start := time.Now()
@@ -133,18 +149,27 @@ func report(periodMs int) {
 
 }
 
-// scan reads lines from stdin. It expects input in the TimescaleDB format.
+// scan reads lines from stdin. It expects input in the TimescaleDB format,
+// which is a pair of lines: the first begins with the prefix 'tags' and is
+// CSV of tags, the second is a list of fields
 func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
-	batch := make(map[string][]string) // hypertable => copy lines
-	var n int
-	var linesRead int64
+	batch := make(map[string][]insertData) // hypertable => copy lines
+	linesRead := int64(0)
+	n := 0
+
+	data := insertData{}
 	for scanner.Scan() {
 		linesRead++
 
-		parts := strings.SplitN(scanner.Text(), ",", 2) //hypertable, copy line
-		hypertable := parts[0]
-
-		batch[hypertable] = append(batch[hypertable], parts[1])
+		parts := strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
+		prefix := parts[0]
+		if prefix == "tags" {
+			data.tags = parts[1]
+			continue
+		} else {
+			data.fields = parts[1]
+			batch[prefix] = append(batch[prefix], data)
+		}
 
 		n++
 		if n >= itemsPerBatch {
@@ -152,7 +177,7 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 				batchChan <- &hypertableBatch{hypertable, rows}
 			}
 
-			batch = make(map[string][]string)
+			batch = make(map[string][]insertData)
 			n = 0
 		}
 	}
@@ -171,66 +196,222 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 	// Closing inputDone signals to the application that we've read everything and can now shut down.
 	close(inputDone)
 
-	itemsRead := linesRead
+	return linesRead / 2
+}
 
-	return itemsRead
+func insertTags(tx *sqlx.Tx, tagRows [][]string, returnResults bool) map[string]int64 {
+	tagCols := tableCols["tags"]
+	cols := tagCols
+	values := make([]string, 0)
+	if useJSON {
+		cols = []string{"tagset"}
+		for _, row := range tagRows {
+			json := "('{"
+			for i, k := range tagCols {
+				if i != 0 {
+					json += ","
+				}
+				json += fmt.Sprintf("\"%s\": \"%s\"", k, row[i])
+			}
+			json += "}')"
+			values = append(values, json)
+		}
+	} else {
+		for _, val := range tagRows {
+			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:10], "','")))
+		}
+	}
+	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
+	if err != nil {
+		panic(err)
+	}
+
+	// Results will be used to make a Golang index for faster inserts
+	if returnResults {
+		resCols, _ := res.Columns()
+		resVals := make([]interface{}, len(resCols))
+		resValsPtrs := make([]interface{}, len(resCols))
+		for i := range resVals {
+			resValsPtrs[i] = &resVals[i]
+		}
+		ret := make(map[string]int64)
+		i := 0
+		for res.Next() {
+			err = res.Scan(resValsPtrs...)
+			if err != nil {
+				panic(err)
+			}
+			ret[strings.Join(tagRows[i], ",")] = resVals[0].(int64)
+			i++
+		}
+		res.Close()
+		return ret
+	}
+	return nil
+}
+
+// 1 - tag cols JOIN w/ ,
+// 2 - metric cols JOIN w/ ,
+// 3 - Each row tags + metrics joined
+// 4 - hypertable name
+// 5 - partitionKey
+// 6 - same as 2
+// 7 - same as 5
+// 8 - same as 2
+// 9 - same as 1
+var insertFmt2 = `INSERT INTO %s(time,tags_id,%s,%s)
+SELECT time,id,%s,%s
+FROM (VALUES %s) as temp(%s,time,%s)
+JOIN tags USING (%s);
+`
+
+var calledOnce = false
+
+func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
+	tagCols := strings.Join(tableCols["tags"], ",")
+	partitionKey := tableCols["tags"][0]
+
+	hypertable := hypertableBatch.hypertable
+	hypertableCols := strings.Join(tableCols[hypertable], ",")
+
+	tagRows := make([][]string, 0, len(hypertableBatch.rows))
+	dataRows := make([]string, 0, len(hypertableBatch.rows))
+	tx := db.MustBegin()
+	ret := int64(0)
+	//start := time.Now()
+	for _, data := range hypertableBatch.rows {
+		tags := strings.Split(data.tags, ",")
+		metrics := strings.Split(data.fields, ",")
+
+		ret += int64(len(metrics))
+		r := "("
+		// TODO -- support more than 10 common tags
+		for _, t := range tags[:10] {
+			r += fmt.Sprintf("'%s',", t)
+		}
+		for ind, value := range metrics {
+			if ind == 0 {
+				timeInt, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					panic(err)
+				}
+				secs := timeInt / 1e9
+				r += fmt.Sprintf("'%s'::timestamptz", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -7:00"))
+			} else {
+				r += fmt.Sprintf(", %v", value)
+			}
+		}
+		r += ")"
+		dataRows = append(dataRows, r)
+		tagRows = append(tagRows, tags[:10]) //fmt.Sprintf("('%s')", strings.Join(tags[:10], "','")))
+	}
+
+	//fmt.Printf("t1: %v\n", time.Now().Sub(start))
+	if !calledOnce {
+		insertTags(tx, tagRows, false)
+		calledOnce = true
+	}
+	//fmt.Printf(insertFmt2, hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols, strings.Join(dataRows[:2], ","), tagCols, hypertableCols, tagCols)
+	_ = tx.MustExec(fmt.Sprintf(insertFmt2, hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols, strings.Join(dataRows, ","), tagCols, hypertableCols, tagCols))
+
+	err := tx.Commit()
+	if err != nil {
+		panic(err)
+	}
+	//fmt.Printf("t2: %v\n", time.Now().Sub(start))
+
+	return ret
+}
+
+var csi = make(map[string]int64)
+var csiCnt = int64(0)
+var mutex = &sync.RWMutex{}
+var insertFmt3 = `INSERT INTO %s(time,tags_id,%s,%s) VALUES %s`
+
+func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
+	//tagCols := strings.Join(tableCols["tags"], ",")
+	partitionKey := tableCols["tags"][0]
+
+	hypertable := hypertableBatch.hypertable
+	hypertableCols := strings.Join(tableCols[hypertable], ",")
+
+	tagRows := make([][]string, 0, len(hypertableBatch.rows))
+	dataRows := make([]string, 0, len(hypertableBatch.rows))
+	tx := db.MustBegin()
+	ret := int64(0)
+	//start := time.Now()
+	for _, data := range hypertableBatch.rows {
+		tags := strings.Split(data.tags, ",")
+		metrics := strings.Split(data.fields, ",")
+
+		ret += int64(len(metrics))
+		r := "("
+		for ind, value := range metrics {
+			if ind == 0 {
+				timeInt, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					panic(err)
+				}
+				secs := timeInt / 1e9
+				r += fmt.Sprintf("'%s',", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -7:00"))
+				r += fmt.Sprintf("'[REPLACE_CSI]',")
+				r += fmt.Sprintf("'%s'", tags[0])
+
+			} else {
+				r += fmt.Sprintf(", '%v'", value)
+			}
+		}
+		r += ")"
+		dataRows = append(dataRows, r)
+		tagRows = append(tagRows, tags[:10])
+	}
+
+	//fmt.Printf("t1: %v\n", time.Now().Sub(start))
+	//fmt.Printf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING;`, tagCols, strings.Join(tagRows[:1], ","))
+	if !calledOnce {
+		//_ = tx.MustExec(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING;`, tagCols, strings.Join(tagRows, ",")))
+		res := insertTags(tx, tagRows, true)
+		mutex.Lock()
+		for k, v := range res {
+			csi[k] = v
+		}
+		mutex.Unlock()
+		calledOnce = true
+	}
+	mutex.RLock()
+	for i, r := range dataRows {
+		// TODO -- support more than 10 common tags
+		tagKey := strings.Join(tagRows[i][:10], ",")
+		dataRows[i] = strings.Replace(r, "[REPLACE_CSI]", strconv.FormatInt(csi[tagKey], 10), 1)
+	}
+	mutex.RUnlock()
+	//fmt.Printf(insertFmt3, partitionKey, hypertableCols, strings.Join(dataRows, ","), hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols)
+	_ = tx.MustExec(fmt.Sprintf(insertFmt3, hypertable, partitionKey, hypertableCols, strings.Join(dataRows, ",")))
+
+	err := tx.Commit()
+	if err != nil {
+		panic(err)
+	}
+	//fmt.Printf("t2: %v\n", time.Now().Sub(start))
+
+	return ret
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(postgresConnect string) {
-	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
-	defer dbBench.Close()
+	db := sqlx.MustConnect("postgres", getConnectString())
+	defer db.Close()
 
-	columnCountWorker := int64(0)
 	for hypertableBatch := range batchChan {
 		if !doLoad {
 			continue
 		}
 
-		hypertable := hypertableBatch.hypertable
 		start := time.Now()
-
-		tx := dbBench.MustBegin()
-		copyCmd := fmt.Sprintf("COPY \"%s\" FROM STDIN", hypertable)
-
-		stmt, err := tx.Prepare(copyCmd)
-		if err != nil {
-			panic(err)
-		}
-		for _, line := range hypertableBatch.rows {
-			sp := strings.Split(line, ",")
-			in := make([]interface{}, len(sp))
-			columnCountWorker += int64(len(sp))
-			for ind, value := range sp {
-				if ind == 0 {
-					timeInt, err := strconv.ParseInt(value, 10, 64)
-					if err != nil {
-						panic(err)
-					}
-					secs := timeInt / 1000000000
-					in[ind] = time.Unix(secs, timeInt%1000000000).Format("2006-01-02 15:04:05.999999 -7:00")
-				} else {
-					in[ind] = value
-				}
-			}
-			_, err = stmt.Exec(in...)
-			if err != nil {
-				panic(err)
-			}
-		}
+		columnCountWorker := processCSI(db, hypertableBatch)
+		//columnCountWorker := processSplit(db, hypertableBatch)
 		atomic.AddInt64(&columnCount, columnCountWorker)
 		atomic.AddInt64(&rowCount, int64(len(hypertableBatch.rows)))
-		columnCountWorker = 0
-
-		err = stmt.Close()
-		if err != nil {
-			panic(err)
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			panic(err)
-		}
 
 		if logBatches {
 			now := time.Now()
@@ -242,13 +423,26 @@ func processBatches(postgresConnect string) {
 	workersGroup.Done()
 }
 
+func createTagsTable(db *sqlx.DB, tags []string) {
+	if useJSON {
+		db.MustExec("CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
+		db.MustExec("CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
+		db.MustExec("CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
+	} else {
+		cols := strings.Join(tags, " TEXT, ")
+		cols += " TEXT"
+		db.MustExec(fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
+		db.MustExec(fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
+	}
+}
+
 func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	db := sqlx.MustConnect("postgres", postgresConnect)
 	defer db.Close()
-	db.MustExec("DROP DATABASE IF EXISTS benchmark")
-	db.MustExec("CREATE DATABASE benchmark")
+	db.MustExec("DROP DATABASE IF EXISTS " + databaseName)
+	db.MustExec("CREATE DATABASE " + databaseName)
 
-	dbBench := sqlx.MustConnect("postgres", postgresConnect+" dbname=benchmark")
+	dbBench := sqlx.MustConnect("postgres", getConnectString())
 	defer dbBench.Close()
 
 	if makeHypertable {
@@ -262,13 +456,21 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 		}
 
 		parts := strings.Split(scanner.Text(), ",")
+		if parts[0] == "tags" {
+			createTagsTable(dbBench, parts[1:])
+			tableCols["tags"] = parts[1:]
+			continue
+		}
 
 		hypertable := parts[0]
-		partitioningField := ""
+		partitioningField := tableCols["tags"][0]
 		fieldDef := []string{}
 		indexes := []string{}
+		tableCols[hypertable] = parts[1:]
 
-		for idx, field := range parts[1:] {
+		psuedoCols := []string{partitioningField}
+		psuedoCols = append(psuedoCols, parts[1:]...)
+		for idx, field := range psuedoCols {
 			if len(field) == 0 {
 				continue
 			}
@@ -298,7 +500,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 				}
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, %s)", hypertable, strings.Join(fieldDef, ",")))
+		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
 
 		for _, idxDef := range indexes {
 			dbBench.MustExec(idxDef)

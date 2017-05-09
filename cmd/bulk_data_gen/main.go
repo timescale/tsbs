@@ -148,16 +148,17 @@ func main() {
 	case "opentsdb":
 		serializer = (*Point).SerializeOpenTSDBBulk
 	case "timescaledb":
+		out.WriteString("tags")
+		for _, key := range MachineTagKeys {
+			out.WriteString(",")
+			out.Write(key)
+		}
+		out.WriteString("\n")
 		for measurementName, fields := range sim.Fields() {
 			out.WriteString(measurementName)
-			out.WriteString(",")
-			for _, key := range MachineTagKeys[0:1] {
-				out.Write(key)
-				out.WriteString(",")
-			}
 			for _, field := range fields {
-				out.Write(field)
 				out.WriteString(",")
+				out.Write(field)
 
 			}
 			out.WriteString("\n")

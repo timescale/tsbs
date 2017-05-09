@@ -3,6 +3,8 @@
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
 PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20000}
+JSON_TAGS=${JSON_TAGS:-false}
+DATABASE_NAME=${DATABASE_NAME:-benchmark}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/iobeamdb.conf
@@ -18,7 +20,9 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --field-index-count=1 \
                                 --make-hypertable=true \
                                 --number_partitions 1 \
-                                --workers ${NUM_WORKERS}\
+                                --jsonb-tags=${JSON_TAGS} \
+                                --workers ${NUM_WORKERS} \
+                                --db-name=${DATABASE_NAME} \
                                 --postgres "host=${DATABASE_HOST} user=postgres sslmode=disable" \
                                 --reporting-period ${PROGRESS_INTERVAL} \
                                 --tag-index="VALUE-TIME" \

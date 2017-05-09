@@ -87,7 +87,7 @@ def load_queries_file_names(filename, label, query_dir):
 def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, workers):
 
     print '#!/bin/bash'
-    queries = None
+    queries = []
     if queries_file is not None:
         queries = load_queries_file_names(queries_file, db_name, query_dir)
 
@@ -97,7 +97,7 @@ def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, w
             print(get_load_str(load_dir, db_name, batch_size, workers))
             print("")
 
-    if queries is not None:
+    if len(queries) > 0:
         print("# Queries")
     for query in queries:
         print(get_query_str(query, db_name, workers))
