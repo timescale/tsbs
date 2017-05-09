@@ -30,6 +30,7 @@ import (
 // Program option vars:
 var (
 	postgresConnect      string
+	databaseName         string
 	workers              int
 	debug                int
 	prettyPrintResponses bool
@@ -50,7 +51,8 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable dbname=benchmark", "Postgres connection url")
+	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
+	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
@@ -127,6 +129,10 @@ func main() {
 		pprof.WriteHeapProfile(f)
 		f.Close()
 	}
+}
+
+func getConnectString() string {
+	return postgresConnect + " dbname=" + databaseName
 }
 
 // scan reads encoded Queries and places them onto the workqueue.
@@ -219,7 +225,7 @@ func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries() {
-	db := sqlx.MustConnect("postgres", postgresConnect)
+	db := sqlx.MustConnect("postgres", getConnectString())
 	for q := range queryChan {
 
 		query := string(q.SqlQuery)

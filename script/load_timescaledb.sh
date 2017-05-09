@@ -3,11 +3,9 @@
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
 PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20000}
-JSON_TAGS=${JSON_TAGS:-false}
-DATABASE_NAME=${DATABASE_NAME:-benchmark}
 
 source ${EXE_DIR}/load_common.sh
-source ${EXE_DIR}/iobeamdb.conf
+source ${EXE_DIR}/timescaledb.conf
 
 while ! pg_isready; do
     echo "Waiting for timescaledb"
