@@ -23,5 +23,5 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --db-name=${DATABASE_NAME} \
                                 --postgres "host=${DATABASE_HOST} user=postgres sslmode=disable" \
                                 --reporting-period ${PROGRESS_INTERVAL} \
-                                --tag-index="VALUE-TIME" \
+                                --tag-index="" \
                                 --batch-size=${BATCH_SIZE}

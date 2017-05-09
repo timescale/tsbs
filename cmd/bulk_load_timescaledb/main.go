@@ -487,9 +487,9 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 				for _, idx := range strings.Split(idxType, ",") {
 					indexDef := ""
 					if idx == "TIME-VALUE" {
-						indexDef = fmt.Sprintf("(time, %s)", field)
+						indexDef = fmt.Sprintf("(time DESC, %s)", field)
 					} else if idx == "VALUE-TIME" {
-						indexDef = fmt.Sprintf("(%s,time)", field)
+						indexDef = fmt.Sprintf("(%s,time DESC)", field)
 					} else if idx != "" {
 						panic(fmt.Sprintf("Unknown index type %v", idx))
 					}
@@ -501,6 +501,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			}
 		}
 		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
+		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id,\"time\" DESC)", hypertable))
+		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC,tags_id)", hypertable))
 
 		for _, idxDef := range indexes {
 			dbBench.MustExec(idxDef)

@@ -136,6 +136,9 @@ var (
 	seed  int64
 	debug int
 
+	timescaleUseJSON bool
+	timescaleUseTags bool
+
 	interleavedGenerationGroupID uint
 	interleavedGenerationGroups  uint
 )
@@ -166,6 +169,9 @@ func init() {
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
 	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for ElasticSearch).")
+
+	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "Use JSON tags when querying")
+	flag.BoolVar(&timescaleUseTags, "timescale-use-tags", false, "Use separate tags table when querying")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-02T06:00:00Z", "Ending timestamp (RFC3339).")

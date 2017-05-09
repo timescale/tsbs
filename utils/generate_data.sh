@@ -4,7 +4,7 @@ binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/bulk_data}
 
-declare -a formats=("influx-bulk" "timescaledb" "cassandra")
+declare -a formats=("timescaledb")
 
 scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}

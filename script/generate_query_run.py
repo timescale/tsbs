@@ -40,9 +40,9 @@ Result:
 NUM_WORKERS=8 DATA_DIR=/tmp BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_10000_20000.out
 
 # Queries
-cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable database=benchmark timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
+cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
 
-cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable database=benchmark timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-12-hr-queries.out
+cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-12-hr-queries.out
 '''
 import argparse
 import os
@@ -65,7 +65,7 @@ def get_query_str(queryfile, label, workers, limit=1000):
     if label == 'cassandra':
         extra_args = '-aggregation-plan client'
     elif label == 'timescaledb':
-        extra_args = '-postgres "{}"'.format('host=localhost user=postgres sslmode=disable database=benchmark timescaledb.disable_optimizations=false')
+        extra_args = '-postgres "{}" -db-name "{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false', "benchmark_json")
 
     limit_arg = '-limit {}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
