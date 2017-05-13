@@ -9,6 +9,8 @@ Usage flags:
 
     -d      Database to benchmark. Valid values: cassandra, influxdb, timescaledb
 
+    -e      Extra flags to pass to pass to query benchmarker, e.g., "-show-explain -debug 9"
+
     -f      Filename containing query benchmark names, one per line. Lines can
             be commented out to exclude those benchmarks (default: queries.txt)
 
@@ -60,18 +62,18 @@ def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
         return prefix + ' BATCH_SIZE={}'.format(batch_size) + suffix
 
 
-def get_query_str(queryfile, label, workers, limit=1000):
+def get_query_str(queryfile, label, workers, extra_query_args, limit=1000):
     extra_args = ''
     if label == 'cassandra':
         extra_args = '-aggregation-plan client'
     elif label == 'timescaledb':
-        extra_args = '-postgres "{}" -db-name "{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false', "benchmark_json")
+        extra_args = '-postgres "{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false')
 
     limit_arg = '-limit {}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
 
-    return 'cat {} | gunzip | query_benchmarker_{} -workers {} {} {} | tee {}.out'.format(
-        queryfile, label, workers, limit_arg, extra_args, output_file)
+    return 'cat {} | gunzip | query_benchmarker_{} -workers {} {} {} {} | tee {}.out'.format(
+        queryfile, label, workers, limit_arg, extra_args, extra_query_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir):
     l = list()
@@ -84,7 +86,7 @@ def load_queries_file_names(filename, label, query_dir):
 
     return l
 
-def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, workers):
+def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, workers, extra_query_args):
 
     print '#!/bin/bash'
     queries = []
@@ -100,7 +102,7 @@ def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, w
     if len(queries) > 0:
         print("# Queries")
     for query in queries:
-        print(get_query_str(query, db_name, workers))
+        print(get_query_str(query, db_name, workers, extra_query_args))
         print("")
 
 
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-b', dest='batch_sizes_str', default="10000", type=str)
     parser.add_argument('-d', dest='db_name', default=None, type=str)
+    parser.add_argument('-e', dest='extra_query_args', default='', type=str)
     parser.add_argument('-f', dest='queries_file_name', default='queries.txt', type=str)
     parser.add_argument('-i', dest='write_only', default=False, action='store_true')
     parser.add_argument('-l', dest='load_file_dir', default=default_load_dir, type=str)
@@ -132,4 +135,5 @@ if __name__ == "__main__":
         args.load_file_dir if not args.query_only else None,
         args.db_name,
         batch_sizes,
-        args.workers)
+        args.workers,
+        args.extra_query_args)
