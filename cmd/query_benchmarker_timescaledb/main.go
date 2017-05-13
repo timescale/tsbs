@@ -36,6 +36,7 @@ var (
 	prettyPrintResponses bool
 	limit                int64
 	printInterval        int64
+	showExplain          bool
 	memProfile           string
 )
 
@@ -58,9 +59,14 @@ func init() {
 	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
 	flag.Int64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
+	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
+
+	if showExplain {
+		limit = 1
+	}
 }
 
 func main() {
@@ -229,6 +235,10 @@ func processQueries() {
 	for q := range queryChan {
 
 		query := string(q.SqlQuery)
+		if showExplain {
+			query = "EXPLAIN ANALYZE " + query
+		}
+
 		start := time.Now()
 
 		rows, err := db.Queryx(query)
@@ -236,7 +246,17 @@ func processQueries() {
 			panic(err)
 		}
 
-		if prettyPrintResponses {
+		if showExplain {
+			fmt.Printf(query + "\n\n")
+			for rows.Next() {
+				var s string
+				if err = rows.Scan(&s); err != nil {
+					panic(err)
+				}
+				fmt.Println(s)
+			}
+			fmt.Printf("\n-----\n\n")
+		} else if prettyPrintResponses {
 			for rows.Next() {
 				results := make(map[string]interface{})
 				err = rows.MapScan(results)
