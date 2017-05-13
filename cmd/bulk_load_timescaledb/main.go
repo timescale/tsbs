@@ -34,6 +34,7 @@ var (
 	fieldIndexCount  int
 	reportingPeriod  int
 	numberPartitions int
+	chunkTime        time.Duration
 	columnCount      int64
 	rowCount         int64
 	useJSON          bool
@@ -75,6 +76,7 @@ func init() {
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 	flag.IntVar(&numberPartitions, "number_partitions", 1, "Number of patitions")
+	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
 	flag.IntVar(&reportingPeriod, "reporting-period", 1000, "Period to report stats")
 
 	flag.Parse()
@@ -510,8 +512,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 		if makeHypertable {
 			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => 28800000000)",
-					hypertable, partitioningField, numberPartitions))
+				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d)",
+					hypertable, partitioningField, numberPartitions, chunkTime.Nanoseconds()/1000))
 		}
 	}
 }
