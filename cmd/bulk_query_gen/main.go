@@ -36,7 +36,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost,
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
-			"timescaledb": NewTimescaleDBDevopsSingleHost,
+			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleHost12hr,
@@ -44,7 +44,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsSingleHost12hr,
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
-			"timescaledb": NewTimescaleDBDevopsSingleHost12hr,
+			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevops8Hosts,
@@ -52,7 +52,7 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevops8Hosts,
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,
-			"timescaledb": NewTimescaleDBDevops8Hosts,
+			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy,

@@ -67,52 +67,20 @@ func getHostWhereString(scaleVar int, nhosts int) string {
 // Dispatch fulfills the QueryGenerator interface.
 func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) Query {
 	q := NewTimescaleDBQuery() // from pool
-	devopsDispatchAll(d, i, q, scaleVar)
+	//devopsDispatchAll(d, i, q, scaleVar)
 	return q
-}
-
-// MaxCPUUsageHourByMinuteOneHost populates a Query for max(cpu) per minute over 1 hour on 1 host
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
-}
-
-// MaxCPUUsageHourByMinuteTwoHosts populates a Query for max(cpu) per minute over 1 hour on 2 hosts
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 2, time.Hour)
-}
-
-// MaxCPUUsageHourByMinuteFourHosts populates a Query for max(cpu) per minute over 1 hour on 4 hosts
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 4, time.Hour)
-}
-
-// MaxCPUUsageHourByMinuteEightHosts populates a Query for max(cpu) per minute over 1 hour on 8 hosts
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
-}
-
-// MaxCPUUsageHourByMinuteSixteenHosts populates a Query for max(cpu) per minute over 1 hour on 16 hosts
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 16, time.Hour)
-}
-
-// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query for max(cpu) per minute over 1 hour on 32 hosts
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 32, time.Hour)
-}
-
-// MaxCPUUsage12HoursByMinuteOneHost populates a Query for max(cpu) per minute over 12 hours on 1 host
-func (d *TimescaleDBDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
 }
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -7:00"
 
+// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
 // SELECT minute, MAX(usage_user) FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
