@@ -28,7 +28,7 @@ import (
 var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "timescaledb"}
 
 // Use case choices:
-var useCaseChoices = []string{"devops"}
+var useCaseChoices = []string{"devops", "cpu-only"}
 
 // Program option vars:
 var (
@@ -131,6 +131,15 @@ func main() {
 			HostConstructor: NewHost,
 		}
 		sim = cfg.ToSimulator()
+	case "cpu-only":
+		cfg := &CPUOnlySimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			HostCount:       scaleVar,
+			HostConstructor: NewHost,
+		}
+		sim = cfg.ToSimulator()
 	default:
 		panic("unreachable")
 	}
@@ -178,7 +187,6 @@ func main() {
 
 		// in the default case this is always true
 		if currentInterleavedGroup == interleavedGenerationGroupID {
-			//println("printing")
 			err := serializer(point, out)
 			if err != nil {
 				log.Fatal(err)
