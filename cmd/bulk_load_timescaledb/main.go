@@ -32,7 +32,7 @@ var (
 	tagIndex         string
 	fieldIndex       string
 	fieldIndexCount  int
-	reportingPeriod  int
+	reportingPeriod  time.Duration
 	numberPartitions int
 	chunkTime        time.Duration
 	columnCount      int64
@@ -77,7 +77,7 @@ func init() {
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 	flag.IntVar(&numberPartitions, "number_partitions", 1, "Number of patitions")
 	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
-	flag.IntVar(&reportingPeriod, "reporting-period", 1000, "Period to report stats")
+	flag.DurationVar(&reportingPeriod, "reporting-period", time.Second, "Period to report stats")
 
 	flag.Parse()
 	tableCols = make(map[string][]string)
@@ -104,7 +104,7 @@ func main() {
 		go processBatches(postgresConnect)
 	}
 
-	go report(reportingPeriod)
+	go report(int(reportingPeriod.Nanoseconds() / 1e6))
 
 	start := time.Now()
 	rowsRead := scan(batchSize, scanner)
