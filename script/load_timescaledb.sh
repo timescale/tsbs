@@ -21,6 +21,7 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --jsonb-tags=${JSON_TAGS} \
                                 --workers ${NUM_WORKERS} \
                                 --db-name=${DATABASE_NAME} \
+				--chunk-time=8h \
                                 --postgres "host=${DATABASE_HOST} user=postgres sslmode=disable" \
                                 --reporting-period ${PROGRESS_INTERVAL} \
                                 --tag-index="" \

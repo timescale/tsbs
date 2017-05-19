@@ -50,7 +50,7 @@ import argparse
 import os
 
 def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
-    logfilename = 'load_{}_{}_{}.out'.format(label, batch_size, reporting_period)
+    logfilename = 'load_{}_{}_{}_{}.out'.format(label, workers, batch_size, reporting_period)
     prefix = 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, load_dir)
     suffix = ' ./load_{}.sh | tee {}'.format(label, logfilename)
 
