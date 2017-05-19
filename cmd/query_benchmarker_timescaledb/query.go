@@ -7,12 +7,11 @@ type Query struct {
 	HumanDescription []byte
 
 	NamespaceName []byte // e.g. "cpu"
-	FieldName     []byte // e.g. "usage_user"
 	SqlQuery      []byte
 	ID            int64
 }
 
 // String produces a debug-ready description of a Query.
 func (q *Query) String() string {
-	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, NamespaceName: %s, FieldName: %s, Query: %s", q.HumanLabel, q.HumanDescription, q.NamespaceName, q.FieldName, q.SqlQuery)
+	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, NamespaceName: %s, Query: %s", q.HumanLabel, q.HumanDescription, q.NamespaceName, q.SqlQuery)
 }

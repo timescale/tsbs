@@ -90,7 +90,6 @@ func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi Query, scaleVar, nhosts i
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -120,7 +119,6 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRang
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -142,7 +140,6 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -193,7 +190,6 @@ func (d *TimescaleDBDevops) meanCPUDayByHourAllHostsGroupbyHost(qi Query, metric
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -225,7 +221,6 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -247,25 +242,24 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
 	q.NamespaceName = []byte(measure)
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// HighCPU populates a query that gets CPU metrics when the CPU has high
-// usage between a time period across all hosts
-// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END'
-func (d *TimescaleDBDevops) HighCPU(qi Query, _ int) {
-	d.highCPUForHost(qi, "")
-}
-
-// HighCPUAndField populates a query that gets CPU metrics when the CPU has high
-// usage between a time period for a particular host
-// i.e. SELECT * FROM cpu WHERE usage_user > 90.0 AND time >= '$TIME_START' AND time < '$TIME_END' AND hostname = '$HOST'
-func (d *TimescaleDBDevops) HighCPUAndField(qi Query, scaleVar int) {
-	d.highCPUForHost(qi, fmt.Sprintf("AND (%s)", getHostWhereString(scaleVar, 1)))
-}
-
-func (d *TimescaleDBDevops) highCPUForHost(qi Query, hostWhereClause string) {
+// HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a number of hosts (if 0, it will search all hosts),
+// e.g. in psuedo-SQL:
+//
+// SELECT * FROM cpu
+// WHERE usage_user > 90.0
+// AND time >= '$TIME_START' AND time < '$TIME_END'
+// AND (hostname = '$HOST' OR hostname = '$HOST2'...)
+func (d *TimescaleDBDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
+	var hostWhereClause string
+	if scaleVar == 0 {
+		hostWhereClause = ""
+	} else {
+		hostWhereClause = fmt.Sprintf("AND (%s)", getHostWhereString(scaleVar, nhosts))
+	}
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' %s`,
@@ -281,7 +275,6 @@ func (d *TimescaleDBDevops) highCPUForHost(qi Query, hostWhereClause string) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("cpu")
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -297,7 +290,6 @@ func (d *TimescaleDBDevops) MultipleMemOrs(qi Query, hosts int) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("mem")
-	q.FieldName = []byte("*")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -311,7 +303,6 @@ func (d *TimescaleDBDevops) MultipleMemOrsByHost(qi Query, hosts int) {
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 	q.NamespaceName = []byte("mem")
-	q.FieldName = []byte("*")
 
 	q.SqlQuery = []byte(sqlQuery)
 }

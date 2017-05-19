@@ -77,7 +77,6 @@ func main() {
 				HumanLabel:       make([]byte, 0, 1024),
 				HumanDescription: make([]byte, 0, 1024),
 				NamespaceName:    make([]byte, 0, 1024),
-				FieldName:        make([]byte, 0, 1024),
 				SqlQuery:         make([]byte, 0, 1024),
 			}
 		},

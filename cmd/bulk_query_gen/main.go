@@ -83,12 +83,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		"high-cpu": {
 			"cassandra":   NewCassandraDevopsHighCPU,
 			"influx-http": NewInfluxDevopsHighCPU,
-			"timescaledb": NewTimescaleDBDevopsHighCPU,
+			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
 		},
 		"high-cpu-and-field": {
 			"cassandra":   NewCassandraDevopsHighCPUAndField,
 			"influx-http": NewInfluxDevopsHighCPUAndField,
-			"timescaledb": NewTimescaleDBDevopsHighCPUAndField,
+			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},
 		"multiple-ors": {
 			"influx-http": NewInfluxDevopsMultipleOrs,

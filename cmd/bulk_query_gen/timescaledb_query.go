@@ -12,7 +12,6 @@ type TimescaleDBQuery struct {
 	HumanDescription []byte
 
 	NamespaceName []byte // e.g. "cpu"
-	FieldName     []byte // e.g. "usage_user"
 	SqlQuery      []byte
 }
 
@@ -22,7 +21,6 @@ var TimescaleDBQueryPool sync.Pool = sync.Pool{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
 			NamespaceName:    []byte{},
-			FieldName:        []byte{},
 			SqlQuery:         []byte{},
 		}
 	},
@@ -34,7 +32,7 @@ func NewTimescaleDBQuery() *TimescaleDBQuery {
 
 // String produces a debug-ready description of a Query.
 func (q *TimescaleDBQuery) String() string {
-	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, NamespaceName: %s, FieldName: %s, Query: %s", q.HumanLabel, q.HumanDescription, q.NamespaceName, q.FieldName, q.SqlQuery)
+	return fmt.Sprintf("HumanLabel: %s, HumanDescription: %s, NamespaceName: %s, Query: %s", q.HumanLabel, q.HumanDescription, q.NamespaceName, q.SqlQuery)
 }
 
 func (q *TimescaleDBQuery) HumanLabelName() []byte {
@@ -49,7 +47,6 @@ func (q *TimescaleDBQuery) Release() {
 	q.HumanDescription = q.HumanDescription[:0]
 
 	q.NamespaceName = q.NamespaceName[:0]
-	q.FieldName = q.FieldName[:0]
 	q.SqlQuery = q.SqlQuery[:0]
 
 	TimescaleDBQueryPool.Put(q)
