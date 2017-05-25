@@ -1,5 +1,18 @@
 package main
 
+var cpuMetrics = []string{
+	"usage_user",
+	"usage_system",
+	"usage_idle",
+	"usage_nice",
+	"usage_iowait",
+	"usage_irq",
+	"usage_softirq",
+	"usage_steal",
+	"usage_guest",
+	"usage_guest_nice",
+}
+
 // Devops describes a devops query generator.
 type Devops interface {
 	MaxCPUUsageHourByMinuteOneHost(Query, int)

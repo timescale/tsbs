@@ -143,36 +143,21 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// MeanCPUUsageDayByHourAllHostsGroupbyHost populates a Query with a query that looks like:
-// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *TimescaleDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-	humanLabel := "TimescaleDB mean cpu usage, all hosts, rand 1day by 1hour"
-	d.meanCPUDayByHourAllHostsGroupbyHost(qi, []string{"usage_user"}, humanLabel)
-}
-
-// MeanCPUMetricsDayByHourAllHostsGroupbyHost populates a Query with a query that looks like:
-// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-	metrics := []string{
-		"usage_user",
-		"usage_system",
-		"usage_idle",
-		"usage_nice",
-		"usage_iowait",
-		"usage_irq",
-		"usage_softirq",
-		"usage_steal",
-		"usage_guest",
-		"usage_guest_nice",
-	}
-	humanLabel := "TimescaleDB mean all cpu metrics, all hosts, rand 1day by 1hour"
-	d.meanCPUDayByHourAllHostsGroupbyHost(qi, metrics, humanLabel)
-}
-
-func (d *TimescaleDBDevops) meanCPUDayByHourAllHostsGroupbyHost(qi Query, metrics []string, label string) {
-	if len(metrics) < 0 {
+// MeanCPUMetricsDayByHourAllHostsGroupbyHost selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
+// e.g. in psuedo-SQL:
+//
+// SELECT AVG(metric1), ..., AVG(metricN)
+// FROM cpu
+// WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour, hostname ORDER BY hour
+func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query, numMetrics int) {
+	if numMetrics <= 0 {
 		panic("no metrics given")
 	}
+	if numMetrics > len(cpuMetrics) {
+		panic("too many metrics asked for")
+	}
+	metrics := cpuMetrics[:numMetrics]
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	selectClauses := make([]string, len(metrics))
@@ -183,9 +168,9 @@ func (d *TimescaleDBDevops) meanCPUDayByHourAllHostsGroupbyHost(qi Query, metric
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) as hour, hostname,
     %s
     FROM cpu WHERE time >= '%s' AND time < '%s'
-    GROUP BY hour, hostname ORDER BY hour`, strings.Join(selectClauses, ","), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+    GROUP BY hour, hostname ORDER BY hour`, strings.Join(selectClauses, ", "), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
-	humanLabel := label
+	humanLabel := fmt.Sprintf("TimescaleDB mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*TimescaleDBQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

@@ -172,14 +172,26 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi Query, _ int) {
 
 // MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, numMetrics int) {
+	if numMetrics <= 0 {
+		panic("no metrics given")
+	}
+	if numMetrics > len(cpuMetrics) {
+		panic("too many metrics asked for")
+	}
+	metrics := cpuMetrics[:numMetrics]
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
+
+	selectClauses := make([]string, len(metrics))
+	for i, m := range metrics {
+		selectClauses[i] = fmt.Sprintf("mean(%s)", m)
+	}
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString()))
 
-	humanLabel := "Influx mean cpu, all hosts, rand 1day by 1hour"
+	humanLabel := fmt.Sprintf("Influx mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*HTTPQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

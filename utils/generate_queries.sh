@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x 
+set -x
 binName=$(which bulk_query_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/queries}
@@ -7,7 +7,7 @@ useJson=${useJson:-false}
 useTags=${useTags:-false}
 
 formats=${formats:-"influx-http cassandra timescaledb"}
-queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby lastpoint multiple-ors-by-host cpu-max-all-eight-hosts groupby high-cpu high-cpu-and-field multiple-ors cpu-max-all-single-host groupby-orderby-limit 5-metrics-1-host-1-hr 5-metrics-1-host-12-hr 5-metrics-8-host-1-hr"}
+queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby groupby-5 groupby-all lastpoint cpu-max-all-single-host cpu-max-all-eight-hosts high-cpu high-cpu-and-field groupby-orderby-limit 5-metrics-1-host-1-hr 5-metrics-1-host-12-hr 5-metrics-8-host-1-hr"}
 
 scaleVar=${scaleVar:-"1000"}
 queries=${queries:-"2500"}
@@ -35,4 +35,4 @@ for queryType in ${queryTypes}; do
             echo "File exists"
         fi
     done
-done 
+done
