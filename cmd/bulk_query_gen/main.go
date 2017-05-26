@@ -70,17 +70,17 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"5-metrics-1-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 1),
-			"influx-http": NewInfluxDevops5Metrics1Host1Hr,
+			"influx-http": NewInfluxDevops5Metrics(1, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 1),
 		},
 		"5-metrics-1-host-12-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 12),
-			"influx-http": NewInfluxDevops5Metrics1Host12Hrs,
+			"influx-http": NewInfluxDevops5Metrics(1, 12),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 12),
 		},
 		"5-metrics-8-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(8, 1),
-			"influx-http": NewInfluxDevops5Metrics8Hosts1Hr,
+			"influx-http": NewInfluxDevops5Metrics(8, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(8, 1),
 		},
 		"lastpoint": {
@@ -90,12 +90,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"high-cpu": {
 			"cassandra":   NewCassandraDevopsHighCPU,
-			"influx-http": NewInfluxDevopsHighCPU,
+			"influx-http": NewInfluxDevopsHighCPU(0),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
 		},
 		"high-cpu-and-field": {
 			"cassandra":   NewCassandraDevopsHighCPUAndField,
-			"influx-http": NewInfluxDevopsHighCPUAndField,
+			"influx-http": NewInfluxDevopsHighCPU(1),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},
 		"multiple-ors": {
@@ -108,12 +108,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		},
 		"cpu-max-all-single-host": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
-			"influx-http": NewInfluxDevopsAllMaxCPUOneHost,
+			"influx-http": NewInfluxDevopsAllMaxCPU(1),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(1),
 		},
 		"cpu-max-all-eight-hosts": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(8),
-			"influx-http": NewInfluxDevopsAllMaxCPUEightHosts,
+			"influx-http": NewInfluxDevopsAllMaxCPU(8),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(8),
 		},
 		"groupby-orderby-limit": {

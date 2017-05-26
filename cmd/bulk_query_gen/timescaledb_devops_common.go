@@ -24,7 +24,7 @@ func newTimescaleDBDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) Q
 	}
 }
 
-func getHostWhereWithHostnames(hostnames []string) string {
+func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string {
 	if timescaleUseJSON {
 		hostnameClauses := []string{}
 		for _, s := range hostnames {
@@ -49,7 +49,12 @@ func getHostWhereWithHostnames(hostnames []string) string {
 	}
 }
 
-func getHostWhereString(scaleVar int, nhosts int) string {
+func (d *TimescaleDBDevops) getHostWhereString(scaleVar int, nhosts int) string {
+	hostnames := getRandomHosts(scaleVar, nhosts)
+	return d.getHostWhereWithHostnames(hostnames)
+}
+
+func getRandomHosts(scaleVar, nhosts int) []string {
 	if nhosts > scaleVar {
 		log.Fatal("nhosts > scaleVar")
 	}
@@ -61,7 +66,7 @@ func getHostWhereString(scaleVar int, nhosts int) string {
 		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
 	}
 
-	return getHostWhereWithHostnames(hostnames)
+	return hostnames
 }
 
 // Dispatch fulfills the QueryGenerator interface.
@@ -83,7 +88,7 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -7:00"
 func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*TimescaleDBQuery)
@@ -112,7 +117,7 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRang
     max(usage_guest) AS max_usage_guest
     FROM cpu
     WHERE %s AND time >= '%s' AND time < '%s'
-    GROUP BY minute ORDER BY minute ASC`, getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+    GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*TimescaleDBQuery)
@@ -199,7 +204,8 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
     max(usage_steal) AS max_usage_steal,
     max(usage_guest) AS max_usage_guest,
     max(usage_guest_nice) AS max_usage_guest_nice
-    FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`, getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+    FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`,
+		d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
 	q := qi.(*TimescaleDBQuery)
@@ -240,10 +246,10 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *TimescaleDBDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
 	var hostWhereClause string
-	if scaleVar == 0 {
+	if nhosts == 0 {
 		hostWhereClause = ""
 	} else {
-		hostWhereClause = fmt.Sprintf("AND (%s)", getHostWhereString(scaleVar, nhosts))
+		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(scaleVar, nhosts))
 	}
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
@@ -252,7 +258,7 @@ func (d *TimescaleDBDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
 
 	humanLabel := "TimescaleDB CPU over threshold, "
 	if len(hostWhereClause) > 0 {
-		humanLabel += "one host"
+		humanLabel += fmt.Sprintf("%d host(s)", nhosts)
 	} else {
 		humanLabel += "all hosts"
 	}

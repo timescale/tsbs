@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -36,6 +35,21 @@ func (d *InfluxDevops) Dispatch(i, scaleVar int) Query {
 	return q
 }
 
+func (d *InfluxDevops) getHostWhereWithHostnames(hostnames []string) string {
+	hostnameClauses := []string{}
+	for _, s := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
+	}
+
+	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+	return "(" + combinedHostnameClause + ")"
+}
+
+func (d *InfluxDevops) getHostWhereString(scaleVar int, nhosts int) string {
+	hostnames := getRandomHosts(scaleVar, nhosts)
+	return d.getHostWhereWithHostnames(hostnames)
+}
+
 func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, time.Hour)
 }
@@ -64,39 +78,11 @@ func (d *InfluxDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) 
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, 12*time.Hour)
 }
 
-// CPU5MetricsHourByMinuteOneHost is a query for 5 CPU metrics per minute over 1 hour on 1 host
-func (d *InfluxDevops) CPU5MetricsHourByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, time.Hour)
-}
-
-// CPU5Metrics12HoursByMinuteOneHost is a query for 5 CPU metrics per minute over 12 hours on 1 host
-func (d *InfluxDevops) CPU5Metrics12HoursByMinuteOneHost(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 1, 12*time.Hour)
-}
-
-// CPU5MetricsHourByMinuteEightHosts is a query for 5 CPU metrics per minute over 1 hour on 8 hosts
-func (d *InfluxDevops) CPU5MetricsHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.cpu5MetricsHourByMinuteNHosts(q, scaleVar, 8, time.Hour)
-}
-
-func (d *InfluxDevops) MaxAllCPUHourByMinuteOneHost(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1)
-}
-
-func (d *InfluxDevops) MaxAllCPUHourByMinuteEightHosts(q Query, scaleVar int) {
-	d.maxAllCPUHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8)
-}
-
 // MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
 func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	nn := rand.Perm(scaleVar)[:nhosts]
-
-	hostnames := []string{}
-	for _, n := range nn {
-		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
-	}
+	hostnames := getRandomHosts(scaleVar, nhosts)
 
 	hostnameClauses := []string{}
 	for _, s := range hostnames {
@@ -118,14 +104,17 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts 
 	q.Body = nil
 }
 
-func (d *InfluxDevops) cpu5MetricsHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
+// SELECT minute, max(metric1), ..., max(metric5)
+// FROM cpu
+// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY minute ORDER BY minute ASC
+func (d *InfluxDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	nn := rand.Perm(scaleVar)[:nhosts]
-
-	hostnames := []string{}
-	for _, n := range nn {
-		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
-	}
+	hostnames := getRandomHosts(scaleVar, nhosts)
 
 	hostnameClauses := []string{}
 	for _, s := range hostnames {
@@ -200,14 +189,16 @@ func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, numMet
 	q.Body = nil
 }
 
-func (d *InfluxDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts int) {
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
+// SELECT MAX(metric1), ..., MAX(metricN)
+// FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour ORDER BY hour
+func (d *InfluxDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(12 * time.Hour)
-	nn := rand.Perm(scaleVar)[:nhosts]
-
-	hostnames := []string{}
-	for _, n := range nn {
-		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
-	}
+	hostnames := getRandomHosts(scaleVar, nhosts)
 
 	hostnameClauses := []string{}
 	for _, s := range hostnames {
@@ -229,8 +220,8 @@ func (d *InfluxDevops) maxAllCPUHourByMinuteNHosts(qi Query, scaleVar, nhosts in
 	q.Body = nil
 }
 
+// LastPointPerHost finds the last row for every host in the dataset
 func (d *InfluxDevops) LastPointPerHost(qi Query, _ int) {
-
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
 	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
@@ -244,32 +235,33 @@ func (d *InfluxDevops) LastPointPerHost(qi Query, _ int) {
 	q.Body = nil
 }
 
-// SELECT * where CPU > threshold and <some time period>
-func (d *InfluxDevops) HighCPU(qi Query, _ int) {
+// HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a number of hosts (if 0, it will search all hosts),
+// e.g. in psuedo-SQL:
+//
+// SELECT * FROM cpu
+// WHERE usage_user > 90.0
+// AND time >= '$TIME_START' AND time < '$TIME_END'
+// AND (hostname = '$HOST' OR hostname = '$HOST2'...)
+func (d *InfluxDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	var hostWhereClause string
+	if nhosts == 0 {
+		hostWhereClause = ""
+	} else {
+		hostWhereClause = fmt.Sprintf("and %s", d.getHostWhereString(scaleVar, nhosts))
+	}
 
 	v := url.Values{}
 	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 and time >= '%s' and time < '%s'", interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString()))
 
-	humanLabel := "Influx cpu over threshold"
-	q := qi.(*HTTPQuery)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
-}
-
-// SELECT * where CPU > threshold and device_type = FOO and <some time period>
-func (d *InfluxDevops) HighCPUAndField(qi Query, hosts int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
-
-	v := url.Values{}
-	v.Set("db", d.DatabaseName)
-	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 and host == 'host_%d' and time >= '%s' and time < '%s'", rand.Intn(hosts), interval.StartString(), interval.EndString()))
-
-	humanLabel := "Influx cpu over threshold with field"
+	humanLabel := "Influx cpu over threshold, "
+	if len(hostWhereClause) > 0 {
+		humanLabel += fmt.Sprintf("%d host(s)", nhosts)
+	} else {
+		humanLabel += "all hosts"
+	}
 	q := qi.(*HTTPQuery)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
