@@ -513,6 +513,9 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			dbBench.MustExec(
 				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d)",
 					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
+		} else {
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
 		}
 	}
 }

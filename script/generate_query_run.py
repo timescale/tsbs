@@ -53,33 +53,40 @@ def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
     '''Writes a script line corresponding to loading data into a database'''
     logfilename = 'load_{}_{}_{}_{}.out'.format(label, workers, batch_size, reporting_period)
     prefix = 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, load_dir)
-    suffix = ' ./load_{}.sh | tee {}'.format(label, logfilename)
+
+    loader = label if label != 'postgres' else 'timescaledb'
+    suffix = ' ./load_{}.sh | tee {}'.format(loader, logfilename)
 
     if label == 'influxdb':
         return prefix + ' BATCH_SIZE={}'.format(batch_size) + suffix
     elif label == 'cassandra':
         return prefix + ' CASSANDRA_BATCH_SIZE={}'.format(batch_size) + suffix
     elif label == 'timescaledb':
-        return prefix + ' BATCH_SIZE={}'.format(batch_size) + suffix
+        return prefix + ' USE_HYPERTABLE=true BATCH_SIZE={}'.format(batch_size) + suffix
+    elif label == "postgres":
+        return prefix + ' USE_HYPERTABLE=false BATCH_SIZE={}'.format(batch_size) + suffix
 
 
 def get_query_str(queryfile, label, workers, extra_query_args, limit=1000):
     '''Writes a script line corresponding to executing a query on a database'''
-    extra_args = ''
+    limit_arg = '--limit={}'.format(limit) if limit is not None else ''
+    output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
+    benchmarker = label if label != 'postgres' else 'timescaledb'
 
+    extra_args = ''
     if label == 'cassandra':
         # Cassandra has an extra option to choose between server & client
         # aggregation plans. Client seems to be better in all cases
         extra_args = '--aggregation-plan=client'
     elif label == 'timescaledb':
         # TimescaleDB needs the connection string
-        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false')
-
-    limit_arg = '--limit={}'.format(limit) if limit is not None else ''
-    output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
+        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable')
+    elif label == 'postgres':
+        # Postgres needs the connection string
+        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable')
 
     return 'cat {} | gunzip | query_benchmarker_{} --workers={} {} {} {} | tee {}.out'.format(
-        queryfile, label, workers, limit_arg, extra_args, extra_query_args, output_file)
+        queryfile, benchmarker, workers, limit_arg, extra_args, extra_query_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir):
     '''Gets the list of files containing benchmark queries'''
@@ -88,7 +95,11 @@ def load_queries_file_names(filename, label, query_dir):
         for query in queries:
             query = query.split('#')[0]
             if len(query) > 0:
-                n = label if label != "influxdb" else "influx-http"
+                n = label
+                if label == 'influxdb':
+                    n = 'influx-http'
+                elif label == 'postgres':
+                    n = 'timescaledb'
                 l.append(os.path.join(query_dir, "{}-{}-queries.gz".format(n, query.strip())))
 
     return l
