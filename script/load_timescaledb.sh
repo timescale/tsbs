@@ -2,7 +2,9 @@
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
-PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20000}
+PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
+CHUNK_TIME=${CHUNK_TIME:-8h}
+USE_HYPERTABLE=${USE_HYPERTABLE:-true}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/timescaledb.conf
@@ -13,16 +15,15 @@ while ! pg_isready; do
 done
 
 cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
-                                --batch-size ${BATCH_SIZE} \
+                                --batch-size=${BATCH_SIZE} \
                                 --field-index="VALUE-TIME" \
                                 --field-index-count=1 \
-                                --make-hypertable=true \
-                                --number_partitions 1 \
+                                --use-hypertable=${USE_HYPERTABLE} \
+                                --number_partitions=1 \
                                 --jsonb-tags=${JSON_TAGS} \
-                                --workers ${NUM_WORKERS} \
+                                --workers=${NUM_WORKERS} \
                                 --db-name=${DATABASE_NAME} \
-				--chunk-time=8h \
-                                --postgres "host=${DATABASE_HOST} user=postgres sslmode=disable" \
-                                --reporting-period ${PROGRESS_INTERVAL} \
-                                --tag-index="" \
-                                --batch-size=${BATCH_SIZE}
+				                --chunk-time=${CHUNK_TIME} \
+                                --postgres="host=${DATABASE_HOST} user=postgres sslmode=disable" \
+                                --reporting-period=${PROGRESS_INTERVAL} \
+                                --tag-index=""

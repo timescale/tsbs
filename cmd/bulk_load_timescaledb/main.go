@@ -27,7 +27,7 @@ var (
 	workers          int
 	batchSize        int
 	doLoad           bool
-	makeHypertable   bool
+	useHypertable    bool
 	logBatches       bool
 	tagIndex         string
 	fieldIndex       string
@@ -68,7 +68,7 @@ func init() {
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
-	flag.BoolVar(&makeHypertable, "make-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
+	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 	flag.BoolVar(&useJSON, "jsonb-tags", false, "Whether tags should be stored as JSONB")
 
@@ -285,7 +285,7 @@ func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
 
-		ret += int64(len(metrics))
+		ret += int64(len(metrics) - 1) // 1 field is timestamp
 		r := "("
 		// TODO -- support more than 10 common tags
 		for _, t := range tags[:10] {
@@ -346,7 +346,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
 
-		ret += int64(len(metrics))
+		ret += int64(len(metrics) - 1) // 1 field is timestamp
 		r := "("
 		for ind, value := range metrics {
 			if ind == 0 {
@@ -435,6 +435,7 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 		cols += " TEXT"
 		db.MustExec(fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
 		db.MustExec(fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
+		db.MustExec(fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
 	}
 }
 
@@ -447,9 +448,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 	dbBench := sqlx.MustConnect("postgres", getConnectString())
 	defer dbBench.Close()
 
-	if makeHypertable {
+	if useHypertable {
 		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-		dbBench.MustExec("SELECT setup_timescaledb()")
 	}
 
 	for scanner.Scan() {
@@ -479,9 +479,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			fieldType := "DOUBLE PRECISION"
 			idxType := fieldIndex
 			if idx == 0 {
-				partitioningField = field
 				fieldType = "TEXT"
-				idxType = tagIndex
+				idxType = ""
 			}
 
 			fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
@@ -503,17 +502,17 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			}
 		}
 		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
-		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id,\"time\" DESC)", hypertable))
-		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC,tags_id)", hypertable))
+		//dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+		//dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
 
 		for _, idxDef := range indexes {
 			dbBench.MustExec(idxDef)
 		}
 
-		if makeHypertable {
+		if useHypertable {
 			dbBench.MustExec(
 				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d)",
-					hypertable, partitioningField, numberPartitions, chunkTime.Nanoseconds()/1000))
+					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
 		}
 	}
 }

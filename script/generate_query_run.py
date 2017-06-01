@@ -50,6 +50,7 @@ import argparse
 import os
 
 def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
+    '''Writes a script line corresponding to loading data into a database'''
     logfilename = 'load_{}_{}_{}_{}.out'.format(label, workers, batch_size, reporting_period)
     prefix = 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, load_dir)
     suffix = ' ./load_{}.sh | tee {}'.format(label, logfilename)
@@ -63,19 +64,25 @@ def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
 
 
 def get_query_str(queryfile, label, workers, extra_query_args, limit=1000):
+    '''Writes a script line corresponding to executing a query on a database'''
     extra_args = ''
-    if label == 'cassandra':
-        extra_args = '-aggregation-plan client'
-    elif label == 'timescaledb':
-        extra_args = '-postgres "{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false')
 
-    limit_arg = '-limit {}'.format(limit) if limit is not None else ''
+    if label == 'cassandra':
+        # Cassandra has an extra option to choose between server & client
+        # aggregation plans. Client seems to be better in all cases
+        extra_args = '--aggregation-plan=client'
+    elif label == 'timescaledb':
+        # TimescaleDB needs the connection string
+        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false')
+
+    limit_arg = '--limit={}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
 
-    return 'cat {} | gunzip | query_benchmarker_{} -workers {} {} {} {} | tee {}.out'.format(
+    return 'cat {} | gunzip | query_benchmarker_{} --workers={} {} {} {} | tee {}.out'.format(
         queryfile, label, workers, limit_arg, extra_args, extra_query_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir):
+    '''Gets the list of files containing benchmark queries'''
     l = list()
     with open(filename, 'r') as queries:
         for query in queries:
@@ -87,7 +94,7 @@ def load_queries_file_names(filename, label, query_dir):
     return l
 
 def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, workers, extra_query_args):
-
+    '''Writes a bash script file to run load/query tests'''
     print '#!/bin/bash'
     queries = []
     if queries_file is not None:
@@ -101,9 +108,9 @@ def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, w
 
     if len(queries) > 0:
         print("# Queries")
-    for query in queries:
-        print(get_query_str(query, db_name, workers, extra_query_args))
-        print("")
+        for query in queries:
+            print(get_query_str(query, db_name, workers, extra_query_args))
+            print("")
 
 
 if __name__ == "__main__":
