@@ -368,18 +368,27 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 		tagRows = append(tagRows, tags[:10])
 	}
 
-	//fmt.Printf("t1: %v\n", time.Now().Sub(start))
-	//fmt.Printf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING;`, tagCols, strings.Join(tagRows[:1], ","))
-	if !calledOnce {
-		//_ = tx.MustExec(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING;`, tagCols, strings.Join(tagRows, ",")))
+	// Check if any of these tags has yet to be inserted
+	mutex.RLock()
+	insert := false
+	for _, cols := range tagRows {
+		// TODO - Might be more performant to just insert those that haven't?
+		if _, ok := csi[strings.Join(cols, ",")]; !ok {
+			insert = true
+			break
+		}
+	}
+	mutex.RUnlock()
+
+	if insert {
 		res := insertTags(tx, tagRows, true)
 		mutex.Lock()
 		for k, v := range res {
 			csi[k] = v
 		}
 		mutex.Unlock()
-		calledOnce = true
 	}
+
 	mutex.RLock()
 	for i, r := range dataRows {
 		// TODO -- support more than 10 common tags
