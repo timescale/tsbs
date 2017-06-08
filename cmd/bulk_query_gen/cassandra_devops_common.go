@@ -133,7 +133,7 @@ func (d *CassandraDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange 
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *CassandraDevops) GroupByOrderByLimit(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(time.Hour)
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (rand end)"
 	q := qi.(*CassandraQuery)
@@ -178,7 +178,7 @@ func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ i
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *CassandraDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(8 * time.Hour)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
 	tagSets := [][]string{}

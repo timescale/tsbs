@@ -142,7 +142,7 @@ func (d *InfluxDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange tim
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *InfluxDevops) GroupByOrderByLimit(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(time.Hour)
 
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
 
@@ -197,7 +197,7 @@ func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, numMet
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *InfluxDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(8 * time.Hour)
 	hostnames := getRandomHosts(scaleVar, nhosts)
 
 	hostnameClauses := []string{}

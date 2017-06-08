@@ -133,7 +133,7 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRang
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
 
 	where := fmt.Sprintf("WHERE time < '%s'", timeStr)
@@ -202,7 +202,7 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query,
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(12 * time.Hour)
+	interval := d.AllInterval.RandWindow(8 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
     max(usage_user) AS max_usage_user,
@@ -234,7 +234,7 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 	if timescaleUseTags {
 		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.hostname) * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.hostname, b.time DESC")
 	} else if timescaleUseJSON {
-		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.tagset->>'hostname') * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.tagset->>hostname, b.time DESC")
+		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.tagset->>'hostname') * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.tagset->>'hostname', b.time DESC")
 	} else {
 		sqlQuery = fmt.Sprintf(`SELECT DISTINCT ON (hostname) * FROM cpu ORDER BY hostname, time DESC`)
 	}
