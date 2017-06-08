@@ -1,8 +1,12 @@
-package main
+package benchmarker
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"math"
+	"sort"
+	"sync"
 )
 
 // Stat represents one statistical measurement.
@@ -16,6 +20,18 @@ func (s *Stat) Init(label []byte, value float64) {
 	s.Label = s.Label[:0] // clear
 	s.Label = append(s.Label, label...)
 	s.Value = value
+}
+
+// GetStatPool returns a sync.Pool for Stat
+func GetStatPool() sync.Pool {
+	return sync.Pool{
+		New: func() interface{} {
+			return &Stat{
+				Label: make([]byte, 0, 1024),
+				Value: 0.0,
+			}
+		},
+	}
 }
 
 // StatGroup collects simple streaming statistics.
@@ -72,4 +88,44 @@ func (s *StatGroup) Push(n float64) {
 // String makes a simple description of a StatGroup.
 func (s *StatGroup) String() string {
 	return fmt.Sprintf("min: %f, max: %f, mean: %f, count: %d, sum: %f, stddev: %f", s.Min, s.Max, s.Mean, s.Count, s.Sum, s.StdDev)
+}
+
+func (s *StatGroup) Write(w io.Writer) error {
+	minRate := 1e3 / s.Min
+	meanRate := 1e3 / s.Mean
+	maxRate := 1e3 / s.Max
+
+	_, err := fmt.Fprintf(w, "min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), stddev: %8.2f, sum: %5.1fsec \n", s.Min, minRate, s.Mean, meanRate, s.Max, maxRate, s.StdDev, s.Sum/1e3)
+	return err
+}
+
+// WriteStatGroupMap writes a map of StatGroups in an ordered fashion by
+// key that they are stored by
+func WriteStatGroupMap(w io.Writer, statGroups map[string]*StatGroup) {
+	maxKeyLength := 0
+	keys := make([]string, 0, len(statGroups))
+	for k := range statGroups {
+		if len(k) > maxKeyLength {
+			maxKeyLength = len(k)
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := statGroups[k]
+		paddedKey := fmt.Sprintf("%s", k)
+		for len(paddedKey) < maxKeyLength {
+			paddedKey += " "
+		}
+
+		_, err := fmt.Fprintf(w, "%s:\n", paddedKey)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = v.Write(w)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }

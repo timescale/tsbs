@@ -16,11 +16,11 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 )
 
@@ -47,7 +47,7 @@ var (
 	queryPool           sync.Pool
 	queryChan           chan *Query
 	statPool            sync.Pool
-	statChan            chan *Stat
+	statChan            chan *benchmarker.Stat
 	workersGroup        sync.WaitGroup
 	statGroup           sync.WaitGroup
 	telemetryChanPoints chan *telemetry.Point
@@ -119,18 +119,11 @@ func main() {
 		},
 	}
 
-	statPool = sync.Pool{
-		New: func() interface{} {
-			return &Stat{
-				Label: make([]byte, 0, 1024),
-				Value: 0.0,
-			}
-		},
-	}
+	statPool = benchmarker.GetStatPool()
 
 	// Make data and control channels:
 	queryChan = make(chan *Query, workers)
-	statChan = make(chan *Stat, workers)
+	statChan = make(chan *benchmarker.Stat, workers)
 
 	// Launch the stats processor:
 	statGroup.Add(1)
@@ -228,7 +221,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		ts := time.Now().UnixNano()
 		lagMillis, err := w.Do(q, opts)
 
-		stat := statPool.Get().(*Stat)
+		stat := statPool.Get().(*benchmarker.Stat)
 		stat.Init(q.HumanLabel, lagMillis)
 		statChan <- stat
 
@@ -260,8 +253,8 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
 	const allQueriesLabel = "all queries"
-	statMapping := map[string]*StatGroup{
-		allQueriesLabel: &StatGroup{},
+	statMapping := map[string]*benchmarker.StatGroup{
+		allQueriesLabel: &benchmarker.StatGroup{},
 	}
 
 	i := uint64(0)
@@ -278,7 +271,7 @@ func processStats() {
 		}
 
 		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = &StatGroup{}
+			statMapping[string(stat.Label)] = &benchmarker.StatGroup{}
 		}
 
 		statMapping[allQueriesLabel].Push(stat.Value)
@@ -294,7 +287,7 @@ func processStats() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fprintStats(os.Stderr, statMapping)
+			benchmarker.WriteStatGroupMap(os.Stderr, statMapping)
 			_, err = fmt.Fprintf(os.Stderr, "\n")
 			if err != nil {
 				log.Fatal(err)
@@ -307,34 +300,6 @@ func processStats() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fprintStats(os.Stdout, statMapping)
+	benchmarker.WriteStatGroupMap(os.Stdout, statMapping)
 	statGroup.Done()
-}
-
-// fprintStats pretty-prints stats to the given writer.
-func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
-	maxKeyLength := 0
-	keys := make([]string, 0, len(statGroups))
-	for k := range statGroups {
-		if len(k) > maxKeyLength {
-			maxKeyLength = len(k)
-		}
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := statGroups[k]
-		minRate := 1e3 / v.Min
-		meanRate := 1e3 / v.Mean
-		maxRate := 1e3 / v.Max
-		paddedKey := fmt.Sprintf("%s", k)
-		for len(paddedKey) < maxKeyLength {
-			paddedKey += " "
-		}
-		_, err := fmt.Fprintf(w, "%s:\n min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), stddev: %8.2f, sum: %5.1fsec \n", paddedKey, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.StdDev, v.Sum/1e3)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 }

@@ -18,9 +18,10 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
-	"sort"
 	"sync"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 )
 
 const (
@@ -69,7 +70,7 @@ var (
 	queryPool    sync.Pool
 	hlQueryChan  chan *HLQuery
 	statPool     sync.Pool
-	statChan     chan *Stat
+	statChan     chan *CStat
 	workersGroup sync.WaitGroup
 	statGroup    sync.WaitGroup
 	aggrPlan     int
@@ -117,8 +118,10 @@ func main() {
 
 	statPool = sync.Pool{
 		New: func() interface{} {
-			return &Stat{
-				Label: make([]byte, 0, 1024),
+			return &CStat{
+				Stat: benchmarker.Stat{
+					Label: make([]byte, 0, 1024),
+				},
 			}
 		},
 	}
@@ -132,7 +135,7 @@ func main() {
 
 	// Make data and stat channels:
 	hlQueryChan = make(chan *HLQuery, workers)
-	statChan = make(chan *Stat, workers)
+	statChan = make(chan *CStat, workers)
 
 	// Launch the stats processor:
 	statGroup.Add(1)
@@ -228,17 +231,17 @@ func processQueries(qc *HLQueryExecutor) {
 		ls := labels[string(q.HumanLabel)]
 
 		// total lag stat:
-		stat := statPool.Get().(*Stat)
+		stat := statPool.Get().(*CStat)
 		stat.Init(ls[0], qpLagMs+reqLagMs, true)
 		statChan <- stat
 
 		// qp lag stat:
-		stat = statPool.Get().(*Stat)
+		stat = statPool.Get().(*CStat)
 		stat.Init(ls[1], qpLagMs, false)
 		statChan <- stat
 
 		// req lag stat:
-		stat = statPool.Get().(*Stat)
+		stat = statPool.Get().(*CStat)
 		stat.Init(ls[2], reqLagMs, false)
 		statChan <- stat
 
@@ -253,7 +256,7 @@ func processQueries(qc *HLQueryExecutor) {
 // processStats collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
 func processStats() {
-	statMapping := map[string]*StatGroup{}
+	statMapping := map[string]*benchmarker.StatGroup{}
 
 	i := uint64(0)
 	for stat := range statChan {
@@ -268,7 +271,7 @@ func processStats() {
 			}
 		}
 		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = &StatGroup{}
+			statMapping[string(stat.Label)] = &benchmarker.StatGroup{}
 		}
 
 		statMapping[string(stat.Label)].Push(stat.Value)
@@ -285,7 +288,7 @@ func processStats() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fprintStats(os.Stderr, statMapping)
+			benchmarker.WriteStatGroupMap(os.Stderr, statMapping)
 			_, err = fmt.Fprintf(os.Stderr, "\n")
 			if err != nil {
 				log.Fatal(err)
@@ -298,34 +301,6 @@ func processStats() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fprintStats(os.Stdout, statMapping)
+	benchmarker.WriteStatGroupMap(os.Stdout, statMapping)
 	statGroup.Done()
-}
-
-// fprintStats pretty-prints stats to the given writer.
-func fprintStats(w io.Writer, statGroups map[string]*StatGroup) {
-	maxKeyLength := 0
-	keys := make([]string, 0, len(statGroups))
-	for k := range statGroups {
-		if len(k) > maxKeyLength {
-			maxKeyLength = len(k)
-		}
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := statGroups[k]
-		minRate := 1e3 / v.Min
-		meanRate := 1e3 / v.Mean
-		maxRate := 1e3 / v.Max
-		paddedKey := fmt.Sprintf("%s", k)
-		for len(paddedKey) < maxKeyLength {
-			paddedKey += " "
-		}
-		_, err := fmt.Fprintf(w, "%s:\n min: %8.2fms (%7.2f/sec), mean: %8.2fms (%7.2f/sec), max: %7.2fms (%6.2f/sec), stddev: %8.2f, sum: %5.1fsec \n", paddedKey, v.Min, minRate, v.Mean, meanRate, v.Max, maxRate, v.StdDev, v.Sum/1e3)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 }
