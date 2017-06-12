@@ -20,6 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/load"
+
 	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 	"github.com/pkg/profile"
 	"github.com/valyala/fasthttp"
@@ -27,35 +29,33 @@ import (
 
 // Program option vars:
 var (
-	csvDaemonUrls           string
-	daemonUrls              []string
-	dbName                  string
-	replicationFactor       int
-	workers                 int
-	itemLimit               int64
-	batchSize               int
-	backoff                 time.Duration
-	timeLimit               time.Duration
-	progressInterval        time.Duration
-	doLoad                  bool
-	doDBCreate              bool
-	useGzip                 bool
-	doAbortOnExist          bool
-	memprofile              bool
-	consistency             string
-	telemetryHost           string
-	telemetryStderr         bool
-	telemetryBatchSize      uint64
-	telemetryTagsCSV        string
-	telemetryBasicAuth      string
+	csvDaemonUrls      string
+	daemonUrls         []string
+	dbName             string
+	replicationFactor  int
+	workers            int
+	itemLimit          int64
+	batchSize          int
+	backoff            time.Duration
+	timeLimit          time.Duration
+	reportingPeriod    time.Duration
+	doLoad             bool
+	doDBCreate         bool
+	useGzip            bool
+	doAbortOnExist     bool
+	memprofile         bool
+	consistency        string
+	telemetryHost      string
+	telemetryStderr    bool
+	telemetryBatchSize uint64
+	telemetryTagsCSV   string
+	telemetryBasicAuth string
 )
 
 // Global vars
 var (
 	bufPool             sync.Pool
 	batchChan           chan *bytes.Buffer
-	inputDone           chan struct{}
-	workersGroup        sync.WaitGroup
 	backingOffChans     []chan bool
 	backingOffDones     []chan struct{}
 	telemetryChanPoints chan *telemetry.Point
@@ -63,14 +63,15 @@ var (
 	telemetrySrcAddr    string
 	telemetryTags       [][2]string
 
-	progressIntervalItems uint64
+	rowCount    uint64
+	metricCount uint64
 )
 
 var consistencyChoices = map[string]struct{}{
-	"any": struct{}{},
-	"one": struct{}{},
+	"any":    struct{}{},
+	"one":    struct{}{},
 	"quorum": struct{}{},
-	"all": struct{}{},
+	"all":    struct{}{},
 }
 
 // Parse args:
@@ -84,7 +85,7 @@ func init() {
 	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (1 item per 1 line of input.)")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
-	flag.DurationVar(&progressInterval, "progress-interval", -1, "Duration between printing progress messages.")
+	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
@@ -168,9 +169,6 @@ func main() {
 		},
 	}
 
-	batchChan = make(chan *bytes.Buffer, workers)
-	inputDone = make(chan struct{})
-
 	backingOffChans = make([]chan bool, workers)
 	backingOffDones = make([]chan struct{}, workers)
 
@@ -178,12 +176,11 @@ func main() {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
 		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, 0)
 	}
-
-	for i := 0; i < workers; i++ {
+	batchChan = make(chan *bytes.Buffer, workers)
+	workerFn := func(wg *sync.WaitGroup, i int) {
 		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		backingOffChans[i] = make(chan bool, 100)
 		backingOffDones[i] = make(chan struct{})
-		workersGroup.Add(1)
 		cfg := HTTPWriterConfig{
 			DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonUrl),
 			Host:           daemonUrl,
@@ -191,39 +188,22 @@ func main() {
 			BackingOffChan: backingOffChans[i],
 			BackingOffDone: backingOffDones[i],
 		}
-		go processBatches(NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i], telemetryChanPoints, fmt.Sprintf("%d", i))
+		go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i], telemetryChanPoints, fmt.Sprintf("%d", i))
 		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 	}
-
-	if progressInterval >= 0 {
-		go func() {
-			start := time.Now()
-			for end := range time.NewTicker(progressInterval).C {
-				n := atomic.SwapUint64(&progressIntervalItems, 0)
-
-				//absoluteMillis := end.Add(-progressInterval).UnixNano() / 1e6
-				absoluteMillis := start.UTC().UnixNano() / 1e6
-				fmt.Printf("[interval_progress_items] %dms, %d\n", absoluteMillis, n)
-				start = end
-			}
-		}()
+	scanFn := func() (int64, int64) {
+		return scan(batchSize)
 	}
 
-	start := time.Now()
-	itemsRead, bytesRead := scan(batchSize)
+	dr := load.NewDataReader(workers, workerFn, scanFn)
 
-	<-inputDone
-	close(batchChan)
-
-	workersGroup.Wait()
-
+	itemsRead, bytesRead := dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
 	for i := range backingOffChans {
 		close(backingOffChans[i])
 		<-backingOffDones[i]
 	}
 
-	end := time.Now()
-	took := end.Sub(start)
+	took := dr.Took()
 	itemsRate := float64(itemsRead) / float64(took.Seconds())
 	bytesRate := float64(bytesRead) / float64(took.Seconds())
 
@@ -248,8 +228,8 @@ func scan(itemsPerBatch int) (int64, int64) {
 		deadline = time.Now().Add(timeLimit)
 	}
 
-	var batchItemCount uint64
-
+	batchMetricCount := uint64(0)
+	batchRowCount := uint64(0)
 	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
 outer:
 	for scanner.Scan() {
@@ -258,15 +238,22 @@ outer:
 		}
 
 		itemsRead++
-		batchItemCount++
+		batchRowCount++
+		row := scanner.Bytes()
+		rowStr := string(row)
+		// Each influx line is format "csv-tags csv-fields timestamp", so we split by space
+		// and then on the middle element, we split by comma to count number of fields added
+		batchMetricCount += uint64(len(strings.Split(strings.Split(rowStr, " ")[1], ",")))
 
-		buf.Write(scanner.Bytes())
+		buf.Write(row)
 		buf.Write(newline)
 
 		n++
 		if n >= itemsPerBatch {
-			atomic.AddUint64(&progressIntervalItems, batchItemCount)
-			batchItemCount = 0
+			atomic.AddUint64(&metricCount, batchMetricCount)
+			atomic.AddUint64(&rowCount, batchRowCount)
+			batchRowCount = 0
+			batchMetricCount = 0
 
 			bytesRead += int64(buf.Len())
 			batchChan <- buf
@@ -289,14 +276,11 @@ outer:
 		batchChan <- buf
 	}
 
-	// Closing inputDone signals to the application that we've read everything and can now shut down.
-	close(inputDone)
-
 	return itemsRead, bytesRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
+func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
 	var batchesSeen int64
 	for batch := range batchChan {
 		batchesSeen++
@@ -336,7 +320,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 
 		// lagMillis intentionally includes backoff time,
 		// and incidentally includes compression time:
-		lagMillis := float64(time.Now().UnixNano() - ts) / 1e6
+		lagMillis := float64(time.Now().UnixNano()-ts) / 1e6
 
 		// Return the batch buffer to the pool.
 		batch.Reset()
@@ -359,7 +343,7 @@ func processBatches(w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{
 			telemetrySink <- p
 		}
 	}
-	workersGroup.Done()
+	wg.Done()
 }
 
 func processBackoffMessages(workerId int, src chan bool, dst chan struct{}) {

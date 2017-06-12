@@ -17,5 +17,5 @@ cat ${DATA_FILE} | gunzip | bulk_load_influx \
                                 --backoff=${BACKOFF_SECS} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-				--progress-interval=${PROGRESS_INTERVAL} \
+                                --reporting-period=${PROGRESS_INTERVAL} \
                                 --urls=http://${DATABASE_HOST}:8086

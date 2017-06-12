@@ -1,7 +1,6 @@
-// bulk_load_cassandra loads a Cassandra daemon with data from stdin.
+// bulk_load_timescaledb loads a TimescaleDB instance with data from stdin.
 //
-// The caller is responsible for assuring that the database is empty before
-// bulk load.
+// If the database exists beforehand, it will be *DROPPED*.
 package main
 
 import (
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/load"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -55,11 +56,9 @@ type hypertableBatch struct {
 
 // Global vars
 var (
-	batchChan    chan *hypertableBatch
-	inputDone    chan struct{}
-	workersGroup sync.WaitGroup
-	columnCount  int64
-	rowCount     int64
+	batchChan   chan *hypertableBatch
+	metricCount uint64
+	rowCount    uint64
 
 	tableCols map[string][]string
 )
@@ -94,7 +93,7 @@ func init() {
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	if doLoad {
-		initBenchmarkDB(postgresConnect, scanner)
+		initBenchmarkDB(scanner)
 	} else {
 		//read the header
 		for scanner.Scan() {
@@ -105,58 +104,26 @@ func main() {
 	}
 
 	batchChan = make(chan *hypertableBatch, workers)
-	inputDone = make(chan struct{})
-
-	for i := 0; i < workers; i++ {
-		workersGroup.Add(1)
-		go processBatches(postgresConnect)
+	workerFn := func(wg *sync.WaitGroup, i int) {
+		go processBatches(wg)
+	}
+	scanFn := func() (int64, int64) {
+		return scan(batchSize, scanner), 0
 	}
 
-	go report(int(reportingPeriod.Nanoseconds() / 1e6))
+	dr := load.NewDataReader(workers, workerFn, scanFn)
+	dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
 
-	start := time.Now()
-	rowsRead := scan(batchSize, scanner)
+	took := dr.Took()
+	rowRate := float64(rowCount) / float64(took.Seconds())
+	columnRate := float64(metricCount) / float64(took.Seconds())
 
-	<-inputDone
-	close(batchChan)
-	workersGroup.Wait()
-	end := time.Now()
-	took := end.Sub(start)
-	columnsRead := columnCount
-	rowRate := float64(rowsRead) / float64(took.Seconds())
-	columnRate := float64(columnsRead) / float64(took.Seconds())
-
-	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowsRead, took.Seconds(), workers, rowRate)
-	fmt.Printf("loaded %d columns in %fsec with %d workers (mean rate %f/sec)\n", columnsRead, took.Seconds(), workers, columnRate)
+	fmt.Printf("loaded %d metrics in %fsec with %d workers (mean rate %f/sec)\n", metricCount, took.Seconds(), workers, columnRate)
+	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowCount, took.Seconds(), workers, rowRate)
 }
 
 func getConnectString() string {
 	return postgresConnect + " dbname=" + databaseName
-}
-
-func report(periodMs int) {
-	c := time.Tick(time.Duration(periodMs) * time.Millisecond)
-	start := time.Now()
-	prevTime := start
-	prevColCount := int64(0)
-	prevRowCount := int64(0)
-
-	for now := range c {
-		colCount := atomic.LoadInt64(&columnCount)
-		rowCount := atomic.LoadInt64(&rowCount)
-
-		took := now.Sub(prevTime)
-		colrate := float64(colCount-prevColCount) / float64(took.Seconds())
-		rowrate := float64(rowCount-prevRowCount) / float64(took.Seconds())
-		overallRowrate := float64(rowCount) / float64(now.Sub(start).Seconds())
-
-		fmt.Printf("REPORT: time %d col rate %f/sec row rate %f/sec (period) %f/sec (total) total rows %E\n", now.Unix(), colrate, rowrate, overallRowrate, float64(rowCount))
-
-		prevColCount = colCount
-		prevRowCount = rowCount
-		prevTime = now
-	}
-
 }
 
 // scan reads lines from stdin. It expects input in the TimescaleDB format,
@@ -202,9 +169,6 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 			batchChan <- &hypertableBatch{hypertable, rows}
 		}
 	}
-
-	// Closing inputDone signals to the application that we've read everything and can now shut down.
-	close(inputDone)
 
 	return linesRead / 2
 }
@@ -340,7 +304,7 @@ var csiCnt = int64(0)
 var mutex = &sync.RWMutex{}
 var insertFmt3 = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
 
-func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
+func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 	partitionKey := ""
 	if inTableTag {
 		partitionKey = tableCols["tags"][0] + ","
@@ -351,12 +315,12 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 
 	tagRows := make([][]string, 0, len(hypertableBatch.rows))
 	dataRows := make([]string, 0, len(hypertableBatch.rows))
-	ret := int64(0)
+	ret := uint64(0)
 	for _, data := range hypertableBatch.rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
 
-		ret += int64(len(metrics) - 1) // 1 field is timestamp
+		ret += uint64(len(metrics) - 1) // 1 field is timestamp
 		r := "("
 		for ind, value := range metrics {
 			if ind == 0 {
@@ -420,7 +384,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(postgresConnect string) {
+func processBatches(wg *sync.WaitGroup) {
 	db := sqlx.MustConnect("postgres", getConnectString())
 	defer db.Close()
 
@@ -430,10 +394,10 @@ func processBatches(postgresConnect string) {
 		}
 
 		start := time.Now()
-		columnCountWorker := processCSI(db, hypertableBatch)
-		//columnCountWorker := processSplit(db, hypertableBatch)
-		atomic.AddInt64(&columnCount, columnCountWorker)
-		atomic.AddInt64(&rowCount, int64(len(hypertableBatch.rows)))
+		metricCountWorker := processCSI(db, hypertableBatch)
+		//metricCountWorker := processSplit(db, hypertableBatch)
+		atomic.AddUint64(&metricCount, metricCountWorker)
+		atomic.AddUint64(&rowCount, uint64(len(hypertableBatch.rows)))
 
 		if logBatches {
 			now := time.Now()
@@ -442,7 +406,7 @@ func processBatches(postgresConnect string) {
 		}
 
 	}
-	workersGroup.Done()
+	wg.Done()
 }
 
 func createTagsTable(db *sqlx.DB, tags []string) {
@@ -459,7 +423,7 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 	}
 }
 
-func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
+func initBenchmarkDB(scanner *bufio.Scanner) {
 	db := sqlx.MustConnect("postgres", postgresConnect)
 	defer db.Close()
 	db.MustExec("DROP DATABASE IF EXISTS " + databaseName)

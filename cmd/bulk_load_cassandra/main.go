@@ -11,25 +11,29 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/load"
 
 	"github.com/gocql/gocql"
 )
 
 // Program option vars:
 var (
-	daemonUrl    string
-	workers      int
-	batchSize    int
-	doLoad       bool
-	writeTimeout time.Duration
+	daemonUrl       string
+	workers         int
+	batchSize       int
+	doLoad          bool
+	writeTimeout    time.Duration
+	reportingPeriod time.Duration
 )
 
 // Global vars
 var (
 	batchChan    chan *gocql.Batch
-	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
+	columnCount  uint64
 )
 
 // Parse args:
@@ -39,6 +43,7 @@ func init() {
 	flag.IntVar(&batchSize, "batch-size", 100, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
 	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
+	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
@@ -67,21 +72,17 @@ func main() {
 	}
 
 	batchChan = make(chan *gocql.Batch, workers)
-	inputDone = make(chan struct{})
-
-	for i := 0; i < workers; i++ {
-		workersGroup.Add(1)
-		go processBatches(session)
+	workerFn := func(wg *sync.WaitGroup, i int) {
+		go processBatches(wg, session)
+	}
+	scanFn := func() (int64, int64) {
+		return scan(session, batchSize), 0
 	}
 
-	start := time.Now()
-	itemsRead := scan(session, batchSize)
+	dr := load.NewDataReader(workers, workerFn, scanFn)
+	itemsRead, _ := dr.Start(reportingPeriod, func() { close(batchChan) }, &columnCount, nil) //scan(session, batchSize)
 
-	<-inputDone
-	close(batchChan)
-	workersGroup.Wait()
-	end := time.Now()
-	took := end.Sub(start)
+	took := dr.Took()
 	rate := float64(itemsRead) / float64(took.Seconds())
 
 	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec)\n", itemsRead, took.Seconds(), workers, rate)
@@ -123,17 +124,11 @@ func scan(session *gocql.Session, itemsPerBatch int) int64 {
 		batchChan <- batch
 	}
 
-	// Closing inputDone signals to the application that we've read everything and can now shut down.
-	close(inputDone)
-
-	// The Cassandra query format uses 1 line per item:
-	itemsRead := linesRead
-
-	return itemsRead
+	return linesRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(session *gocql.Session) {
+func processBatches(wg *sync.WaitGroup, session *gocql.Session) {
 	for batch := range batchChan {
 		if !doLoad {
 			continue
@@ -141,11 +136,12 @@ func processBatches(session *gocql.Session) {
 
 		// Write the batch.
 		err := session.ExecuteBatch(batch)
+		atomic.AddUint64(&columnCount, uint64(batch.Size()))
 		if err != nil {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}
 	}
-	workersGroup.Done()
+	wg.Done()
 }
 
 func createKeyspace(daemon_url string) {
@@ -172,7 +168,7 @@ func createKeyspace(daemon_url string) {
 					PRIMARY KEY (series_id, timestamp_ns)
 				 )
 				 WITH COMPACT STORAGE;`,
-				 cassandraTypename, cassandraTypename)
+			cassandraTypename, cassandraTypename)
 		if err := session.Query(q).Exec(); err != nil {
 			log.Fatal(err)
 		}
