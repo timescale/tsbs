@@ -4,8 +4,7 @@ binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/bulk_data}
 
-declare -a formats=("timescaledb")
-
+formats=${formats:-"timescaledb"}
 scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
