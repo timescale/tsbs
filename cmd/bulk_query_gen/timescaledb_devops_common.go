@@ -76,7 +76,7 @@ func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) Query {
 	return q
 }
 
-const goTimeFmt = "2006-01-02 15:04:05.999999 -7:00"
+const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 
 // MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
 // e.g. in psuedo-SQL:

@@ -355,7 +355,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 					panic(err)
 				}
 				secs := timeInt / 1e9
-				r += fmt.Sprintf("'%s',", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -7:00"))
+				r += fmt.Sprintf("'%s',", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -0700"))
 				r += fmt.Sprintf("'[REPLACE_CSI]',")
 				r += fmt.Sprintf("'%s'", tags[0])
 
