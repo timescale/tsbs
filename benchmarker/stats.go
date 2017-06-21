@@ -11,15 +11,26 @@ import (
 
 // Stat represents one statistical measurement.
 type Stat struct {
-	Label []byte
-	Value float64
+	Label     []byte
+	Value     float64
+	IsWarm    bool
+	IsPartial bool
 }
 
-// Init safely initializes a stat while minimizing heap allocations.
+// Init safely initializes a (cold) Stat while minimizing heap allocations.
 func (s *Stat) Init(label []byte, value float64) {
 	s.Label = s.Label[:0] // clear
 	s.Label = append(s.Label, label...)
 	s.Value = value
+	s.IsWarm = false
+}
+
+// InitWarm safely initializes a warm Stat while minimizing heap allocations.
+func (s *Stat) InitWarm(label []byte, value float64) {
+	s.Label = s.Label[:0] // clear
+	s.Label = append(s.Label, label...)
+	s.Value = value
+	s.IsWarm = true
 }
 
 // GetStatPool returns a sync.Pool for Stat

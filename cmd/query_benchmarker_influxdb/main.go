@@ -31,9 +31,6 @@ var (
 	workers              int
 	debug                int
 	prettyPrintResponses bool
-	limit                int64
-	burnIn               uint64
-	printInterval        uint64
 	memProfile           string
 	telemetryHost        string
 	telemetryStderr      bool
@@ -46,10 +43,8 @@ var (
 var (
 	queryPool           sync.Pool
 	queryChan           chan *Query
-	statPool            sync.Pool
-	statChan            chan *benchmarker.Stat
 	workersGroup        sync.WaitGroup
-	statGroup           sync.WaitGroup
+	statProcessor       *benchmarker.StatProcessor
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
 	telemetrySrcAddr    string
@@ -58,12 +53,11 @@ var (
 
 // Parse args:
 func init() {
+	statProcessor = benchmarker.NewStatProcessor()
+
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
-	flag.Uint64Var(&burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
-	flag.Uint64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
@@ -119,19 +113,15 @@ func main() {
 		},
 	}
 
-	statPool = benchmarker.GetStatPool()
-
 	// Make data and control channels:
 	queryChan = make(chan *Query, workers)
-	statChan = make(chan *benchmarker.Stat, workers)
 
 	// Launch the stats processor:
-	statGroup.Add(1)
-	go processStats()
+	go statProcessor.Process(workers)
 
 	if telemetryHost != "" {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, burnIn)
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, statProcessor.BurnIn)
 	}
 
 	// Launch the query processors:
@@ -151,10 +141,10 @@ func main() {
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	workersGroup.Wait()
-	close(statChan)
+	close(statProcessor.C)
 
 	// Wait on the stat collector to finish (and print its results):
-	statGroup.Wait()
+	statProcessor.Wait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -185,9 +175,9 @@ func main() {
 func scan(r io.Reader) {
 	dec := gob.NewDecoder(r)
 
-	n := int64(0)
+	n := uint64(0)
 	for {
-		if limit >= 0 && n >= limit {
+		if statProcessor.Limit >= 0 && n >= statProcessor.Limit {
 			break
 		}
 
@@ -200,7 +190,7 @@ func scan(r io.Reader) {
 			log.Fatal(err)
 		}
 
-		q.ID = n
+		q.ID = int64(n)
 
 		queryChan <- q
 
@@ -219,16 +209,28 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 	var queriesSeen int64
 	for q := range queryChan {
 		ts := time.Now().UnixNano()
+
 		lagMillis, err := w.Do(q, opts)
-
-		stat := statPool.Get().(*benchmarker.Stat)
-		stat.Init(q.HumanLabel, lagMillis)
-		statChan <- stat
-
-		queryPool.Put(q)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
+			queryPool.Put(q)
+			continue
 		}
+		stat := statProcessor.GetStat()
+		stat.Init(q.HumanLabel, lagMillis)
+		statProcessor.C <- stat
+
+		lagMillis, err = w.Do(q, opts)
+		if err != nil {
+			log.Fatalf("Error during request: %s\n", err.Error())
+			queryPool.Put(q)
+			continue
+		}
+		stat = statProcessor.GetStat()
+		stat.InitWarm(q.HumanLabel, lagMillis)
+		statProcessor.C <- stat
+
+		queryPool.Put(q)
 
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
@@ -247,59 +249,4 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		queriesSeen++
 	}
 	workersGroup.Done()
-}
-
-// processStats collects latency results, aggregating them into summary
-// statistics. Optionally, they are printed to stderr at regular intervals.
-func processStats() {
-	const allQueriesLabel = "all queries"
-	statMapping := map[string]*benchmarker.StatGroup{
-		allQueriesLabel: &benchmarker.StatGroup{},
-	}
-
-	i := uint64(0)
-	for stat := range statChan {
-		if i < burnIn {
-			i++
-			statPool.Put(stat)
-			continue
-		} else if i == burnIn && burnIn > 0 {
-			_, err := fmt.Fprintf(os.Stderr, "burn-in complete after %d queries with %d workers\n", burnIn, workers)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = &benchmarker.StatGroup{}
-		}
-
-		statMapping[allQueriesLabel].Push(stat.Value)
-		statMapping[string(stat.Label)].Push(stat.Value)
-
-		statPool.Put(stat)
-
-		i++
-
-		// print stats to stderr (if printInterval is greater than zero):
-		if printInterval > 0 && i > 0 && i%printInterval == 0 && (int64(i) < limit || limit < 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i-burnIn, workers)
-			if err != nil {
-				log.Fatal(err)
-			}
-			benchmarker.WriteStatGroupMap(os.Stderr, statMapping)
-			_, err = fmt.Fprintf(os.Stderr, "\n")
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-
-	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i-burnIn, workers)
-	if err != nil {
-		log.Fatal(err)
-	}
-	benchmarker.WriteStatGroupMap(os.Stdout, statMapping)
-	statGroup.Done()
 }

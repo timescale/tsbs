@@ -47,7 +47,7 @@ def smooth_it(x,y, downsample=100):
     return smoothed_x * downsample, smoothed_y
 
 
-def plot_plain(args):
+def plot_plain(args, show_title=True):
     plain_dir = args.dir + '/plain'
 
     if True:
@@ -60,16 +60,15 @@ def plot_plain(args):
     else:
         plain_time = 0
 
+    if show_title and not args.pretty:
+        plt.title("Insert batch size: {}, Cache: {}GB, Time: PG({:.1f}h)".format(args.batch_size, args.memory, plain_time))
+
     return plain_time
 
-
-def plot_both(args):
-
+def plot_hypertable(args, show_title=True):
     hyper_dir = args.dir + '/hypertable'
 
-    plain_time = plot_plain(args)
-
-    alpha = 0.3 if args.batch_size < 1000 else 0.6 if args.trend else 9
+    alpha = 0.3 if args.batch_size < 1000 else 0.6 if args.trend else 1
 
     hyper = read_log_file('{}/load_hypertable_{}_{}.log'.format(hyper_dir, args.batch_size, report_period))
     xhyper, yhyper = hyper[:, 4], hyper[:, 2]
@@ -77,8 +76,17 @@ def plot_both(args):
     plot_series(xhyper, yhyper, args.trend, style)
     hyper_time = (hyper[-1, 0] - hyper[0, 0]) / 3600
 
+    if show_title and not args.pretty:
+        plt.title("Insert batch size: {}, Cache: {}GB, Time: TS({:.1f}h)".format(args.batch_size, args.memory, hyper_time))
+
+    return hyper_time
+
+def plot_both(args):
+    plain_time = plot_plain(args, show_title=False)
+    hyper_time = plot_hypertable(args, show_title=False)
+
     if not args.pretty:
-        plt.title("Insert batch size: {}, Cache: {} GB memory, plain {:.1f} h, hyper table {:.1f} h".format(args.batch_size, args.memory, plain_time, hyper_time))
+        plt.title("Insert batch size: {}, Cache: {}GB, Time: PG({:.1f}h), TS({:.1f}h)".format(args.batch_size, args.memory, plain_time, hyper_time))
 
 
 def generate_figure(args, desc):
@@ -90,11 +98,11 @@ def generate_figure(args, desc):
     axes = plt.gca()
     axes.get_xaxis().set_major_formatter(ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(x/1e6)))
     axes.get_yaxis().set_major_formatter(ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
-    axes.set_xlim(left=0, right=270000000)
-    axes.set_ylim(bottom=0)
+    axes.set_xlim(left=0, right=1000000000)
+    axes.set_ylim(bottom=0, top=180000)
 
     if args.pretty:
-        plt.title("Insert batch size: {},  Cache: {} GB memory".format(args.batch_size, args.memory))
+        plt.title("Insert batch size: {},  Cache: {}GB memory".format(args.batch_size, args.memory))
 
     # 16:9
     scale=1.8
@@ -117,6 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', dest='dir', default='new_insert_no_debug', type=str)
     parser.add_argument('-p', dest='pretty', default=False, action='store_true')
     parser.add_argument('-m', dest='memory', default=16, type=int)
+    parser.add_argument('-t', dest='type', default='both', type=str)
     parser.add_argument('--trend', dest='trend', default=False, action='store_true')
     args = parser.parse_args()
 
@@ -128,11 +137,21 @@ if __name__ == '__main__':
         print 'Batch size must be > 0'
         sys.exit(1);
 
-    plot_both(args)
-    generate_figure(args, "both")
-    plt.clf()
-    plot_plain(args)
-    generate_figure(args, "plain")
-
-
-
+    if args.type == 'both':
+        plot_both(args)
+        generate_figure(args, 'both')
+        plt.clf()
+        plot_plain(args)
+        generate_figure(args, 'plain')
+        plt.clf()
+        plot_hypertable(args)
+        generate_figure(args, 'timescaledb')
+    elif args.type == 'timescaledb':
+        plot_hypertable(args)
+        generate_figure(args, 'timescaledb')
+    elif args.type == 'plain':
+        plot_plain(args)
+        generate_figure(args, 'plain')
+    else:
+        print 'Type must be one of: both, timescaledb, plain (default: both)'
+        sys.exit(1)

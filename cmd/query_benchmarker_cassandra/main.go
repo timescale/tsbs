@@ -51,9 +51,6 @@ var (
 	csiTimeout           time.Duration
 	debug                int
 	prettyPrintResponses bool
-	limit                int64
-	burnIn               uint64
-	printInterval        uint64
 	memProfile           string
 )
 
@@ -67,17 +64,17 @@ var (
 
 // Global vars:
 var (
-	queryPool    sync.Pool
-	hlQueryChan  chan *HLQuery
-	statPool     sync.Pool
-	statChan     chan *CStat
-	workersGroup sync.WaitGroup
-	statGroup    sync.WaitGroup
-	aggrPlan     int
+	queryPool     sync.Pool
+	hlQueryChan   chan *HLQuery
+	workersGroup  sync.WaitGroup
+	aggrPlan      int
+	statProcessor *benchmarker.StatProcessor
 )
 
 // Parse args:
 func init() {
+	statProcessor = benchmarker.NewStatProcessor()
+
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
@@ -85,9 +82,6 @@ func init() {
 	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
 	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.Int64Var(&limit, "limit", -1, "Limit the number of queries to send.")
-	flag.Uint64Var(&burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
-	flag.Uint64Var(&printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print response bodies (for correctness checking) (default false).")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
@@ -97,6 +91,7 @@ func init() {
 		log.Fatal("invalid aggregation plan")
 	}
 	aggrPlan = aggrPlanChoices[aggrPlanLabel]
+
 }
 
 func main() {
@@ -116,16 +111,6 @@ func main() {
 		},
 	}
 
-	statPool = sync.Pool{
-		New: func() interface{} {
-			return &CStat{
-				Stat: benchmarker.Stat{
-					Label: make([]byte, 0, 1024),
-				},
-			}
-		},
-	}
-
 	// Make client-side index:
 	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
 
@@ -135,11 +120,9 @@ func main() {
 
 	// Make data and stat channels:
 	hlQueryChan = make(chan *HLQuery, workers)
-	statChan = make(chan *CStat, workers)
 
 	// Launch the stats processor:
-	statGroup.Add(1)
-	go processStats()
+	go statProcessor.Process(workers)
 
 	// Launch the query processors:
 	qe := NewHLQueryExecutor(session, csi, debug)
@@ -157,10 +140,10 @@ func main() {
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	workersGroup.Wait()
-	close(statChan)
+	close(statProcessor.C)
 
 	// Wait on the stat collector to finish (and print its results):
-	statGroup.Wait()
+	statProcessor.Wait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -184,9 +167,9 @@ func main() {
 func scan(r io.Reader) {
 	dec := gob.NewDecoder(r)
 
-	n := int64(0)
+	n := uint64(0)
 	for {
-		if limit >= 0 && n >= limit {
+		if statProcessor.Limit >= 0 && n >= statProcessor.Limit {
 			break
 		}
 
@@ -199,7 +182,7 @@ func scan(r io.Reader) {
 			log.Fatal(err)
 		}
 
-		q.ID = n
+		q.ID = int64(n)
 		q.ForceUTC()
 
 		hlQueryChan <- q
@@ -231,19 +214,19 @@ func processQueries(qc *HLQueryExecutor) {
 		ls := labels[string(q.HumanLabel)]
 
 		// total lag stat:
-		stat := statPool.Get().(*CStat)
-		stat.Init(ls[0], qpLagMs+reqLagMs, true)
-		statChan <- stat
+		stat := statProcessor.GetStat()
+		stat.Init(ls[0], qpLagMs+reqLagMs)
+		statProcessor.C <- stat
 
 		// qp lag stat:
-		stat = statPool.Get().(*CStat)
-		stat.Init(ls[1], qpLagMs, false)
-		statChan <- stat
+		stat = statProcessor.GetPartialStat()
+		stat.Init(ls[1], qpLagMs)
+		statProcessor.C <- stat
 
 		// req lag stat:
-		stat = statPool.Get().(*CStat)
-		stat.Init(ls[2], reqLagMs, false)
-		statChan <- stat
+		stat = statProcessor.GetPartialStat()
+		stat.Init(ls[2], reqLagMs)
+		statProcessor.C <- stat
 
 		queryPool.Put(q)
 		if err != nil {
@@ -251,56 +234,4 @@ func processQueries(qc *HLQueryExecutor) {
 		}
 	}
 	workersGroup.Done()
-}
-
-// processStats collects latency results, aggregating them into summary
-// statistics. Optionally, they are printed to stderr at regular intervals.
-func processStats() {
-	statMapping := map[string]*benchmarker.StatGroup{}
-
-	i := uint64(0)
-	for stat := range statChan {
-		if i < burnIn {
-			i++
-			statPool.Put(stat)
-			continue
-		} else if i == burnIn && burnIn > 0 {
-			_, err := fmt.Fprintf(os.Stderr, "burn-in complete after %d queries with %d workers\n", burnIn, workers)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = &benchmarker.StatGroup{}
-		}
-
-		statMapping[string(stat.Label)].Push(stat.Value)
-
-		if stat.IsActual {
-			i++
-		}
-
-		statPool.Put(stat)
-
-		// print stats to stderr (if printInterval is greater than zero):
-		if printInterval > 0 && i > 0 && i%printInterval == 0 && (int64(i) < limit || limit < 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i-burnIn, workers)
-			if err != nil {
-				log.Fatal(err)
-			}
-			benchmarker.WriteStatGroupMap(os.Stderr, statMapping)
-			_, err = fmt.Fprintf(os.Stderr, "\n")
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-
-	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i-burnIn, workers)
-	if err != nil {
-		log.Fatal(err)
-	}
-	benchmarker.WriteStatGroupMap(os.Stdout, statMapping)
-	statGroup.Done()
 }
