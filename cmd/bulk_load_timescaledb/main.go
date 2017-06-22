@@ -22,24 +22,24 @@ import (
 
 // Program option vars:
 var (
-	postgresConnect  string
-	databaseName     string
-	workers          int
-	batchSize        int
-	doLoad           bool
-	useHypertable    bool
-	logBatches       bool
-	tagIndex         string
-	fieldIndex       string
-	fieldIndexCount  int
-	reportingPeriod  time.Duration
+	postgresConnect string
+	databaseName    string
+	workers         int
+	batchSize       int
+	doLoad          bool
+	reportingPeriod time.Duration
+
+	useHypertable bool
+	logBatches    bool
+	useJSON       bool
+	inTableTag    bool
+
 	numberPartitions int
 	chunkTime        time.Duration
-	columnCount      int64
-	rowCount         int64
-	useJSON          bool
 
-	tableCols map[string][]string
+	tagIndex        string
+	fieldIndex      string
+	fieldIndexCount int
 )
 
 type insertData struct {
@@ -57,6 +57,10 @@ var (
 	batchChan    chan *hypertableBatch
 	inputDone    chan struct{}
 	workersGroup sync.WaitGroup
+	columnCount  int64
+	rowCount     int64
+
+	tableCols map[string][]string
 )
 
 // Parse args:
@@ -66,18 +70,20 @@ func init() {
 
 	flag.IntVar(&batchSize, "batch-size", 10000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
-
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
+
 	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
+	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
+	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
-	flag.BoolVar(&useJSON, "jsonb-tags", false, "Whether tags should be stored as JSONB")
+
+	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
+	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
 
 	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
-	flag.IntVar(&numberPartitions, "number_partitions", 1, "Number of patitions")
-	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
-	flag.DurationVar(&reportingPeriod, "reporting-period", time.Second, "Period to report stats")
 
 	flag.Parse()
 	tableCols = make(map[string][]string)
@@ -273,6 +279,7 @@ JOIN tags USING (%s);
 
 var calledOnce = false
 
+// TODO - Needs work to work without partition tag being in table
 func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 	tagCols := strings.Join(tableCols["tags"], ",")
 	partitionKey := tableCols["tags"][0]
@@ -329,11 +336,13 @@ func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 var csi = make(map[string]int64)
 var csiCnt = int64(0)
 var mutex = &sync.RWMutex{}
-var insertFmt3 = `INSERT INTO %s(time,tags_id,%s,%s) VALUES %s`
+var insertFmt3 = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
 
 func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
-	//tagCols := strings.Join(tableCols["tags"], ",")
-	partitionKey := tableCols["tags"][0]
+	partitionKey := ""
+	if inTableTag {
+		partitionKey = tableCols["tags"][0] + ","
+	}
 
 	hypertable := hypertableBatch.hypertable
 	hypertableCols := strings.Join(tableCols[hypertable], ",")
@@ -355,8 +364,10 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 				}
 				secs := timeInt / 1e9
 				r += fmt.Sprintf("'%s',", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -0700"))
-				r += fmt.Sprintf("'[REPLACE_CSI]',")
-				r += fmt.Sprintf("'%s'", tags[0])
+				r += fmt.Sprintf("'[REPLACE_CSI]'")
+				if inTableTag {
+					r += fmt.Sprintf(", '%s'", tags[0])
+				}
 
 			} else {
 				r += fmt.Sprintf(", '%v'", value)
@@ -477,7 +488,10 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 		indexes := []string{}
 		tableCols[hypertable] = parts[1:]
 
-		psuedoCols := []string{partitioningField}
+		psuedoCols := []string{}
+		if inTableTag {
+			psuedoCols = append(psuedoCols, partitioningField)
+		}
 		psuedoCols = append(psuedoCols, parts[1:]...)
 		for idx, field := range psuedoCols {
 			if len(field) == 0 {
@@ -485,7 +499,7 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			}
 			fieldType := "DOUBLE PRECISION"
 			idxType := fieldIndex
-			if idx == 0 {
+			if inTableTag && idx == 0 {
 				fieldType = "TEXT"
 				idxType = ""
 			}
