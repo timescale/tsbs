@@ -201,7 +201,7 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 	return linesRead / 2
 }
 
-func insertTags(tx *sqlx.Tx, tagRows [][]string, returnResults bool) map[string]int64 {
+func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
 	tagCols := tableCols["tags"]
 	cols := tagCols
 	values := make([]string, 0)
@@ -223,6 +223,10 @@ func insertTags(tx *sqlx.Tx, tagRows [][]string, returnResults bool) map[string]
 			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:10], "','")))
 		}
 	}
+	tx := db.MustBegin()
+	defer tx.Commit()
+
+	_, _ = tx.Query("LOCK tags")
 	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
 	if err != nil {
 		panic(err)
@@ -278,9 +282,7 @@ func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 
 	tagRows := make([][]string, 0, len(hypertableBatch.rows))
 	dataRows := make([]string, 0, len(hypertableBatch.rows))
-	tx := db.MustBegin()
 	ret := int64(0)
-	//start := time.Now()
 	for _, data := range hypertableBatch.rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
@@ -308,19 +310,18 @@ func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 		tagRows = append(tagRows, tags[:10]) //fmt.Sprintf("('%s')", strings.Join(tags[:10], "','")))
 	}
 
-	//fmt.Printf("t1: %v\n", time.Now().Sub(start))
 	if !calledOnce {
-		insertTags(tx, tagRows, false)
+		insertTags(db, tagRows, false)
 		calledOnce = true
 	}
-	//fmt.Printf(insertFmt2, hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols, strings.Join(dataRows[:2], ","), tagCols, hypertableCols, tagCols)
+
+	tx := db.MustBegin()
 	_ = tx.MustExec(fmt.Sprintf(insertFmt2, hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols, strings.Join(dataRows, ","), tagCols, hypertableCols, tagCols))
 
 	err := tx.Commit()
 	if err != nil {
 		panic(err)
 	}
-	//fmt.Printf("t2: %v\n", time.Now().Sub(start))
 
 	return ret
 }
@@ -339,9 +340,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 
 	tagRows := make([][]string, 0, len(hypertableBatch.rows))
 	dataRows := make([]string, 0, len(hypertableBatch.rows))
-	tx := db.MustBegin()
 	ret := int64(0)
-	//start := time.Now()
 	for _, data := range hypertableBatch.rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
@@ -381,7 +380,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 	mutex.RUnlock()
 
 	if insert {
-		res := insertTags(tx, tagRows, true)
+		res := insertTags(db, tagRows, true)
 		mutex.Lock()
 		for k, v := range res {
 			csi[k] = v
@@ -396,14 +395,13 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 		dataRows[i] = strings.Replace(r, "[REPLACE_CSI]", strconv.FormatInt(csi[tagKey], 10), 1)
 	}
 	mutex.RUnlock()
-	//fmt.Printf(insertFmt3, partitionKey, hypertableCols, strings.Join(dataRows, ","), hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols)
+	tx := db.MustBegin()
 	_ = tx.MustExec(fmt.Sprintf(insertFmt3, hypertable, partitionKey, hypertableCols, strings.Join(dataRows, ",")))
 
 	err := tx.Commit()
 	if err != nil {
 		panic(err)
 	}
-	//fmt.Printf("t2: %v\n", time.Now().Sub(start))
 
 	return ret
 }
