@@ -52,22 +52,20 @@ import os
 def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
     '''Writes a script line corresponding to loading data into a database'''
     logfilename = 'load_{}_{}_{}_{}.out'.format(label, workers, batch_size, reporting_period)
-    prefix = 'NUM_WORKERS={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, load_dir)
+    prefix = 'NUM_WORKERS={} BATCH_SIZE={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, batch_size, load_dir)
 
     loader = label if label != 'postgres' else 'timescaledb'
     suffix = ' ./load_{}.sh | tee {}'.format(loader, logfilename)
 
-    if label == 'influxdb':
-        return prefix + ' BATCH_SIZE={}'.format(batch_size) + suffix
-    elif label == 'cassandra':
-        return prefix + ' CASSANDRA_BATCH_SIZE={}'.format(batch_size) + suffix
+    if label == 'influxdb' or label == 'cassandra':
+        return prefix + suffix
     elif label == 'timescaledb':
-        return prefix + ' USE_HYPERTABLE=true BATCH_SIZE={}'.format(batch_size) + suffix
+        return prefix + ' USE_HYPERTABLE=true ' + suffix
     elif label == "postgres":
-        return prefix + ' USE_HYPERTABLE=false BATCH_SIZE={}'.format(batch_size) + suffix
+        return prefix + ' USE_HYPERTABLE=false ' + suffix
 
 
-def get_query_str(queryfile, label, workers, extra_query_args, limit=1000):
+def get_query_str(queryfile, label, workers, limit, extra_query_args):
     '''Writes a script line corresponding to executing a query on a database'''
     limit_arg = '--limit={}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
@@ -104,7 +102,7 @@ def load_queries_file_names(filename, label, query_dir):
 
     return l
 
-def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, workers, extra_query_args):
+def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, limit, workers, extra_query_args):
     '''Writes a bash script file to run load/query tests'''
     print '#!/bin/bash'
     queries = []
@@ -112,15 +110,14 @@ def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_sizes, w
         queries = load_queries_file_names(queries_file, db_name, query_dir)
 
     if load_dir is not None:
-        for batch_size in batch_sizes:
-            print("# Load data")
-            print(get_load_str(load_dir, db_name, batch_size, workers))
-            print("")
+        print("# Load data")
+        print(get_load_str(load_dir, db_name, batch_size, workers))
+        print("")
 
     if len(queries) > 0:
         print("# Queries")
         for query in queries:
-            print(get_query_str(query, db_name, workers, extra_query_args))
+            print(get_query_str(query, db_name, workers, limit, extra_query_args))
             print("")
 
 
@@ -129,12 +126,13 @@ if __name__ == "__main__":
     default_query_dir = '/tmp/queries'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', dest='batch_sizes_str', default="10000", type=str)
+    parser.add_argument('-b', dest='batch_size', default=10000, type=int)
     parser.add_argument('-d', dest='db_name', default=None, type=str)
     parser.add_argument('-e', dest='extra_query_args', default='', type=str)
     parser.add_argument('-f', dest='queries_file_name', default='queries.txt', type=str)
     parser.add_argument('-i', dest='write_only', default=False, action='store_true')
     parser.add_argument('-l', dest='load_file_dir', default=default_load_dir, type=str)
+    parser.add_argument('-n', dest='limit', default=1000, type=int)
     parser.add_argument('-o', dest='query_file_dir', default=default_query_dir, type=str)
     parser.add_argument('-q', dest='query_only', default=False, action='store_true')
     parser.add_argument('-w', dest='workers', default=4, type=int)
@@ -145,13 +143,12 @@ if __name__ == "__main__":
         print("Usage: generate_query_run.py -d db_name")
         exit(1)
 
-    batch_sizes = [int(b) for b in args.batch_sizes_str.split(',')]
-
     generate_run_file(
         args.queries_file_name if not args.write_only else None,
         args.query_file_dir if not args.write_only else None,
         args.load_file_dir if not args.query_only else None,
         args.db_name,
-        batch_sizes,
+        args.batch_size,
+        args.limit,
         args.workers,
         args.extra_query_args)
