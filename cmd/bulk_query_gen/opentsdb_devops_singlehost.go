@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // OpenTSDBDevopsSingleHost produces OpenTSDB-specific queries for the devops single-host case.
 type OpenTSDBDevopsSingleHost struct {
@@ -14,7 +18,7 @@ func NewOpenTSDBDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) 
 	}
 }
 
-func (d *OpenTSDBDevopsSingleHost) Dispatch(i, scaleVar int) Query {
+func (d *OpenTSDBDevopsSingleHost) Dispatch(i, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	return q

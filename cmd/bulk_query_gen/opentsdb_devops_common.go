@@ -8,11 +8,13 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // OpenTSDBDevops produces OpenTSDB-specific queries for all the devops query types.
 type OpenTSDBDevops struct {
-	AllInterval  TimeInterval
+	AllInterval TimeInterval
 }
 
 // NewOpenTSDBDevops makes an OpenTSDBDevops object ready to generate Queries.
@@ -22,48 +24,48 @@ func newOpenTSDBDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) Quer
 	}
 
 	return &OpenTSDBDevops{
-		AllInterval:  NewTimeInterval(start, end),
+		AllInterval: NewTimeInterval(start, end),
 	}
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *OpenTSDBDevops) Dispatch(i, scaleVar int) Query {
+func (d *OpenTSDBDevops) Dispatch(i, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	devopsDispatchAll(d, i, q, scaleVar)
 	return q
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteOneHost(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteTwoHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 2, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteFourHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 4, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteEightHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 8, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteSixteenHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 16, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 32, time.Hour)
 }
 
-func (d *OpenTSDBDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+func (d *OpenTSDBDevops) MaxCPUUsage12HoursByMinuteOneHost(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*HTTPQuery), scaleVar, 1, 12*time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a Query with a query that looks like:
+// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a query.Query with a query that looks like:
 // SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
-func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
@@ -76,7 +78,7 @@ func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhost
 
 	// opentsdb cannot handle RFC3339, nor can it handle nanoseconds,
 	// so use unix epoch time in milliseconds:
-  	startTimestamp := interval.StartUnixNano() / 1e6
+	startTimestamp := interval.StartUnixNano() / 1e6
 	endTimestamp := interval.EndUnixNano() / 1e6
 
 	const tmplString = `
@@ -120,10 +122,9 @@ func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhost
 	tmpl := template.Must(template.New("tmpl").Parse(tmplString))
 	bodyWriter := new(bytes.Buffer)
 
-
 	arg := struct {
 		StartTimestamp, EndTimestamp int64
-		CombinedHostnameClause string
+		CombinedHostnameClause       string
 	}{
 		startTimestamp,
 		endTimestamp,
@@ -145,10 +146,10 @@ func (d *OpenTSDBDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhost
 	q.EndTimestamp = interval.EndUnixNano()
 }
 
-// MeanCPUUsageDayByHourAllHosts populates a Query with a query that looks like:
+// MeanCPUUsageDayByHourAllHosts populates a query.Query with a query that looks like:
 // SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *OpenTSDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
-	interval := d.AllInterval.RandWindow(24*time.Hour)
+func (d *OpenTSDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, _ int) {
+	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf("SELECT mean(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", interval.StartString(), interval.EndString()))
@@ -162,7 +163,7 @@ func (d *OpenTSDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ in
 	q.Body = nil
 }
 
-//func (d *OpenTSDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, _ int) {
+//func (d *OpenTSDBDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, _ int) {
 //	interval := d.AllInterval.RandWindow(24*time.Hour)
 //
 //	v := url.Values{}

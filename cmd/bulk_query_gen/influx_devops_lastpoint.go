@@ -1,12 +1,17 @@
 package main
 
-import "time"
+import (
+	"time"
 
-// InfluxDevopsSingleHost produces Influx-specific queries for the devops single-host case.
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
+
+// InfluxDevopsLastPointPerHost produces Influx-specific queries for the devops lastpoint case
 type InfluxDevopsLastPointPerHost struct {
 	InfluxDevops
 }
 
+// NewInfluxDevopsLastPointPerHost returns a new InfluxDevopsLastPointPerHost for given paremeters
 func NewInfluxDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
 	underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
 	return &InfluxDevopsLastPointPerHost{
@@ -14,8 +19,9 @@ func NewInfluxDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Ti
 	}
 }
 
-func (d *InfluxDevopsLastPointPerHost) Dispatch(i, scaleVar int) Query {
-	q := NewHTTPQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *InfluxDevopsLastPointPerHost) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewHTTP() // from pool
 	d.LastPointPerHost(q, scaleVar)
 	return q
 }

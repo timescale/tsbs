@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // InfluxDevopsAllMaxCPU contains info for Influx-devops test 'cpu-max-all-*'
 type InfluxDevopsAllMaxCPU struct {
@@ -19,9 +23,9 @@ func NewInfluxDevopsAllMaxCPU(hosts int) func(DatabaseConfig, time.Time, time.Ti
 	}
 }
 
-// Dispatch fills in the Query
-func (d *InfluxDevopsAllMaxCPU) Dispatch(_, scaleVar int) Query {
-	q := NewHTTPQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *InfluxDevopsAllMaxCPU) Dispatch(_, scaleVar int) query.Query {
+	q := query.NewHTTP() // from pool
 	d.MaxAllCPU(q, scaleVar, d.hosts)
 	return q
 }

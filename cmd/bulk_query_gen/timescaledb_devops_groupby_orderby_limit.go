@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsGroupByOrderByLimit produces TimescaleDB-specific queries for the devops groupby-orderby-limit case.
 type TimescaleDBDevopsGroupByOrderByLimit struct {
@@ -15,9 +19,9 @@ func NewTimescaleDBDevopsGroupByOrderByLimit(dbConfig DatabaseConfig, start, end
 	}
 }
 
-// Dispatch fills in the Query
-func (d *TimescaleDBDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *TimescaleDBDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.GroupByOrderByLimit(q, scaleVar)
 	return q
 }

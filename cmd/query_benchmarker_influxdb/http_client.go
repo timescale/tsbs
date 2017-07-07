@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+
 	"github.com/valyala/fasthttp"
 )
 
@@ -42,7 +44,7 @@ func NewHTTPClient(host string, debug int) *HTTPClient {
 
 // Do performs the action specified by the given Query. It uses fasthttp, and
 // tries to minimize heap allocations.
-func (w *HTTPClient) Do(q *Query, opts *HTTPClientDoOptions) (lag float64, err error) {
+func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, err error) {
 	// populate uri from the reusable byte slice:
 	w.uri = w.uri[:0]
 	w.uri = append(w.uri, w.Host...)

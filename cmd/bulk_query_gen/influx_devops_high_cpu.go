@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // InfluxDevopsHighCPU produces Influx-specific queries for the devops high-cpu cases
 type InfluxDevopsHighCPU struct {
@@ -19,9 +23,9 @@ func NewInfluxDevopsHighCPU(hosts int) func(DatabaseConfig, time.Time, time.Time
 	}
 }
 
-// Dispatch fills in the Query
-func (d *InfluxDevopsHighCPU) Dispatch(_, scaleVar int) Query {
-	q := NewHTTPQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *InfluxDevopsHighCPU) Dispatch(_, scaleVar int) query.Query {
+	q := query.NewHTTP() // from pool
 	d.HighCPUForHosts(q, scaleVar, d.hosts)
 	return q
 }

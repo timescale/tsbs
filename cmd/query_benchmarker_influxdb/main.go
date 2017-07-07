@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 )
 
@@ -41,8 +42,8 @@ var (
 
 // Global vars:
 var (
-	queryPool           sync.Pool
-	queryChan           chan *Query
+	queryPool           = &query.HTTPPool
+	queryChan           chan query.Query
 	workersGroup        sync.WaitGroup
 	statProcessor       *benchmarker.StatProcessor
 	telemetryChanPoints chan *telemetry.Point
@@ -100,21 +101,8 @@ func init() {
 }
 
 func main() {
-	// Make pools to minimize heap usage:
-	queryPool = sync.Pool{
-		New: func() interface{} {
-			return &Query{
-				HumanLabel:       make([]byte, 0, 1024),
-				HumanDescription: make([]byte, 0, 1024),
-				Method:           make([]byte, 0, 1024),
-				Path:             make([]byte, 0, 1024),
-				Body:             make([]byte, 0, 1024),
-			}
-		},
-	}
-
 	// Make data and control channels:
-	queryChan = make(chan *Query, workers)
+	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
 	go statProcessor.Process(workers)
@@ -181,7 +169,7 @@ func scan(r io.Reader) {
 			break
 		}
 
-		q := queryPool.Get().(*Query)
+		q := queryPool.Get().(*query.HTTP)
 		err := dec.Decode(q)
 		if err == io.EOF {
 			break
@@ -210,24 +198,24 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 	for q := range queryChan {
 		ts := time.Now().UnixNano()
 
-		lagMillis, err := w.Do(q, opts)
+		lagMillis, err := w.Do(q.(*query.HTTP), opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 			queryPool.Put(q)
 			continue
 		}
 		stat := statProcessor.GetStat()
-		stat.Init(q.HumanLabel, lagMillis)
+		stat.Init(q.HumanLabelName(), lagMillis)
 		statProcessor.C <- stat
 
-		lagMillis, err = w.Do(q, opts)
+		lagMillis, err = w.Do(q.(*query.HTTP), opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 			queryPool.Put(q)
 			continue
 		}
 		stat = statProcessor.GetStat()
-		stat.InitWarm(q.HumanLabel, lagMillis)
+		stat.InitWarm(q.HumanLabelName(), lagMillis)
 		statProcessor.C <- stat
 
 		queryPool.Put(q)

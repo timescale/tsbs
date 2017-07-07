@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // HLQuery is a high-level query, usually read from stdin after being
@@ -13,21 +14,7 @@ import (
 // The primary use of an HLQuery is to combine it with a ClientSideIndex to
 // construct a QueryPlan.
 type HLQuery struct {
-	HumanLabel       []byte
-	HumanDescription []byte
-	ID               int64
-
-	MeasurementName []byte // e.g. "cpu"
-	FieldName       []byte // e.g. "usage_user"
-	AggregationType []byte // e.g. "avg" or "sum". used literally in the cassandra query.
-	TimeStart       time.Time
-	TimeEnd         time.Time
-	GroupByDuration time.Duration
-	ForEveryN       []byte // e.g. "hostname,1"
-	WhereClause     []byte // e.g. "usage_user,>,90.0"
-	OrderBy         []byte // e.g. "timestamp_ns DESC"
-	Limit           int
-	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
+	query.Cassandra
 }
 
 // String produces a debug-ready description of a Query.

@@ -31,25 +31,25 @@ var measurements = []string{
 var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
 		"1-host-1-hr": {
-			"cassandra":   NewCassandraDevopsSingleHost,
+			"cassandra":   NewCassandraDevopsSingleMetric(1, 1),
 			"es-http":     NewElasticSearchDevopsSingleHost,
-			"influx-http": NewInfluxDevopsSingleHost,
+			"influx-http": NewInfluxDevopsSingleMetric(1, 1),
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
 		},
 		"1-host-12-hr": {
-			"cassandra":   NewCassandraDevopsSingleHost12hr,
+			"cassandra":   NewCassandraDevopsSingleMetric(1, 12),
 			"es-http":     NewElasticSearchDevopsSingleHost12hr,
-			"influx-http": NewInfluxDevopsSingleHost12hr,
+			"influx-http": NewInfluxDevopsSingleMetric(1, 12),
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
 		},
 		"8-host-1-hr": {
-			"cassandra":   NewCassandraDevops8Hosts,
+			"cassandra":   NewCassandraDevopsSingleMetric(8, 1),
 			"es-http":     NewElasticSearchDevops8Hosts,
-			"influx-http": NewInfluxDevops8Hosts,
+			"influx-http": NewInfluxDevopsSingleMetric(8, 1),
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
@@ -89,12 +89,12 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"influx-http": NewInfluxDevopsLastPointPerHost,
 		},
 		"high-cpu": {
-			"cassandra":   NewCassandraDevopsHighCPU,
+			"cassandra":   NewCassandraDevopsHighCPU(0),
 			"influx-http": NewInfluxDevopsHighCPU(0),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
 		},
 		"high-cpu-and-field": {
-			"cassandra":   NewCassandraDevopsHighCPUAndField,
+			"cassandra":   NewCassandraDevopsHighCPU(1),
 			"influx-http": NewInfluxDevopsHighCPU(1),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},

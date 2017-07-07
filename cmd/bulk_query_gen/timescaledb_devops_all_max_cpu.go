@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsAllMaxCPU contains info for TimescaleDB-devops test 'cpu-max-all-*'
 type TimescaleDBDevopsAllMaxCPU struct {
@@ -19,9 +23,9 @@ func NewTimescaleDBDevopsAllMaxCPU(hosts int) func(DatabaseConfig, time.Time, ti
 	}
 }
 
-// Dispatch fills in the Query
-func (d *TimescaleDBDevopsAllMaxCPU) Dispatch(_, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *TimescaleDBDevopsAllMaxCPU) Dispatch(_, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.MaxAllCPU(q, scaleVar, d.hosts)
 	return q
 }

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsLastPointPerHost produces TimescaleDB-specific queries for the devops lastpoint case
 type TimescaleDBDevopsLastPointPerHost struct {
@@ -16,9 +20,9 @@ func NewTimescaleDBDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end ti
 
 }
 
-// Dispatch fills in the Query
-func (d *TimescaleDBDevopsLastPointPerHost) Dispatch(i, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *TimescaleDBDevopsLastPointPerHost) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.LastPointPerHost(q, scaleVar)
 	return q
 }

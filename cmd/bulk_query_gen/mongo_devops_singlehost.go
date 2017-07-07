@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // MongoDevopsSingleHost produces Mongo-specific queries for the devops single-host case.
 type MongoDevopsSingleHost struct {
@@ -14,7 +18,7 @@ func NewMongoDevopsSingleHost(dbConfig DatabaseConfig, start, end time.Time) Que
 	}
 }
 
-func (d *MongoDevopsSingleHost) Dispatch(i, scaleVar int) Query {
+func (d *MongoDevopsSingleHost) Dispatch(i, scaleVar int) query.Query {
 	q := NewMongoQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	return q

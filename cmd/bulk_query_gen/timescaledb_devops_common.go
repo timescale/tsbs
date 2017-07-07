@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // TimescaleDBDevops produces Influx-specific queries for all the devops query types.
@@ -70,8 +72,8 @@ func getRandomHosts(scaleVar, nhosts int) []string {
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	//devopsDispatchAll(d, i, q, scaleVar)
 	return q
 }
@@ -85,16 +87,16 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -106,7 +108,7 @@ func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi Query, scaleVar, nhosts i
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *TimescaleDBDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
@@ -120,19 +122,19 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi Query, scaleVar, nhosts int, timeRang
     GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-// GroupByOrderByLimit populates a Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
 // SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
+func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query, _ int) {
 	interval := d.AllInterval.RandWindow(time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
 
@@ -141,10 +143,10 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (rand end)"
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -155,7 +157,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi Query, _ int) {
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
-func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query, numMetrics int) {
+func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
 	if numMetrics <= 0 {
 		panic("no metrics given")
 	}
@@ -194,10 +196,10 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query,
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), groupByStr)
 
 	humanLabel := fmt.Sprintf("TimescaleDB mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -208,7 +210,7 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query,
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
+func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(8 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
@@ -226,15 +228,15 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi Query, scaleVar, nhosts int) {
 		d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
+func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query, _ int) {
 	measure := measurements[rand.Intn(len(measurements))]
 
 	var sqlQuery string
@@ -247,10 +249,10 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 	}
 
 	humanLabel := "TimescaleDB last row per host"
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
-	q.NamespaceName = []byte(measure)
+	q.Hypertable = []byte(measure)
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -262,7 +264,7 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi Query, _ int) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *TimescaleDBDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
+func (d *TimescaleDBDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) {
 	var hostWhereClause string
 	if nhosts == 0 {
 		hostWhereClause = ""
@@ -280,38 +282,38 @@ func (d *TimescaleDBDevops) HighCPUForHosts(qi Query, scaleVar, nhosts int) {
 	} else {
 		humanLabel += "all hosts"
 	}
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("cpu")
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
 // "SELECT * from mem where used_percent > 98.0 or used > 10000 or used_percent < 5.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
 
-func (d *TimescaleDBDevops) MultipleMemOrs(qi Query, hosts int) {
+func (d *TimescaleDBDevops) MultipleMemOrs(qi query.Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM mem WHERE (used_percent > 98.0 OR used > 10000 OR used_percent < 5.0) AND (time >= '%s' AND time < '%s')`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB mem fields with or, all hosts"
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("mem")
+	q.Hypertable = []byte("mem")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
-func (d *TimescaleDBDevops) MultipleMemOrsByHost(qi Query, hosts int) {
+func (d *TimescaleDBDevops) MultipleMemOrsByHost(qi query.Query, hosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour, MAX(used_percent) from mem where (used < 1000 OR used_percent > 98.0 OR used_percent < 10.0) and (time >= '%s' and time < '%s') GROUP BY hour,hostname`, interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB mem fields with or, all hosts"
-	q := qi.(*TimescaleDBQuery)
+	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.NamespaceName = []byte("mem")
+	q.Hypertable = []byte("mem")
 
 	q.SqlQuery = []byte(sqlQuery)
 }

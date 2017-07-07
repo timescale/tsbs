@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 const (
@@ -64,7 +65,7 @@ var (
 
 // Global vars:
 var (
-	queryPool     sync.Pool
+	queryPool     = &query.CassandraPool
 	hlQueryChan   chan *HLQuery
 	workersGroup  sync.WaitGroup
 	aggrPlan      int
@@ -95,22 +96,6 @@ func init() {
 }
 
 func main() {
-	// Make pools to minimize heap usage:
-	queryPool = sync.Pool{
-		New: func() interface{} {
-			return &HLQuery{
-				HumanLabel:       make([]byte, 0, 1024),
-				HumanDescription: make([]byte, 0, 1024),
-				MeasurementName:  make([]byte, 0, 1024),
-				FieldName:        make([]byte, 0, 1024),
-				AggregationType:  make([]byte, 0, 1024),
-				WhereClause:      make([]byte, 0, 1024),
-				OrderBy:          make([]byte, 0, 1024),
-				TagSets:          make([][]string, 0, 10),
-			}
-		},
-	}
-
 	// Make client-side index:
 	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
 
@@ -173,7 +158,8 @@ func scan(r io.Reader) {
 			break
 		}
 
-		q := queryPool.Get().(*HLQuery)
+		core := queryPool.Get().(*query.Cassandra)
+		q := &HLQuery{*core}
 		err := dec.Decode(q)
 		if err == io.EOF {
 			break
@@ -228,7 +214,7 @@ func processQueries(qc *HLQueryExecutor) {
 		stat.Init(ls[2], reqLagMs)
 		statProcessor.C <- stat
 
-		queryPool.Put(q)
+		queryPool.Put(q.Cassandra)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}

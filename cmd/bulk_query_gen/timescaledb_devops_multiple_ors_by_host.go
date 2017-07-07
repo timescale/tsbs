@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsSingleHost produces TimescaleDB-specific queries for the devops single-host case.
 type TimescaleDBDevopsMultipleOrsByHost struct {
@@ -14,8 +18,8 @@ func NewTimescaleDBDevopsMultipleOrsByHost(dbConfig DatabaseConfig, start, end t
 	}
 }
 
-func (d *TimescaleDBDevopsMultipleOrsByHost) Dispatch(i, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+func (d *TimescaleDBDevopsMultipleOrsByHost) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.MultipleMemOrsByHost(q, scaleVar)
 	return q
 }

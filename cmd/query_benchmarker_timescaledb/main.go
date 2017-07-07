@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -40,8 +41,8 @@ var (
 
 // Global vars:
 var (
-	queryPool     sync.Pool
-	queryChan     chan *Query
+	queryPool     = &query.TimescaleDBPool
+	queryChan     chan *query.TimescaleDB
 	workersGroup  sync.WaitGroup
 	statProcessor *benchmarker.StatProcessor
 )
@@ -66,20 +67,8 @@ func init() {
 }
 
 func main() {
-	// Make pools to minimize heap usage:
-	queryPool = sync.Pool{
-		New: func() interface{} {
-			return &Query{
-				HumanLabel:       make([]byte, 0, 1024),
-				HumanDescription: make([]byte, 0, 1024),
-				NamespaceName:    make([]byte, 0, 1024),
-				SqlQuery:         make([]byte, 0, 1024),
-			}
-		},
-	}
-
 	// Make data and control channels:
-	queryChan = make(chan *Query, workers)
+	queryChan = make(chan *query.TimescaleDB, workers)
 
 	// Launch the stats processor:
 	go statProcessor.Process(workers)
@@ -136,7 +125,7 @@ func scan(r io.Reader) {
 			break
 		}
 
-		q := queryPool.Get().(*Query)
+		q := queryPool.Get().(*query.TimescaleDB)
 		err := dec.Decode(q)
 		if err == io.EOF {
 			break
@@ -156,7 +145,7 @@ func scan(r io.Reader) {
 
 var mutex = &sync.Mutex{}
 
-func prettyPrintJsonResponse(rows *sql.Rows, q *Query) {
+func prettyPrintJsonResponse(rows *sql.Rows, q *query.TimescaleDB) {
 	var result bytes.Buffer
 
 	for rows.Next() {

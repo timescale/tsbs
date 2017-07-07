@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // OpenTSDBDevops8Hosts produces OpenTSDB-specific queries for the devops groupby case.
 type OpenTSDBDevops8Hosts struct {
@@ -14,7 +18,7 @@ func NewOpenTSDBDevops8Hosts(dbConfig DatabaseConfig, start, end time.Time) Quer
 	}
 }
 
-func (d *OpenTSDBDevops8Hosts) Dispatch(_, scaleVar int) Query {
+func (d *OpenTSDBDevops8Hosts) Dispatch(_, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteEightHosts(q, scaleVar)
 	return q

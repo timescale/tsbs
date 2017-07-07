@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // ElasticSearchDevopsSingleHost produces ES-specific queries for the devops single-host case.
 type ElasticSearchDevopsSingleHost struct {
@@ -14,7 +18,7 @@ func NewElasticSearchDevopsSingleHost(dbConfig DatabaseConfig, start, end time.T
 	}
 }
 
-func (d *ElasticSearchDevopsSingleHost) Dispatch(i, scaleVar int) Query {
+func (d *ElasticSearchDevopsSingleHost) Dispatch(i, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteOneHost(q, scaleVar)
 	return q

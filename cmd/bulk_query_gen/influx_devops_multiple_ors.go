@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // InfluxDevopsSingleHost produces Influx-specific queries for the devops single-host case.
 type InfluxDevopsMultipleOrs struct {
@@ -14,8 +18,8 @@ func NewInfluxDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) Q
 	}
 }
 
-func (d *InfluxDevopsMultipleOrs) Dispatch(i, scaleVar int) Query {
-	q := NewHTTPQuery() // from pool
+func (d *InfluxDevopsMultipleOrs) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewHTTP() // from pool
 	d.MultipleMemFieldsOrs(q, scaleVar)
 	return q
 }

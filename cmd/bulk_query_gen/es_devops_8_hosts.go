@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // ElasticSearchDevops8Hosts produces ElasticSearch-specific queries for the devops groupby case.
 type ElasticSearchDevops8Hosts struct {
@@ -14,7 +18,7 @@ func NewElasticSearchDevops8Hosts(dbConfig DatabaseConfig, start, end time.Time)
 	}
 }
 
-func (d *ElasticSearchDevops8Hosts) Dispatch(_, scaleVar int) Query {
+func (d *ElasticSearchDevops8Hosts) Dispatch(_, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	d.MaxCPUUsageHourByMinuteEightHosts(q, scaleVar)
 	return q

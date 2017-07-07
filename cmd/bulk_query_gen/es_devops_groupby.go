@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // ElasticSearchDevopsGroupBy produces ES-specific queries for the devops groupby case.
 type ElasticSearchDevopsGroupBy struct {
@@ -14,7 +18,7 @@ func NewElasticSearchDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time
 	}
 }
 
-func (d *ElasticSearchDevopsGroupBy) Dispatch(i, scaleVar int) Query {
+func (d *ElasticSearchDevopsGroupBy) Dispatch(i, scaleVar int) query.Query {
 	q := NewHTTPQuery() // from pool
 	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, scaleVar)
 	return q

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsHighCPU produces TimescaleDB-specific queries for the devops high-cpu cases
 type TimescaleDBDevopsHighCPU struct {
@@ -19,9 +23,9 @@ func NewTimescaleDBDevopsHighCPU(hosts int) func(DatabaseConfig, time.Time, time
 	}
 }
 
-// Dispatch fills in the Query
-func (d *TimescaleDBDevopsHighCPU) Dispatch(_, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *TimescaleDBDevopsHighCPU) Dispatch(_, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.HighCPUForHosts(q, scaleVar, d.hosts)
 	return q
 }

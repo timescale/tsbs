@@ -1,5 +1,7 @@
 package main
 
+import "bitbucket.org/440-labs/influxdb-comparisons/query"
+
 var cpuMetrics = []string{
 	"usage_user",
 	"usage_system",
@@ -15,24 +17,24 @@ var cpuMetrics = []string{
 
 // Devops describes a devops query generator.
 type Devops interface {
-	MaxCPUUsageHourByMinuteOneHost(Query, int)
-	MaxCPUUsageHourByMinuteTwoHosts(Query, int)
-	MaxCPUUsageHourByMinuteFourHosts(Query, int)
-	MaxCPUUsageHourByMinuteEightHosts(Query, int)
-	MaxCPUUsageHourByMinuteSixteenHosts(Query, int)
-	MaxCPUUsageHourByMinuteThirtyTwoHosts(Query, int)
+	MaxCPUUsageHourByMinuteOneHost(query.Query, int)
+	MaxCPUUsageHourByMinuteTwoHosts(query.Query, int)
+	MaxCPUUsageHourByMinuteFourHosts(query.Query, int)
+	MaxCPUUsageHourByMinuteEightHosts(query.Query, int)
+	MaxCPUUsageHourByMinuteSixteenHosts(query.Query, int)
+	MaxCPUUsageHourByMinuteThirtyTwoHosts(query.Query, int)
 
-	MaxCPUUsage12HoursByMinuteOneHost(Query, int)
+	MaxCPUUsage12HoursByMinuteOneHost(query.Query, int)
 
-	MeanCPUUsageDayByHourAllHostsGroupbyHost(Query, int)
+	MeanCPUUsageDayByHourAllHostsGroupbyHost(query.Query, int)
 
-	//CountCPUUsageDayByHourAllHostsGroupbyHost(Query, int)
+	//CountCPUUsageDayByHourAllHostsGroupbyHost(query.Query, int)
 
-	Dispatch(int, int) Query
+	Dispatch(int, int) query.Query
 }
 
 // devopsDispatchAll round-robins through the different devops queries.
-func devopsDispatchAll(d Devops, iteration int, q Query, scaleVar int) {
+func devopsDispatchAll(d Devops, iteration int, q query.Query, scaleVar int) {
 	if scaleVar <= 0 {
 		panic("logic error: bad scalevar")
 	}

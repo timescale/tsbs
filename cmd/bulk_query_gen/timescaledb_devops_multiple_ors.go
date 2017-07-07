@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 type TimescaleDBDevopsMultipleOrs struct {
 	TimescaleDBDevops
@@ -13,8 +17,8 @@ func NewTimescaleDBDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Ti
 	}
 }
 
-func (d *TimescaleDBDevopsMultipleOrs) Dispatch(i, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+func (d *TimescaleDBDevopsMultipleOrs) Dispatch(i, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.MultipleMemOrs(q, scaleVar)
 	return q
 }

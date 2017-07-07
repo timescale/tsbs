@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 type S []interface{}
@@ -33,51 +35,51 @@ func NewMongoDevops(_ DatabaseConfig, start, end time.Time) QueryGenerator {
 }
 
 // Dispatch fulfills the QueryGenerator interface.
-func (d *MongoDevops) Dispatch(i, scaleVar int) Query {
+func (d *MongoDevops) Dispatch(i, scaleVar int) query.Query {
 	q := NewMongoQuery() // from pool
 	devopsDispatchAll(d, i, q, scaleVar)
 	return q
 }
 
-// MaxCPUUsageHourByMinuteOneHost populates a Query for getting the maximum CPU
+// MaxCPUUsageHourByMinuteOneHost populates a query.Query for getting the maximum CPU
 // usage for one host over the course of an hour.
-func (d *MongoDevops) MaxCPUUsageHourByMinuteOneHost(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteOneHost(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 1, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteTwoHosts populates a Query for getting the maximum CPU
+// MaxCPUUsageHourByMinuteTwoHosts populates a query.Query for getting the maximum CPU
 // usage for two hosts over the course of an hour.
-func (d *MongoDevops) MaxCPUUsageHourByMinuteTwoHosts(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteTwoHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 2, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteFourHosts populates a Query for getting the maximum CPU
+// MaxCPUUsageHourByMinuteFourHosts populates a query.Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *MongoDevops) MaxCPUUsageHourByMinuteFourHosts(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteFourHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 4, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteEightHosts populates a Query for getting the maximum CPU
+// MaxCPUUsageHourByMinuteEightHosts populates a query.Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *MongoDevops) MaxCPUUsageHourByMinuteEightHosts(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteEightHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 8, time.Hour)
 }
 
-// MaxCPUUsageHourByMinuteSixteenHosts populates a Query for getting the maximum CPU
+// MaxCPUUsageHourByMinuteSixteenHosts populates a query.Query for getting the maximum CPU
 // usage for four hosts over the course of an hour.
-func (d *MongoDevops) MaxCPUUsageHourByMinuteSixteenHosts(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteSixteenHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 16, time.Hour)
 }
 
-func (d *MongoDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 32, time.Hour)
 }
 
-func (d *MongoDevops) MaxCPUUsage12HoursByMinuteOneHost(q Query, scaleVar int) {
+func (d *MongoDevops) MaxCPUUsage12HoursByMinuteOneHost(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*MongoQuery), scaleVar, 1, 12*time.Hour)
 }
 
-func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 	nn := rand.Perm(scaleVar)[:nhosts]
 
@@ -146,7 +148,7 @@ func (d *MongoDevops) maxCPUUsageHourByMinuteNHosts(qi Query, scaleVar, nhosts i
 	q.GroupByDuration = time.Minute
 }
 
-func (d *MongoDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi Query, scaleVar int) {
+func (d *MongoDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, scaleVar int) {
 	//	if scaleVar > 10000 {
 	//		// TODO: does this apply to mongo?
 	//		panic("scaleVar > 10000 implies size > 10000, which is not supported on elasticsearch. see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html")

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
 
 // TimescaleDBDevopsSingleMetric contains info for TimescaleDB-devops test '*-hosts-*-hrs'
 type TimescaleDBDevopsSingleMetric struct {
@@ -21,9 +25,9 @@ func NewTimescaleDBDevopsSingleMetric(hosts, hours int) func(DatabaseConfig, tim
 	}
 }
 
-// Dispatch fills in the Query
-func (d *TimescaleDBDevopsSingleMetric) Dispatch(_, scaleVar int) Query {
-	q := NewTimescaleDBQuery() // from pool
+// Dispatch fills in the query.Query
+func (d *TimescaleDBDevopsSingleMetric) Dispatch(_, scaleVar int) query.Query {
+	q := query.NewTimescaleDB() // from pool
 	d.MaxCPUUsageHourByMinute(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }
