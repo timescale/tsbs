@@ -1,4 +1,0 @@
-#!/bin/bash
-# Load data
-NUM_WORKERS=2 DATA_DIR=/tmp BULK_DATA_DIR=/tmp/devops DATABASE_HOST=localhost USE_HYPERTABLE=true BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_2_10000_20000.out
-
