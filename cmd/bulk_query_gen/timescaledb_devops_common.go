@@ -171,20 +171,27 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi Query,
 	}
 
 	hostnameField := "hostname"
-	if timescaleUseJSON {
-		hostnameField = "tags->>'hostname'"
-	} else if timescaleUseTags {
-		hostnameField = "tags.hostname"
+	joinStr := ""
+	groupByStr := hostnameField
+	if timescaleUseJSON || timescaleUseTags {
+		if timescaleUseJSON {
+			hostnameField = "tags->>'hostname'"
+		} else if timescaleUseTags {
+			hostnameField = "tags.hostname"
+		}
+		joinStr = "JOIN tags ON cpu.tags_id = tags.id"
+		groupByStr = "tags.id, " + hostnameField
 	}
 
 	sqlQuery := fmt.Sprintf(`
 		SELECT date_trunc('hour', time) as hour, %s,
     	%s
     	FROM cpu
-		JOIN tags ON cpu.tags_id = tags.id
-		WHERE time >= '%s' AND time < '%s'
+        %s
+        WHERE time >= '%s' AND time < '%s'
     	GROUP BY hour, %s ORDER BY hour`,
-		hostnameField, strings.Join(selectClauses, ", "), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostnameField)
+		hostnameField, strings.Join(selectClauses, ", "), joinStr,
+		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), groupByStr)
 
 	humanLabel := fmt.Sprintf("TimescaleDB mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*TimescaleDBQuery)
