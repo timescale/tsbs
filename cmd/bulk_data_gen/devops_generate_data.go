@@ -18,18 +18,19 @@ type DevopsSimulator struct {
 	timestampNow   time.Time
 	timestampStart time.Time
 	timestampEnd   time.Time
+	interval       time.Duration
 }
 
-func (g *DevopsSimulator) Seen() int64 {
-	return g.madePoints
+func (d *DevopsSimulator) Seen() int64 {
+	return d.madePoints
 }
 
-func (g *DevopsSimulator) Total() int64 {
-	return g.maxPoints
+func (d *DevopsSimulator) Total() int64 {
+	return d.maxPoints
 }
 
-func (g *DevopsSimulator) Finished() bool {
-	return g.madePoints >= g.maxPoints
+func (d *DevopsSimulator) Finished() bool {
+	return d.madePoints >= d.maxPoints
 }
 
 // Type DevopsSimulatorConfig is used to create a DevopsSimulator.
@@ -41,13 +42,13 @@ type DevopsSimulatorConfig struct {
 	HostConstructor func(i int, start time.Time) Host
 }
 
-func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
+func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) Simulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
 		hostInfos[i] = d.HostConstructor(i, d.Start)
 	}
 
-	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
+	epochs := d.End.Sub(d.Start).Nanoseconds() / interval.Nanoseconds()
 	maxPoints := epochs * (d.HostCount * int64(len(hostInfos[0].SimulatedMeasurements)))
 	dg := &DevopsSimulator{
 		madePoints: 0,
@@ -61,6 +62,7 @@ func (d *DevopsSimulatorConfig) ToSimulator() *DevopsSimulator {
 		timestampNow:   d.Start,
 		timestampStart: d.Start,
 		timestampEnd:   d.End,
+		interval:       interval,
 	}
 
 	return dg
@@ -89,7 +91,7 @@ func (d *DevopsSimulator) Next(p *Point) {
 		d.simulatedMeasurementIndex = 0
 
 		for i := 0; i < len(d.hosts); i++ {
-			d.hosts[i].TickAll(EpochDuration)
+			d.hosts[i].TickAll(d.interval)
 		}
 	}
 

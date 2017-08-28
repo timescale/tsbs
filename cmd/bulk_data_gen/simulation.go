@@ -2,6 +2,10 @@ package main
 
 import "time"
 
+type simulatorConfig interface {
+	ToSimulator(time.Duration) Simulator
+}
+
 // Simulator simulates a use case.
 type Simulator interface {
 	Total() int64

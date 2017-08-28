@@ -16,18 +16,19 @@ type CPUOnlySimulator struct {
 	timestampNow   time.Time
 	timestampStart time.Time
 	timestampEnd   time.Time
+	interval       time.Duration
 }
 
-func (g *CPUOnlySimulator) Seen() int64 {
-	return g.madePoints
+func (d *CPUOnlySimulator) Seen() int64 {
+	return d.madePoints
 }
 
-func (g *CPUOnlySimulator) Total() int64 {
-	return g.maxPoints
+func (d *CPUOnlySimulator) Total() int64 {
+	return d.maxPoints
 }
 
-func (g *CPUOnlySimulator) Finished() bool {
-	return g.madePoints >= g.maxPoints
+func (d *CPUOnlySimulator) Finished() bool {
+	return d.madePoints >= d.maxPoints
 }
 
 // CPUOnlySimulatorConfig is used to create a CPUOnlySimulator.
@@ -39,13 +40,13 @@ type CPUOnlySimulatorConfig struct {
 	HostConstructor func(i int, start time.Time) Host
 }
 
-func (d *CPUOnlySimulatorConfig) ToSimulator() *CPUOnlySimulator {
+func (d *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) Simulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
 		hostInfos[i] = d.HostConstructor(i, d.Start)
 	}
 
-	epochs := d.End.Sub(d.Start).Nanoseconds() / EpochDuration.Nanoseconds()
+	epochs := d.End.Sub(d.Start).Nanoseconds() / interval.Nanoseconds()
 	maxPoints := epochs * d.HostCount
 	dg := &CPUOnlySimulator{
 		madePoints: 0,
@@ -57,6 +58,7 @@ func (d *CPUOnlySimulatorConfig) ToSimulator() *CPUOnlySimulator {
 		timestampNow:   d.Start,
 		timestampStart: d.Start,
 		timestampEnd:   d.End,
+		interval:       interval,
 	}
 
 	return dg
@@ -78,7 +80,7 @@ func (d *CPUOnlySimulator) Next(p *Point) {
 		d.hostIndex = 0
 
 		for i := 0; i < len(d.hosts); i++ {
-			d.hosts[i].TickAll(EpochDuration)
+			d.hosts[i].TickAll(d.interval)
 		}
 	}
 

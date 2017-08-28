@@ -52,14 +52,14 @@ var (
 	seed  int64
 	debug int
 
-	logSeconds time.Duration
+	logInterval time.Duration
 )
 
 // Parse args:
 func init() {
 	flag.StringVar(&format, "format", formatChoices[0], fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
-	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, iot)")
+	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, cpu-only)")
 	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
@@ -71,16 +71,12 @@ func init() {
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
+	flag.DurationVar(&logInterval, "logInterval", 10*time.Second, "Duration between host data points")
 	flag.Parse()
 
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
 		log.Fatal("incorrect interleaved groups configuration")
 	}
-	flag.DurationVar(&logSeconds, "logSeconds", 10*time.Second, "duration between host data points")
-	flag.Parse()
-
-	// The duration of a log epoch.
-	EpochDuration = logSeconds
 
 	validFormat := false
 	for _, s := range formatChoices {
@@ -119,30 +115,28 @@ func main() {
 	out := bufio.NewWriterSize(os.Stdout, 4<<20)
 	defer out.Flush()
 
-	var sim Simulator
-
+	var cfg simulatorConfig
 	switch useCase {
 	case "devops":
-		cfg := &DevopsSimulatorConfig{
+		cfg = &DevopsSimulatorConfig{
 			Start: timestampStart,
 			End:   timestampEnd,
 
 			HostCount:       scaleVar,
 			HostConstructor: NewHost,
 		}
-		sim = cfg.ToSimulator()
 	case "cpu-only":
-		cfg := &CPUOnlySimulatorConfig{
+		cfg = &CPUOnlySimulatorConfig{
 			Start: timestampStart,
 			End:   timestampEnd,
 
 			HostCount:       scaleVar,
 			HostConstructor: NewHost,
 		}
-		sim = cfg.ToSimulator()
 	default:
 		panic("unreachable")
 	}
+	sim := cfg.ToSimulator(logInterval)
 
 	var serializer func(*Point, io.Writer) error
 	switch format {

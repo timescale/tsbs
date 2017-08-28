@@ -10,6 +10,7 @@ seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
 tsEnd=${tsEnd:-"2016-01-11T00:00:00Z"}
 useCase=${useCase:-"cpu-only"}
+logInterval=${logInterval:-"10s"}
 
 mkdir -p ${dataDir}
 
@@ -20,7 +21,7 @@ do
     fname="import_${format}_${binVersion}_${scaleVar}_${seed}_${tsStart}_${tsEnd}_${useCase}.dat.gz"
     echo "$fname"
     if [ ! -f "$fname" ]; then
-        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -use-case $useCase | gzip > $fname
+        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -logInterval $logInterval -use-case $useCase | gzip > $fname
         ln -s $fname ${format}-data.gz
     fi
    # or do whatever with individual element of the array
@@ -29,8 +30,9 @@ done
 
   # -format string
   #   	Format to emit. (choices: influx-bulk, es-bulk, cassandra, timescaledb) (default "influx-bulk")
-  # -logSeconds duration
-  #   	duration between host data points (default 10s)
+
+  # -logInterval duration
+  #    Duration between host data points (default 10s)
   # -scale-var int
   #   	Scaling variable specific to the use case. (default 1)
   # -seed int
@@ -40,4 +42,4 @@ done
   # -timestamp-start string
   #   	Beginning timestamp (RFC3339). (default "2016-01-01T00:00:00Z")
   # -use-case string
-  #   	Use case to model. (choices: devops, iot) (default "devops")
+  #   	Use case to model. (choices: devops, cpu-only) (default "devops")
