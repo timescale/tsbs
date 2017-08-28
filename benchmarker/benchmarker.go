@@ -68,9 +68,9 @@ func (sp *StatProcessor) Process(workers int) {
 	sp.wg.Add(1)
 	const allQueriesLabel = LabelAllQueries
 	statMapping := map[string]*StatGroup{
-		allQueriesLabel:  &StatGroup{},
-		LabelColdQueries: &StatGroup{},
-		LabelWarmQueries: &StatGroup{},
+		allQueriesLabel:  NewStatGroup(sp.Limit),
+		LabelColdQueries: NewStatGroup(sp.Limit),
+		LabelWarmQueries: NewStatGroup(sp.Limit),
 	}
 
 	i := uint64(0)
@@ -86,19 +86,20 @@ func (sp *StatProcessor) Process(workers int) {
 			}
 		}
 		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = &StatGroup{}
+			statMapping[string(stat.Label)] = NewStatGroup(sp.Limit)
 		}
 
 		statMapping[string(stat.Label)].Push(stat.Value)
 
 		if !stat.IsPartial {
 			statMapping[allQueriesLabel].Push(stat.Value)
-			i++
+			if !stat.IsWarm {
+				i++
+			}
 		}
 
 		if stat.IsWarm {
 			statMapping[LabelWarmQueries].Push(stat.Value)
-			i--
 		} else {
 			statMapping[LabelColdQueries].Push(stat.Value)
 		}
