@@ -37,7 +37,8 @@ var (
 	numberPartitions int
 	chunkTime        time.Duration
 
-	tagIndex        string
+	timeIndex       bool
+	partitionIndex  bool
 	fieldIndex      string
 	fieldIndexCount int
 )
@@ -81,7 +82,8 @@ func init() {
 	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
 	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
 
-	flag.StringVar(&tagIndex, "tag-index", "VALUE-TIME,TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
+	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
 
@@ -523,8 +525,12 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 			}
 		}
 		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
-		//dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
-		//dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
+		if partitionIndex {
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+		}
+		if timeIndex {
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
+		}
 
 		for _, idxDef := range indexes {
 			dbBench.MustExec(idxDef)
@@ -532,11 +538,8 @@ func initBenchmarkDB(postgresConnect string, scanner *bufio.Scanner) {
 
 		if useHypertable {
 			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d)",
+				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
 					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
-		} else {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
 		}
 	}
 }

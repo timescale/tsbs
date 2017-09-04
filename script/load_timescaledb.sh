@@ -27,5 +27,4 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --partitions=${PARTITIONS} \
                                 --chunk-time=${CHUNK_TIME} \
                                 --field-index="VALUE-TIME" \
-                                --field-index-count=1 \
-                                --tag-index=""
+                                --field-index-count=1
