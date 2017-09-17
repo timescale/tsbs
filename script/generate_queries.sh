@@ -6,7 +6,7 @@ dataDir=${dataDir:-/disk/1/queries}
 useJson=${useJson:-false}
 useTags=${useTags:-false}
 
-formats=${formats:-"influx-http cassandra timescaledb"}
+formats=${formats:-"influx cassandra timescaledb"}
 queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby groupby-5 groupby-all lastpoint cpu-max-all-single-host cpu-max-all-eight-hosts high-cpu high-cpu-and-field groupby-orderby-limit 5-metrics-1-host-1-hr 5-metrics-1-host-12-hr 5-metrics-8-host-1-hr"}
 
 scaleVar=${scaleVar:-"1000"}

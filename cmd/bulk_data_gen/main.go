@@ -25,7 +25,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx-bulk", "es-bulk", "cassandra", "mongo", "opentsdb", "timescaledb"}
+var formatChoices = []string{"influx", "es", "cassandra", "mongo", "opentsdb", "timescaledb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "cpu-only"}
@@ -140,9 +140,9 @@ func main() {
 
 	var serializer func(*Point, io.Writer) error
 	switch format {
-	case "influx-bulk":
+	case "influx":
 		serializer = (*Point).SerializeInfluxBulk
-	case "es-bulk":
+	case "es":
 		serializer = (*Point).SerializeESBulk
 	case "cassandra":
 		serializer = (*Point).SerializeCassandra

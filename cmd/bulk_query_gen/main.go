@@ -32,93 +32,93 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
 		"1-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 1),
-			"es-http":     NewElasticSearchDevopsSingleHost,
-			"influx-http": NewInfluxDevopsSingleMetric(1, 1),
+			"es":          NewElasticSearchDevopsSingleHost,
+			"influx":      NewInfluxDevopsSingleMetric(1, 1),
 			"mongo":       NewMongoDevopsSingleHost,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 12),
-			"es-http":     NewElasticSearchDevopsSingleHost12hr,
-			"influx-http": NewInfluxDevopsSingleMetric(1, 12),
+			"es":          NewElasticSearchDevopsSingleHost12hr,
+			"influx":      NewInfluxDevopsSingleMetric(1, 12),
 			"mongo":       NewMongoDevopsSingleHost12hr,
 			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(8, 1),
-			"es-http":     NewElasticSearchDevops8Hosts,
-			"influx-http": NewInfluxDevopsSingleMetric(8, 1),
+			"es":          NewElasticSearchDevops8Hosts,
+			"influx":      NewInfluxDevopsSingleMetric(8, 1),
 			"mongo":       NewMongoDevops8Hosts1Hr,
 			"opentsdb":    NewOpenTSDBDevops8Hosts,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy,
-			"es-http":     NewElasticSearchDevopsGroupBy,
-			"influx-http": NewInfluxDevopsGroupBy(1),
+			"es":          NewElasticSearchDevopsGroupBy,
+			"influx":      NewInfluxDevopsGroupBy(1),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(1),
 		},
 		"groupby-5": {
-			"influx-http": NewInfluxDevopsGroupBy(5),
+			"influx":      NewInfluxDevopsGroupBy(5),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(5),
 		},
 		"groupby-all": {
-			"influx-http": NewInfluxDevopsGroupBy(len(cpuMetrics)),
+			"influx":      NewInfluxDevopsGroupBy(len(cpuMetrics)),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(len(cpuMetrics)),
 		},
 		"5-metrics-1-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 1),
-			"influx-http": NewInfluxDevops5Metrics(1, 1),
+			"influx":      NewInfluxDevops5Metrics(1, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 1),
 		},
 		"5-metrics-1-host-12-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 12),
-			"influx-http": NewInfluxDevops5Metrics(1, 12),
+			"influx":      NewInfluxDevops5Metrics(1, 12),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 12),
 		},
 		"5-metrics-8-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(8, 1),
-			"influx-http": NewInfluxDevops5Metrics(8, 1),
+			"influx":      NewInfluxDevops5Metrics(8, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(8, 1),
 		},
 		"lastpoint": {
 			"cassandra":   NewCassandraDevopsLastPointPerHost,
 			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
-			"influx-http": NewInfluxDevopsLastPointPerHost,
+			"influx":      NewInfluxDevopsLastPointPerHost,
 		},
 		"high-cpu": {
 			"cassandra":   NewCassandraDevopsHighCPU(0),
-			"influx-http": NewInfluxDevopsHighCPU(0),
+			"influx":      NewInfluxDevopsHighCPU(0),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
 		},
 		"high-cpu-and-field": {
 			"cassandra":   NewCassandraDevopsHighCPU(1),
-			"influx-http": NewInfluxDevopsHighCPU(1),
+			"influx":      NewInfluxDevopsHighCPU(1),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},
 		"multiple-ors": {
-			"influx-http": NewInfluxDevopsMultipleOrs,
+			"influx":      NewInfluxDevopsMultipleOrs,
 			"timescaledb": NewTimescaleDBDevopsMultipleOrs,
 		},
 		"multiple-ors-by-host": {
-			"influx-http": NewInfluxDevopsMultipleOrsByHost,
+			"influx":      NewInfluxDevopsMultipleOrsByHost,
 			"timescaledb": NewTimescaleDBDevopsMultipleOrsByHost,
 		},
 		"cpu-max-all-single-host": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
-			"influx-http": NewInfluxDevopsAllMaxCPU(1),
+			"influx":      NewInfluxDevopsAllMaxCPU(1),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(1),
 		},
 		"cpu-max-all-eight-hosts": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(8),
-			"influx-http": NewInfluxDevopsAllMaxCPU(8),
+			"influx":      NewInfluxDevopsAllMaxCPU(8),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(8),
 		},
 		"groupby-orderby-limit": {
 			"cassandra":   NewCassandraDevopsGroupByOrderByLimit,
-			"influx-http": NewInfluxDevopsGroupByOrderByLimit,
+			"influx":      NewInfluxDevopsGroupByOrderByLimit,
 			"timescaledb": NewTimescaleDBDevopsGroupByOrderByLimit,
 		},
 	},
@@ -169,7 +169,7 @@ func init() {
 		}
 	}
 
-	flag.StringVar(&format, "format", "influx-http", "Format to emit. (Choices are in the use case matrix.)")
+	flag.StringVar(&format, "format", "influx", "Format to emit. (Choices are in the use case matrix.)")
 	flag.StringVar(&useCase, "use-case", "devops", "Use case to model. (Choices are in the use case matrix.)")
 	flag.StringVar(&queryType, "query-type", "", "Query type. (Choices are in the use case matrix.)")
 

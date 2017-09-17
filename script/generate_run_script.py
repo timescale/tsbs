@@ -7,7 +7,7 @@ for inserting, and on Go binaries generated from Influx's benchmark suite.
 Usage flags:
     -b      Sets the batch size for inserting (default: 10000)
 
-    -d      Database to benchmark. Valid values: cassandra, influxdb, timescaledb
+    -d      Database to benchmark. Valid values: cassandra, influx, timescaledb, postgres
 
     -e      Extra flags to pass to pass to query benchmarker, e.g., "-show-explain -debug 9"
 
@@ -57,7 +57,7 @@ def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
     loader = label if label != 'postgres' else 'timescaledb'
     suffix = ' ./load_{}.sh | tee {}'.format(loader, logfilename)
 
-    if label == 'influxdb' or label == 'cassandra':
+    if label == 'influx' or label == 'cassandra':
         return prefix + suffix
     elif label == 'timescaledb':
         return prefix + ' USE_HYPERTABLE=true ' + suffix
@@ -94,9 +94,7 @@ def load_queries_file_names(filename, label, query_dir):
             query = query.split('#')[0]
             if len(query) > 0:
                 n = label
-                if label == 'influxdb':
-                    n = 'influx-http'
-                elif label == 'postgres':
+                if label == 'postgres':
                     n = 'timescaledb'
                 l.append(os.path.join(query_dir, "{}-{}-queries.gz".format(n, query.strip())))
 
