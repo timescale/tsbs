@@ -3,8 +3,6 @@
 // It reads encoded Query objects from stdin, and makes concurrent requests
 // to the provided HTTP endpoint. This program has no knowledge of the
 // internals of the endpoint.
-//
-// TODO(rw): On my machine, this only decodes 700k/sec messages from stdin.
 package main
 
 import (
@@ -201,24 +199,10 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		lagMillis, err := w.Do(q.(*query.HTTP), opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
-			queryPool.Put(q)
-			continue
 		}
 		stat := statProcessor.GetStat()
 		stat.Init(q.HumanLabelName(), lagMillis)
 		statProcessor.C <- stat
-
-		lagMillis, err = w.Do(q.(*query.HTTP), opts)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
-			queryPool.Put(q)
-			continue
-		}
-		stat = statProcessor.GetStat()
-		stat.InitWarm(q.HumanLabelName(), lagMillis)
-		statProcessor.C <- stat
-
-		queryPool.Put(q)
 
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
@@ -235,6 +219,17 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 			telemetrySink <- p
 		}
 		queriesSeen++
+
+		// Warm run
+		lagMillis, err = w.Do(q.(*query.HTTP), opts)
+		if err != nil {
+			log.Fatalf("Error during request: %s\n", err.Error())
+		}
+		stat = statProcessor.GetStat()
+		stat.InitWarm(q.HumanLabelName(), lagMillis)
+		statProcessor.C <- stat
+
+		queryPool.Put(q)
 	}
 	workersGroup.Done()
 }

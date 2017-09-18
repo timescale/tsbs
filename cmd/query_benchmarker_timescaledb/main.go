@@ -1,16 +1,12 @@
 // query_benchmarker speed tests TimescaleDB using requests from stdin.
 //
 // It reads encoded Query objects from stdin, and makes concurrent requests
-// to the provided HTTP endpoint. This program has no knowledge of the
+// to the provided PostgreSQL/TimescaleDB endpoint. This program has no knowledge of the
 // internals of the endpoint.
-//
-// TODO(rw): On my machine, this only decodes 700k/sec messages from stdin.
 package main
 
 import (
 	"bufio"
-	"bytes"
-	"database/sql"
 	"encoding/gob"
 	"encoding/json"
 	"flag"
@@ -145,61 +141,29 @@ func scan(r io.Reader) {
 
 var mutex = &sync.Mutex{}
 
-func prettyPrintJsonResponse(rows *sql.Rows, q *query.TimescaleDB) {
-	var result bytes.Buffer
+// prettyPrintResponse prints a Query and its response in JSON format with two
+// keys: 'query' which has a value of the SQL used to generate the second key
+// 'results' which is an array of each row in the return set.
+func prettyPrintResponse(rows *sqlx.Rows, q *query.TimescaleDB) {
+	resp := make(map[string]interface{})
+	resp["query"] = string(q.SqlQuery)
 
+	results := []map[string]interface{}{}
 	for rows.Next() {
-		var jsonRow string
-		err := rows.Scan(&jsonRow)
-
-		if err != nil {
+		r := make(map[string]interface{})
+		if err := rows.MapScan(r); err != nil {
 			panic(err)
 		}
-
-		var response = make(map[string]interface{})
-		err = json.Unmarshal([]byte(jsonRow), &response)
-
-		if err != nil {
-			panic(err)
-		}
-
-		splitFactor := int64(1000000000)
-
-		if _, ok := response["group_time"]; ok {
-			ts := int64(response["group_time"].(float64))
-			timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
-			response["group_time"] = timeStruct.Format(time.RFC3339)
-		}
-
-		if _, ok := response["time"]; ok {
-			ts := int64(response["time"].(float64))
-			timeStruct := time.Unix(ts/splitFactor, ts%splitFactor)
-			response["time"] = timeStruct.Format(time.RFC3339)
-		}
-
-		modifiedResponse, err := json.Marshal(response)
-		if err != nil {
-			panic(err)
-		}
-		var pretty bytes.Buffer
-		prefix := fmt.Sprintf("ID %d: ", q.ID)
-
-		err = json.Indent(&pretty, modifiedResponse, prefix, "  ")
-
-		if err != nil {
-			return
-		}
-
-		_, err = fmt.Fprintf(&result, "%s%s\n", prefix, pretty.Bytes())
-		if err != nil {
-			return
-		}
+		results = append(results, r)
+		resp["results"] = results
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
-	result.WriteTo(os.Stderr)
+	line, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		panic(err)
+	}
 
+	fmt.Println(string(line) + "\n")
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
@@ -220,40 +184,25 @@ func processQueries() {
 		if showExplain {
 			query = "EXPLAIN ANALYZE " + query
 		}
+		if debug > 0 {
+			fmt.Println(query)
+		}
 
 		rows, lag := qFn(query)
 		if showExplain {
-			fmt.Printf(query + "\n\n")
+			text := ""
 			for rows.Next() {
 				var s string
 				if err := rows.Scan(&s); err != nil {
 					panic(err)
 				}
-				fmt.Println(s)
+				text += s + "\n"
 			}
-			fmt.Printf("\n-----\n\n")
+			fmt.Printf("%s\n\n%s\n-----\n\n", query, text)
 		} else if prettyPrintResponses {
-			for rows.Next() {
-				results := make(map[string]interface{})
-				err := rows.MapScan(results)
-
-				if err != nil {
-					panic(err)
-				}
-
-				line, err := json.MarshalIndent(results, "", "  ")
-				if err != nil {
-					panic(err)
-				}
-
-				fmt.Println(string(line))
-			}
+			prettyPrintResponse(rows, q)
 		}
 		rows.Close()
-
-		if debug > 0 {
-			fmt.Println(query)
-		}
 
 		if showExplain {
 			queryPool.Put(q)
