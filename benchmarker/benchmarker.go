@@ -93,15 +93,13 @@ func (sp *StatProcessor) Process(workers int) {
 
 		if !stat.IsPartial {
 			statMapping[allQueriesLabel].Push(stat.Value)
-			if !stat.IsWarm {
-				i++
-			}
-		}
 
-		if stat.IsWarm {
-			statMapping[LabelWarmQueries].Push(stat.Value)
-		} else {
-			statMapping[LabelColdQueries].Push(stat.Value)
+			if stat.IsWarm {
+				statMapping[LabelWarmQueries].Push(stat.Value)
+			} else {
+				i++
+				statMapping[LabelColdQueries].Push(stat.Value)
+			}
 		}
 
 		sp.statPool.Put(stat)

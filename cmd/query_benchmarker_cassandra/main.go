@@ -185,10 +185,43 @@ func processQueries(qc *HLQueryExecutor) {
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+
+	qFn := func(q *HLQuery, labels [][]byte, warm bool) {
+		qpLagMs, reqLagMs, err := qc.Do(q, opts)
+		if err != nil {
+			log.Fatalf("Error during request: %s\n", err.Error())
+		}
+
+		// total lag stat:
+		stat := statProcessor.GetStat()
+		if warm {
+			stat.InitWarm(append(labels[0], " (warm)"...), qpLagMs+reqLagMs)
+		} else {
+			stat.Init(labels[0], qpLagMs+reqLagMs)
+		}
+		statProcessor.C <- stat
+
+		// qp lag stat:
+		stat = statProcessor.GetPartialStat()
+		if warm {
+			stat.InitWarm(append(labels[1], " (warm)"...), qpLagMs)
+		} else {
+			stat.Init(labels[1], qpLagMs)
+		}
+		statProcessor.C <- stat
+
+		// req lag stat:
+		stat = statProcessor.GetPartialStat()
+		if warm {
+			stat.InitWarm(append(labels[2], " (warm)"...), reqLagMs)
+		} else {
+			stat.Init(labels[2], reqLagMs)
+		}
+		statProcessor.C <- stat
+	}
+
 	labels := map[string][][]byte{}
 	for q := range hlQueryChan {
-		qpLagMs, reqLagMs, err := qc.Do(q, opts)
-
 		// if needed, prepare stat labels:
 		if _, ok := labels[string(q.HumanLabel)]; !ok {
 			labels[string(q.HumanLabel)] = [][]byte{
@@ -199,25 +232,10 @@ func processQueries(qc *HLQueryExecutor) {
 		}
 		ls := labels[string(q.HumanLabel)]
 
-		// total lag stat:
-		stat := statProcessor.GetStat()
-		stat.Init(ls[0], qpLagMs+reqLagMs)
-		statProcessor.C <- stat
-
-		// qp lag stat:
-		stat = statProcessor.GetPartialStat()
-		stat.Init(ls[1], qpLagMs)
-		statProcessor.C <- stat
-
-		// req lag stat:
-		stat = statProcessor.GetPartialStat()
-		stat.Init(ls[2], reqLagMs)
-		statProcessor.C <- stat
+		qFn(q, ls, false) // cold run
+		qFn(q, ls, true)  // warm run
 
 		queryPool.Put(q.Cassandra)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
-		}
 	}
 	workersGroup.Done()
 }
