@@ -139,8 +139,6 @@ func scan(r io.Reader) {
 	}
 }
 
-var mutex = &sync.Mutex{}
-
 // prettyPrintResponse prints a Query and its response in JSON format with two
 // keys: 'query' which has a value of the SQL used to generate the second key
 // 'results' which is an array of each row in the return set.
@@ -166,60 +164,83 @@ func prettyPrintResponse(rows *sqlx.Rows, q *query.TimescaleDB) {
 	fmt.Println(string(line) + "\n")
 }
 
+type queryExecutorOptions struct {
+	showExplain   bool
+	debug         bool
+	printResponse bool
+}
+
+type queryExecutor struct {
+	db *sqlx.DB
+}
+
+func newQueryExecutor(conn string) *queryExecutor {
+	return &queryExecutor{
+		db: sqlx.MustConnect("postgres", conn),
+	}
+}
+
+func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64, error) {
+	start := time.Now()
+	qry := string(q.(*query.TimescaleDB).SqlQuery)
+	if showExplain {
+		qry = "EXPLAIN ANALYZE " + qry
+	}
+	rows, err := qe.db.Queryx(qry)
+	took := float64(time.Since(start).Nanoseconds()) / 1e6
+	if err != nil {
+		return took, err
+	}
+
+	if debug > 0 {
+		fmt.Println(qry)
+	}
+	if showExplain {
+		text := ""
+		for rows.Next() {
+			var s string
+			if err2 := rows.Scan(&s); err2 != nil {
+				panic(err2)
+			}
+			text += s + "\n"
+		}
+		fmt.Printf("%s\n\n%s\n-----\n\n", qry, text)
+	} else if prettyPrintResponses {
+		prettyPrintResponse(rows, q.(*query.TimescaleDB))
+	}
+	rows.Close()
+	return took, err
+}
+
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries() {
-	db := sqlx.MustConnect("postgres", getConnectString())
-	qFn := func(query string) (*sqlx.Rows, float64) {
-		start := time.Now()
-		rows, err := db.Queryx(query)
-		if err != nil {
-			panic(err)
-		}
-		return rows, float64(time.Since(start).Nanoseconds()) / 1e6
+	qe := newQueryExecutor(getConnectString())
+	opts := &queryExecutorOptions{
+		showExplain:   showExplain,
+		debug:         debug > 0,
+		printResponse: prettyPrintResponses,
 	}
 
 	for q := range queryChan {
-		query := string(q.SqlQuery)
-		if showExplain {
-			query = "EXPLAIN ANALYZE " + query
+		lag, err := qe.Do(q, opts)
+		if err != nil {
+			panic(err)
 		}
-		if debug > 0 {
-			fmt.Println(query)
-		}
-
-		rows, lag := qFn(query)
-		if showExplain {
-			text := ""
-			for rows.Next() {
-				var s string
-				if err := rows.Scan(&s); err != nil {
-					panic(err)
-				}
-				text += s + "\n"
-			}
-			fmt.Printf("%s\n\n%s\n-----\n\n", query, text)
-		} else if prettyPrintResponses {
-			prettyPrintResponse(rows, q)
-		}
-		rows.Close()
-
-		if showExplain {
-			queryPool.Put(q)
-			continue
-		}
-
 		stat := statProcessor.GetStat()
 		stat.Init(q.HumanLabel, lag)
 		statProcessor.C <- stat
 
-		// Warm run
-		rows, lag = qFn(query)
-		stat = statProcessor.GetStat()
-		stat.InitWarm(q.HumanLabel, lag)
-		statProcessor.C <- stat
-		rows.Close()
-
+		if !showExplain {
+			// Warm run
+			lag, err = qe.Do(q, &queryExecutorOptions{})
+			if err != nil {
+				panic(err)
+			}
+			stat = statProcessor.GetStat()
+			stat.InitWarm(q.HumanLabel, lag)
+			statProcessor.C <- stat
+		}
 		queryPool.Put(q)
 
 	}
