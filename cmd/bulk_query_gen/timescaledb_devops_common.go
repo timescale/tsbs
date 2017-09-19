@@ -16,7 +16,7 @@ type TimescaleDBDevops struct {
 }
 
 // NewTimescaleDBDevops makes an InfluxDevops object ready to generate Queries.
-func newTimescaleDBDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func newTimescaleDBDevopsCommon(start, end time.Time) QueryGenerator {
 	if !start.Before(end) {
 		panic("bad time order")
 	}

@@ -13,7 +13,7 @@ type CassandraDevopsGroupby struct {
 
 // NewCassandraDevopsGroupBy produces a function that produces a new CassandraDevopsGroupby for the given parameters
 func NewCassandraDevopsGroupBy(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
+	underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
 	return &CassandraDevopsGroupby{
 		CassandraDevops: *underlying,
 	}

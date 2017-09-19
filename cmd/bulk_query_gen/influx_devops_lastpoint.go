@@ -13,7 +13,7 @@ type InfluxDevopsLastPointPerHost struct {
 
 // NewInfluxDevopsLastPointPerHost returns a new InfluxDevopsLastPointPerHost for given paremeters
 func NewInfluxDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
+	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 	return &InfluxDevopsLastPointPerHost{
 		InfluxDevops: *underlying,
 	}

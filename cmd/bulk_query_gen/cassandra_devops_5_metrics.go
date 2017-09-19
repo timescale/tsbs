@@ -16,7 +16,7 @@ type CassandraDevops5Metrics struct {
 // NewCassandraDevops5Metrics produces a new function that produces a new CassandraDevops5Metrics
 func NewCassandraDevops5Metrics(hosts, hours int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
+		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
 		return &CassandraDevops5Metrics{
 			CassandraDevops: *underlying,
 			hosts:           hosts,

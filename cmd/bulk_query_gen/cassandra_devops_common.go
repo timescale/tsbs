@@ -14,7 +14,7 @@ type CassandraDevops struct {
 }
 
 // NewCassandraDevops makes an CassandraDevops object ready to generate Queries.
-func newCassandraDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func newCassandraDevopsCommon(start, end time.Time) QueryGenerator {
 	if !start.Before(end) {
 		panic("bad time order")
 	}

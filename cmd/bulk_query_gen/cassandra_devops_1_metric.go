@@ -16,7 +16,7 @@ type CassandraDevopsSingleMetric struct {
 // NewCassandraDevopsSingleMetric produces a new function that produces a new CassandraDevopsSingleMetric
 func NewCassandraDevopsSingleMetric(hosts, hours int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(dbConfig, start, end).(*CassandraDevops)
+		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
 		return &CassandraDevopsSingleMetric{
 			CassandraDevops: *underlying,
 			hosts:           hosts,

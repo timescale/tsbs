@@ -16,7 +16,7 @@ type TimescaleDBDevopsSingleMetric struct {
 // NewTimescaleDBDevopsSingleMetric produces a new function that produces a new TimescaleDBDevopsSingleMetric
 func NewTimescaleDBDevopsSingleMetric(hosts, hours int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+		underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
 		return &TimescaleDBDevopsSingleMetric{
 			TimescaleDBDevops: *underlying,
 			hosts:             hosts,

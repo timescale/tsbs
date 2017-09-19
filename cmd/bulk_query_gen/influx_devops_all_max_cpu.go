@@ -15,7 +15,7 @@ type InfluxDevopsAllMaxCPU struct {
 // NewInfluxDevopsAllMaxCPU produces a new function that produces a new InfluxDevopsAllMaxCPU
 func NewInfluxDevopsAllMaxCPU(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
+		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 		return &InfluxDevopsAllMaxCPU{
 			InfluxDevops: *underlying,
 			hosts:        hosts,

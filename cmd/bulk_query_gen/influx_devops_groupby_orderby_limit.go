@@ -13,7 +13,7 @@ type InfluxDevopsGroupByOrderByLimit struct {
 
 // NewInfluxDevopsGroupByOrderByLimit returns a new InfluxDevopsGroupByOrderByLimit for given paremeters
 func NewInfluxDevopsGroupByOrderByLimit(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
+	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 	return &InfluxDevopsGroupByOrderByLimit{
 		InfluxDevops: *underlying,
 	}

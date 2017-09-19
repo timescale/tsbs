@@ -15,7 +15,7 @@ type InfluxDevops struct {
 }
 
 // NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
-func newInfluxDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func newInfluxDevopsCommon(start, end time.Time) QueryGenerator {
 	if !start.Before(end) {
 		panic("bad time order")
 	}

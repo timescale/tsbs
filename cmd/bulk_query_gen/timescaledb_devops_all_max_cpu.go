@@ -15,7 +15,7 @@ type TimescaleDBDevopsAllMaxCPU struct {
 // NewTimescaleDBDevopsAllMaxCPU produces a new function that produces a new TimescaleDBDevopsAllMaxCPU
 func NewTimescaleDBDevopsAllMaxCPU(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newTimescaleDBDevopsCommon(dbConfig, start, end).(*TimescaleDBDevops)
+		underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
 		return &TimescaleDBDevopsAllMaxCPU{
 			TimescaleDBDevops: *underlying,
 			hosts:             hosts,

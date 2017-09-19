@@ -15,7 +15,7 @@ type InfluxDevopsGroupby struct {
 // NewInfluxDevopsGroupBy produces a function that produces a new InfluxDevopsGroupby for the given parameters
 func NewInfluxDevopsGroupBy(numMetrics int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
 	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
+		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 		return &InfluxDevopsGroupby{
 			InfluxDevops: *underlying,
 			numMetrics:   numMetrics,

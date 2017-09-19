@@ -12,7 +12,7 @@ type InfluxDevopsMultipleOrs struct {
 }
 
 func NewInfluxDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(dbConfig, start, end).(*InfluxDevops)
+	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 	return &InfluxDevopsMultipleOrs{
 		InfluxDevops: *underlying,
 	}
