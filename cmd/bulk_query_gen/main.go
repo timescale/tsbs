@@ -133,8 +133,6 @@ var (
 	scaleVar   int
 	queryCount int
 
-	dbName string // TODO(rw): make this a map[string]string -> DatabaseConfig
-
 	timestampStartStr string
 	timestampEndStr   string
 
@@ -175,8 +173,6 @@ func init() {
 
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
-
-	flag.StringVar(&dbName, "db", "benchmark_db", "Database for influx to use (ignored for ElasticSearch).")
 
 	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "Use separate JSON tags table when querying")
 	flag.BoolVar(&timescaleUseTags, "timescale-use-tags", true, "Use separate tags table when querying")
@@ -232,9 +228,7 @@ func main() {
 	rand.Seed(seed)
 
 	// TODO(rw): Parse this from the CLI (maybe).
-	dbConfig := DatabaseConfig{
-		"database-name": dbName,
-	}
+	dbConfig := DatabaseConfig{}
 
 	// Make the query generator:
 	maker := useCaseMatrix[useCase][queryType][format]

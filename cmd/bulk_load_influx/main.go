@@ -77,7 +77,7 @@ var consistencyChoices = map[string]struct{}{
 // Parse args:
 func init() {
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
-	flag.StringVar(&dbName, "db", "benchmark_db", "Database name.")
+	flag.StringVar(&dbName, "db-name", "benchmark", "Database name.")
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
 	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
 	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (1 line of input = 1 item).")

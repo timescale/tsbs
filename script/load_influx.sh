@@ -3,6 +3,7 @@
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-influx-data.gz}
 PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
+DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
 source ${EXE_DIR}/load_common.sh
 
 until curl http://${DATABASE_HOST}:8086/ping 2>/dev/null; do
@@ -11,9 +12,10 @@ until curl http://${DATABASE_HOST}:8086/ping 2>/dev/null; do
 done
 
 # Remove previous database
-curl -X POST http://${DATABASE_HOST}:8086/query?q=drop%20database%20benchmark_db
+curl -X POST http://${DATABASE_HOST}:8086/query?q=drop%20database%20${DATABASE_NAME}
 # Load new data
 cat ${DATA_FILE} | gunzip | bulk_load_influx \
+                                --db-name=${DATABASE_NAME} \
                                 --backoff=${BACKOFF_SECS} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \

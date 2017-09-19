@@ -10,8 +10,7 @@ import (
 
 // CassandraDevops produces Cassandra-specific queries for all the devops query types.
 type CassandraDevops struct {
-	KeyspaceName string
-	AllInterval  TimeInterval
+	AllInterval TimeInterval
 }
 
 // NewCassandraDevops makes an CassandraDevops object ready to generate Queries.
@@ -21,8 +20,7 @@ func newCassandraDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) Que
 	}
 
 	return &CassandraDevops{
-		KeyspaceName: dbConfig["database-name"],
-		AllInterval:  NewTimeInterval(start, end),
+		AllInterval: NewTimeInterval(start, end),
 	}
 }
 

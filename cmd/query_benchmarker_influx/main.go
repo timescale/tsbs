@@ -25,11 +25,12 @@ import (
 
 // Program option vars:
 var (
-	csvDaemonUrls        string
 	daemonUrls           []string
+	databaseName         string
 	workers              int
 	debug                int
 	prettyPrintResponses bool
+	chunkSize            uint64
 	memProfile           string
 	telemetryHost        string
 	telemetryStderr      bool
@@ -53,11 +54,14 @@ var (
 // Parse args:
 func init() {
 	statProcessor = benchmarker.NewStatProcessor()
+	var csvDaemonUrls string
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
+	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
+	flag.Uint64Var(&chunkSize, "chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
 	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
 	flag.StringVar(&telemetryTagsCSV, "telemetry-tags", "", "Tag(s) for telemetry. Format: key0:val0,key1:val1,...")
@@ -191,6 +195,8 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 	opts := &HTTPClientDoOptions{
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
+		chunkSize:            chunkSize,
+		database:             databaseName,
 	}
 	var queriesSeen int64
 	for q := range queryChan {

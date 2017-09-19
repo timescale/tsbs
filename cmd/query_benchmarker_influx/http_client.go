@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -27,6 +28,8 @@ type HTTPClient struct {
 type HTTPClientDoOptions struct {
 	Debug                int
 	PrettyPrintResponses bool
+	chunkSize            uint64
+	database             string
 }
 
 // NewHTTPClient creates a new HTTPClient.
@@ -50,6 +53,11 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	w.uri = append(w.uri, w.Host...)
 	w.uri = append(w.uri, bytesSlash...)
 	w.uri = append(w.uri, q.Path...)
+	w.uri = append(w.uri, []byte("&db="+url.QueryEscape(opts.database))...)
+	if opts.chunkSize > 0 {
+		s := fmt.Sprintf("&chunked=true&chunk_size=%d", opts.chunkSize)
+		w.uri = append(w.uri, []byte(s)...)
+	}
 
 	// populate a request with data from the Query:
 	req := fasthttp.AcquireRequest()

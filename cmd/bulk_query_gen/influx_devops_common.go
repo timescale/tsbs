@@ -11,8 +11,7 @@ import (
 
 // InfluxDevops produces Influx-specific queries for all the devops query types.
 type InfluxDevops struct {
-	DatabaseName string
-	AllInterval  TimeInterval
+	AllInterval TimeInterval
 }
 
 // NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
@@ -20,13 +19,9 @@ func newInfluxDevopsCommon(dbConfig DatabaseConfig, start, end time.Time) QueryG
 	if !start.Before(end) {
 		panic("bad time order")
 	}
-	if _, ok := dbConfig["database-name"]; !ok {
-		panic("need influx database name")
-	}
 
 	return &InfluxDevops{
-		DatabaseName: dbConfig["database-name"],
-		AllInterval:  NewTimeInterval(start, end),
+		AllInterval: NewTimeInterval(start, end),
 	}
 }
 
@@ -99,7 +94,6 @@ func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi query.Query, scaleVar, n
 	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
@@ -131,7 +125,6 @@ func (d *InfluxDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRan
 	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_guest) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
@@ -154,7 +147,6 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query, _ int) {
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where))
 
 	humanLabel := "Influx max cpu over last 5 min-intervals (rand end)"
@@ -184,7 +176,6 @@ func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, 
 	}
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
@@ -215,7 +206,6 @@ func (d *InfluxDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user),max(usage_system),max(usage_idle),max(usage_nice),max(usage_iowait),max(usage_irq),max(usage_softirq),max(usage_steal),max(usage_guest),max(usage_guest_nice) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
@@ -230,7 +220,6 @@ func (d *InfluxDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 // LastPointPerHost finds the last row for every host in the dataset
 func (d *InfluxDevops) LastPointPerHost(qi query.Query, _ int) {
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
 
 	humanLabel := "Influx last row per host"
@@ -260,7 +249,6 @@ func (d *InfluxDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) {
 	}
 
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx cpu over threshold, "
@@ -280,7 +268,6 @@ func (d *InfluxDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) {
 func (d *InfluxDevops) MultipleMemFieldsOrs(qi query.Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT * from mem where used < 1000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' ", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx mem fields with or"
@@ -295,7 +282,6 @@ func (d *InfluxDevops) MultipleMemFieldsOrs(qi query.Query, _ int) {
 func (d *InfluxDevops) MultipleMemFieldsOrsGroupedByHost(qi query.Query, _ int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	v := url.Values{}
-	v.Set("db", d.DatabaseName)
 	v.Set("q", fmt.Sprintf("SELECT MAX(used_percent) from mem where used < 1000 or used_percent > 98.0 or used_percent < 10.0 and time >= '%s' and time < '%s' GROUP BY time(1h),hostname", interval.StartString(), interval.EndString()))
 
 	humanLabel := "Influx mem fields with or by host"
