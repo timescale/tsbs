@@ -1,27 +1,27 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
-
-	"github.com/valyala/fasthttp"
 )
 
 var bytesSlash = []byte("/") // heap optimization
 
 // HTTPClient is a reusable HTTP Client.
 type HTTPClient struct {
-	client     fasthttp.Client
+	//client     fasthttp.Client
+	client     http.Client
 	Host       []byte
 	HostString string
 	uri        []byte
-	debug      int
 }
 
 // HTTPClientDoOptions wraps options uses when calling `Do`.
@@ -33,15 +33,12 @@ type HTTPClientDoOptions struct {
 }
 
 // NewHTTPClient creates a new HTTPClient.
-func NewHTTPClient(host string, debug int) *HTTPClient {
+func NewHTTPClient(host string) *HTTPClient {
 	return &HTTPClient{
-		client: fasthttp.Client{
-			Name: "query_benchmarker",
-		},
+		client:     http.Client{},
 		Host:       []byte(host),
 		HostString: host,
 		uri:        []byte{}, // heap optimization
-		debug:      debug,
 	}
 }
 
@@ -51,7 +48,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	// populate uri from the reusable byte slice:
 	w.uri = w.uri[:0]
 	w.uri = append(w.uri, w.Host...)
-	w.uri = append(w.uri, bytesSlash...)
+	//w.uri = append(w.uri, bytesSlash...)
 	w.uri = append(w.uri, q.Path...)
 	w.uri = append(w.uri, []byte("&db="+url.QueryEscape(opts.database))...)
 	if opts.chunkSize > 0 {
@@ -60,29 +57,35 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	}
 
 	// populate a request with data from the Query:
-	req := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(req)
-
-	req.Header.SetMethodBytes(q.Method)
-	req.Header.SetRequestURIBytes(w.uri)
-	req.SetBody(q.Body)
-
-	// Perform the request while tracking latency:
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(resp)
-	start := time.Now()
-	err = w.client.Do(req, resp)
-	lag = float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
-
-	// Check that the status code was 200 OK:
-	if err == nil {
-		sc := resp.StatusCode()
-		if sc != fasthttp.StatusOK {
-			err = fmt.Errorf("Invalid write response (status %d): %s", sc, resp.Body())
-			return
-		}
+	req, err := http.NewRequest(string(q.Method), string(w.uri), nil)
+	if err != nil {
+		panic(err)
 	}
 
+	// Perform the request while tracking latency:
+	start := time.Now()
+	resp, err := w.client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		panic("http request did not return status 200 OK")
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	buf := make([]byte, 8192)
+	for {
+		_, err := reader.Read(buf)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+	}
+	lag = float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
+
+	// TODO(rrk) - Make it print responses again
 	if opts != nil {
 		// Print debug messages, if applicable:
 		switch opts.Debug {
@@ -96,7 +99,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 		case 4:
 			fmt.Fprintf(os.Stderr, "debug: %s in %7.2fms -- %s\n", q.HumanLabel, lag, q.HumanDescription)
 			fmt.Fprintf(os.Stderr, "debug:   request: %s\n", string(q.String()))
-			fmt.Fprintf(os.Stderr, "debug:   response: %s\n", string(resp.Body()))
+			//fmt.Fprintf(os.Stderr, "debug:   response: %s\n", string(resp.Body()))
 		default:
 		}
 
@@ -107,7 +110,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 
 			var pretty bytes.Buffer
 			prefix := fmt.Sprintf("ID %d: ", q.ID)
-			err = json.Indent(&pretty, resp.Body(), prefix, "  ")
+			//err = json.Indent(&pretty, resp.Body(), prefix, "  ")
 			if err != nil {
 				return
 			}

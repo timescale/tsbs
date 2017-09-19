@@ -75,7 +75,6 @@ func init() {
 	if len(daemonUrls) == 0 {
 		log.Fatal("missing 'urls' flag")
 	}
-	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 
 	if telemetryHost != "" {
 		fmt.Printf("telemetry destination: %v\n", telemetryHost)
@@ -118,7 +117,7 @@ func main() {
 	for i := 0; i < workers; i++ {
 		daemonUrl := daemonUrls[i%len(daemonUrls)]
 		workersGroup.Add(1)
-		w := NewHTTPClient(daemonUrl, debug)
+		w := NewHTTPClient(daemonUrl)
 		go processQueries(w, telemetryChanPoints, fmt.Sprintf("%d", i))
 	}
 
