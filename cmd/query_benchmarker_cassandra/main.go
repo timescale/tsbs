@@ -11,10 +11,8 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -26,14 +24,14 @@ import (
 )
 
 const (
-	BucketDuration   time.Duration = 24 * time.Hour
-	BucketTimeLayout string        = "2006-01-02"
-	BlessedKeyspace  string        = "measurements"
+	BucketDuration   = 24 * time.Hour
+	BucketTimeLayout = "2006-01-02"
+	BlessedKeyspace  = "measurements"
 )
 
 // Blessed tables that hold benchmark data:
 var (
-	BlessedTables []string = []string{
+	BlessedTables = []string{
 		"series_bigint",
 		"series_float",
 		"series_double",
@@ -57,7 +55,7 @@ var (
 
 // Helpers for choice-like flags:
 var (
-	aggrPlanChoices map[string]int = map[string]int{
+	aggrPlanChoices = map[string]int{
 		"server": AggrPlanTypeWithServerAggregation,
 		"client": AggrPlanTypeWithoutServerAggregation,
 	}
@@ -66,7 +64,7 @@ var (
 // Global vars:
 var (
 	queryPool     = &query.CassandraPool
-	hlQueryChan   chan *HLQuery
+	queryChan     chan query.Query
 	workersGroup  sync.WaitGroup
 	aggrPlan      int
 	statProcessor *benchmarker.StatProcessor
@@ -104,7 +102,7 @@ func main() {
 	defer session.Close()
 
 	// Make data and stat channels:
-	hlQueryChan = make(chan *HLQuery, workers)
+	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
 	go statProcessor.Process(workers)
@@ -118,9 +116,10 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
+	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scan(input)
-	close(hlQueryChan)
+	scanner.Scan(queryPool, queryChan)
+	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
@@ -148,36 +147,7 @@ func main() {
 	}
 }
 
-// scan reads encoded Queries and places them onto the workqueue.
-func scan(r io.Reader) {
-	dec := gob.NewDecoder(r)
-
-	n := uint64(0)
-	for {
-		if statProcessor.Limit >= 0 && n >= statProcessor.Limit {
-			break
-		}
-
-		core := queryPool.Get().(*query.Cassandra)
-		q := &HLQuery{*core}
-		err := dec.Decode(q)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		q.ID = int64(n)
-		q.ForceUTC()
-
-		hlQueryChan <- q
-
-		n++
-	}
-}
-
-// processQueries reads byte buffers from hlQueryChan and writes them to the
+// processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries(qc *HLQueryExecutor) {
 	opts := HLQueryExecutorDoOptions{
@@ -221,21 +191,24 @@ func processQueries(qc *HLQueryExecutor) {
 	}
 
 	labels := map[string][][]byte{}
-	for q := range hlQueryChan {
+	for q := range queryChan {
+		cq := q.(*query.Cassandra)
+		hlq := &HLQuery{*cq}
+		hlq.ForceUTC()
 		// if needed, prepare stat labels:
-		if _, ok := labels[string(q.HumanLabel)]; !ok {
-			labels[string(q.HumanLabel)] = [][]byte{
-				q.HumanLabel,
-				[]byte(fmt.Sprintf("%s-qp", q.HumanLabel)),
-				[]byte(fmt.Sprintf("%s-req", q.HumanLabel)),
+		if _, ok := labels[string(hlq.HumanLabel)]; !ok {
+			labels[string(hlq.HumanLabel)] = [][]byte{
+				hlq.HumanLabel,
+				[]byte(fmt.Sprintf("%s-qp", hlq.HumanLabel)),
+				[]byte(fmt.Sprintf("%s-req", hlq.HumanLabel)),
 			}
 		}
-		ls := labels[string(q.HumanLabel)]
+		ls := labels[string(hlq.HumanLabel)]
 
-		qFn(q, ls, false) // cold run
-		qFn(q, ls, true)  // warm run
+		qFn(hlq, ls, false) // cold run
+		qFn(hlq, ls, true)  // warm run
 
-		queryPool.Put(q.Cassandra)
+		queryPool.Put(q)
 	}
 	workersGroup.Done()
 }

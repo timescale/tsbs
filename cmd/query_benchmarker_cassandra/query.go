@@ -19,7 +19,7 @@ type HLQuery struct {
 
 // String produces a debug-ready description of a Query.
 func (q *HLQuery) String() string {
-	return fmt.Sprintf("ID: %d, HumanLabel: %s, HumanDescription: %s, MeasurementName: %s, FieldName: %s, AggregationType: %s, TimeStart: %s, TimeEnd: %s, GroupByDuration: %s, TagSets: %s", q.ID, q.HumanLabel, q.HumanDescription, q.MeasurementName, q.FieldName, q.AggregationType, q.TimeStart, q.TimeEnd, q.GroupByDuration, q.TagSets)
+	return q.Cassandra.String()
 }
 
 // ForceUTC rewrites timestamps in UTC, which is helpful for pretty-printing.

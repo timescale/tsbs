@@ -7,10 +7,8 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -123,8 +121,9 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
+	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scan(input)
+	scanner.Scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
@@ -157,34 +156,6 @@ func main() {
 		}
 		pprof.WriteHeapProfile(f)
 		f.Close()
-	}
-}
-
-// scan reads encoded Queries and places them onto the workqueue.
-func scan(r io.Reader) {
-	dec := gob.NewDecoder(r)
-
-	n := uint64(0)
-	for {
-		if statProcessor.Limit >= 0 && n >= statProcessor.Limit {
-			break
-		}
-
-		q := queryPool.Get().(*query.HTTP)
-		err := dec.Decode(q)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		q.ID = int64(n)
-
-		queryChan <- q
-
-		n++
-
 	}
 }
 

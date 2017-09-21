@@ -7,11 +7,9 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -38,7 +36,7 @@ var (
 // Global vars:
 var (
 	queryPool     = &query.TimescaleDBPool
-	queryChan     chan *query.TimescaleDB
+	queryChan     chan query.Query
 	workersGroup  sync.WaitGroup
 	statProcessor *benchmarker.StatProcessor
 )
@@ -64,7 +62,7 @@ func init() {
 
 func main() {
 	// Make data and control channels:
-	queryChan = make(chan *query.TimescaleDB, workers)
+	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
 	go statProcessor.Process(workers)
@@ -77,8 +75,9 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
+	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scan(input)
+	scanner.Scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
@@ -109,34 +108,6 @@ func main() {
 
 func getConnectString() string {
 	return postgresConnect + " dbname=" + databaseName
-}
-
-// scan reads encoded Queries and places them onto the workqueue.
-func scan(r io.Reader) {
-	dec := gob.NewDecoder(r)
-
-	n := uint64(0)
-	for {
-		if statProcessor.Limit >= 0 && n >= statProcessor.Limit {
-			break
-		}
-
-		q := queryPool.Get().(*query.TimescaleDB)
-		err := dec.Decode(q)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		q.ID = int64(n)
-
-		queryChan <- q
-
-		n++
-
-	}
 }
 
 // prettyPrintResponse prints a Query and its response in JSON format with two
@@ -228,7 +199,7 @@ func processQueries() {
 			panic(err)
 		}
 		stat := statProcessor.GetStat()
-		stat.Init(q.HumanLabel, lag)
+		stat.Init(q.HumanLabelName(), lag)
 		statProcessor.C <- stat
 
 		if !showExplain {
@@ -238,7 +209,7 @@ func processQueries() {
 				panic(err)
 			}
 			stat = statProcessor.GetStat()
-			stat.InitWarm(q.HumanLabel, lag)
+			stat.InitWarm(q.HumanLabelName(), lag)
 			statProcessor.C <- stat
 		}
 		queryPool.Put(q)

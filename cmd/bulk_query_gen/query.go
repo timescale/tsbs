@@ -30,10 +30,19 @@ type HTTPQuery struct {
 	Body             []byte
 	StartTimestamp   int64
 	EndTimestamp     int64
+	ID               uint64
 }
 
 func NewHTTPQuery() *HTTPQuery {
 	return HTTPQueryPool.Get().(*HTTPQuery)
+}
+
+func (q *HTTPQuery) GetID() uint64 {
+	return q.ID
+}
+
+func (q *HTTPQuery) SetID(id uint64) {
+	q.ID = id
 }
 
 // String produces a debug-ready description of a Query.
@@ -77,6 +86,7 @@ type MongoQuery struct {
 	TimeEnd         time.Time
 	GroupByDuration time.Duration
 	TagSets         [][]string // semantically, each subgroup is OR'ed and they are all AND'ed together
+	ID              uint64
 }
 
 var MongoQueryPool sync.Pool = sync.Pool{
@@ -98,6 +108,14 @@ var MongoQueryPool sync.Pool = sync.Pool{
 
 func NewMongoQuery() *MongoQuery {
 	return MongoQueryPool.Get().(*MongoQuery)
+}
+
+func (q *MongoQuery) GetID() uint64 {
+	return q.ID
+}
+
+func (q *MongoQuery) SetID(id uint64) {
+	q.ID = id
 }
 
 // String produces a debug-ready description of a Query.

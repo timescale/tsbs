@@ -15,7 +15,7 @@ type HTTP struct {
 	Body             []byte
 	StartTimestamp   int64
 	EndTimestamp     int64
-	ID               int64
+	id               uint64
 }
 
 // HTTPPool is a sync.Pool of HTTP Query types
@@ -36,6 +36,16 @@ var HTTPPool sync.Pool = sync.Pool{
 // NewHTTP returns a new HTTP type Query
 func NewHTTP() *HTTP {
 	return HTTPPool.Get().(*HTTP)
+}
+
+// GetID returns the ID of this Query
+func (q *HTTP) GetID() uint64 {
+	return q.id
+}
+
+// SetID sets the ID for this Query
+func (q *HTTP) SetID(n uint64) {
+	q.id = n
 }
 
 // String produces a debug-ready description of a Query.

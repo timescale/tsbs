@@ -13,7 +13,7 @@ type TimescaleDB struct {
 
 	Hypertable []byte // e.g. "cpu"
 	SqlQuery   []byte
-	ID         int64
+	id         uint64
 }
 
 // TimescaleDBPool is a sync.Pool of TimescaleDB Query types
@@ -31,6 +31,16 @@ var TimescaleDBPool sync.Pool = sync.Pool{
 // NewTimescaleDB returns a new TimescaleDB Query instance
 func NewTimescaleDB() *TimescaleDB {
 	return TimescaleDBPool.Get().(*TimescaleDB)
+}
+
+// GetID returns the ID of this Query
+func (q *TimescaleDB) GetID() uint64 {
+	return q.id
+}
+
+// SetID sets the ID for this Query
+func (q *TimescaleDB) SetID(n uint64) {
+	q.id = n
 }
 
 // String produces a debug-ready description of a Query.

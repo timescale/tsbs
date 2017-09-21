@@ -11,7 +11,7 @@ import (
 type Cassandra struct {
 	HumanLabel       []byte
 	HumanDescription []byte
-	ID               int64
+	id               uint64
 
 	MeasurementName []byte // e.g. "cpu"
 	FieldName       []byte // e.g. "usage_user"
@@ -46,6 +46,16 @@ var CassandraPool sync.Pool = sync.Pool{
 // NewCassandra returns a new Cassandra Query instance
 func NewCassandra() *Cassandra {
 	return CassandraPool.Get().(*Cassandra)
+}
+
+// GetID returns the ID of this Query
+func (q *Cassandra) GetID() uint64 {
+	return q.id
+}
+
+// SetID sets the ID for this Query
+func (q *Cassandra) SetID(n uint64) {
+	q.id = n
 }
 
 // String produces a debug-ready description of a Query.
