@@ -162,32 +162,27 @@ func processQueries(qc *HLQueryExecutor) {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
 
-		// total lag stat:
-		stat := statProcessor.GetStat()
+		// total stat
+		totalMs := qpLagMs + reqLagMs
 		if warm {
-			stat.InitWarm(append(labels[0], " (warm)"...), qpLagMs+reqLagMs)
+			statProcessor.SendStat(append(labels[0], " (warm)"...), totalMs, true)
 		} else {
-			stat.Init(labels[0], qpLagMs+reqLagMs)
+			statProcessor.SendStat(labels[0], totalMs, false)
 		}
-		statProcessor.C <- stat
 
 		// qp lag stat:
-		stat = statProcessor.GetPartialStat()
 		if warm {
-			stat.InitWarm(append(labels[1], " (warm)"...), qpLagMs)
+			statProcessor.SendPartialStat(append(labels[1], " (warm)"...), qpLagMs, true)
 		} else {
-			stat.Init(labels[1], qpLagMs)
+			statProcessor.SendPartialStat(labels[1], qpLagMs, false)
 		}
-		statProcessor.C <- stat
 
 		// req lag stat:
-		stat = statProcessor.GetPartialStat()
 		if warm {
-			stat.InitWarm(append(labels[2], " (warm)"...), reqLagMs)
+			statProcessor.SendPartialStat(append(labels[2], " (warm)"...), reqLagMs, true)
 		} else {
-			stat.Init(labels[2], reqLagMs)
+			statProcessor.SendPartialStat(labels[2], reqLagMs, false)
 		}
-		statProcessor.C <- stat
 	}
 
 	labels := map[string][][]byte{}

@@ -198,9 +198,7 @@ func processQueries() {
 		if err != nil {
 			panic(err)
 		}
-		stat := statProcessor.GetStat()
-		stat.Init(q.HumanLabelName(), lag)
-		statProcessor.C <- stat
+		statProcessor.SendStat(q.HumanLabelName(), lag, false)
 
 		if !showExplain {
 			// Warm run
@@ -208,9 +206,7 @@ func processQueries() {
 			if err != nil {
 				panic(err)
 			}
-			stat = statProcessor.GetStat()
-			stat.InitWarm(q.HumanLabelName(), lag)
-			statProcessor.C <- stat
+			statProcessor.SendStat(q.HumanLabelName(), lag, true)
 		}
 		queryPool.Put(q)
 

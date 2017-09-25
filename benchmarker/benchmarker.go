@@ -91,18 +91,29 @@ func (sp *StatProcessor) getStat(partial bool) *Stat {
 	return ret
 }
 
-// GetStat returns a new Stat from the pool (to conserve memory). By default,
-// this Stat is assumed to be a measurement of an entire query execution, if you
-// are trying to measure only part of the execution, use GetPartialStat
-func (sp *StatProcessor) GetStat() *Stat {
-	return sp.getStat(false)
+// SendStat sends a new Stat from the pool (to conserve memory) to be processed.
+// This Stat is usually the total time taken to execute the query; if you want
+// to measure part of the execution, use SendPartialStat.
+func (sp *StatProcessor) SendStat(label []byte, value float64, warm bool) {
+	stat := sp.getStat(false)
+	if warm {
+		stat.InitWarm(label, value)
+	} else {
+		stat.Init(label, value)
+	}
+	sp.C <- stat
 }
 
-// GetPartialStat returns a new Stat from the pool (to conserve memory) that
-// should be used to measure parts of a query execution (e.g. planning, gathering, etc)
-// rather than the entire execution.
-func (sp *StatProcessor) GetPartialStat() *Stat {
-	return sp.getStat(true)
+// SendPartialStat sends a new Stat from the pool (to conserve memory) to be processed.
+// This Stat measures part of the process of a query (e.g. planning, gathering, etc.)
+func (sp *StatProcessor) SendPartialStat(label []byte, value float64, warm bool) {
+	stat := sp.getStat(true)
+	if warm {
+		stat.InitWarm(label, value)
+	} else {
+		stat.Init(label, value)
+	}
+	sp.C <- stat
 }
 
 // Process collects latency results, aggregating them into summary

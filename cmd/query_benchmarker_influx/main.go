@@ -176,9 +176,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		stat := statProcessor.GetStat()
-		stat.Init(q.HumanLabelName(), lagMillis)
-		statProcessor.C <- stat
+		statProcessor.SendStat(q.HumanLabelName(), lagMillis, false)
 
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
@@ -201,9 +199,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		stat = statProcessor.GetStat()
-		stat.InitWarm(q.HumanLabelName(), lagMillis)
-		statProcessor.C <- stat
+		statProcessor.SendStat(q.HumanLabelName(), lagMillis, true)
 
 		queryPool.Put(q)
 	}
