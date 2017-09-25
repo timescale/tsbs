@@ -63,16 +63,16 @@ var (
 
 // Global vars:
 var (
-	queryPool     = &query.CassandraPool
-	queryChan     chan query.Query
-	workersGroup  sync.WaitGroup
-	aggrPlan      int
-	statProcessor *benchmarker.StatProcessor
+	queryPool           = &query.CassandraPool
+	queryChan           chan query.Query
+	workersGroup        sync.WaitGroup
+	aggrPlan            int
+	benchmarkComponents *benchmarker.BenchmarkComponents
 )
 
 // Parse args:
 func init() {
-	statProcessor = benchmarker.NewStatProcessor()
+	benchmarkComponents = benchmarker.NewBenchmarkComponents()
 
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
@@ -105,7 +105,7 @@ func main() {
 	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
-	go statProcessor.Process(workers)
+	go benchmarkComponents.StatProcessor.Process(workers)
 
 	// Launch the query processors:
 	qe := NewHLQueryExecutor(session, csi, debug)
@@ -116,18 +116,14 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
-	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scanner.Scan(queryPool, queryChan)
+	benchmarkComponents.Scanner.SetReader(input).Scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	workersGroup.Wait()
-	close(statProcessor.C)
-
-	// Wait on the stat collector to finish (and print its results):
-	statProcessor.Wait()
+	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -155,6 +151,7 @@ func processQueries(qc *HLQueryExecutor) {
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+	sp := benchmarkComponents.StatProcessor
 
 	qFn := func(q *HLQuery, labels [][]byte, warm bool) {
 		qpLagMs, reqLagMs, err := qc.Do(q, opts)
@@ -165,23 +162,23 @@ func processQueries(qc *HLQueryExecutor) {
 		// total stat
 		totalMs := qpLagMs + reqLagMs
 		if warm {
-			statProcessor.SendStat(append(labels[0], " (warm)"...), totalMs, true)
+			sp.SendStat(append(labels[0], " (warm)"...), totalMs, true)
 		} else {
-			statProcessor.SendStat(labels[0], totalMs, false)
+			sp.SendStat(labels[0], totalMs, false)
 		}
 
 		// qp lag stat:
 		if warm {
-			statProcessor.SendPartialStat(append(labels[1], " (warm)"...), qpLagMs, true)
+			sp.SendPartialStat(append(labels[1], " (warm)"...), qpLagMs, true)
 		} else {
-			statProcessor.SendPartialStat(labels[1], qpLagMs, false)
+			sp.SendPartialStat(labels[1], qpLagMs, false)
 		}
 
 		// req lag stat:
 		if warm {
-			statProcessor.SendPartialStat(append(labels[2], " (warm)"...), reqLagMs, true)
+			sp.SendPartialStat(append(labels[2], " (warm)"...), reqLagMs, true)
 		} else {
-			statProcessor.SendPartialStat(labels[2], reqLagMs, false)
+			sp.SendPartialStat(labels[2], reqLagMs, false)
 		}
 	}
 

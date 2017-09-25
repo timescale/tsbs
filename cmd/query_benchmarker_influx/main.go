@@ -42,7 +42,7 @@ var (
 	queryPool           = &query.HTTPPool
 	queryChan           chan query.Query
 	workersGroup        sync.WaitGroup
-	statProcessor       *benchmarker.StatProcessor
+	benchmarkComponents *benchmarker.BenchmarkComponents
 	telemetryChanPoints chan *telemetry.Point
 	telemetryChanDone   chan struct{}
 	telemetrySrcAddr    string
@@ -51,7 +51,7 @@ var (
 
 // Parse args:
 func init() {
-	statProcessor = benchmarker.NewStatProcessor()
+	benchmarkComponents = benchmarker.NewBenchmarkComponents()
 	var csvDaemonUrls string
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
@@ -104,11 +104,11 @@ func main() {
 	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
-	go statProcessor.Process(workers)
+	go benchmarkComponents.StatProcessor.Process(workers)
 
 	if telemetryHost != "" {
 		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, statProcessor.BurnIn)
+		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, benchmarkComponents.StatProcessor.BurnIn)
 	}
 
 	// Launch the query processors:
@@ -121,18 +121,14 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
-	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scanner.Scan(queryPool, queryChan)
+	benchmarkComponents.Scanner.SetReader(input).Scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	workersGroup.Wait()
-	close(statProcessor.C)
-
-	// Wait on the stat collector to finish (and print its results):
-	statProcessor.Wait()
+	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -169,6 +165,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		database:             databaseName,
 	}
 	var queriesSeen int64
+	sp := benchmarkComponents.StatProcessor
 	for q := range queryChan {
 		ts := time.Now().UnixNano()
 
@@ -176,7 +173,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		statProcessor.SendStat(q.HumanLabelName(), lagMillis, false)
+		sp.SendStat(q.HumanLabelName(), lagMillis, false)
 
 		// Report telemetry, if applicable:
 		if telemetrySink != nil {
@@ -199,7 +196,7 @@ func processQueries(w *HTTPClient, telemetrySink chan *telemetry.Point, telemetr
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		statProcessor.SendStat(q.HumanLabelName(), lagMillis, true)
+		sp.SendStat(q.HumanLabelName(), lagMillis, true)
 
 		queryPool.Put(q)
 	}

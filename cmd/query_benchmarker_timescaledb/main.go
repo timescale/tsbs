@@ -35,15 +35,15 @@ var (
 
 // Global vars:
 var (
-	queryPool     = &query.TimescaleDBPool
-	queryChan     chan query.Query
-	workersGroup  sync.WaitGroup
-	statProcessor *benchmarker.StatProcessor
+	queryPool           = &query.TimescaleDBPool
+	queryChan           chan query.Query
+	workersGroup        sync.WaitGroup
+	benchmarkComponents *benchmarker.BenchmarkComponents
 )
 
 // Parse args:
 func init() {
-	statProcessor = benchmarker.NewStatProcessor()
+	benchmarkComponents = benchmarker.NewBenchmarkComponents()
 
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
@@ -56,7 +56,7 @@ func init() {
 	flag.Parse()
 
 	if showExplain {
-		statProcessor.Limit = 1
+		benchmarkComponents.ResetLimit(1)
 	}
 }
 
@@ -65,7 +65,7 @@ func main() {
 	queryChan = make(chan query.Query, workers)
 
 	// Launch the stats processor:
-	go statProcessor.Process(workers)
+	go benchmarkComponents.StatProcessor.Process(workers)
 
 	// Launch the query processors:
 	for i := 0; i < workers; i++ {
@@ -75,18 +75,14 @@ func main() {
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
-	scanner := benchmarker.NewQueryScanner(input, statProcessor.Limit)
 	wallStart := time.Now()
-	scanner.Scan(queryPool, queryChan)
+	benchmarkComponents.Scanner.SetReader(input).Scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	workersGroup.Wait()
-	close(statProcessor.C)
-
-	// Wait on the stat collector to finish (and print its results):
-	statProcessor.Wait()
+	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -193,12 +189,13 @@ func processQueries() {
 		printResponse: prettyPrintResponses,
 	}
 
+	sp := benchmarkComponents.StatProcessor
 	for q := range queryChan {
 		lag, err := qe.Do(q, opts)
 		if err != nil {
 			panic(err)
 		}
-		statProcessor.SendStat(q.HumanLabelName(), lag, false)
+		sp.SendStat(q.HumanLabelName(), lag, false)
 
 		if !showExplain {
 			// Warm run
@@ -206,7 +203,7 @@ func processQueries() {
 			if err != nil {
 				panic(err)
 			}
-			statProcessor.SendStat(q.HumanLabelName(), lag, true)
+			sp.SendStat(q.HumanLabelName(), lag, true)
 		}
 		queryPool.Put(q)
 
