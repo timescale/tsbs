@@ -22,46 +22,36 @@ import (
 
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
 
-	"github.com/influxdata/influxdb-comparisons/util/telemetry"
 	"github.com/pkg/profile"
 	"github.com/valyala/fasthttp"
 )
 
 // Program option vars:
 var (
-	csvDaemonUrls      string
-	daemonUrls         []string
-	dbName             string
-	replicationFactor  int
-	workers            int
-	itemLimit          int64
-	batchSize          int
-	backoff            time.Duration
-	timeLimit          time.Duration
-	reportingPeriod    time.Duration
-	doLoad             bool
-	doDBCreate         bool
-	useGzip            bool
-	doAbortOnExist     bool
-	memprofile         bool
-	consistency        string
-	telemetryHost      string
-	telemetryStderr    bool
-	telemetryBatchSize uint64
-	telemetryTagsCSV   string
-	telemetryBasicAuth string
+	csvDaemonUrls     string
+	daemonUrls        []string
+	dbName            string
+	replicationFactor int
+	workers           int
+	itemLimit         int64
+	batchSize         int
+	backoff           time.Duration
+	timeLimit         time.Duration
+	reportingPeriod   time.Duration
+	doLoad            bool
+	doDBCreate        bool
+	useGzip           bool
+	doAbortOnExist    bool
+	memprofile        bool
+	consistency       string
 )
 
 // Global vars
 var (
-	bufPool             sync.Pool
-	batchChan           chan *bytes.Buffer
-	backingOffChans     []chan bool
-	backingOffDones     []chan struct{}
-	telemetryChanPoints chan *telemetry.Point
-	telemetryChanDone   chan struct{}
-	telemetrySrcAddr    string
-	telemetryTags       [][2]string
+	bufPool         sync.Pool
+	batchChan       chan *bytes.Buffer
+	backingOffChans []chan bool
+	backingOffDones []chan struct{}
 
 	rowCount    uint64
 	metricCount uint64
@@ -91,11 +81,6 @@ func init() {
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
-	flag.StringVar(&telemetryHost, "telemetry-host", "", "InfluxDB host to write telegraf telemetry to (optional).")
-	flag.StringVar(&telemetryBasicAuth, "telemetry-basic-auth", "", "basic auth (username:password) for telemetry.")
-	flag.StringVar(&telemetryTagsCSV, "telemetry-tags", "", "Tag(s) for telemetry. Format: key0:val0,key1:val1,...")
-	flag.BoolVar(&telemetryStderr, "telemetry-stderr", false, "Whether to write telemetry also to stderr.")
-	flag.Uint64Var(&telemetryBatchSize, "telemetry-batch-size", 10, "Telemetry batch size (lines).")
 
 	flag.Parse()
 
@@ -108,30 +93,6 @@ func init() {
 		log.Fatal("missing 'urls' flag")
 	}
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
-
-	if telemetryHost != "" {
-		fmt.Printf("telemetry destination: %v\n", telemetryHost)
-		if telemetryBatchSize == 0 {
-			panic("invalid telemetryBatchSize")
-		}
-
-		var err error
-		telemetrySrcAddr, err = os.Hostname()
-		if err != nil {
-			log.Fatalf("os.Hostname() error: %s", err.Error())
-		}
-		fmt.Printf("src addr for telemetry: %v\n", telemetrySrcAddr)
-
-		if telemetryTagsCSV != "" {
-			pairs := strings.Split(telemetryTagsCSV, ",")
-			for _, pair := range pairs {
-				fields := strings.SplitN(pair, ":", 2)
-				tagpair := [2]string{fields[0], fields[1]}
-				telemetryTags = append(telemetryTags, tagpair)
-			}
-		}
-		fmt.Printf("telemetry tags: %v\n", telemetryTags)
-	}
 }
 
 func main() {
@@ -172,10 +133,6 @@ func main() {
 	backingOffChans = make([]chan bool, workers)
 	backingOffDones = make([]chan struct{}, workers)
 
-	if telemetryHost != "" {
-		telemetryCollector := telemetry.NewCollector(telemetryHost, "telegraf", telemetryBasicAuth)
-		telemetryChanPoints, telemetryChanDone = telemetry.EZRunAsync(telemetryCollector, telemetryBatchSize, telemetryStderr, 0)
-	}
 	batchChan = make(chan *bytes.Buffer, workers)
 	workerFn := func(wg *sync.WaitGroup, i int) {
 		daemonUrl := daemonUrls[i%len(daemonUrls)]
@@ -188,7 +145,7 @@ func main() {
 			BackingOffChan: backingOffChans[i],
 			BackingOffDone: backingOffDones[i],
 		}
-		go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i], telemetryChanPoints, fmt.Sprintf("%d", i))
+		go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i])
 		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 	}
 	scanFn := func() (int64, int64) {
@@ -206,11 +163,6 @@ func main() {
 	took := dr.Took()
 	itemsRate := float64(itemsRead) / float64(took.Seconds())
 	bytesRate := float64(bytesRead) / float64(took.Seconds())
-
-	if telemetryHost != "" {
-		close(telemetryChanPoints)
-		<-telemetryChanDone
-	}
 
 	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec, %.2fMB/sec from stdin)\n", itemsRead, took.Seconds(), workers, itemsRate, bytesRate/(1<<20))
 }
@@ -280,13 +232,10 @@ outer:
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}, telemetrySink chan *telemetry.Point, telemetryWorkerLabel string) {
+func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}) {
 	var batchesSeen int64
 	for batch := range batchChan {
 		batchesSeen++
-
-		var bodySize int
-		ts := time.Now().UnixNano()
 
 		// Write the batch: try until backoff is not needed.
 		if doLoad {
@@ -295,13 +244,11 @@ func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, bac
 				if useGzip {
 					compressedBatch := bufPool.Get().(*bytes.Buffer)
 					fasthttp.WriteGzip(compressedBatch, batch.Bytes())
-					bodySize = len(compressedBatch.Bytes())
 					_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
 					// Return the compressed batch buffer to the pool.
 					compressedBatch.Reset()
 					bufPool.Put(compressedBatch)
 				} else {
-					bodySize = len(batch.Bytes())
 					_, err = w.WriteLineProtocol(batch.Bytes(), false)
 				}
 
@@ -318,30 +265,9 @@ func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, bac
 			}
 		}
 
-		// lagMillis intentionally includes backoff time,
-		// and incidentally includes compression time:
-		lagMillis := float64(time.Now().UnixNano()-ts) / 1e6
-
 		// Return the batch buffer to the pool.
 		batch.Reset()
 		bufPool.Put(batch)
-
-		// Report telemetry, if applicable:
-		if telemetrySink != nil {
-			p := telemetry.GetPointFromGlobalPool()
-			p.Init("benchmark_write", time.Now().UnixNano())
-			for _, tagpair := range telemetryTags {
-				p.AddTag(tagpair[0], tagpair[1])
-			}
-			p.AddTag("src_addr", telemetrySrcAddr)
-			p.AddTag("dst_addr", w.c.Host)
-			p.AddTag("worker_id", telemetryWorkerLabel)
-			p.AddInt64Field("worker_req_num", batchesSeen)
-			p.AddFloat64Field("rtt_ms_total", lagMillis)
-			p.AddBoolField("gzip", useGzip)
-			p.AddInt64Field("body_bytes", int64(bodySize))
-			telemetrySink <- p
-		}
 	}
 	wg.Done()
 }
