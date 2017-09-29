@@ -32,31 +32,21 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 	"devops": {
 		"1-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 1),
-			"es":          NewElasticSearchDevopsSingleHost,
 			"influx":      NewInfluxDevopsSingleMetric(1, 1),
-			"mongo":       NewMongoDevopsSingleHost,
-			"opentsdb":    NewOpenTSDBDevopsSingleHost,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 12),
-			"es":          NewElasticSearchDevopsSingleHost12hr,
 			"influx":      NewInfluxDevopsSingleMetric(1, 12),
-			"mongo":       NewMongoDevopsSingleHost12hr,
-			"opentsdb":    NewOpenTSDBDevopsSingleHost12hr,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(8, 1),
-			"es":          NewElasticSearchDevops8Hosts,
 			"influx":      NewInfluxDevopsSingleMetric(8, 1),
-			"mongo":       NewMongoDevops8Hosts1Hr,
-			"opentsdb":    NewOpenTSDBDevops8Hosts,
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy,
-			"es":          NewElasticSearchDevopsGroupBy,
 			"influx":      NewInfluxDevopsGroupBy(1),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(1),
 		},
