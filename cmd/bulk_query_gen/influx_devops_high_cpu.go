@@ -13,8 +13,8 @@ type InfluxDevopsHighCPU struct {
 }
 
 // NewInfluxDevopsHighCPU produces a new function that produces a new InfluxDevopsHighCPU
-func NewInfluxDevopsHighCPU(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
-	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewInfluxDevopsHighCPU(hosts int) func(time.Time, time.Time) QueryGenerator {
+	return func(start, end time.Time) QueryGenerator {
 		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 		return &InfluxDevopsHighCPU{
 			InfluxDevops: *underlying,

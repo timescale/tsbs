@@ -10,7 +10,7 @@ type TimescaleDBDevopsMultipleOrs struct {
 	TimescaleDBDevops
 }
 
-func NewTimescaleDBDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewTimescaleDBDevopsMultipleOrs(start, end time.Time) QueryGenerator {
 	underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
 	return &TimescaleDBDevopsMultipleOrs{
 		TimescaleDBDevops: *underlying,

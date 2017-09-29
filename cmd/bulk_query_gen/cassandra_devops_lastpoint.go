@@ -12,7 +12,7 @@ type CassandraDevopsLastPointPerHost struct {
 }
 
 // NewCassandraDevopsLastPointPerHost returns a new CassandraDevopsLastPointPerHost for given paremeters
-func NewCassandraDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewCassandraDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
 	underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
 	return &CassandraDevopsLastPointPerHost{
 		CassandraDevops: *underlying,

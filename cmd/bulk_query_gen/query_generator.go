@@ -12,4 +12,4 @@ type QueryGenerator interface {
 	Dispatch(int, int) query.Query
 }
 
-type QueryGeneratorMaker func(DatabaseConfig, time.Time, time.Time) QueryGenerator
+type QueryGeneratorMaker func(time.Time, time.Time) QueryGenerator

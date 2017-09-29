@@ -13,8 +13,8 @@ type TimescaleDBDevopsGroupby struct {
 }
 
 // NewTimescaleDBDevopsGroupBy produces a function that produces a new TimescaleDBDevopsGroupby for the given parameters
-func NewTimescaleDBDevopsGroupBy(numMetrics int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
-	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewTimescaleDBDevopsGroupBy(numMetrics int) func(time.Time, time.Time) QueryGenerator {
+	return func(start, end time.Time) QueryGenerator {
 		underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
 		return &TimescaleDBDevopsGroupby{
 			TimescaleDBDevops: *underlying,

@@ -14,8 +14,8 @@ type InfluxDevops5Metrics struct {
 }
 
 // NewInfluxDevops5Metrics produces a new function that produces a new InfluxDevops5Metrics
-func NewInfluxDevops5Metrics(hosts, hours int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
-	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewInfluxDevops5Metrics(hosts, hours int) func(time.Time, time.Time) QueryGenerator {
+	return func(start, end time.Time) QueryGenerator {
 		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 		return &InfluxDevops5Metrics{
 			InfluxDevops: *underlying,

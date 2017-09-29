@@ -11,7 +11,7 @@ type InfluxDevopsMultipleOrs struct {
 	InfluxDevops
 }
 
-func NewInfluxDevopsMultipleOrs(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewInfluxDevopsMultipleOrs(start, end time.Time) QueryGenerator {
 	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
 	return &InfluxDevopsMultipleOrs{
 		InfluxDevops: *underlying,

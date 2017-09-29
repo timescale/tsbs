@@ -217,12 +217,9 @@ func init() {
 func main() {
 	rand.Seed(seed)
 
-	// TODO(rw): Parse this from the CLI (maybe).
-	dbConfig := DatabaseConfig{}
-
 	// Make the query generator:
 	maker := useCaseMatrix[useCase][queryType][format]
-	generator := maker(dbConfig, timestampStart, timestampEnd)
+	generator := maker(timestampStart, timestampEnd)
 
 	// Set up bookkeeping:
 	stats := make(map[string]int64)

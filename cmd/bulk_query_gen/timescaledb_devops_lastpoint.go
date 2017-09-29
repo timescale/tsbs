@@ -12,7 +12,7 @@ type TimescaleDBDevopsLastPointPerHost struct {
 }
 
 // NewTimescaleDBDevopsLastPointPerHost returns a new TimescaleDBDevopsLastPointPerHost for given paremeters
-func NewTimescaleDBDevopsLastPointPerHost(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewTimescaleDBDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
 	underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
 	return &TimescaleDBDevopsLastPointPerHost{
 		TimescaleDBDevops: *underlying,

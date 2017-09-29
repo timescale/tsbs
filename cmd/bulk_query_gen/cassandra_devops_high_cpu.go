@@ -13,8 +13,8 @@ type CassandraDevopsHighCPU struct {
 }
 
 // NewCassandraDevopsHighCPU produces a new function that produces a new CassandraDevopsHighCPU
-func NewCassandraDevopsHighCPU(hosts int) func(DatabaseConfig, time.Time, time.Time) QueryGenerator {
-	return func(dbConfig DatabaseConfig, start, end time.Time) QueryGenerator {
+func NewCassandraDevopsHighCPU(hosts int) func(time.Time, time.Time) QueryGenerator {
+	return func(start, end time.Time) QueryGenerator {
 		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
 		return &CassandraDevopsHighCPU{
 			CassandraDevops: *underlying,
