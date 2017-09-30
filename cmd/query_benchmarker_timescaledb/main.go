@@ -37,7 +37,6 @@ var (
 var (
 	queryPool           = &query.TimescaleDBPool
 	queryChan           chan query.Query
-	workersGroup        sync.WaitGroup
 	benchmarkComponents *benchmarker.BenchmarkComponents
 )
 
@@ -68,9 +67,11 @@ func main() {
 	go benchmarkComponents.StatProcessor.Process(workers)
 
 	// Launch the query processors:
+
+	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
-		workersGroup.Add(1)
-		go processQueries()
+		wg.Add(1)
+		go processQueries(&wg, i)
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -81,7 +82,7 @@ func main() {
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
-	workersGroup.Wait()
+	wg.Wait()
 	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
@@ -181,7 +182,7 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries() {
+func processQueries(wg *sync.WaitGroup, workerID int) {
 	qe := newQueryExecutor(getConnectString())
 	opts := &queryExecutorOptions{
 		showExplain:   showExplain,
@@ -208,5 +209,5 @@ func processQueries() {
 		queryPool.Put(q)
 
 	}
-	workersGroup.Done()
+	wg.Done()
 }

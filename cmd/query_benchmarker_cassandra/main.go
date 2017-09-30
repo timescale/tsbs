@@ -65,7 +65,6 @@ var (
 var (
 	queryPool           = &query.CassandraPool
 	queryChan           chan query.Query
-	workersGroup        sync.WaitGroup
 	aggrPlan            int
 	benchmarkComponents *benchmarker.BenchmarkComponents
 )
@@ -109,9 +108,10 @@ func main() {
 
 	// Launch the query processors:
 	qe := NewHLQueryExecutor(session, csi, debug)
+	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
-		workersGroup.Add(1)
-		go processQueries(qe)
+		wg.Add(1)
+		go processQueries(&wg, i, qe)
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -122,7 +122,7 @@ func main() {
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
-	workersGroup.Wait()
+	wg.Wait()
 	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
@@ -145,7 +145,7 @@ func main() {
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(qc *HLQueryExecutor) {
+func processQueries(wg *sync.WaitGroup, workerID int, qc *HLQueryExecutor) {
 	opts := HLQueryExecutorDoOptions{
 		AggregationPlan:      aggrPlan,
 		Debug:                debug,
@@ -202,5 +202,5 @@ func processQueries(qc *HLQueryExecutor) {
 
 		queryPool.Put(q)
 	}
-	workersGroup.Done()
+	wg.Done()
 }

@@ -35,7 +35,6 @@ var (
 var (
 	queryPool           = &query.HTTPPool
 	queryChan           chan query.Query
-	workersGroup        sync.WaitGroup
 	benchmarkComponents *benchmarker.BenchmarkComponents
 )
 
@@ -68,11 +67,10 @@ func main() {
 	go benchmarkComponents.StatProcessor.Process(workers)
 
 	// Launch the query processors:
+	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
-		daemonUrl := daemonUrls[i%len(daemonUrls)]
-		workersGroup.Add(1)
-		w := NewHTTPClient(daemonUrl)
-		go processQueries(w)
+		wg.Add(1)
+		go processQueries(&wg, i)
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -83,7 +81,7 @@ func main() {
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
-	workersGroup.Wait()
+	wg.Wait()
 	benchmarkComponents.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
@@ -106,13 +104,15 @@ func main() {
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(w *HTTPClient) {
+func processQueries(wg *sync.WaitGroup, workerID int) {
 	opts := &HTTPClientDoOptions{
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 		chunkSize:            chunkSize,
 		database:             databaseName,
 	}
+	url := daemonUrls[workerID%len(daemonUrls)]
+	w := NewHTTPClient(url)
 
 	sp := benchmarkComponents.StatProcessor
 	for q := range queryChan {
@@ -131,5 +131,5 @@ func processQueries(w *HTTPClient) {
 
 		queryPool.Put(q)
 	}
-	workersGroup.Done()
+	wg.Done()
 }
