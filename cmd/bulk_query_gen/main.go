@@ -46,15 +46,17 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
 		},
 		"groupby": {
-			"cassandra":   NewCassandraDevopsGroupBy,
+			"cassandra":   NewCassandraDevopsGroupBy(1),
 			"influx":      NewInfluxDevopsGroupBy(1),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(1),
 		},
 		"groupby-5": {
+			"cassandra":   NewCassandraDevopsGroupBy(5),
 			"influx":      NewInfluxDevopsGroupBy(5),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(5),
 		},
 		"groupby-all": {
+			"cassandra":   NewCassandraDevopsGroupBy(len(cpuMetrics)),
 			"influx":      NewInfluxDevopsGroupBy(len(cpuMetrics)),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(len(cpuMetrics)),
 		},

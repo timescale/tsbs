@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
@@ -169,19 +170,25 @@ func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query, _ int) {
 	q.Limit = 5
 }
 
-// MeanCPUUsageDayByHourAllHosts populates a query.Query with a query that looks like:
-// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, _ int) {
+// MeanCPUUsageDayByHourAllHostsGroupbyHost selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
+// e.g. in psuedo-SQL:
+//
+// SELECT AVG(metric1), ..., AVG(metricN)
+// FROM cpu
+// WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour, hostname ORDER BY hour
+func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	metrics := cpuMetrics[:numMetrics]
 
-	humanLabel := "Cassandra mean cpu, all hosts, rand 1day by 1hour"
+	humanLabel := fmt.Sprintf("Cassandra mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 
 	q.AggregationType = []byte("avg")
 	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
+	q.FieldName = []byte(strings.Join(metrics, ","))
 
 	q.TimeStart = interval.Start
 	q.TimeEnd = interval.End
