@@ -31,6 +31,19 @@ func (d *CassandraDevops) Dispatch(i, scaleVar int) query.Query {
 	return q
 }
 
+func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	tagSet := []string{}
+	for _, n := range nn {
+		hostname := fmt.Sprintf("host_%d", n)
+		tag := fmt.Sprintf("hostname=%s", hostname)
+		tagSet = append(tagSet, tag)
+	}
+
+	return tagSet
+}
+
 // TODO remove these
 func (d *CassandraDevops) MaxCPUUsageHourByMinuteOneHost(q query.Query, scaleVar int) {
 	d.maxCPUUsageHourByMinuteNHosts(q.(*query.Cassandra), scaleVar, 1, time.Hour)
@@ -236,13 +249,7 @@ func (d *CassandraDevops) LastPointPerHost(qi query.Query, _ int) {
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *CassandraDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
-	nn := rand.Perm(scaleVar)[:1]
-	tagSet := []string{}
-	for _, n := range nn {
-		hostname := fmt.Sprintf("host_%d", n)
-		tag := fmt.Sprintf("hostname=%s", hostname)
-		tagSet = append(tagSet, tag)
-	}
+	tagSet := d.getHostWhere(scaleVar, nhosts)
 
 	tagSets := [][]string{}
 	if len(tagSet) > 0 {
