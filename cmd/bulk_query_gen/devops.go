@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"log"
+	"math/rand"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
@@ -28,4 +31,19 @@ type Devops interface {
 	MaxAllCPU(query.Query, int, int)
 	MaxCPUUsageHourByMinute(query.Query, int, int, time.Duration)
 	MeanCPUMetricsDayByHourAllHostsGroupbyHost(query.Query, int)
+}
+
+func getRandomHosts(scaleVar, nhosts int) []string {
+	if nhosts > scaleVar {
+		log.Fatal("nhosts > scaleVar")
+	}
+
+	nn := rand.Perm(scaleVar)[:nhosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	return hostnames
 }

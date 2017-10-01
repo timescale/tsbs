@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -54,21 +53,6 @@ func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string
 func (d *TimescaleDBDevops) getHostWhereString(scaleVar int, nhosts int) string {
 	hostnames := getRandomHosts(scaleVar, nhosts)
 	return d.getHostWhereWithHostnames(hostnames)
-}
-
-func getRandomHosts(scaleVar, nhosts int) []string {
-	if nhosts > scaleVar {
-		log.Fatal("nhosts > scaleVar")
-	}
-
-	nn := rand.Perm(scaleVar)[:nhosts]
-
-	hostnames := []string{}
-	for _, n := range nn {
-		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
-	}
-
-	return hostnames
 }
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -26,11 +25,10 @@ func newCassandraDevopsCommon(start, end time.Time) *CassandraDevops {
 }
 
 func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
-	nn := rand.Perm(scaleVar)[:nhosts]
+	hostnames := getRandomHosts(scaleVar, nhosts)
 
 	tagSet := []string{}
-	for _, n := range nn {
-		hostname := fmt.Sprintf("host_%d", n)
+	for _, hostname := range hostnames {
 		tag := fmt.Sprintf("hostname=%s", hostname)
 		tagSet = append(tagSet, tag)
 	}
@@ -47,15 +45,9 @@ func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
 // GROUP BY minute ORDER BY minute ASC
 func (d *CassandraDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	nn := rand.Perm(scaleVar)[:nhosts]
+	tagSet := d.getHostWhere(scaleVar, nhosts)
 
 	tagSets := [][]string{}
-	tagSet := []string{}
-	for _, n := range nn {
-		hostname := fmt.Sprintf("host_%d", n)
-		tag := fmt.Sprintf("hostname=%s", hostname)
-		tagSet = append(tagSet, tag)
-	}
 	tagSets = append(tagSets, tagSet)
 
 	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
@@ -84,15 +76,9 @@ func (d *CassandraDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhos
 // GROUP BY minute ORDER BY minute ASC
 func (d *CassandraDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	nn := rand.Perm(scaleVar)[:nhosts]
+	tagSet := d.getHostWhere(scaleVar, nhosts)
 
 	tagSets := [][]string{}
-	tagSet := []string{}
-	for _, n := range nn {
-		hostname := fmt.Sprintf("host_%d", n)
-		tag := fmt.Sprintf("hostname=%s", hostname)
-		tagSet = append(tagSet, tag)
-	}
 	tagSets = append(tagSets, tagSet)
 
 	humanLabel := fmt.Sprintf("Cassandra 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
@@ -169,15 +155,9 @@ func (d *CassandraDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Qu
 // GROUP BY hour ORDER BY hour
 func (d *CassandraDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(8 * time.Hour)
-	nn := rand.Perm(scaleVar)[:nhosts]
+	tagSet := d.getHostWhere(scaleVar, nhosts)
 
 	tagSets := [][]string{}
-	tagSet := []string{}
-	for _, n := range nn {
-		hostname := fmt.Sprintf("host_%d", n)
-		tag := fmt.Sprintf("hostname=%s", hostname)
-		tagSet = append(tagSet, tag)
-	}
 	tagSets = append(tagSets, tagSet)
 
 	humanLabel := fmt.Sprintf("Cassandra max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
