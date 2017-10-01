@@ -13,9 +13,9 @@ type CassandraDevopsAllMaxCPU struct {
 }
 
 // NewCassandraDevopsAllMaxCPU produces a new function that produces a new CassandraDevopsAllMaxCPU
-func NewCassandraDevopsAllMaxCPU(hosts int) func(time.Time, time.Time) QueryGenerator {
+func NewCassandraDevopsAllMaxCPU(hosts int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
+		underlying := newCassandraDevopsCommon(start, end)
 		return &CassandraDevopsAllMaxCPU{
 			CassandraDevops: *underlying,
 			hosts:           hosts,
@@ -24,7 +24,7 @@ func NewCassandraDevopsAllMaxCPU(hosts int) func(time.Time, time.Time) QueryGene
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsAllMaxCPU) Dispatch(_, scaleVar int) query.Query {
+func (d *CassandraDevopsAllMaxCPU) Dispatch(scaleVar int) query.Query {
 	q := query.NewCassandra() // from pool
 	d.MaxAllCPU(q, scaleVar, d.hosts)
 	return q

@@ -15,7 +15,7 @@ type InfluxDevops struct {
 }
 
 // NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
-func newInfluxDevopsCommon(start, end time.Time) QueryGenerator {
+func newInfluxDevopsCommon(start, end time.Time) *InfluxDevops {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
@@ -23,13 +23,6 @@ func newInfluxDevopsCommon(start, end time.Time) QueryGenerator {
 	return &InfluxDevops{
 		AllInterval: NewTimeInterval(start, end),
 	}
-}
-
-// Dispatch fulfills the QueryGenerator interface.
-func (d *InfluxDevops) Dispatch(i, scaleVar int) query.Query {
-	q := query.NewHTTP() // from pool
-	devopsDispatchAll(d, i, q, scaleVar)
-	return q
 }
 
 func (d *InfluxDevops) getHostWhereWithHostnames(hostnames []string) string {
@@ -47,42 +40,14 @@ func (d *InfluxDevops) getHostWhereString(scaleVar int, nhosts int) string {
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
-// TODO remove all these
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteOneHost(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 1, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteTwoHosts(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 2, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteFourHosts(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 4, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteEightHosts(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 8, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteSixteenHosts(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 16, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsageHourByMinuteThirtyTwoHosts(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 32, time.Hour)
-}
-
-func (d *InfluxDevops) MaxCPUUsage12HoursByMinuteOneHost(q query.Query, scaleVar int) {
-	d.maxCPUUsageHourByMinuteNHosts(q.(*query.HTTP), scaleVar, 1, 12*time.Hour)
-}
-
+// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
+// e.g. in psuedo-SQL:
+//
+// SELECT minute, MAX(usage_user) FROM cpu
+// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY minute ORDER BY minute ASC
 func (d *InfluxDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
-	d.maxCPUUsageHourByMinuteNHosts(qi, scaleVar, nhosts, timeRange)
-}
-
-// MaxCPUUsageHourByMinuteThirtyTwoHosts populates a query.Query with a query that looks like:
-// SELECT max(usage_user) from cpu where (hostname = '$HOSTNAME_1' or ... or hostname = '$HOSTNAME_N') and time >= '$HOUR_START' and time < '$HOUR_END' group by time(1m)
-func (d *InfluxDevops) maxCPUUsageHourByMinuteNHosts(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 	hostnames := getRandomHosts(scaleVar, nhosts)
 
@@ -141,7 +106,7 @@ func (d *InfluxDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRan
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query, _ int) {
+func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.AllInterval.RandWindow(time.Hour)
 
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
@@ -158,9 +123,14 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query, _ int) {
 	q.Body = nil
 }
 
-// MeanCPUUsageDayByHourAllHosts populates a query.Query with a query that looks like:
-// SELECT mean(usage_user) from cpu where time >= '$DAY_START' and time < '$DAY_END' group by time(1h),hostname
-func (d *InfluxDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
+// MeanCPUMetricsDayByHourAllHostsGroupbyHost selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
+// e.g. in psuedo-SQL:
+//
+// SELECT AVG(metric1), ..., AVG(metricN)
+// FROM cpu
+// WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour, hostname ORDER BY hour
+func (d *InfluxDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
 	if numMetrics <= 0 {
 		panic("no metrics given")
 	}
@@ -218,7 +188,7 @@ func (d *InfluxDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *InfluxDevops) LastPointPerHost(qi query.Query, _ int) {
+func (d *InfluxDevops) LastPointPerHost(qi query.Query) {
 	v := url.Values{}
 	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
 

@@ -13,9 +13,9 @@ type TimescaleDBDevopsGroupby struct {
 }
 
 // NewTimescaleDBDevopsGroupBy produces a function that produces a new TimescaleDBDevopsGroupby for the given parameters
-func NewTimescaleDBDevopsGroupBy(numMetrics int) func(time.Time, time.Time) QueryGenerator {
+func NewTimescaleDBDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
+		underlying := newTimescaleDBDevopsCommon(start, end)
 		return &TimescaleDBDevopsGroupby{
 			TimescaleDBDevops: *underlying,
 			numMetrics:        numMetrics,
@@ -24,7 +24,7 @@ func NewTimescaleDBDevopsGroupBy(numMetrics int) func(time.Time, time.Time) Quer
 }
 
 // Dispatch fills in the query.Query
-func (d *TimescaleDBDevopsGroupby) Dispatch(i, scaleVar int) query.Query {
+func (d *TimescaleDBDevopsGroupby) Dispatch(scaleVar int) query.Query {
 	q := query.NewTimescaleDB() // from pool
 	d.MeanCPUMetricsDayByHourAllHostsGroupbyHost(q, d.numMetrics)
 	return q

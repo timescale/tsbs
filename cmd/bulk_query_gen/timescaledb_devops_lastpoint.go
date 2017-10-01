@@ -13,7 +13,7 @@ type TimescaleDBDevopsLastPointPerHost struct {
 
 // NewTimescaleDBDevopsLastPointPerHost returns a new TimescaleDBDevopsLastPointPerHost for given paremeters
 func NewTimescaleDBDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
-	underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
+	underlying := newTimescaleDBDevopsCommon(start, end)
 	return &TimescaleDBDevopsLastPointPerHost{
 		TimescaleDBDevops: *underlying,
 	}
@@ -21,8 +21,8 @@ func NewTimescaleDBDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
 }
 
 // Dispatch fills in the query.Query
-func (d *TimescaleDBDevopsLastPointPerHost) Dispatch(i, scaleVar int) query.Query {
+func (d *TimescaleDBDevopsLastPointPerHost) Dispatch(scaleVar int) query.Query {
 	q := query.NewTimescaleDB() // from pool
-	d.LastPointPerHost(q, scaleVar)
+	d.LastPointPerHost(q)
 	return q
 }

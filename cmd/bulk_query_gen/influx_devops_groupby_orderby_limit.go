@@ -13,15 +13,15 @@ type InfluxDevopsGroupByOrderByLimit struct {
 
 // NewInfluxDevopsGroupByOrderByLimit returns a new InfluxDevopsGroupByOrderByLimit for given paremeters
 func NewInfluxDevopsGroupByOrderByLimit(start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
+	underlying := newInfluxDevopsCommon(start, end)
 	return &InfluxDevopsGroupByOrderByLimit{
 		InfluxDevops: *underlying,
 	}
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) query.Query {
+func (d *InfluxDevopsGroupByOrderByLimit) Dispatch(scaleVar int) query.Query {
 	q := query.NewHTTP() // from pool
-	d.GroupByOrderByLimit(q, scaleVar)
+	d.GroupByOrderByLimit(q)
 	return q
 }

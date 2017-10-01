@@ -13,15 +13,15 @@ type TimescaleDBDevopsGroupByOrderByLimit struct {
 
 // NewTimescaleDBDevopsGroupByOrderByLimit returns a new TimescaleDBDevopsGroupByOrderByLimit for given paremeters
 func NewTimescaleDBDevopsGroupByOrderByLimit(start, end time.Time) QueryGenerator {
-	underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
+	underlying := newTimescaleDBDevopsCommon(start, end)
 	return &TimescaleDBDevopsGroupByOrderByLimit{
 		TimescaleDBDevops: *underlying,
 	}
 }
 
 // Dispatch fills in the query.Query
-func (d *TimescaleDBDevopsGroupByOrderByLimit) Dispatch(i, scaleVar int) query.Query {
+func (d *TimescaleDBDevopsGroupByOrderByLimit) Dispatch(scaleVar int) query.Query {
 	q := query.NewTimescaleDB() // from pool
-	d.GroupByOrderByLimit(q, scaleVar)
+	d.GroupByOrderByLimit(q)
 	return q
 }

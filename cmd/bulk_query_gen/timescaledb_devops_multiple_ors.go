@@ -11,13 +11,13 @@ type TimescaleDBDevopsMultipleOrs struct {
 }
 
 func NewTimescaleDBDevopsMultipleOrs(start, end time.Time) QueryGenerator {
-	underlying := newTimescaleDBDevopsCommon(start, end).(*TimescaleDBDevops)
+	underlying := newTimescaleDBDevopsCommon(start, end)
 	return &TimescaleDBDevopsMultipleOrs{
 		TimescaleDBDevops: *underlying,
 	}
 }
 
-func (d *TimescaleDBDevopsMultipleOrs) Dispatch(i, scaleVar int) query.Query {
+func (d *TimescaleDBDevopsMultipleOrs) Dispatch(scaleVar int) query.Query {
 	q := query.NewTimescaleDB() // from pool
 	d.MultipleMemOrs(q, scaleVar)
 	return q

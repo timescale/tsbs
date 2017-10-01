@@ -13,7 +13,7 @@ type CassandraDevopsLastPointPerHost struct {
 
 // NewCassandraDevopsLastPointPerHost returns a new CassandraDevopsLastPointPerHost for given paremeters
 func NewCassandraDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
-	underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
+	underlying := newCassandraDevopsCommon(start, end)
 	return &CassandraDevopsLastPointPerHost{
 		CassandraDevops: *underlying,
 	}
@@ -21,8 +21,8 @@ func NewCassandraDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsLastPointPerHost) Dispatch(i, scaleVar int) query.Query {
+func (d *CassandraDevopsLastPointPerHost) Dispatch(scaleVar int) query.Query {
 	q := query.NewCassandra() // from pool
-	d.LastPointPerHost(q, scaleVar)
+	d.LastPointPerHost(q)
 	return q
 }

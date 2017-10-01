@@ -13,9 +13,9 @@ type CassandraDevopsGroupby struct {
 }
 
 // NewCassandraDevopsGroupBy produces a function that produces a new CassandraDevopsGroupby for the given parameters
-func NewCassandraDevopsGroupBy(numMetrics int) func(time.Time, time.Time) QueryGenerator {
+func NewCassandraDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
+		underlying := newCassandraDevopsCommon(start, end)
 		return &CassandraDevopsGroupby{
 			CassandraDevops: *underlying,
 			numMetrics:      numMetrics,
@@ -24,8 +24,8 @@ func NewCassandraDevopsGroupBy(numMetrics int) func(time.Time, time.Time) QueryG
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsGroupby) Dispatch(i, scaleVar int) query.Query {
+func (d *CassandraDevopsGroupby) Dispatch(scaleVar int) query.Query {
 	q := query.NewCassandra() // from pool
-	d.MeanCPUUsageDayByHourAllHostsGroupbyHost(q, d.numMetrics)
+	d.MeanCPUMetricsDayByHourAllHostsGroupbyHost(q, d.numMetrics)
 	return q
 }

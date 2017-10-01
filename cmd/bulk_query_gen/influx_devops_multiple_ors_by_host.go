@@ -12,13 +12,13 @@ type InfluxDevopsMultipleOrsByHost struct {
 }
 
 func NewInfluxDevopsMultipleOrsByHost(start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
+	underlying := newInfluxDevopsCommon(start, end)
 	return &InfluxDevopsMultipleOrsByHost{
 		InfluxDevops: *underlying,
 	}
 }
 
-func (d *InfluxDevopsMultipleOrsByHost) Dispatch(i, scaleVar int) query.Query {
+func (d *InfluxDevopsMultipleOrsByHost) Dispatch(scaleVar int) query.Query {
 	q := query.NewHTTP() // from pool
 	d.MultipleMemFieldsOrsGroupedByHost(q, scaleVar)
 	return q

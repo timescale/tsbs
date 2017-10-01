@@ -13,9 +13,9 @@ type InfluxDevopsAllMaxCPU struct {
 }
 
 // NewInfluxDevopsAllMaxCPU produces a new function that produces a new InfluxDevopsAllMaxCPU
-func NewInfluxDevopsAllMaxCPU(hosts int) func(time.Time, time.Time) QueryGenerator {
+func NewInfluxDevopsAllMaxCPU(hosts int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
+		underlying := newInfluxDevopsCommon(start, end)
 		return &InfluxDevopsAllMaxCPU{
 			InfluxDevops: *underlying,
 			hosts:        hosts,
@@ -24,7 +24,7 @@ func NewInfluxDevopsAllMaxCPU(hosts int) func(time.Time, time.Time) QueryGenerat
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevopsAllMaxCPU) Dispatch(_, scaleVar int) query.Query {
+func (d *InfluxDevopsAllMaxCPU) Dispatch(scaleVar int) query.Query {
 	q := query.NewHTTP() // from pool
 	d.MaxAllCPU(q, scaleVar, d.hosts)
 	return q

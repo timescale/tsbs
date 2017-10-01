@@ -14,9 +14,9 @@ type InfluxDevops5Metrics struct {
 }
 
 // NewInfluxDevops5Metrics produces a new function that produces a new InfluxDevops5Metrics
-func NewInfluxDevops5Metrics(hosts, hours int) func(time.Time, time.Time) QueryGenerator {
+func NewInfluxDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(start, end).(*InfluxDevops)
+		underlying := newInfluxDevopsCommon(start, end)
 		return &InfluxDevops5Metrics{
 			InfluxDevops: *underlying,
 			hosts:        hosts,
@@ -26,7 +26,7 @@ func NewInfluxDevops5Metrics(hosts, hours int) func(time.Time, time.Time) QueryG
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevops5Metrics) Dispatch(_, scaleVar int) query.Query {
+func (d *InfluxDevops5Metrics) Dispatch(scaleVar int) query.Query {
 	q := query.NewHTTP() // from pool
 	d.CPU5Metrics(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q

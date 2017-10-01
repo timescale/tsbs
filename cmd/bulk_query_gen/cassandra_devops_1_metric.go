@@ -14,9 +14,9 @@ type CassandraDevopsSingleMetric struct {
 }
 
 // NewCassandraDevopsSingleMetric produces a new function that produces a new CassandraDevopsSingleMetric
-func NewCassandraDevopsSingleMetric(hosts, hours int) func(time.Time, time.Time) QueryGenerator {
+func NewCassandraDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
 	return func(start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(start, end).(*CassandraDevops)
+		underlying := newCassandraDevopsCommon(start, end)
 		return &CassandraDevopsSingleMetric{
 			CassandraDevops: *underlying,
 			hosts:           hosts,
@@ -26,7 +26,7 @@ func NewCassandraDevopsSingleMetric(hosts, hours int) func(time.Time, time.Time)
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsSingleMetric) Dispatch(_, scaleVar int) query.Query {
+func (d *CassandraDevopsSingleMetric) Dispatch(scaleVar int) query.Query {
 	q := query.NewCassandra() // from pool
 	d.MaxCPUUsageHourByMinute(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q

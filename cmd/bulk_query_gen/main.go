@@ -237,7 +237,7 @@ func main() {
 
 	enc := gob.NewEncoder(out)
 	for i := 0; i < queryCount; i++ {
-		q := generator.Dispatch(i, scaleVar)
+		q := generator.Dispatch(scaleVar)
 
 		if currentInterleavedGroup == interleavedGenerationGroupID {
 			err := enc.Encode(q)

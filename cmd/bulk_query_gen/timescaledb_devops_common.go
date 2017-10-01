@@ -16,7 +16,7 @@ type TimescaleDBDevops struct {
 }
 
 // NewTimescaleDBDevops makes an InfluxDevops object ready to generate Queries.
-func newTimescaleDBDevopsCommon(start, end time.Time) QueryGenerator {
+func newTimescaleDBDevopsCommon(start, end time.Time) *TimescaleDBDevops {
 	if !start.Before(end) {
 		panic("bad time order")
 	}
@@ -69,13 +69,6 @@ func getRandomHosts(scaleVar, nhosts int) []string {
 	}
 
 	return hostnames
-}
-
-// Dispatch fulfills the QueryGenerator interface.
-func (d *TimescaleDBDevops) Dispatch(i, scaleVar int) query.Query {
-	q := query.NewTimescaleDB() // from pool
-	//devopsDispatchAll(d, i, q, scaleVar)
-	return q
 }
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
@@ -134,7 +127,7 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, ti
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query, _ int) {
+func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.AllInterval.RandWindow(time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
 
@@ -236,7 +229,7 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query, _ int) {
+func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query) {
 	measure := measurements[rand.Intn(len(measurements))]
 
 	var sqlQuery string
