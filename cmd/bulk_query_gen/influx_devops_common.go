@@ -49,17 +49,10 @@ func (d *InfluxDevops) getHostWhereString(scaleVar int, nhosts int) string {
 // GROUP BY minute ORDER BY minute ASC
 func (d *InfluxDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	hostnames := getRandomHosts(scaleVar, nhosts)
-
-	hostnameClauses := []string{}
-	for _, s := range hostnames {
-		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
-	}
-
-	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+	whereHosts := d.getHostWhereString(scaleVar, nhosts)
 
 	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*query.HTTP)
@@ -80,17 +73,10 @@ func (d *InfluxDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts 
 // GROUP BY minute ORDER BY minute ASC
 func (d *InfluxDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	hostnames := getRandomHosts(scaleVar, nhosts)
-
-	hostnameClauses := []string{}
-	for _, s := range hostnames {
-		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
-	}
-
-	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+	whereHosts := d.getHostWhereString(scaleVar, nhosts)
 
 	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_guest) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_guest) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*query.HTTP)
@@ -166,17 +152,10 @@ func (d *InfluxDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query
 // GROUP BY hour ORDER BY hour
 func (d *InfluxDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(8 * time.Hour)
-	hostnames := getRandomHosts(scaleVar, nhosts)
-
-	hostnameClauses := []string{}
-	for _, s := range hostnames {
-		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
-	}
-
-	combinedHostnameClause := strings.Join(hostnameClauses, " or ")
+	whereHosts := d.getHostWhereString(scaleVar, nhosts)
 
 	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user),max(usage_system),max(usage_idle),max(usage_nice),max(usage_iowait),max(usage_irq),max(usage_softirq),max(usage_steal),max(usage_guest),max(usage_guest_nice) from cpu where (%s) and time >= '%s' and time < '%s' group by time(1m)", combinedHostnameClause, interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT max(usage_user),max(usage_system),max(usage_idle),max(usage_nice),max(usage_iowait),max(usage_irq),max(usage_softirq),max(usage_steal),max(usage_guest),max(usage_guest_nice) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
 
 	humanLabel := fmt.Sprintf("Influx max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
 	q := qi.(*query.HTTP)
