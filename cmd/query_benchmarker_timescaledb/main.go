@@ -182,7 +182,7 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, workerID int) {
+func processQueries(wg *sync.WaitGroup, _ int) {
 	qe := newQueryExecutor(getConnectString())
 	opts := &queryExecutorOptions{
 		showExplain:   showExplain,

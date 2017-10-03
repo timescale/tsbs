@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gocql/gocql"
+
 	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
@@ -67,6 +69,8 @@ var (
 	queryChan           chan query.Query
 	aggrPlan            int
 	benchmarkComponents *benchmarker.BenchmarkComponents
+	csi                 *ClientSideIndex
+	session             *gocql.Session
 )
 
 // Parse args:
@@ -94,10 +98,10 @@ func init() {
 
 func main() {
 	// Make client-side index:
-	csi := NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
+	csi = NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
 
 	// Make database connection pool:
-	session := NewCassandraSession(daemonUrl, requestTimeout)
+	session = NewCassandraSession(daemonUrl, requestTimeout)
 	defer session.Close()
 
 	// Make data and stat channels:
@@ -107,11 +111,10 @@ func main() {
 	go benchmarkComponents.StatProcessor.Process(workers)
 
 	// Launch the query processors:
-	qe := NewHLQueryExecutor(session, csi, debug)
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go processQueries(&wg, i, qe)
+		go processQueries(&wg, i)
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -145,16 +148,18 @@ func main() {
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, workerID int, qc *HLQueryExecutor) {
+func processQueries(wg *sync.WaitGroup, _ int) {
 	opts := HLQueryExecutorDoOptions{
 		AggregationPlan:      aggrPlan,
 		Debug:                debug,
 		PrettyPrintResponses: prettyPrintResponses,
 	}
+
+	qe := NewHLQueryExecutor(session, csi, debug)
 	sp := benchmarkComponents.StatProcessor
 
 	qFn := func(q *HLQuery, labels [][]byte, warm bool) {
-		qpLagMs, reqLagMs, err := qc.Do(q, opts)
+		qpLagMs, reqLagMs, err := qe.Do(q, opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
