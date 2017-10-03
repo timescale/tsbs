@@ -10,12 +10,9 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -45,14 +42,12 @@ var (
 // Program option vars:
 var (
 	daemonUrl            string
-	workers              int
 	aggrPlanLabel        string
 	subQueryParallelism  int
 	requestTimeout       time.Duration
 	csiTimeout           time.Duration
 	debug                int
 	prettyPrintResponses bool
-	memProfile           string
 )
 
 // Helpers for choice-like flags:
@@ -78,14 +73,12 @@ func init() {
 	benchmarkComponents = benchmarker.NewBenchmarkComponents()
 
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
-	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
 	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
 	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
 	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print response bodies (for correctness checking) (default false).")
-	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
 
@@ -104,46 +97,8 @@ func main() {
 	session = NewCassandraSession(daemonUrl, requestTimeout)
 	defer session.Close()
 
-	// Make data and stat channels:
-	queryChan = make(chan query.Query, workers)
-
-	// Launch the stats processor:
-	go benchmarkComponents.StatProcessor.Process(workers)
-
-	// Launch the query processors:
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go processQueries(&wg, i)
-	}
-
-	// Read in jobs, closing the job channel when done:
-	input := bufio.NewReaderSize(os.Stdin, 1<<20)
-	wallStart := time.Now()
-	benchmarkComponents.Scanner.SetReader(input).Scan(queryPool, queryChan)
-	close(queryChan)
-
-	// Block for workers to finish sending requests, closing the stats
-	// channel when done:
-	wg.Wait()
-	benchmarkComponents.StatProcessor.CloseAndWait()
-
-	wallEnd := time.Now()
-	wallTook := wallEnd.Sub(wallStart)
-	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds())/1e9)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// (Optional) create a memory profile:
-	if memProfile != "" {
-		f, err := os.Create(memProfile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.WriteHeapProfile(f)
-		f.Close()
-	}
+	queryChan = make(chan query.Query, benchmarkComponents.Workers)
+	benchmarkComponents.Run(queryPool, queryChan, processQueries)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the

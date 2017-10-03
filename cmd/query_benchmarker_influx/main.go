@@ -6,15 +6,10 @@
 package main
 
 import (
-	"bufio"
 	"flag"
-	"fmt"
 	"log"
-	"os"
-	"runtime/pprof"
 	"strings"
 	"sync"
-	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
@@ -24,11 +19,9 @@ import (
 var (
 	daemonUrls           []string
 	databaseName         string
-	workers              int
 	debug                int
 	prettyPrintResponses bool
 	chunkSize            uint64
-	memProfile           string
 )
 
 // Global vars:
@@ -45,11 +38,9 @@ func init() {
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.IntVar(&workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.Uint64Var(&chunkSize, "chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
-	flag.StringVar(&memProfile, "memprofile", "", "Write a memory profile to this file.")
 
 	flag.Parse()
 
@@ -60,46 +51,8 @@ func init() {
 }
 
 func main() {
-	// Make data and control channels:
-	queryChan = make(chan query.Query, workers)
-
-	// Launch the stats processor:
-	go benchmarkComponents.StatProcessor.Process(workers)
-
-	// Launch the query processors:
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go processQueries(&wg, i)
-	}
-
-	// Read in jobs, closing the job channel when done:
-	input := bufio.NewReaderSize(os.Stdin, 1<<20)
-	wallStart := time.Now()
-	benchmarkComponents.Scanner.SetReader(input).Scan(queryPool, queryChan)
-	close(queryChan)
-
-	// Block for workers to finish sending requests, closing the stats
-	// channel when done:
-	wg.Wait()
-	benchmarkComponents.StatProcessor.CloseAndWait()
-
-	wallEnd := time.Now()
-	wallTook := wallEnd.Sub(wallStart)
-	_, err := fmt.Printf("wall clock time: %fsec\n", float64(wallTook.Nanoseconds())/1e9)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// (Optional) create a memory profile:
-	if memProfile != "" {
-		f, err := os.Create(memProfile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		pprof.WriteHeapProfile(f)
-		f.Close()
-	}
+	queryChan = make(chan query.Query, benchmarkComponents.Workers)
+	benchmarkComponents.Run(queryPool, queryChan, processQueries)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
