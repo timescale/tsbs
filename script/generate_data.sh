@@ -2,13 +2,13 @@
 
 binName=$(which bulk_data_gen)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
-dataDir=${dataDir:-/disk/1/bulk_data}
+dataDir=${dataDir:-/tmp}
 
 formats=${formats:-"timescaledb"}
 scaleVar=${scaleVar:-"1000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-11T00:00:00Z"}
+tsEnd=${tsEnd:-"2016-01-02T00:00:00Z"}
 useCase=${useCase:-"cpu-only"}
 logInterval=${logInterval:-"10s"}
 

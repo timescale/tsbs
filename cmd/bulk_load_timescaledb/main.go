@@ -19,6 +19,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/shirou/gopsutil/process"
 )
 
 // Program option vars:
@@ -42,6 +43,8 @@ var (
 	partitionIndex  bool
 	fieldIndex      string
 	fieldIndexCount int
+
+	profileFile string
 )
 
 type insertData struct {
@@ -84,7 +87,9 @@ func init() {
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
 	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
-	flag.IntVar(&fieldIndexCount, "field-index-count", -1, "Number of indexed fields (-1 for all)")
+	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
+
+	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")
 
 	flag.Parse()
 	tableCols = make(map[string][]string)
@@ -111,6 +116,11 @@ func main() {
 		return scan(batchSize, scanner), 0
 	}
 
+	/* If specified, generate a performance profile */
+	if len(profileFile) > 0 {
+		go profile()
+	}
+
 	dr := load.NewDataReader(workers, workerFn, scanFn)
 	dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
 
@@ -120,6 +130,45 @@ func main() {
 
 	fmt.Printf("loaded %d metrics in %fsec with %d workers (mean rate %f/sec)\n", metricCount, took.Seconds(), workers, columnRate)
 	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowCount, took.Seconds(), workers, rowRate)
+}
+
+func profile() {
+	f, err := os.Create(profileFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	var proc *process.Process
+	for _ = range time.NewTicker(1 * time.Second).C {
+		if proc == nil {
+			procs, err := process.Processes()
+			if err != nil {
+				panic(err)
+			}
+			for _, p := range procs {
+				cmd, _ := p.Cmdline()
+				if strings.Contains(cmd, "postgres") && strings.Contains(cmd, "INSERT") {
+					proc = p
+					break
+				}
+			}
+		} else {
+			cpu, err := proc.CPUPercent()
+			if err != nil {
+				proc = nil
+				continue
+			}
+			mem, err := proc.MemoryInfo()
+			if err != nil {
+				proc = nil
+				continue
+			}
+
+			f.Write([]byte(fmt.Sprintf("%f,%d,%d,%d\n", cpu, mem.RSS, mem.VMS, mem.Swap)))
+
+		}
+	}
 }
 
 func getConnectString() string {
