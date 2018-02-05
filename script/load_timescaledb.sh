@@ -6,6 +6,7 @@ PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
 CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-1}
 USE_HYPERTABLE=${USE_HYPERTABLE:-true}
+PERF_OUTPUT=${PERF_OUTPUT:-}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/timescaledb.conf
@@ -27,4 +28,5 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --partitions=${PARTITIONS} \
                                 --chunk-time=${CHUNK_TIME} \
                                 --field-index="VALUE-TIME" \
+                                --write-profile=${PERF_OUTPUT} \
                                 --field-index-count=1
