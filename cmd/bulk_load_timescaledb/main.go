@@ -45,6 +45,7 @@ var (
 	fieldIndexCount int
 
 	profileFile string
+	replicationStatsFile string
 )
 
 type insertData struct {
@@ -90,6 +91,7 @@ func init() {
 	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")
+	flag.StringVar(&replicationStatsFile, "write-replication-stats", "", "File to output replication stats to")
 
 	flag.Parse()
 	tableCols = make(map[string][]string)
@@ -121,6 +123,11 @@ func main() {
 		go profile()
 	}
 
+	var replicationStatsWaitGroup sync.WaitGroup
+	if len(replicationStatsFile) > 0 {
+		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
+	}
+
 	dr := load.NewDataReader(workers, workerFn, scanFn)
 	dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
 
@@ -130,6 +137,10 @@ func main() {
 
 	fmt.Printf("loaded %d metrics in %fsec with %d workers (mean rate %f/sec)\n", metricCount, took.Seconds(), workers, columnRate)
 	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowCount, took.Seconds(), workers, rowRate)
+
+	if len(replicationStatsFile) > 0 {
+		replicationStatsWaitGroup.Wait()
+	}
 }
 
 func profile() {
