@@ -21,7 +21,7 @@ do
     fname="import_${format}_${binVersion}_${scaleVar}_${seed}_${tsStart}_${tsEnd}_${useCase}.dat.gz"
     echo "$fname"
     if [ ! -f "$fname" ]; then
-        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -logInterval $logInterval -use-case $useCase | gzip > $fname
+        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -log-interval $logInterval -use-case $useCase | gzip > $fname
         ln -s $fname ${format}-data.gz
     fi
    # or do whatever with individual element of the array
@@ -31,7 +31,7 @@ done
   # -format string
   #   	Format to emit. (choices: influx-bulk, es-bulk, cassandra, timescaledb) (default "influx-bulk")
 
-  # -logInterval duration
+  # -log-interval duration
   #    Duration between host data points (default 10s)
   # -scale-var int
   #   	Scaling variable specific to the use case. (default 1)

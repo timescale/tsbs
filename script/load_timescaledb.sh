@@ -7,6 +7,7 @@ CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-1}
 USE_HYPERTABLE=${USE_HYPERTABLE:-true}
 PERF_OUTPUT=${PERF_OUTPUT:-}
+DATABASE_HOST=${DATABASE_HOST:-localhost}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/timescaledb.conf
