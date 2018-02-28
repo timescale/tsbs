@@ -24,6 +24,8 @@ Usage flags:
     -q      Query benchmarks only, no insert. Data needs to be previously
             inserted (default: false)
 
+    -s      Hostname for the client to connect to (default: localhost)
+
     -w      Number of workers/threads to use (default: 4)
 
 EXAMPLE:
@@ -39,7 +41,7 @@ python generate_query_run -d timescaledb -w 8
 Result:
 #!/bin/bash
 # Load data
-NUM_WORKERS=8 DATA_DIR=/tmp BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_10000_20000.out
+NUM_WORKERS=8 BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_8_10000.out
 
 # Queries
 cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
@@ -49,10 +51,10 @@ cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | query_
 import argparse
 import os
 
-def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
+def get_load_str(load_dir, label, batch_size, workers, hostname):
     '''Writes a script line corresponding to loading data into a database'''
-    logfilename = 'load_{}_{}_{}_{}.out'.format(label, workers, batch_size, reporting_period)
-    prefix = 'NUM_WORKERS={} BATCH_SIZE={} DATA_DIR=/tmp BULK_DATA_DIR={} DATABASE_HOST=localhost'.format(workers, batch_size, load_dir)
+    logfilename = 'load_{}_{}_{}.out'.format(label, workers, batch_size)
+    prefix = 'NUM_WORKERS={} BATCH_SIZE={} BULK_DATA_DIR={} DATABASE_HOST={}'.format(workers, batch_size, load_dir, hostname)
 
     loader = label if label != 'postgres' else 'timescaledb'
     suffix = ' ./load_{}.sh | tee {}'.format(loader, logfilename)
@@ -65,7 +67,7 @@ def get_load_str(load_dir, label, batch_size, workers, reporting_period=20000):
         return prefix + ' USE_HYPERTABLE=false ' + suffix
 
 
-def get_query_str(queryfile, label, workers, limit, extra_query_args):
+def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
     '''Writes a script line corresponding to executing a query on a database'''
     limit_arg = '--limit={}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
@@ -78,16 +80,17 @@ def get_query_str(queryfile, label, workers, limit, extra_query_args):
         extra_args = '--aggregation-plan=client'
     elif label == 'timescaledb':
         # TimescaleDB needs the connection string
-        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable')
+        extra_args = '--postgres="{}"'.format('host={} user=postgres sslmode=disable'.format(hostname))
     elif label == 'postgres':
         # Postgres needs the connection string
-        extra_args = '--postgres="{}"'.format('host=localhost user=postgres sslmode=disable')
+        extra_args = '--postgres="{}"'.format('host={} user=postgres sslmode=disable'.format(hostname))
 
     return 'cat {} | gunzip | query_benchmarker_{} --workers={} {} {} {} | tee {}.out'.format(
         queryfile, benchmarker, workers, limit_arg, extra_args, extra_query_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir):
     '''Gets the list of files containing benchmark queries'''
+
     l = list()
     with open(filename, 'r') as queries:
         for query in queries:
@@ -100,22 +103,23 @@ def load_queries_file_names(filename, label, query_dir):
 
     return l
 
-def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, limit, workers, extra_query_args):
+def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, limit, workers, hostname, extra_query_args):
     '''Writes a bash script file to run load/query tests'''
-    print '#!/bin/bash'
+
+    print('#!/bin/bash')
     queries = []
     if queries_file is not None:
         queries = load_queries_file_names(queries_file, db_name, query_dir)
 
     if load_dir is not None:
         print("# Load data")
-        print(get_load_str(load_dir, db_name, batch_size, workers))
+        print(get_load_str(load_dir, db_name, batch_size, workers, hostname))
         print("")
 
     if len(queries) > 0:
         print("# Queries")
         for query in queries:
-            print(get_query_str(query, db_name, workers, limit, extra_query_args))
+            print(get_query_str(query, db_name, workers, limit, hostname, extra_query_args))
             print("")
 
 
@@ -124,16 +128,28 @@ if __name__ == "__main__":
     default_query_dir = '/tmp/queries'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', dest='batch_size', default=10000, type=int)
-    parser.add_argument('-d', dest='db_name', default=None, type=str)
-    parser.add_argument('-e', dest='extra_query_args', default='', type=str)
-    parser.add_argument('-f', dest='queries_file_name', default='queries.txt', type=str)
-    parser.add_argument('-i', dest='write_only', default=False, action='store_true')
-    parser.add_argument('-l', dest='load_file_dir', default=default_load_dir, type=str)
-    parser.add_argument('-n', dest='limit', default=1000, type=int)
-    parser.add_argument('-o', dest='query_file_dir', default=default_query_dir, type=str)
-    parser.add_argument('-q', dest='query_only', default=False, action='store_true')
-    parser.add_argument('-w', dest='workers', default=4, type=int)
+    parser.add_argument('-b', dest='batch_size', default=10000, type=int,
+        help='Batch size for inserts')
+    parser.add_argument('-d', dest='db_name', default=None, required=True,
+        type=str, help='Database to generate commands for')
+    parser.add_argument('-e', dest='extra_query_args', default='', type=str,
+        help='Extra arguments to pass directly to query runner')
+    parser.add_argument('-f', dest='queries_file_name', default='queries.txt',
+        type=str, help='File containing a list of queries to run, one per line')
+    parser.add_argument('-i', dest='write_only', default=False,
+        action='store_true', help='Whether to only generate commands for inserts')
+    parser.add_argument('-l', dest='load_file_dir', default=default_load_dir,
+        type=str, help='Path to directory where data to insert is stored')
+    parser.add_argument('-n', dest='limit', default=1000, type=int,
+        help='Max number of queries to run')
+    parser.add_argument('-o', dest='query_file_dir', default=default_query_dir,
+        type=str, help='Path to directory where queries to execute are stored')
+    parser.add_argument('-q', dest='query_only', default=False,
+        action='store_true', help='Whether to only generate commands for queries')
+    parser.add_argument('-s', dest='hostname', default='localhost',
+        type=str, help='Hostname of the database')
+    parser.add_argument('-w', dest='workers', default=4, type=int,
+        help='Number of workers to use for inserts and queries')
 
     args = parser.parse_args()
 
@@ -149,4 +165,5 @@ if __name__ == "__main__":
         args.batch_size,
         args.limit,
         args.workers,
+        args.hostname,
         args.extra_query_args)

@@ -71,7 +71,7 @@ func init() {
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
-	flag.DurationVar(&logInterval, "logInterval", 10*time.Second, "Duration between host data points")
+	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
 	flag.Parse()
 
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
