@@ -21,6 +21,7 @@ func newQueryScanner(limit *uint64) *QueryScanner {
 	return &QueryScanner{limit: limit}
 }
 
+// SetReader sets the source, an io.Reader, that the QueryScanner reads/decodes from
 func (qs *QueryScanner) SetReader(r io.Reader) *QueryScanner {
 	qs.r = r
 	return qs
@@ -32,7 +33,7 @@ func (qs *QueryScanner) Scan(pool *sync.Pool, c chan query.Query) {
 
 	n := uint64(0)
 	for {
-		if *qs.limit >= 0 && n >= *qs.limit {
+		if *qs.limit > 0 && n >= *qs.limit {
 			break
 		}
 
