@@ -1,15 +1,14 @@
-// bulk_data_gen generates time series data from pre-specified use cases.
+// tsbs_generate_data generates time series data from pre-specified use cases.
 //
 // Supported formats:
+// TimescaleDB psuedo-CSV format
 // InfluxDB bulk load format
-// ElasticSearch bulk load format
 // Cassandra query format
-// Mongo custom format
-// OpenTSDB bulk HTTP format
-//
+
 // Supported use cases:
-// Devops: scale_var is the number of hosts to simulate, with log messages
-//         every 10 seconds.
+// devops: scale-var is the number of hosts to simulate, with log messages
+//         every log-interval seconds.
+// cpu-only: same as `devops` but only generate metrics for CPU
 package main
 
 import (

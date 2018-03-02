@@ -44,9 +44,9 @@ Result:
 NUM_WORKERS=8 BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_8_10000.out
 
 # Queries
-cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
+cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
 
-cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | query_benchmarker_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-12-hr-queries.out
+cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-12-hr-queries.out
 '''
 import argparse
 import os
@@ -85,7 +85,7 @@ def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
         # Postgres needs the connection string
         extra_args = '--postgres="{}"'.format('host={} user=postgres sslmode=disable'.format(hostname))
 
-    return 'cat {} | gunzip | query_benchmarker_{} --workers={} {} {} {} | tee {}.out'.format(
+    return 'cat {} | gunzip | tsbs_run_queries_{} --workers={} {} {} {} | tee {}.out'.format(
         queryfile, benchmarker, workers, limit_arg, extra_args, extra_query_args, output_file)
 
 def load_queries_file_names(filename, label, query_dir):

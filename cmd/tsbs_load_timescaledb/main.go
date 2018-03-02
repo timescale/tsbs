@@ -1,4 +1,4 @@
-// bulk_load_timescaledb loads a TimescaleDB instance with data from stdin.
+// tsbs_load_timescaledb loads a TimescaleDB instance with data from stdin.
 //
 // If the database exists beforehand, it will be *DROPPED*.
 package main
@@ -44,7 +44,7 @@ var (
 	fieldIndex      string
 	fieldIndexCount int
 
-	profileFile string
+	profileFile          string
 	replicationStatsFile string
 )
 
@@ -87,7 +87,7 @@ func init() {
 
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
-	flag.StringVar(&fieldIndex, "field-index", "TIME-VALUE", "index types for tags (comma deliminated)")
+	flag.StringVar(&fieldIndex, "field-index", "VALUE-TIME", "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")

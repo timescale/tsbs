@@ -1,6 +1,6 @@
 #!/bin/bash
 set -x
-binName=$(which bulk_query_gen)
+binName=$(which tsbs_generate_queries)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/disk/1/queries}
 useJson=${useJson:-false}

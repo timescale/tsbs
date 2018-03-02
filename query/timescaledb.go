@@ -6,7 +6,7 @@ import (
 )
 
 // TimescaleDB encodes a TimescaleDB request. This will be serialized for use
-// by the query_benchmarker program.
+// by the tsbs_run_queries_timescaledb program.
 type TimescaleDB struct {
 	HumanLabel       []byte
 	HumanDescription []byte

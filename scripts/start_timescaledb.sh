@@ -6,10 +6,13 @@ let "WORK=($MEM-$SHARED)/30"
 let "MAINT=$MEM/16"
 
 sudo -u postgres /usr/lib/postgresql/9.6/bin/pg_ctl -c -U postgres -D /etc/postgresql/9.6/main -l /tmp/postgres.log -o "-cshared_preload_libraries=timescaledb \
- -clog_line_prefix=\"%m [%p]: [%x] %u@%d\" -clogging_collector=off \
+ -clog_line_prefix=\"%m [%p]: [%x] %u@%d\" \
+ -clogging_collector=off \
  -csynchronous_commit=off \
  -cmax_wal_size=10GB \
- -cshared_buffers=${SHARED}MB -ceffective_cache_size=${CACHE}MB \
- -cwork_mem=${WORK}MB -cmaintenance_work_mem=${MAINT}MB \
+ -cshared_buffers=${SHARED}MB \
+ -ceffective_cache_size=${CACHE}MB \
+ -cwork_mem=${WORK}MB \
+ -cmaintenance_work_mem=${MAINT}MB \
  -cmax_files_per_process=100 \
  -cautovacuum=on" start

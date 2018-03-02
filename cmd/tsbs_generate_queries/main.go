@@ -1,5 +1,5 @@
-// bulk_query_gen generates queries for various use cases. Its output will
-// be consumed by query_benchmarker.
+// tsbs_generate_queries generates queries for various use cases. Its output will
+// be consumed by the corresponding tsbs_run_queries_ program.
 package main
 
 import (

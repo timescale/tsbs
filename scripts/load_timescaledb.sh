@@ -5,9 +5,9 @@ DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
 PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
 CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-1}
-USE_HYPERTABLE=${USE_HYPERTABLE:-true}
 PERF_OUTPUT=${PERF_OUTPUT:-}
 DATABASE_HOST=${DATABASE_HOST:-localhost}
+DATABASE_USER=${DATABASE_USER:-postgres}
 
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/timescaledb.conf
@@ -17,8 +17,8 @@ while ! pg_isready; do
     sleep 1
 done
 
-cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
-                                --postgres="host=${DATABASE_HOST} user=postgres sslmode=disable" \
+cat ${DATA_FILE} | gunzip | tsbs_load_timescaledb \
+                                --postgres="host=${DATABASE_HOST} user=${DATABASE_USER} sslmode=disable" \
                                 --db-name=${DATABASE_NAME} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
@@ -28,6 +28,5 @@ cat ${DATA_FILE} | gunzip | bulk_load_timescaledb \
                                 --in-table-partition-tag=${IN_TABLE_PARTITION_TAG} \
                                 --partitions=${PARTITIONS} \
                                 --chunk-time=${CHUNK_TIME} \
-                                --field-index="VALUE-TIME" \
                                 --write-profile=${PERF_OUTPUT} \
                                 --field-index-count=1
