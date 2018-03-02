@@ -1,6 +1,6 @@
 #!/bin/bash
 
-binName=$(which bulk_data_gen)
+binName=$(which tsbs_generate_data)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/tmp}
 

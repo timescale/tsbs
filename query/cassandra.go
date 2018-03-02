@@ -7,7 +7,7 @@ import (
 )
 
 // Cassandra encodes a Cassandra request. This will be serialized for use
-// by the query_benchmarker program.
+// by the tsbs_run_queries_cassandra program.
 type Cassandra struct {
 	HumanLabel       []byte
 	HumanDescription []byte

@@ -1,4 +1,4 @@
-// query_benchmarker_cassandra speed tests Cassandra servers using request
+// tsbs_run_queries_cassandra speed tests Cassandra servers using request
 // data from stdin.
 //
 // It reads encoded HLQuery objects from stdin, and makes concurrent requests

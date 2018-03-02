@@ -1,4 +1,4 @@
-// query_benchmarker speed tests InfluxDB using requests from stdin.
+// tsbs_run_queries_influx speed tests InfluxDB using requests from stdin.
 //
 // It reads encoded Query objects from stdin, and makes concurrent requests
 // to the provided HTTP endpoint. This program has no knowledge of the

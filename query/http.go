@@ -6,7 +6,7 @@ import (
 )
 
 // HTTP encodes an HTTP request. This will typically by serialized for use
-// by the query_benchmarker program.
+// by the appropriate tsbs_run_queries program.
 type HTTP struct {
 	HumanLabel       []byte
 	HumanDescription []byte
