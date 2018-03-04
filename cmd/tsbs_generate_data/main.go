@@ -24,23 +24,19 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"influx", "es", "cassandra", "mongo", "opentsdb", "timescaledb"}
+var formatChoices = []string{"cassandra", "influx", "timescaledb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "cpu-only"}
 
 // Program option vars:
 var (
-	daemonUrl string
-	dbName    string
-
 	format  string
 	useCase string
 
 	scaleVar int64
-
-	timestampStartStr string
-	timestampEndStr   string
+	seed     int64
+	debug    int
 
 	timestampStart time.Time
 	timestampEnd   time.Time
@@ -48,24 +44,23 @@ var (
 	interleavedGenerationGroupID uint
 	interleavedGenerationGroups  uint
 
-	seed  int64
-	debug int
-
 	logInterval time.Duration
 )
 
 // Parse args:
 func init() {
-	flag.StringVar(&format, "format", formatChoices[0], fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
+	var timestampStartStr string
+	var timestampEndStr string
+	flag.StringVar(&format, "format", "", fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
-	flag.StringVar(&useCase, "use-case", useCaseChoices[0], "Use case to model. (choices: devops, cpu-only)")
-	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case.")
+	flag.StringVar(&useCase, "use-case", "", "Use case to model. (choices: devops, cpu-only)")
+	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case (e.g., devices in 'devops').")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-02T06:00:00Z", "Ending timestamp (RFC3339).")
 
-	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default, or 0, uses the current timestamp).")
-	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2) (default 0).")
+	flag.Int64Var(&seed, "seed", 0, "PRNG seed (0 uses the current timestamp). (default 0)")
+	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
 
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
@@ -133,22 +128,16 @@ func main() {
 			HostConstructor: NewHost,
 		}
 	default:
-		panic("unreachable")
+		log.Fatalf("unknown use case: '%s'", useCase)
 	}
 	sim := cfg.ToSimulator(logInterval)
 
 	var serializer func(*Point, io.Writer) error
 	switch format {
-	case "influx":
-		serializer = (*Point).SerializeInfluxBulk
-	case "es":
-		serializer = (*Point).SerializeESBulk
 	case "cassandra":
 		serializer = (*Point).SerializeCassandra
-	case "mongo":
-		serializer = (*Point).SerializeMongo
-	case "opentsdb":
-		serializer = (*Point).SerializeOpenTSDBBulk
+	case "influx":
+		serializer = (*Point).SerializeInfluxBulk
 	case "timescaledb":
 		out.WriteString("tags")
 		for _, key := range MachineTagKeys {
@@ -169,11 +158,10 @@ func main() {
 
 		serializer = (*Point).SerializeTimescaleDB
 	default:
-		panic("unreachable")
+		log.Fatalf("unknown format: '%s'", format)
 	}
 
-	var currentInterleavedGroup uint = 0
-
+	currentInterleavedGroup := uint(0)
 	point := MakeUsablePoint()
 	for !sim.Finished() {
 		sim.Next(point)
