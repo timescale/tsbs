@@ -6,7 +6,7 @@ dataDir=${dataDir:-/disk/1/queries}
 useJson=${useJson:-false}
 useTags=${useTags:-true}
 
-formats=${formats:-"influx cassandra timescaledb"}
+formats=${formats:-"timescaledb"}
 queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby groupby-5 groupby-all lastpoint cpu-max-all-single-host cpu-max-all-eight-hosts high-cpu high-cpu-and-field groupby-orderby-limit 5-metrics-1-host-1-hr 5-metrics-1-host-12-hr 5-metrics-8-host-1-hr"}
 
 scaleVar=${scaleVar:-"1000"}
@@ -14,7 +14,7 @@ queries=${queries:-"2500"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
 tsEnd=${tsEnd:-"2016-01-02T00:00:01Z"}
-useCase=${useCase:-"devops"}
+useCase=${useCase:-"cpu-only"}
 
 mkdir -p ${dataDir}
 chmod a+rwx ${dataDir}

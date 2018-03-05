@@ -143,6 +143,7 @@ var (
 
 // Parse args:
 func init() {
+	useCaseMatrix["cpu-only"] = useCaseMatrix["devops"]
 	// Change the Usage function to print the use case matrix of choices:
 	oldUsage := flag.Usage
 	flag.Usage = func() {
@@ -159,8 +160,8 @@ func init() {
 		}
 	}
 
-	flag.StringVar(&format, "format", "influx", "Format to emit. (Choices are in the use case matrix.)")
-	flag.StringVar(&useCase, "use-case", "devops", "Use case to model. (Choices are in the use case matrix.)")
+	flag.StringVar(&format, "format", "", "Format to emit. (Choices are in the use case matrix.)")
+	flag.StringVar(&useCase, "use-case", "", "Use case to model. (Choices are in the use case matrix.)")
 	flag.StringVar(&queryType, "query-type", "", "Query type. (Choices are in the use case matrix.)")
 
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
@@ -185,15 +186,15 @@ func init() {
 	}
 
 	if _, ok := useCaseMatrix[useCase]; !ok {
-		log.Fatal("invalid use case specifier")
+		log.Fatalf("invalid use case specifier: '%s'", useCase)
 	}
 
 	if _, ok := useCaseMatrix[useCase][queryType]; !ok {
-		log.Fatal("invalid query type specifier")
+		log.Fatalf("invalid query type specifier: '%s'", queryType)
 	}
 
 	if _, ok := useCaseMatrix[useCase][queryType][format]; !ok {
-		log.Fatal("invalid format specifier")
+		log.Fatalf("invalid format specifier: '%s'", format)
 	}
 
 	// the default seed is the current timestamp:
