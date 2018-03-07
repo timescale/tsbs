@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +27,8 @@ var (
 	debug                int
 	prettyPrintResponses bool
 	showExplain          bool
+	hosts		     string
+	hostList	     []string
 )
 
 // Global vars:
@@ -38,16 +42,23 @@ var (
 func init() {
 	benchmarkComponents = benchmarker.NewBenchmarkComponents()
 
-	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
+	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",
+		"String of additional PostgreSQL connection parameters, e.g., 'sslmode=disable'. Parameters for host and database will be ignored.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
+	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 
 	flag.Parse()
 
 	if showExplain {
 		benchmarkComponents.ResetLimit(1)
+	}
+
+	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
+	for _, host := range strings.Split(hosts, ",") {
+		hostList = append(hostList, host)
 	}
 }
 
@@ -56,8 +67,20 @@ func main() {
 	benchmarkComponents.Run(queryPool, queryChan, processQueries)
 }
 
-func getConnectString() string {
-	return postgresConnect + " dbname=" + databaseName
+// Get the connection string for a connection to PostgreSQL.
+
+// If we're running queries against multiple nodes we need to balance the queries
+// across replicas. Each worker is assigned a sequence number -- we'll use that
+// to evenly distribute hosts to worker connections
+func getConnectString(workerNumber int) string {
+	// User might be passing in host=hostname the connect string out of habit which may override the
+	// multi host configuration. Same for dbname=. This sanitizes that.
+	re := regexp.MustCompile(`(host|dbname)=\S*\b`)
+	connectString := re.ReplaceAllString(postgresConnect, "")
+
+	// Round robin the host/worker assignment by assigning a host based on workerNumber % totalNumberOfHosts
+	host := hostList[workerNumber % len(hostList)]
+	return fmt.Sprintf("host=%s dbname=%s %s", host, databaseName, connectString)
 }
 
 // prettyPrintResponse prints a Query and its response in JSON format with two
@@ -135,8 +158,9 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, _ int) {
-	qe := newQueryExecutor(getConnectString())
+func processQueries(wg *sync.WaitGroup, workerNumber int) {
+	qe := newQueryExecutor(getConnectString(workerNumber))
+
 	opts := &queryExecutorOptions{
 		showExplain:   showExplain,
 		debug:         debug > 0,
