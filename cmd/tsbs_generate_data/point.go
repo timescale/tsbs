@@ -40,6 +40,7 @@ var scratchBufPool = &sync.Pool{
 	},
 }
 
+// Reset clears all information from this Point so it can be reused.
 func (p *Point) Reset() {
 	p.MeasurementName = nil
 	p.TagKeys = p.TagKeys[:0]

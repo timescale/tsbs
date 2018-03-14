@@ -8,10 +8,8 @@ type simulatorConfig interface {
 
 // Simulator simulates a use case.
 type Simulator interface {
-	Total() int64
-	Seen() int64
 	Finished() bool
-	Next(*Point)
+	Next(*Point) bool
 	Fields() map[string][][]byte
 }
 

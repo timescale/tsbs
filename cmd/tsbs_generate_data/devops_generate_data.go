@@ -7,38 +7,36 @@ import (
 // A DevopsSimulator generates data similar to telemetry from Telegraf.
 // It fulfills the Simulator interface.
 type DevopsSimulator struct {
-	madePoints int64
-	maxPoints  int64
+	madePoints uint64
+	maxPoints  uint64
 
 	simulatedMeasurementIndex int
 
-	hostIndex int
+	hostIndex uint64
 	hosts     []Host
 
-	timestampNow   time.Time
+	epoch      uint64
+	epochs     uint64
+	epochHosts uint64
+	initHosts  uint64
+
 	timestampStart time.Time
 	timestampEnd   time.Time
 	interval       time.Duration
 }
 
-func (d *DevopsSimulator) Seen() int64 {
-	return d.madePoints
-}
-
-func (d *DevopsSimulator) Total() int64 {
-	return d.maxPoints
-}
-
+// Finished tells whether we have simulated all the necessary points
 func (d *DevopsSimulator) Finished() bool {
 	return d.madePoints >= d.maxPoints
 }
 
-// Type DevopsSimulatorConfig is used to create a DevopsSimulator.
+// DevopsSimulatorConfig is used to create a DevopsSimulator.
 type DevopsSimulatorConfig struct {
 	Start time.Time
 	End   time.Time
 
-	HostCount       int64
+	InitHostCount   uint64
+	HostCount       uint64
 	HostConstructor func(i int, start time.Time) Host
 }
 
@@ -48,8 +46,8 @@ func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) Simulator {
 		hostInfos[i] = d.HostConstructor(i, d.Start)
 	}
 
-	epochs := d.End.Sub(d.Start).Nanoseconds() / interval.Nanoseconds()
-	maxPoints := epochs * (d.HostCount * int64(len(hostInfos[0].SimulatedMeasurements)))
+	epochs := uint64(d.End.Sub(d.Start).Nanoseconds() / interval.Nanoseconds())
+	maxPoints := epochs * d.HostCount * uint64(len(hostInfos[0].SimulatedMeasurements))
 	dg := &DevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
@@ -59,7 +57,10 @@ func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) Simulator {
 		hostIndex: 0,
 		hosts:     hostInfos,
 
-		timestampNow:   d.Start,
+		epoch:          0,
+		epochs:         epochs,
+		epochHosts:     d.InitHostCount,
+		initHosts:      d.InitHostCount,
 		timestampStart: d.Start,
 		timestampEnd:   d.End,
 		interval:       interval,
@@ -80,9 +81,9 @@ func (d *DevopsSimulator) Fields() map[string][][]byte {
 }
 
 // Next advances a Point to the next state in the generator.
-func (d *DevopsSimulator) Next(p *Point) {
+func (d *DevopsSimulator) Next(p *Point) bool {
 	// switch to the next metric if needed
-	if d.hostIndex == len(d.hosts) {
+	if d.hostIndex == uint64(len(d.hosts)) {
 		d.hostIndex = 0
 		d.simulatedMeasurementIndex++
 	}
@@ -93,6 +94,9 @@ func (d *DevopsSimulator) Next(p *Point) {
 		for i := 0; i < len(d.hosts); i++ {
 			d.hosts[i].TickAll(d.interval)
 		}
+		d.epoch++
+		missingScale := float64(uint64(len(d.hosts)) - d.initHosts)
+		d.epochHosts = d.initHosts + uint64(missingScale*float64(d.epoch)/float64(d.epochs-1))
 	}
 
 	host := &d.hosts[d.hostIndex]
@@ -112,8 +116,9 @@ func (d *DevopsSimulator) Next(p *Point) {
 	// Populate measurement-specific tags and fields:
 	host.SimulatedMeasurements[d.simulatedMeasurementIndex].ToPoint(p)
 
+	ret := d.hostIndex < d.epochHosts
 	d.madePoints++
 	d.hostIndex++
 
-	return
+	return ret
 }
