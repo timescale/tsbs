@@ -34,9 +34,10 @@ var (
 	format  string
 	useCase string
 
-	scaleVar int64
-	seed     int64
-	debug    int
+	initScaleVar uint64
+	scaleVar     uint64
+	seed         int64
+	debug        int
 
 	timestampStart time.Time
 	timestampEnd   time.Time
@@ -54,7 +55,9 @@ func init() {
 	flag.StringVar(&format, "format", "", fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
 	flag.StringVar(&useCase, "use-case", "", "Use case to model. (choices: devops, cpu-only)")
-	flag.Int64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case (e.g., devices in 'devops').")
+
+	flag.Uint64Var(&initScaleVar, "initial-scale-var", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale-var value")
+	flag.Uint64Var(&scaleVar, "scale-var", 1, "Scaling variable specific to the use case (e.g., devices in 'devops').")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-02T06:00:00Z", "Ending timestamp (RFC3339).")
@@ -70,6 +73,10 @@ func init() {
 
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
 		log.Fatal("incorrect interleaved groups configuration")
+	}
+
+	if initScaleVar == 0 {
+		initScaleVar = scaleVar
 	}
 
 	validFormat := false
@@ -116,6 +123,7 @@ func main() {
 			Start: timestampStart,
 			End:   timestampEnd,
 
+			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
 			HostConstructor: NewHost,
 		}
@@ -124,6 +132,7 @@ func main() {
 			Start: timestampStart,
 			End:   timestampEnd,
 
+			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
 			HostConstructor: NewHost,
 		}
@@ -163,8 +172,13 @@ func main() {
 
 	currentInterleavedGroup := uint(0)
 	point := MakeUsablePoint()
+
 	for !sim.Finished() {
-		sim.Next(point)
+		write := sim.Next(point)
+		if !write {
+			point.Reset()
+			continue
+		}
 
 		// in the default case this is always true
 		if currentInterleavedGroup == interleavedGenerationGroupID {
