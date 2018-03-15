@@ -37,7 +37,6 @@ func NewBenchmarkComponents() *BenchmarkComponents {
 	sp := &StatProcessor{
 		statPool: GetStatPool(),
 		Limit:    &ret.limit,
-		PrewarmQueries: true,
 	}
 	ret.Scanner = newQueryScanner(&ret.limit)
 	ret.StatProcessor = sp
@@ -46,6 +45,7 @@ func NewBenchmarkComponents() *BenchmarkComponents {
 	flag.Uint64Var(&sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.StringVar(&ret.memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.IntVar(&ret.Workers, "workers", 1, "Number of concurrent requests to make.")
+	flag.BoolVar(&sp.PrewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 
 	return ret
 }

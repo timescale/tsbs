@@ -27,7 +27,6 @@ var (
 	debug                int
 	prettyPrintResponses bool
 	showExplain          bool
-	prewarmQueries       bool
 	hosts		     string
 	hostList	     []string
 )
@@ -49,7 +48,6 @@ func init() {
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
-	flag.BoolVar(&prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 
 	flag.Parse()
@@ -57,10 +55,6 @@ func init() {
 	if showExplain {
 		benchmarkComponents.ResetLimit(1)
 	}
-
-	// Tell the stat processor whether or not we're running each query twice so
-	// it doesn't double count
-	benchmarkComponents.StatProcessor.PrewarmQueries = prewarmQueries
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
 	for _, host := range strings.Split(hosts, ",") {
@@ -179,12 +173,12 @@ func processQueries(wg *sync.WaitGroup, workerNumber int) {
 		if err != nil {
 			panic(err)
 		}
-		sp.SendStat(q.HumanLabelName(), lag, !prewarmQueries)
+		sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
 
-		// If prewarmQueries is set, we run the query as 'cold' first (see above),
+		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
 		// then we immediately run it a second time and report that as the 'warm'
 		// stat. This guarantees that the warm stat will reflect optimal cache performance.
-		if !showExplain && prewarmQueries {
+		if !showExplain && sp.PrewarmQueries {
 			// Warm run
 			lag, err = qe.Do(q, &queryExecutorOptions{})
 			if err != nil {
