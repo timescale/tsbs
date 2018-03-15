@@ -37,6 +37,7 @@ func NewBenchmarkComponents() *BenchmarkComponents {
 	sp := &StatProcessor{
 		statPool: GetStatPool(),
 		Limit:    &ret.limit,
+		PrewarmQueries: true,
 	}
 	ret.Scanner = newQueryScanner(&ret.limit)
 	ret.StatProcessor = sp
