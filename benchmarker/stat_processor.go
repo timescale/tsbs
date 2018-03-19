@@ -15,6 +15,8 @@ type StatProcessor struct {
 	Limit *uint64
 	// BurnIn is the number of statistics to ignore before analyzing
 	BurnIn uint64
+	// PrewarmQueries tells the StatProcessor whether we're running each query twice to prewarm the cache
+	PrewarmQueries	bool
 
 	printInterval uint64
 	statPool      sync.Pool
@@ -101,8 +103,14 @@ func (sp *StatProcessor) Process(workers int) {
 			if stat.IsWarm {
 				statMapping[LabelWarmQueries].Push(stat.Value)
 			} else {
-				i++
 				statMapping[LabelColdQueries].Push(stat.Value)
+			}
+
+			// If we're prewarming queries (i.e., running them twice in a row),
+			// only increment the counter for the first (cold) query. Otherwise,
+			// increment for every query.
+			if !sp.PrewarmQueries || !stat.IsWarm {
+				i++
 			}
 		}
 

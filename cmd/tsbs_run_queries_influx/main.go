@@ -73,14 +73,18 @@ func processQueries(wg *sync.WaitGroup, workerID int) {
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		sp.SendStat(q.HumanLabelName(), lagMillis, false)
+		sp.SendStat(q.HumanLabelName(), lagMillis, !sp.PrewarmQueries)
 
-		// Warm run
-		lagMillis, err = w.Do(q.(*query.HTTP), opts)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
+		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+		// then we immediately run it a second time and report that as the 'warm'
+		// stat. This guarantees that the warm stat will reflect optimal cache performance.
+		if sp.PrewarmQueries {
+			lagMillis, err = w.Do(q.(*query.HTTP), opts)
+			if err != nil {
+				log.Fatalf("Error during request: %s\n", err.Error())
+			}
+			sp.SendStat(q.HumanLabelName(), lagMillis, true)
 		}
-		sp.SendStat(q.HumanLabelName(), lagMillis, true)
 
 		queryPool.Put(q)
 	}

@@ -157,8 +157,13 @@ func processQueries(wg *sync.WaitGroup, _ int) {
 		}
 		ls := labels[string(hlq.HumanLabel)]
 
-		qFn(hlq, ls, false) // cold run
-		qFn(hlq, ls, true)  // warm run
+		qFn(hlq, ls, !sp.PrewarmQueries)
+		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+		// then we immediately run it a second time and report that as the 'warm'
+		// stat. This guarantees that the warm stat will reflect optimal cache performance.
+		if sp.PrewarmQueries {
+			qFn(hlq, ls, true)
+		}
 
 		queryPool.Put(q)
 	}

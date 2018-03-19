@@ -173,9 +173,12 @@ func processQueries(wg *sync.WaitGroup, workerNumber int) {
 		if err != nil {
 			panic(err)
 		}
-		sp.SendStat(q.HumanLabelName(), lag, false)
+		sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
 
-		if !showExplain {
+		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+		// then we immediately run it a second time and report that as the 'warm'
+		// stat. This guarantees that the warm stat will reflect optimal cache performance.
+		if !showExplain && sp.PrewarmQueries {
 			// Warm run
 			lag, err = qe.Do(q, &queryExecutorOptions{})
 			if err != nil {
