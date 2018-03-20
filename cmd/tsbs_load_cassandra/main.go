@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,12 +22,14 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl       string
-	workers         int
-	batchSize       int
-	doLoad          bool
-	writeTimeout    time.Duration
-	reportingPeriod time.Duration
+	hosts		  string
+	workers           int
+	batchSize         int
+	replicationFactor int
+	consistencyLevel  string
+	doLoad            bool
+	writeTimeout      time.Duration
+	reportingPeriod   time.Duration
 )
 
 // Global vars
@@ -36,32 +39,50 @@ var (
 	columnCount  uint64
 )
 
+// Map of user specified strings to gocql consistency settings
+var consistencyMapping = map[string]gocql.Consistency{
+	"ALL": gocql.All,
+	"ANY": gocql.Any,
+	"QUORUM": gocql.Quorum,
+	"ONE": gocql.One,
+	"TWO": gocql.Two,
+	"THREE": gocql.Three,
+}
+
 // Parse args:
 func init() {
-	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
+	flag.StringVar(&hosts, "hosts", "localhost:9042", "Comma separated list of Cassandra hosts in a cluster.")
 
 	flag.IntVar(&batchSize, "batch-size", 100, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.IntVar(&replicationFactor, "replication-factor", 1, "Number of nodes that must have a copy of each key.")
+	flag.StringVar(&consistencyLevel, "consistency-level", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
 	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
 	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 
 	flag.Parse()
+
+	if _, ok := consistencyMapping[consistencyLevel]; !ok {
+		fmt.Println("Invalid consistency level.")
+		os.Exit(1)
+	}
+
 }
 
 func main() {
 	if doLoad {
-		createKeyspace(daemonUrl)
+		createKeyspace(hosts)
 	}
 
 	var session *gocql.Session
 
 	if doLoad {
-		cluster := gocql.NewCluster(daemonUrl)
+		cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
 		cluster.Keyspace = "measurements"
 		cluster.Timeout = writeTimeout
-		cluster.Consistency = gocql.One
+		cluster.Consistency = consistencyMapping[consistencyLevel]
 		cluster.ProtoVersion = 4
 		var err error
 		session, err = cluster.CreateSession()
@@ -144,9 +165,9 @@ func processBatches(wg *sync.WaitGroup, session *gocql.Session) {
 	wg.Done()
 }
 
-func createKeyspace(daemon_url string) {
-	cluster := gocql.NewCluster(daemonUrl)
-	cluster.Consistency = gocql.Quorum
+func createKeyspace(hosts string) {
+	cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
+	cluster.Consistency = consistencyMapping[consistencyLevel]
 	cluster.ProtoVersion = 4
 	cluster.Timeout = 10 * time.Second
 	session, err := cluster.CreateSession()
@@ -155,7 +176,13 @@ func createKeyspace(daemon_url string) {
 	}
 	defer session.Close()
 
-	if err := session.Query(`create keyspace measurements with replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };`).Exec(); err != nil {
+	// Drop the measurements keyspace to avoid errors about existing keyspaces
+	if err := session.Query("drop keyspace if exists measurements;").Exec(); err != nil {
+		log.Fatal(err)
+	}
+
+	replicationConfiguration := fmt.Sprintf("{ 'class': 'SimpleStrategy', 'replication_factor': %d }", replicationFactor)
+	if err := session.Query(fmt.Sprintf("create keyspace measurements with replication = %s;", replicationConfiguration)).Exec(); err != nil {
 		log.Print("if you know what you are doing, drop the keyspace with a command line:")
 		log.Print("echo 'drop keyspace measurements;' | cqlsh <host>")
 		log.Fatal(err)
