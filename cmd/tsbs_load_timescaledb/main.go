@@ -258,7 +258,6 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 	tx := db.MustBegin()
 	defer tx.Commit()
 
-	_, _ = tx.Query("LOCK tags")
 	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
 	if err != nil {
 		panic(err)
@@ -273,14 +272,12 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 			resValsPtrs[i] = &resVals[i]
 		}
 		ret := make(map[string]int64)
-		i := 0
 		for res.Next() {
 			err = res.Scan(resValsPtrs...)
 			if err != nil {
 				panic(err)
 			}
-			ret[strings.Join(tagRows[i], ",")] = resVals[0].(int64)
-			i++
+			ret[fmt.Sprintf("%v", resVals[1])] = resVals[0].(int64)
 		}
 		res.Close()
 		return ret
@@ -405,20 +402,17 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 	}
 
 	// Check if any of these tags has yet to be inserted
+	newTags := make([][]string, 0, len(hypertableBatch.rows))
 	mutex.RLock()
-	insert := false
 	for _, cols := range tagRows {
-		// TODO - Might be more performant to just insert those that haven't?
-		if _, ok := csi[strings.Join(cols, ",")]; !ok {
-			insert = true
-			break
+		if _, ok := csi[cols[0]]; !ok {
+			newTags = append(newTags, cols)
 		}
 	}
 	mutex.RUnlock()
-
-	if insert {
-		res := insertTags(db, tagRows, true)
+	if len(newTags) > 0 {
 		mutex.Lock()
+		res := insertTags(db, newTags, true)
 		for k, v := range res {
 			csi[k] = v
 		}
