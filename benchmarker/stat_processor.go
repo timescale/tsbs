@@ -16,7 +16,7 @@ type StatProcessor struct {
 	// BurnIn is the number of statistics to ignore before analyzing
 	BurnIn uint64
 	// PrewarmQueries tells the StatProcessor whether we're running each query twice to prewarm the cache
-	PrewarmQueries	bool
+	PrewarmQueries bool
 
 	printInterval uint64
 	statPool      sync.Pool
@@ -74,9 +74,12 @@ func (sp *StatProcessor) Process(workers int) {
 	sp.wg.Add(1)
 	const allQueriesLabel = LabelAllQueries
 	statMapping := map[string]*StatGroup{
-		allQueriesLabel:  NewStatGroup(*sp.Limit),
-		LabelColdQueries: NewStatGroup(*sp.Limit),
-		LabelWarmQueries: NewStatGroup(*sp.Limit),
+		allQueriesLabel: NewStatGroup(*sp.Limit),
+	}
+	// Only needed when differentiating between cold & warm
+	if sp.PrewarmQueries {
+		statMapping[LabelColdQueries] = NewStatGroup(*sp.Limit)
+		statMapping[LabelWarmQueries] = NewStatGroup(*sp.Limit)
 	}
 
 	i := uint64(0)
@@ -100,10 +103,13 @@ func (sp *StatProcessor) Process(workers int) {
 		if !stat.IsPartial {
 			statMapping[allQueriesLabel].Push(stat.Value)
 
-			if stat.IsWarm {
-				statMapping[LabelWarmQueries].Push(stat.Value)
-			} else {
-				statMapping[LabelColdQueries].Push(stat.Value)
+			// Only needed when differentiating between cold & warm
+			if sp.PrewarmQueries {
+				if stat.IsWarm {
+					statMapping[LabelWarmQueries].Push(stat.Value)
+				} else {
+					statMapping[LabelColdQueries].Push(stat.Value)
+				}
 			}
 
 			// If we're prewarming queries (i.e., running them twice in a row),
