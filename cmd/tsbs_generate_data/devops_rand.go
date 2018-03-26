@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+)
 
 var (
 	RandByteString      = []byte("rand")       // heap optimization
@@ -49,7 +53,7 @@ func (m *RandMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *RandMeasurement) ToPoint(p *Point) {
+func (m *RandMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(RandByteString)
 	p.SetTimestamp(&m.timestamp)
 

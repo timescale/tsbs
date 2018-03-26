@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
@@ -55,7 +57,7 @@ func (m *NetMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *NetMeasurement) ToPoint(p *Point) {
+func (m *NetMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(NetByteString)
 	p.SetTimestamp(&m.timestamp)
 

@@ -15,12 +15,13 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 // Output data format choices:
@@ -141,12 +142,12 @@ func main() {
 	}
 	sim := cfg.ToSimulator(logInterval)
 
-	var serializer func(*Point, io.Writer) error
+	var serializer serialize.PointSerializer
 	switch format {
 	case "cassandra":
-		serializer = (*Point).SerializeCassandra
+		serializer = &serialize.CassandraSerializer{}
 	case "influx":
-		serializer = (*Point).SerializeInfluxBulk
+		serializer = &serialize.InfluxSerializer{}
 	case "timescaledb":
 		out.WriteString("tags")
 		for _, key := range MachineTagKeys {
@@ -165,7 +166,7 @@ func main() {
 		}
 		out.WriteString("\n")
 
-		serializer = (*Point).SerializeTimescaleDB
+		serializer = &serialize.TimescaleDBSerializer{}
 	default:
 		log.Fatalf("unknown format: '%s'", format)
 	}
@@ -182,7 +183,7 @@ func main() {
 
 		// in the default case this is always true
 		if currentInterleavedGroup == interleavedGenerationGroupID {
-			err := serializer(point, out)
+			err := serializer.Serialize(point, out)
 			if err != nil {
 				log.Fatal(err)
 			}

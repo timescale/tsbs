@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
@@ -57,7 +59,7 @@ func (m *NginxMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *NginxMeasurement) ToPoint(p *Point) {
+func (m *NginxMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(NginxByteString)
 	p.SetTimestamp(&m.timestamp)
 
@@ -68,4 +70,3 @@ func (m *NginxMeasurement) ToPoint(p *Point) {
 		p.AppendField(NginxFields[i].Label, int64(m.distributions[i].Get()))
 	}
 }
-

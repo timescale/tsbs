@@ -3,12 +3,14 @@ package main
 import (
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
-	KernelByteString = []byte("kernel") // heap optimization
+	KernelByteString   = []byte("kernel") // heap optimization
 	BootTimeByteString = []byte("boot_time")
-	KernelFields = []LabeledDistributionMaker{
+	KernelFields       = []LabeledDistributionMaker{
 		{[]byte("interrupts"), func() Distribution { return MWD(ND(5, 1), 0) }},
 		{[]byte("context_switches"), func() Distribution { return MWD(ND(5, 1), 0) }},
 		{[]byte("processes_forked"), func() Distribution { return MWD(ND(5, 1), 0) }},
@@ -17,13 +19,12 @@ var (
 	}
 )
 
-
 type KernelMeasurement struct {
 	timestamp time.Time
 
-	bootTime int64
-	uptime           time.Duration
-	distributions    []Distribution
+	bootTime      int64
+	uptime        time.Duration
+	distributions []Distribution
 }
 
 func NewKernelMeasurement(start time.Time) *KernelMeasurement {
@@ -49,7 +50,7 @@ func (m *KernelMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *KernelMeasurement) ToPoint(p *Point) {
+func (m *KernelMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(KernelByteString)
 	p.SetTimestamp(&m.timestamp)
 

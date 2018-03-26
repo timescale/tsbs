@@ -4,6 +4,8 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
@@ -65,7 +67,7 @@ func NewMemMeasurement(start time.Time) *MemMeasurement {
 		},
 	}
 	return &MemMeasurement{
-		timestamp:   start,
+		timestamp: start,
 
 		bytesTotal:        bytesTotal,
 		bytesUsedDist:     bytesUsedDist,
@@ -82,7 +84,7 @@ func (m *MemMeasurement) Tick(d time.Duration) {
 	m.bytesBufferedDist.Advance()
 }
 
-func (m *MemMeasurement) ToPoint(p *Point) {
+func (m *MemMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(MemoryByteString)
 	p.SetTimestamp(&m.timestamp)
 

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+)
 
 type simulatorConfig interface {
 	ToSimulator(time.Duration) Simulator
@@ -9,19 +13,19 @@ type simulatorConfig interface {
 // Simulator simulates a use case.
 type Simulator interface {
 	Finished() bool
-	Next(*Point) bool
+	Next(*serialize.Point) bool
 	Fields() map[string][][]byte
 }
 
 // SimulatedMeasurement simulates one measurement (e.g. Redis for DevOps).
 type SimulatedMeasurement interface {
 	Tick(time.Duration)
-	ToPoint(*Point)
+	ToPoint(*serialize.Point)
 }
 
 // MakeUsablePoint allocates a new Point ready for use by a Simulator.
-func MakeUsablePoint() *Point {
-	return &Point{
+func MakeUsablePoint() *serialize.Point {
+	return &serialize.Point{
 		MeasurementName: nil,
 		TagKeys:         make([][]byte, 0),
 		TagValues:       make([][]byte, 0),
