@@ -357,7 +357,6 @@ func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
 }
 
 var csi = make(map[string]int64)
-var csiCnt = int64(0)
 var mutex = &sync.RWMutex{}
 var insertFmt3 = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
 
@@ -422,7 +421,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 	mutex.RLock()
 	for i, r := range dataRows {
 		// TODO -- support more than 10 common tags
-		tagKey := strings.Join(tagRows[i][:10], ",")
+		tagKey := tagRows[i][0]
 		dataRows[i] = strings.Replace(r, "[REPLACE_CSI]", strconv.FormatInt(csi[tagKey], 10), 1)
 	}
 	mutex.RUnlock()
