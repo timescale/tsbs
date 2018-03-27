@@ -18,6 +18,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -32,8 +33,9 @@ var useCaseChoices = []string{"devops", "cpu-only"}
 
 // Program option vars:
 var (
-	format  string
-	useCase string
+	format      string
+	useCase     string
+	profileFile string
 
 	initScaleVar uint64
 	scaleVar     uint64
@@ -68,6 +70,7 @@ func init() {
 
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
+	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
 
 	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
 	flag.Parse()
@@ -112,6 +115,19 @@ func init() {
 }
 
 func main() {
+	if len(profileFile) > 0 {
+		// defer profile.Start(profile.MemProfile).Stop()
+		f, err := os.Create(profileFile)
+
+		if err != nil {
+		    log.Fatal("could not create memory profile: ", err)
+		}
+		if err := pprof.WriteHeapProfile(f); err != nil {
+		    log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
+
 	rand.Seed(seed)
 
 	out := bufio.NewWriterSize(os.Stdout, 4<<20)
@@ -135,7 +151,7 @@ func main() {
 
 			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
-			HostConstructor: NewHost,
+			HostConstructor: NewCPUOnlyHost,
 		}
 	default:
 		log.Fatalf("unknown use case: '%s'", useCase)
