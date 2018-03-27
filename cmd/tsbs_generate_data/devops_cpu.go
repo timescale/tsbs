@@ -3,6 +3,8 @@ package main
 import (
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
@@ -45,7 +47,7 @@ func NewCPUMeasurement(start time.Time) *CPUMeasurement {
 		}
 	}
 	return &CPUMeasurement{
-		timestamp:   start,
+		timestamp:     start,
 		distributions: distributions,
 	}
 }
@@ -57,7 +59,7 @@ func (m *CPUMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *CPUMeasurement) ToPoint(p *Point) {
+func (m *CPUMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(CPUByteString)
 	p.SetTimestamp(&m.timestamp)
 

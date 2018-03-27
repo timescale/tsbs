@@ -2,6 +2,8 @@ package main
 
 import (
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 // A DevopsSimulator generates data similar to telemetry from Telegraf.
@@ -81,7 +83,7 @@ func (d *DevopsSimulator) Fields() map[string][][]byte {
 }
 
 // Next advances a Point to the next state in the generator.
-func (d *DevopsSimulator) Next(p *Point) bool {
+func (d *DevopsSimulator) Next(p *serialize.Point) bool {
 	// switch to the next metric if needed
 	if d.hostIndex == uint64(len(d.hosts)) {
 		d.hostIndex = 0

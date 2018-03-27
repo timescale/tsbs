@@ -1,4 +1,4 @@
-package main
+package serialize
 
 import (
 	"sync"

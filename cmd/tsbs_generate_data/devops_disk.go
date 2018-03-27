@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 const OneTerabyte = 1 << 40
@@ -55,7 +57,7 @@ func (m *DiskMeasurement) Tick(d time.Duration) {
 	m.freeBytesDist.Advance()
 }
 
-func (m *DiskMeasurement) ToPoint(p *Point) {
+func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(DiskByteString)
 	p.SetTimestamp(&m.timestamp)
 

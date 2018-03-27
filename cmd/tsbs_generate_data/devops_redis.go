@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 type LabeledDistributionMaker struct {
@@ -94,7 +96,7 @@ func (m *RedisMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *RedisMeasurement) ToPoint(p *Point) {
+func (m *RedisMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(RedisByteString)
 	p.SetTimestamp(&m.timestamp)
 

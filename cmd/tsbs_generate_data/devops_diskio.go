@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
 var (
@@ -24,8 +26,8 @@ var (
 type DiskIOMeasurement struct {
 	timestamp time.Time
 
-	serial []byte
-	distributions    []Distribution
+	serial        []byte
+	distributions []Distribution
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
@@ -36,7 +38,7 @@ func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
 
 	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
 	return &DiskIOMeasurement{
-		serial:       serial,
+		serial: serial,
 
 		timestamp:     start,
 		distributions: distributions,
@@ -51,7 +53,7 @@ func (m *DiskIOMeasurement) Tick(d time.Duration) {
 	}
 }
 
-func (m *DiskIOMeasurement) ToPoint(p *Point) {
+func (m *DiskIOMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(DiskIOByteString)
 	p.SetTimestamp(&m.timestamp)
 
