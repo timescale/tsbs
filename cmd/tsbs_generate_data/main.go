@@ -18,6 +18,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/signal"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -116,16 +117,7 @@ func init() {
 
 func main() {
 	if len(profileFile) > 0 {
-		// defer profile.Start(profile.MemProfile).Stop()
-		f, err := os.Create(profileFile)
-
-		if err != nil {
-		    log.Fatal("could not create memory profile: ", err)
-		}
-		if err := pprof.WriteHeapProfile(f); err != nil {
-		    log.Fatal("could not write memory profile: ", err)
-		}
-		f.Close()
+		defer startMemoryProfile(profileFile)()
 	}
 
 	rand.Seed(seed)
@@ -217,4 +209,34 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+}
+
+// startMemoryProfile sets up memory profiling to be written to profileFile. It
+// returns a function to cleanup/write that should be deferred by the caller
+func startMemoryProfile(profileFile string) func() {
+	f, err := os.Create(profileFile)
+	if err != nil {
+		log.Fatal("could not create memory profile: ", err)
+	}
+
+	stop := func() {
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
+
+	// Catches ctrl+c signals
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		<-c
+
+		fmt.Fprintln(os.Stderr, "\ncaught interrupt, stopping profile")
+		stop()
+
+		os.Exit(0)
+	}()
+
+	return stop
 }
