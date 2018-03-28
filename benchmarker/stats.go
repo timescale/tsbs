@@ -71,7 +71,6 @@ func NewStatGroup(size uint64) *StatGroup {
 // Median returns the median value of the StatGroup
 func (s *StatGroup) Median() float64 {
 	sort.Float64s(s.Values[:s.Count])
-
 	if s.Count == 0 {
 		return 0
 	} else if s.Count%2 == 0 {
@@ -94,7 +93,11 @@ func (s *StatGroup) Push(n float64) {
 		s.m = n
 		s.s = 0.0
 		s.StdDev = 0.0
-		s.Values = append(s.Values, n)
+		if len(s.Values) > 0 {
+			s.Values[0] = n
+		} else {
+			s.Values = append(s.Values, n)
+		}
 		return
 	}
 
