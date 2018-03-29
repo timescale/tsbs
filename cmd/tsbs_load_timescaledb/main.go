@@ -524,7 +524,7 @@ func initBenchmarkDB(scanner *bufio.Scanner) {
 			}
 
 			fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
-			if fieldIndexCount == -1 || idx <= fieldIndexCount {
+			if fieldIndexCount == -1 || idx < fieldIndexCount {
 				for _, idx := range strings.Split(idxType, ",") {
 					indexDef := ""
 					if idx == "TIME-VALUE" {
