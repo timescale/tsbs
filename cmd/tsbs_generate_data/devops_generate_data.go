@@ -76,7 +76,7 @@ func (d *DevopsSimulator) Fields() map[string][][]byte {
 	for _, sm := range d.hosts[0].SimulatedMeasurements {
 		point := MakeUsablePoint()
 		sm.ToPoint(point)
-		data[string(point.MeasurementName)] = point.FieldKeys
+		data[string(point.MeasurementName())] = point.FieldKeys()
 	}
 
 	return data

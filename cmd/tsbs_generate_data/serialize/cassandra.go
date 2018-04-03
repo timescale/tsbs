@@ -6,9 +6,7 @@ import (
 )
 
 // CassandraSerializer writes a Point in a serialized form for Cassandra
-type CassandraSerializer struct {
-	PointSerializer
-}
+type CassandraSerializer struct{}
 
 // Serialize writes Point data to the given writer, conforming to the
 // Cassandra query format.
@@ -21,19 +19,19 @@ type CassandraSerializer struct {
 // INSERT INTO all_series (series_id, timestamp_ns, value) VALUES ('cpu,hostname=host_01#user#2016-01-01', 12345, 42.1)\n
 func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	seriesIDPrefix := make([]byte, 0, 256)
-	seriesIDPrefix = append(seriesIDPrefix, p.MeasurementName...)
-	for i := 0; i < len(p.TagKeys); i++ {
+	seriesIDPrefix = append(seriesIDPrefix, p.measurementName...)
+	for i := 0; i < len(p.tagKeys); i++ {
 		seriesIDPrefix = append(seriesIDPrefix, ',')
-		seriesIDPrefix = append(seriesIDPrefix, p.TagKeys[i]...)
+		seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
 		seriesIDPrefix = append(seriesIDPrefix, '=')
-		seriesIDPrefix = append(seriesIDPrefix, p.TagValues[i]...)
+		seriesIDPrefix = append(seriesIDPrefix, p.tagValues[i]...)
 	}
 
-	timestampNanos := p.Timestamp.UTC().UnixNano()
-	timestampBucket := p.Timestamp.UTC().Format("2006-01-02")
+	timestampNanos := p.timestamp.UTC().UnixNano()
+	timestampBucket := p.timestamp.UTC().Format("2006-01-02")
 
-	for fieldID := 0; fieldID < len(p.FieldKeys); fieldID++ {
-		v := p.FieldValues[fieldID]
+	for fieldID := 0; fieldID < len(p.fieldKeys); fieldID++ {
+		v := p.fieldValues[fieldID]
 		tableName := fmt.Sprintf("measurements.series_%s", typeNameForCassandra(v))
 
 		buf := make([]byte, 0, 256)
@@ -42,7 +40,7 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		buf = append(buf, []byte(" (series_id, timestamp_ns, value) VALUES ('")...)
 		buf = append(buf, seriesIDPrefix...)
 		buf = append(buf, byte('#'))
-		buf = append(buf, p.FieldKeys[fieldID]...)
+		buf = append(buf, p.fieldKeys[fieldID]...)
 		buf = append(buf, byte('#'))
 		buf = append(buf, []byte(timestampBucket)...)
 		buf = append(buf, byte('\''))

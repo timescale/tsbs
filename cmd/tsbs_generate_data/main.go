@@ -1,9 +1,10 @@
 // tsbs_generate_data generates time series data from pre-specified use cases.
 //
 // Supported formats:
-// TimescaleDB psuedo-CSV format
-// InfluxDB bulk load format
 // Cassandra query format
+// InfluxDB bulk load format
+// MongoDB BSON format
+// TimescaleDB psuedo-CSV format
 
 // Supported use cases:
 // devops: scale-var is the number of hosts to simulate, with log messages
@@ -27,7 +28,7 @@ import (
 )
 
 // Output data format choices:
-var formatChoices = []string{"cassandra", "influx", "timescaledb"}
+var formatChoices = []string{"cassandra", "influx", "mongo", "timescaledb"}
 
 // Use case choices:
 var useCaseChoices = []string{"devops", "cpu-only"}
@@ -156,6 +157,8 @@ func main() {
 		serializer = &serialize.CassandraSerializer{}
 	case "influx":
 		serializer = &serialize.InfluxSerializer{}
+	case "mongo":
+		serializer = &serialize.MongoSerializer{}
 	case "timescaledb":
 		out.WriteString("tags")
 		for _, key := range MachineTagKeys {
