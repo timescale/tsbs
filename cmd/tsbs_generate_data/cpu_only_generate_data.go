@@ -73,7 +73,7 @@ func (d *CPUOnlySimulator) Fields() map[string][][]byte {
 	data := make(map[string][][]byte)
 	point := MakeUsablePoint()
 	d.hosts[0].SimulatedMeasurements[0].ToPoint(point)
-	data[string(point.MeasurementName)] = point.FieldKeys
+	data[string(point.MeasurementName())] = point.FieldKeys()
 
 	return data
 }

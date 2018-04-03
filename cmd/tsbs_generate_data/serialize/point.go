@@ -13,40 +13,66 @@ import (
 // Internally, Point uses byte slices instead of strings to try to minimize
 // overhead.
 type Point struct {
-	MeasurementName []byte
-	TagKeys         [][]byte
-	TagValues       [][]byte
-	FieldKeys       [][]byte
-	FieldValues     []interface{}
-	Timestamp       *time.Time
+	measurementName []byte
+	tagKeys         [][]byte
+	tagValues       [][]byte
+	fieldKeys       [][]byte
+	fieldValues     []interface{}
+	timestamp       *time.Time
+}
+
+// NewPoint returns a new empty Point
+func NewPoint() *Point {
+	return &Point{
+		measurementName: nil,
+		tagKeys:         make([][]byte, 0),
+		tagValues:       make([][]byte, 0),
+		fieldKeys:       make([][]byte, 0),
+		fieldValues:     make([]interface{}, 0),
+		timestamp:       &time.Time{},
+	}
 }
 
 // Reset clears all information from this Point so it can be reused.
 func (p *Point) Reset() {
-	p.MeasurementName = nil
-	p.TagKeys = p.TagKeys[:0]
-	p.TagValues = p.TagValues[:0]
-	p.FieldKeys = p.FieldKeys[:0]
-	p.FieldValues = p.FieldValues[:0]
-	p.Timestamp = nil
+	p.measurementName = nil
+	p.tagKeys = p.tagKeys[:0]
+	p.tagValues = p.tagValues[:0]
+	p.fieldKeys = p.fieldKeys[:0]
+	p.fieldValues = p.fieldValues[:0]
+	p.timestamp = nil
 }
 
+// SetTimestamp sets the Timestamp for this data point
 func (p *Point) SetTimestamp(t *time.Time) {
-	p.Timestamp = t
+	p.timestamp = t
 }
 
+// SetMeasurementName sets the name of the measurement for this data point
 func (p *Point) SetMeasurementName(s []byte) {
-	p.MeasurementName = s
+	p.measurementName = s
 }
 
+// MeasurementName returns the name of the Point's measurement
+func (p *Point) MeasurementName() []byte {
+	return p.measurementName
+}
+
+// FieldKeys returns the Point's field keys
+func (p *Point) FieldKeys() [][]byte {
+	return p.fieldKeys
+}
+
+// AppendTag adds a tag with a given key and value to this data point
 func (p *Point) AppendTag(key, value []byte) {
-	p.TagKeys = append(p.TagKeys, key)
-	p.TagValues = append(p.TagValues, value)
+	p.tagKeys = append(p.tagKeys, key)
+	p.tagValues = append(p.tagValues, value)
 }
 
+// AppendField adds a field with a given key and value to this data point
 func (p *Point) AppendField(key []byte, value interface{}) {
-	p.FieldKeys = append(p.FieldKeys, key)
-	p.FieldValues = append(p.FieldValues, value)
+	p.fieldKeys = append(p.fieldKeys, key)
+	p.fieldValues = append(p.fieldValues, value)
 }
 
 // PointSerializer serializes a Point for writing

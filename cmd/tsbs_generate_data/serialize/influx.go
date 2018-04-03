@@ -3,9 +3,7 @@ package serialize
 import "io"
 
 // InfluxSerializer writes a Point in a serialized form for MongoDB
-type InfluxSerializer struct {
-	PointSerializer
-}
+type InfluxSerializer struct{}
 
 // Serialize writes Point data to the given writer, conforming to the
 // InfluxDB wire protocol.
@@ -19,24 +17,24 @@ type InfluxSerializer struct {
 // TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf := scratchBufPool.Get().([]byte)
-	buf = append(buf, p.MeasurementName...)
+	buf = append(buf, p.measurementName...)
 
-	for i := 0; i < len(p.TagKeys); i++ {
+	for i := 0; i < len(p.tagKeys); i++ {
 		buf = append(buf, ',')
-		buf = append(buf, p.TagKeys[i]...)
+		buf = append(buf, p.tagKeys[i]...)
 		buf = append(buf, '=')
-		buf = append(buf, p.TagValues[i]...)
+		buf = append(buf, p.tagValues[i]...)
 	}
 
-	if len(p.FieldKeys) > 0 {
+	if len(p.fieldKeys) > 0 {
 		buf = append(buf, ' ')
 	}
 
-	for i := 0; i < len(p.FieldKeys); i++ {
-		buf = append(buf, p.FieldKeys[i]...)
+	for i := 0; i < len(p.fieldKeys); i++ {
+		buf = append(buf, p.fieldKeys[i]...)
 		buf = append(buf, '=')
 
-		v := p.FieldValues[i]
+		v := p.fieldValues[i]
 		buf = fastFormatAppend(v, buf)
 
 		// Influx uses 'i' to indicate integers:
@@ -45,13 +43,13 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			buf = append(buf, 'i')
 		}
 
-		if i+1 < len(p.FieldKeys) {
+		if i+1 < len(p.fieldKeys) {
 			buf = append(buf, ',')
 		}
 	}
 
 	buf = append(buf, ' ')
-	buf = fastFormatAppend(p.Timestamp.UTC().UnixNano(), buf)
+	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
 	buf = append(buf, '\n')
 	_, err = w.Write(buf)
 
