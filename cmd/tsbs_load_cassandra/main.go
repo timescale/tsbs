@@ -22,7 +22,7 @@ import (
 
 // Program option vars:
 var (
-	hosts		  string
+	hosts             string
 	workers           int
 	batchSize         int
 	replicationFactor int
@@ -34,19 +34,18 @@ var (
 
 // Global vars
 var (
-	batchChan    chan *gocql.Batch
-	workersGroup sync.WaitGroup
-	columnCount  uint64
+	batchChan   chan *gocql.Batch
+	columnCount uint64
 )
 
 // Map of user specified strings to gocql consistency settings
 var consistencyMapping = map[string]gocql.Consistency{
-	"ALL": gocql.All,
-	"ANY": gocql.Any,
+	"ALL":    gocql.All,
+	"ANY":    gocql.Any,
 	"QUORUM": gocql.Quorum,
-	"ONE": gocql.One,
-	"TWO": gocql.Two,
-	"THREE": gocql.Three,
+	"ONE":    gocql.One,
+	"TWO":    gocql.Two,
+	"THREE":  gocql.Three,
 }
 
 // Parse args:

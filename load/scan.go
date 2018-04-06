@@ -63,6 +63,19 @@ func (d *DataReader) Took() time.Duration {
 	return d.end.Sub(d.start)
 }
 
+// Summary outputs the summary lines for a given DataReader run
+func (d *DataReader) Summary(workers int, metricCount, rowCount *uint64) {
+	took := d.Took()
+
+	metricRate := float64(*metricCount) / float64(took.Seconds())
+	fmt.Println("\nSummary:")
+	fmt.Printf("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.3f values/sec)\n", *metricCount, took.Seconds(), workers, metricRate)
+	if rowCount != nil {
+		rowRate := float64(*rowCount) / float64(took.Seconds())
+		fmt.Printf("loaded %d rows in %0.3fsec with %d workers (mean rate %0.3f/sec)\n", *rowCount, took.Seconds(), workers, rowRate)
+	}
+}
+
 func report(period time.Duration, metricCount, rowCount *uint64) {
 	start := time.Now()
 	prevTime := start
@@ -84,9 +97,9 @@ func report(period time.Duration, metricCount, rowCount *uint64) {
 		if rowCount != nil {
 			rowrate := float64(rCount-prevRowCount) / float64(took.Seconds())
 			overallRowRate := float64(rCount) / float64(sinceStart.Seconds())
-			fmt.Printf("%d,%f,%E,%f,%f,%E,%f\n", now.Unix(), colrate, float64(cCount), overallColRate, rowrate, float64(rCount), overallRowRate)
+			fmt.Printf("%d,%0.3f,%E,%0.3f,%0.3f,%E,%0.3f\n", now.Unix(), colrate, float64(cCount), overallColRate, rowrate, float64(rCount), overallRowRate)
 		} else {
-			fmt.Printf("%d,%f,%E,%f,-,-,-\n", now.Unix(), colrate, float64(cCount), overallColRate)
+			fmt.Printf("%d,%0.3f,%E,%0.3f,-,-,-\n", now.Unix(), colrate, float64(cCount), overallColRate)
 		}
 
 		prevColCount = cCount

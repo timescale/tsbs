@@ -27,7 +27,7 @@ type Cassandra struct {
 }
 
 //CassandraPool is a sync.Pool of Cassandra Query types
-var CassandraPool sync.Pool = sync.Pool{
+var CassandraPool = sync.Pool{
 	New: func() interface{} {
 		return &Cassandra{
 			HumanLabel:       []byte{},
@@ -73,6 +73,7 @@ func (q *Cassandra) HumanDescriptionName() []byte {
 	return q.HumanDescription
 }
 
+// Release resets and returns this Query to its pool
 func (q *Cassandra) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
