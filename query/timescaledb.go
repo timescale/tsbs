@@ -17,7 +17,7 @@ type TimescaleDB struct {
 }
 
 // TimescaleDBPool is a sync.Pool of TimescaleDB Query types
-var TimescaleDBPool sync.Pool = sync.Pool{
+var TimescaleDBPool = sync.Pool{
 	New: func() interface{} {
 		return &TimescaleDB{
 			HumanLabel:       make([]byte, 0, 1024),
