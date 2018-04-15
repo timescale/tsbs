@@ -27,8 +27,8 @@ var (
 	debug                int
 	prettyPrintResponses bool
 	showExplain          bool
-	hosts		     string
-	hostList	     []string
+	hosts                string
+	hostList             []string
 )
 
 // Global vars:
@@ -79,7 +79,7 @@ func getConnectString(workerNumber int) string {
 	connectString := re.ReplaceAllString(postgresConnect, "")
 
 	// Round robin the host/worker assignment by assigning a host based on workerNumber % totalNumberOfHosts
-	host := hostList[workerNumber % len(hostList)]
+	host := hostList[workerNumber%len(hostList)]
 	return fmt.Sprintf("host=%s dbname=%s %s", host, databaseName, connectString)
 }
 
@@ -187,7 +187,6 @@ func processQueries(wg *sync.WaitGroup, workerNumber int) {
 			sp.SendStat(q.HumanLabelName(), lag, true)
 		}
 		queryPool.Put(q)
-
 	}
 	wg.Done()
 }

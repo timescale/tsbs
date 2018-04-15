@@ -13,7 +13,7 @@ scaleVar=${scaleVar:-"1000"}
 queries=${queries:-"2500"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-02T00:00:01Z"}
+tsEnd=${tsEnd:-"2016-01-04T00:00:01Z"}
 useCase=${useCase:-"cpu-only"}
 
 mkdir -p ${dataDir}

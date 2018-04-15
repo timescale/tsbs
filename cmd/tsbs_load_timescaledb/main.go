@@ -512,6 +512,7 @@ func initBenchmarkDB(scanner *bufio.Scanner) {
 			psuedoCols = append(psuedoCols, partitioningField)
 		}
 		psuedoCols = append(psuedoCols, parts[1:]...)
+		extraCols := 0 // set to 1 when hostname is kept in-table
 		for idx, field := range psuedoCols {
 			if len(field) == 0 {
 				continue
@@ -521,10 +522,11 @@ func initBenchmarkDB(scanner *bufio.Scanner) {
 			if inTableTag && idx == 0 {
 				fieldType = "TEXT"
 				idxType = ""
+				extraCols = 1
 			}
 
 			fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
-			if fieldIndexCount == -1 || idx < fieldIndexCount {
+			if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
 				for _, idx := range strings.Split(idxType, ",") {
 					indexDef := ""
 					if idx == "TIME-VALUE" {
