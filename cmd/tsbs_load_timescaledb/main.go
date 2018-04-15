@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,6 +27,9 @@ import (
 var (
 	postgresConnect string
 	databaseName    string
+	host            string
+	user            string
+
 	workers         int
 	batchSize       int
 	doLoad          bool
@@ -71,6 +75,8 @@ var (
 func init() {
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to store data")
+	flag.StringVar(&host, "host", "localhost", "PostgreSQL hostname")
+	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 
 	flag.IntVar(&batchSize, "batch-size", 10000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
@@ -183,7 +189,12 @@ func profile() {
 }
 
 func getConnectString() string {
-	return postgresConnect + " dbname=" + databaseName
+	// User might be passing in host=hostname the connect string out of habit which may override the
+	// multi host configuration. Same for dbname= and user=. This sanitizes that.
+	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
+	connectString := re.ReplaceAllString(postgresConnect, "")
+
+	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, databaseName, user, connectString)
 }
 
 // scan reads lines from stdin. It expects input in the TimescaleDB format,

@@ -2,7 +2,7 @@
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
-PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
+PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-10s}
 CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-1}
 PERF_OUTPUT=${PERF_OUTPUT:-}
@@ -18,8 +18,10 @@ while ! pg_isready; do
 done
 
 cat ${DATA_FILE} | gunzip | tsbs_load_timescaledb \
-                                --postgres="host=${DATABASE_HOST} user=${DATABASE_USER} sslmode=disable" \
+                                --postgres="sslmode=disable" \
                                 --db-name=${DATABASE_NAME} \
+                                --host=${DATABASE_HOST} \
+                                --user=${DATABASE_USER} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
                                 --reporting-period=${PROGRESS_INTERVAL} \

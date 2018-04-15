@@ -24,11 +24,11 @@ import (
 var (
 	postgresConnect      string
 	databaseName         string
+	hostList             []string
+	user                 string
 	debug                int
 	prettyPrintResponses bool
 	showExplain          bool
-	hosts                string
-	hostList             []string
 )
 
 // Global vars:
@@ -41,14 +41,17 @@ var (
 // Parse args:
 func init() {
 	benchmarkComponents = benchmarker.NewBenchmarkComponents()
+	var hosts string
 
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",
 		"String of additional PostgreSQL connection parameters, e.g., 'sslmode=disable'. Parameters for host and database will be ignored.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
+	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
+	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
+
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
-	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 
 	flag.Parse()
 
@@ -74,13 +77,13 @@ func main() {
 // to evenly distribute hosts to worker connections
 func getConnectString(workerNumber int) string {
 	// User might be passing in host=hostname the connect string out of habit which may override the
-	// multi host configuration. Same for dbname=. This sanitizes that.
-	re := regexp.MustCompile(`(host|dbname)=\S*\b`)
+	// multi host configuration. Same for dbname= and user=. This sanitizes that.
+	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
 	connectString := re.ReplaceAllString(postgresConnect, "")
 
 	// Round robin the host/worker assignment by assigning a host based on workerNumber % totalNumberOfHosts
 	host := hostList[workerNumber%len(hostList)]
-	return fmt.Sprintf("host=%s dbname=%s %s", host, databaseName, connectString)
+	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, databaseName, user, connectString)
 }
 
 // prettyPrintResponse prints a Query and its response in JSON format with two
