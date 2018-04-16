@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -122,7 +121,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (rand end)"
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.EndString()))
 	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
@@ -214,8 +213,6 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 
 // LastPointPerHost finds the last row for every host in the dataset
 func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query) {
-	measure := measurements[rand.Intn(len(measurements))]
-
 	var sqlQuery string
 	if timescaleUseTags {
 		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.hostname) * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.hostname, b.time DESC")
@@ -228,8 +225,8 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query) {
 	humanLabel := "TimescaleDB last row per host"
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, measure))
-	q.Hypertable = []byte(measure)
+	q.HumanDescription = []byte(fmt.Sprintf("%s", humanLabel))
+	q.Hypertable = []byte("cpu")
 	q.SqlQuery = []byte(sqlQuery)
 }
 
@@ -254,7 +251,7 @@ func (d *TimescaleDBDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostWhereClause)
 
 	humanLabel := "TimescaleDB CPU over threshold, "
-	if len(hostWhereClause) > 0 {
+	if nhosts > 0 {
 		humanLabel += fmt.Sprintf("%d host(s)", nhosts)
 	} else {
 		humanLabel += "all hosts"

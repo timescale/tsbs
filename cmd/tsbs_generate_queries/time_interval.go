@@ -20,7 +20,7 @@ func NewTimeInterval(start, end time.Time) TimeInterval {
 
 // Duration converts a TimeInterval to a time.Duration.
 func (ti *TimeInterval) Duration() time.Duration {
-	return ti.End.Sub(ti.Start)
+	return ti.End.UTC().Sub(ti.Start.UTC())
 }
 
 // RandWindow creates a TimeInterval of duration `window` at a uniformly-random
@@ -36,7 +36,7 @@ func (ti *TimeInterval) RandWindow(window time.Duration) TimeInterval {
 	start := lower + rand.Int63n(upper-lower)
 	end := start + window.Nanoseconds()
 
-	x := NewTimeInterval(time.Unix(0, start), time.Unix(0, end))
+	x := NewTimeInterval(time.Unix(0, start).UTC(), time.Unix(0, end).UTC())
 	if x.Duration() != window {
 		panic("logic error: generated interval does not equal window")
 	}

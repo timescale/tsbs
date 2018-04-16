@@ -1,14 +1,13 @@
 #!/bin/bash
 
 binName=$(which tsbs_generate_data)
-binVersion=`md5sum $binName | awk '{ print $1 }'`
 dataDir=${dataDir:-/tmp}
 
 formats=${formats:-"timescaledb"}
-scaleVar=${scaleVar:-"1000"}
+scaleVar=${scaleVar:-"4000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-02T00:00:00Z"}
+tsEnd=${tsEnd:-"2016-01-04T00:00:00Z"}
 useCase=${useCase:-"cpu-only"}
 logInterval=${logInterval:-"10s"}
 
@@ -18,7 +17,7 @@ pushd ${dataDir}
 
 for format in "${formats[@]}"
 do
-    fname="import_${format}_${binVersion}_${scaleVar}_${seed}_${tsStart}_${tsEnd}_${useCase}.dat.gz"
+    fname="data_${format}_${scaleVar}_${useCase}_${tsStart}_${tsEnd}_${seed}.dat.gz"
     echo "$fname"
     if [ ! -f "$fname" ]; then
         $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -log-interval $logInterval -use-case $useCase | gzip > $fname
