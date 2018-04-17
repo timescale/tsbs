@@ -488,10 +488,14 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 }
 
 func initBenchmarkDB(scanner *bufio.Scanner) {
-	db := sqlx.MustConnect("postgres", postgresConnect)
-	defer db.Close()
+	// Need to connect to user's database in order to drop/create db-name database
+	re := regexp.MustCompile(`(dbname)=\S*\b`)
+	connectString := re.ReplaceAllString(getConnectString(), "")
+
+	db := sqlx.MustConnect("postgres", connectString)
 	db.MustExec("DROP DATABASE IF EXISTS " + databaseName)
 	db.MustExec("CREATE DATABASE " + databaseName)
+	db.Close()
 
 	dbBench := sqlx.MustConnect("postgres", getConnectString())
 	defer dbBench.Close()

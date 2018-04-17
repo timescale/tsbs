@@ -2,7 +2,7 @@
 set -x
 binName=$(which tsbs_generate_queries)
 binVersion=`md5sum $binName | awk '{ print $1 }'`
-dataDir=${dataDir:-/disk/1/queries}
+dataDir=${dataDir:-/tmp/queries}
 useJson=${useJson:-false}
 useTags=${useTags:-true}
 
