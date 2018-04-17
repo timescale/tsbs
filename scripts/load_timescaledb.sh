@@ -12,7 +12,7 @@ DATABASE_USER=${DATABASE_USER:-postgres}
 source ${EXE_DIR}/load_common.sh
 source ${EXE_DIR}/timescaledb.conf
 
-while ! pg_isready; do
+while ! pg_isready -h ${DATABASE_HOST}; do
     echo "Waiting for timescaledb"
     sleep 1
 done
