@@ -156,6 +156,7 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 		prettyPrintResponse(rows, q.(*query.TimescaleDB))
 	}
 	rows.Close()
+	took = float64(time.Since(start).Nanoseconds()) / 1e6
 	return took, err
 }
 
