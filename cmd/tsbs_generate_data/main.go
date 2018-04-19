@@ -185,7 +185,6 @@ func main() {
 	currentInterleavedGroup := uint(0)
 	point := MakeUsablePoint()
 
-	writtenPoints := 0
 	for !sim.Finished() {
 		write := sim.Next(point)
 		if !write {
@@ -195,12 +194,10 @@ func main() {
 
 		// in the default case this is always true
 		if currentInterleavedGroup == interleavedGenerationGroupID {
-			writtenPoints++
 			err := serializer.Serialize(point, out)
 			if err != nil {
 				log.Fatal(err)
 			}
-			writtenPoints++
 		}
 		point.Reset()
 
