@@ -386,27 +386,26 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 	for _, data := range hypertableBatch.rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
-
 		ret += uint64(len(metrics) - 1) // 1 field is timestamp
-		r := "("
-		for ind, value := range metrics {
-			if ind == 0 {
-				timeInt, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					panic(err)
-				}
-				secs := timeInt / 1e9
-				r += fmt.Sprintf("'%s',", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -0700"))
-				r += fmt.Sprintf("'[REPLACE_CSI]'")
-				if inTableTag {
-					r += fmt.Sprintf(", '%s'", tags[0])
-				}
 
-			} else {
-				r += fmt.Sprintf(", '%v'", value)
-			}
+		timeInt, err := strconv.ParseInt(metrics[0], 10, 64)
+		if err != nil {
+			panic(err)
 		}
-		r += ")"
+		ts := time.Unix(0, timeInt).Format("2006-01-02 15:04:05.999999 -0700")
+
+		// The last arguments in these sprintf's may seem a bit confusing at first, but
+		// it does work. We want each value to be surrounded by single quotes (' '), and
+		// to be separated by a comma. That means we strings.Join them with "', '", which
+		// leaves the first value without a preceding ' and the last with out a trailing ',
+		// therefore we put the %s returned by the Join inside of '' to solve the problem
+		var r string
+		if inTableTag {
+			r = fmt.Sprintf("('%s','[REPLACE_CSI]', '%s', '%s')", ts, tags[0], strings.Join(metrics[1:], "', '"))
+		} else {
+			r = fmt.Sprintf("('%s', '[REPLACE_CSI]', '%s')", ts, strings.Join(metrics[1:], "', '"))
+		}
+
 		dataRows = append(dataRows, r)
 		tagRows = append(tagRows, tags[:10])
 	}
@@ -453,22 +452,19 @@ func processBatches(wg *sync.WaitGroup) {
 	defer db.Close()
 
 	for hypertableBatch := range batchChan {
-		if !doLoad {
-			continue
-		}
+		if doLoad {
+			start := time.Now()
+			metricCountWorker := processCSI(db, hypertableBatch)
+			//metricCountWorker := processSplit(db, hypertableBatch)
+			atomic.AddUint64(&metricCount, metricCountWorker)
 
-		start := time.Now()
-		metricCountWorker := processCSI(db, hypertableBatch)
-		//metricCountWorker := processSplit(db, hypertableBatch)
-		atomic.AddUint64(&metricCount, metricCountWorker)
+			if logBatches {
+				now := time.Now()
+				took := now.Sub(start)
+				fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec (took %v)\n", now.Unix(), batchSize, float64(batchSize)/float64(took.Seconds()), took)
+			}
+		}
 		atomic.AddUint64(&rowCount, uint64(len(hypertableBatch.rows)))
-
-		if logBatches {
-			now := time.Now()
-			took := now.Sub(start)
-			fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec\n", now.Unix(), batchSize, float64(batchSize)/float64(took.Seconds()))
-		}
-
 	}
 	wg.Done()
 }
