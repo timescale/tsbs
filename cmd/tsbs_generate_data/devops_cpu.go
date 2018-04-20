@@ -28,6 +28,8 @@ var (
 	}
 )
 
+var cpuND = &NormalDistribution{Mean: 0.0, StdDev: 1.0}
+
 type CPUMeasurement struct {
 	timestamp     time.Time
 	distributions []Distribution
@@ -40,10 +42,7 @@ func NewCPUMeasurement(start time.Time) *CPUMeasurement {
 			State: rand.Float64() * 100.0,
 			Min:   0.0,
 			Max:   100.0,
-			Step: &NormalDistribution{
-				Mean:   0.0,
-				StdDev: 1.0,
-			},
+			Step:  cpuND,
 		}
 	}
 	return &CPUMeasurement{

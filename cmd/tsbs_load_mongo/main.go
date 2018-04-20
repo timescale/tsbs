@@ -5,7 +5,7 @@ package main
 
 import (
 	"bufio"
-	"encoding/gob"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -17,9 +17,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
 
 const (
@@ -83,9 +85,9 @@ func main() {
 
 	var closerFn func()
 	var workerFn func(*sync.WaitGroup, int)
-	channels := []chan []bson.M{}
+	channels := []chan []*serialize.MongoPoint{}
 	if documentPer {
-		channels = append(channels, make(chan []bson.M, workers))
+		channels = append(channels, make(chan []*serialize.MongoPoint, workers))
 		closerFn = func() { close(channels[0]) }
 		workerFn = func(wg *sync.WaitGroup, _ int) {
 			go processBatchesPerEvent(wg, session, channels[0])
@@ -95,7 +97,7 @@ func main() {
 		// we have one channel per worker so we can uniformly & consistently
 		// spread the workload across workers in a non-overlapping fashion.
 		for i := 0; i < workers; i++ {
-			channels = append(channels, make(chan []bson.M, 1))
+			channels = append(channels, make(chan []*serialize.MongoPoint, 1))
 		}
 		closerFn = func() {
 			for i := 0; i < workers; i++ {
@@ -123,33 +125,53 @@ func main() {
 }
 
 // scan reads length-delimited flatbuffers items from stdin.
-func scan(channels []chan []bson.M, itemsPerBatch int) int64 {
+func scan(channels []chan []*serialize.MongoPoint, itemsPerBatch int) int64 {
 	var itemsRead int64
 	r := bufio.NewReaderSize(os.Stdin, 1<<20)
-	gob.Register(map[string]interface{}{})
-	dec := gob.NewDecoder(r)
+	lenBuf := make([]byte, 8)
 
-	b := make([]bson.M, 0)
+	b := make([]*serialize.MongoPoint, 0)
 	batchChan := channels[0]
 	for {
 		if itemsRead == limit {
 			break
 		}
+		item := &serialize.MongoPoint{}
 
-		pBson := &bson.M{}
-		err := dec.Decode(pBson)
+		_, err := r.Read(lenBuf)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
-		b = append(b, *pBson)
+
+		// ensure correct len of receiving buffer
+		l := int(binary.LittleEndian.Uint64(lenBuf))
+		itemBuf := make([]byte, l)
+
+		// read the bytes and init the flatbuffer object
+		totRead := 0
+		for totRead < l {
+			m, err := r.Read(itemBuf[totRead:])
+			// (EOF is also fatal)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			totRead += m
+		}
+		if totRead != len(itemBuf) {
+			panic(fmt.Sprintf("reader/writer logic error, %d != %d", totRead, len(itemBuf)))
+		}
+		n := flatbuffers.GetUOffsetT(itemBuf)
+		item.Init(itemBuf, n)
+
+		b = append(b, item)
 
 		itemsRead++
 		if len(b) >= itemsPerBatch {
 			batchChan <- b
-			b = make([]bson.M, 0)
+			b = make([]*serialize.MongoPoint, 0)
 		}
 	}
 	// Finished reading input, make sure last batch goes out.
@@ -160,13 +182,12 @@ func scan(channels []chan []bson.M, itemsPerBatch int) int64 {
 	return itemsRead
 }
 
-func scanConsistent(channels []chan []bson.M, itemsPerBatch int) int64 {
+func scanConsistent(channels []chan []*serialize.MongoPoint, itemsPerBatch int) int64 {
 	var itemsRead int64
 	r := bufio.NewReaderSize(os.Stdin, 1<<20)
-	gob.Register(map[string]interface{}{})
-	dec := gob.NewDecoder(r)
+	lenBuf := make([]byte, 8)
 
-	batches := make([][]bson.M, workers)
+	batches := make([][]*serialize.MongoPoint, workers)
 	hash := func(s string) int {
 		h := fnv.New32a()
 		h.Write([]byte(s))
@@ -177,18 +198,47 @@ func scanConsistent(channels []chan []bson.M, itemsPerBatch int) int64 {
 			break
 		}
 
-		pBson := &bson.M{}
-		err := dec.Decode(pBson)
+		item := &serialize.MongoPoint{}
+
+		_, err := r.Read(lenBuf)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
 
+		// ensure correct len of receiving buffer
+		l := int(binary.LittleEndian.Uint64(lenBuf))
+		itemBuf := make([]byte, l)
+
+		// read the bytes and init the flatbuffer object
+		totRead := 0
+		for totRead < l {
+			m, err := r.Read(itemBuf[totRead:])
+			// (EOF is also fatal)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			totRead += m
+		}
+		if totRead != len(itemBuf) {
+			panic(fmt.Sprintf("reader/writer logic error, %d != %d", totRead, len(itemBuf)))
+		}
+		n := flatbuffers.GetUOffsetT(itemBuf)
+		item.Init(itemBuf, n)
+
 		// TODO - This is not portable across use cases
-		idx := hash(((*pBson)["tags"].(map[string]interface{}))["hostname"].(string)) % workers
-		batches[idx] = append(batches[idx], *pBson)
+		var idx int
+		t := &serialize.MongoTag{}
+		for j := 0; j < item.TagsLength(); j++ {
+			item.Tags(t, j)
+			if string(t.Key()) == "hostname" {
+				idx = hash(string(t.Value())) % workers
+				break
+			}
+		}
+		batches[idx] = append(batches[idx], item)
 
 		itemsRead++
 		if len(batches[idx]) >= itemsPerBatch {
@@ -206,36 +256,67 @@ func scanConsistent(channels []chan []bson.M, itemsPerBatch int) int64 {
 	return itemsRead
 }
 
+type singlePoint struct {
+	Measurement string                 `bson:"measurement"`
+	Timestamp   int64                  `bson:"timestamp_ns"`
+	Fields      map[string]interface{} `bson:"fields"`
+	Tags        map[string]string      `bson:"tags"`
+}
+
+var spPool = &sync.Pool{New: func() interface{} { return &singlePoint{} }}
+
 // processBatchesPerEvent creates a new document for each incoming event for a simpler
 // approach to storing the data. This is _NOT_ the default since the aggregation method
 // is recommended by Mongo and other blogs
-func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, c chan []bson.M) {
-	sess := session.Copy()
-	db := sess.DB(dbName)
+func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, c chan []*serialize.MongoPoint) {
+	var sess *mgo.Session
+	var db *mgo.Database
+	var collection *mgo.Collection
+	if doLoad {
+		sess = session.Copy()
+		db = sess.DB(dbName)
+		collection = db.C(collectionName)
+	}
 
 	pvs := []interface{}{}
-
-	collection := db.C(collectionName)
 	for batch := range c {
-		bulk := collection.Bulk()
-
+		//start := time.Now()
 		if cap(pvs) < len(batch) {
 			pvs = make([]interface{}, len(batch))
 		}
 		pvs = pvs[:len(batch)]
 
 		for i, event := range batch {
-			pvs[i] = event
-			atomic.AddUint64(&metricCount, uint64(len(event["fields"].(map[string]interface{}))))
+			x := spPool.Get().(*singlePoint)
+
+			x.Measurement = string(event.MeasurementName())
+			x.Timestamp = event.Timestamp()
+			x.Fields = map[string]interface{}{}
+			x.Tags = map[string]string{}
+			f := &serialize.MongoReading{}
+			for j := 0; j < event.FieldsLength(); j++ {
+				event.Fields(f, j)
+				x.Fields[string(f.Key())] = f.Value()
+			}
+			t := &serialize.MongoTag{}
+			for j := 0; j < event.TagsLength(); j++ {
+				event.Tags(t, j)
+				x.Tags[string(t.Key())] = string(t.Value())
+			}
+			pvs[i] = x
+			atomic.AddUint64(&metricCount, uint64(event.FieldsLength()))
 		}
 
 		if doLoad {
+			bulk := collection.Bulk()
 			bulk.Insert(pvs...)
 			_, err := bulk.Run()
 			if err != nil {
 				log.Fatalf("Bulk insert docs err: %s\n", err.Error())
 			}
-
+		}
+		for _, p := range pvs {
+			spPool.Put(p)
 		}
 	}
 	wg.Done()
@@ -284,24 +365,34 @@ var pPool = &sync.Pool{New: func() interface{} { return &point{} }}
 //      ]
 //    ]
 //  }
-func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []bson.M) {
-	sess := session.Copy()
-	db := sess.DB(dbName)
+func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []*serialize.MongoPoint) {
+	var sess *mgo.Session
+	var db *mgo.Database
+	var collection *mgo.Collection
+	if doLoad {
+		sess = session.Copy()
+		db = sess.DB(dbName)
+		collection = db.C(collectionName)
+	}
 	var createdDocs = make(map[string]bool)
 	var createQueue = []interface{}{}
 
-	collection := db.C(collectionName)
 	for batch := range c {
-		bulk := collection.Bulk()
 		docToEvents := make(map[string][]*point)
 
 		eventCnt := uint64(0)
 		for _, event := range batch {
+			tagsMap := map[string]string{}
+			t := &serialize.MongoTag{}
+			for j := 0; j < event.TagsLength(); j++ {
+				event.Tags(t, j)
+				tagsMap[string(t.Key())] = string(t.Value())
+			}
+
 			// Determine which document this event belongs too
-			tags := event["tags"].(map[string]interface{})
-			ts := event[timestampField].(int64)
+			ts := event.Timestamp()
 			dateKey := time.Unix(0, ts).UTC().Format(aggDateFmt)
-			docKey := fmt.Sprintf("day_%s_%s", tags["hostname"], dateKey)
+			docKey := fmt.Sprintf("day_%s_%s", tagsMap["hostname"], dateKey)
 
 			// Check that it has been created using a cached map, if not, add
 			// to creation queue
@@ -311,8 +402,8 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []
 					createQueue = append(createQueue, bson.M{
 						aggDocID:      docKey,
 						aggKeyID:      dateKey,
-						"measurement": event["measurement"],
-						"tags":        tags,
+						"measurement": string(event.MeasurementName()),
+						"tags":        tagsMap,
 						"events":      emptyDoc,
 					})
 				}
@@ -325,7 +416,12 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []
 				docToEvents[docKey] = []*point{}
 			}
 			x := pPool.Get().(*point)
-			x.Fields = event["fields"].(map[string]interface{})
+			x.Fields = map[string]interface{}{}
+			f := &serialize.MongoReading{}
+			for j := 0; j < event.FieldsLength(); j++ {
+				event.Fields(f, j)
+				x.Fields[string(f.Key())] = f.Value()
+			}
 			x.Timestamp = ts
 			eventCnt += uint64(len(x.Fields))
 
@@ -334,6 +430,7 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []
 
 		if doLoad {
 			// Checks if any new documents need to be made and does so
+			bulk := collection.Bulk()
 			bulk = insertNewAggregateDocs(collection, bulk, createQueue)
 			createQueue = createQueue[:0]
 
@@ -362,9 +459,6 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []
 				log.Fatalf("Bulk aggregate update err: %s\n", err.Error())
 			}
 
-			// Update count of metrics inserted
-			atomic.AddUint64(&metricCount, eventCnt)
-
 			for _, events := range docToEvents {
 				for _, e := range events {
 					delete(e.Fields, timestampField)
@@ -372,6 +466,8 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, c chan []
 				}
 			}
 		}
+		// Update count of metrics inserted
+		atomic.AddUint64(&metricCount, eventCnt)
 	}
 	wg.Done()
 }
@@ -428,7 +524,7 @@ func createCollection(session *mgo.Session, collectionName string) {
 	if documentPer {
 		key = []string{"measurement", "tags.hostname", timestampField}
 	} else {
-		key = []string{"tags.hostname", aggKeyID}
+		key = []string{aggKeyID, "measurement", "tags.hostname"}
 	}
 
 	index := mgo.Index{
