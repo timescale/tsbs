@@ -129,7 +129,7 @@ func (s *StatGroup) Push(n float64) {
 
 // String makes a simple description of a StatGroup.
 func (s *StatGroup) String() string {
-	return fmt.Sprintf("min: %8.2fms, med: %8.2f, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d", s.Min, s.Median(), s.Mean, s.Max, s.StdDev, s.Sum/1e3, s.Count)
+	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d", s.Min, s.Median(), s.Mean, s.Max, s.StdDev, s.Sum/1e3, s.Count)
 }
 
 func (s *StatGroup) Write(w io.Writer) error {
