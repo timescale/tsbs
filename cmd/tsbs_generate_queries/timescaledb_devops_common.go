@@ -54,6 +54,15 @@ func (d *TimescaleDBDevops) getHostWhereString(scaleVar int, nhosts int) string 
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
+func (d *TimescaleDBDevops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
+	selectClauses := make([]string, len(metrics))
+	for i, m := range metrics {
+		selectClauses[i] = fmt.Sprintf("%s(%s) as mean_%s", agg, m, m)
+	}
+
+	return selectClauses
+}
+
 const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 
 // MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
@@ -86,16 +95,18 @@ func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nh
 // GROUP BY minute ORDER BY minute ASC
 func (d *TimescaleDBDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
+	metrics := getCPUMetricsSlice(5)
+	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
-    max(usage_user) AS max_usage_user,
-    max(usage_system) AS max_usage_system,
-    max(usage_idle) AS max_usage_idle,
-    max(usage_nice) AS max_usage_nice,
-    max(usage_guest) AS max_usage_guest
+    %s
     FROM cpu
     WHERE %s AND time >= '%s' AND time < '%s'
-    GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+    GROUP BY minute ORDER BY minute ASC`,
+		strings.Join(selectClauses, ", "),
+		d.getHostWhereString(scaleVar, nhosts),
+		interval.Start.Format(goTimeFmt),
+		interval.End.Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	q := qi.(*query.TimescaleDB)
@@ -134,13 +145,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
-	if numMetrics <= 0 {
-		panic("no metrics given")
-	}
-	if numMetrics > len(cpuMetrics) {
-		panic("too many metrics asked for")
-	}
-	metrics := cpuMetrics[:numMetrics]
+	metrics := getCPUMetricsSlice(numMetrics)
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
 	selectClauses := make([]string, len(metrics))
@@ -188,22 +193,19 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.
 // GROUP BY hour ORDER BY hour
 func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
 	interval := d.AllInterval.RandWindow(8 * time.Hour)
+	metrics := getCPUMetricsSlice(len(cpuMetrics))
+	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
-    max(usage_user) AS max_usage_user,
-    max(usage_system) AS max_usage_system,
-    max(usage_idle) AS max_usage_idle,
-    max(usage_nice) AS max_usage_nice,
-    max(usage_iowait) AS max_usage_iowait,
-    max(usage_irq) AS max_usage_irq,
-    max(usage_softirq) AS max_usage_softirq,
-    max(usage_steal) AS max_usage_steal,
-    max(usage_guest) AS max_usage_guest,
-    max(usage_guest_nice) AS max_usage_guest_nice
-    FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY hour ORDER BY hour`,
-		d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+    %s
+    FROM cpu
+	WHERE %s AND time >= '%s' AND time < '%s'
+	GROUP BY hour ORDER BY hour`,
+		strings.Join(selectClauses, ", "),
+		d.getHostWhereString(scaleVar, nhosts),
+		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
-	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
+	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 8hr by 1h", nhosts)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

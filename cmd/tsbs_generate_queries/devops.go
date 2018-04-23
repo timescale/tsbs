@@ -22,6 +22,16 @@ var cpuMetrics = []string{
 	"usage_guest_nice",
 }
 
+func getCPUMetricsSlice(numMetrics int) []string {
+	if numMetrics <= 0 {
+		panic("no metrics given")
+	}
+	if numMetrics > len(cpuMetrics) {
+		panic("too many metrics asked for")
+	}
+	return cpuMetrics[:numMetrics]
+}
+
 // Devops describes a devops query generator.
 type Devops interface {
 	CPU5Metrics(query.Query, int, int, time.Duration)
