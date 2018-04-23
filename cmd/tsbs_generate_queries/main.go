@@ -33,61 +33,78 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		"1-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 1),
 			"influx":      NewInfluxDevopsSingleMetric(1, 1),
+			"mongo-naive": NewMongoNaiveDevopsSingleMetric(1, 1),
+			"mongo":       NewMongoDevopsSingleMetric(1, 1),
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
 		},
 		"1-host-12-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(1, 12),
 			"influx":      NewInfluxDevopsSingleMetric(1, 12),
+			"mongo-naive": NewMongoNaiveDevopsSingleMetric(1, 12),
+			"mongo":       NewMongoDevopsSingleMetric(1, 12),
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
 		},
 		"8-host-1-hr": {
 			"cassandra":   NewCassandraDevopsSingleMetric(8, 1),
 			"influx":      NewInfluxDevopsSingleMetric(8, 1),
+			"mongo-naive": NewMongoNaiveDevopsSingleMetric(8, 1),
+			"mongo":       NewMongoDevopsSingleMetric(8, 1),
 			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
 		},
 		"groupby": {
 			"cassandra":   NewCassandraDevopsGroupBy(1),
 			"influx":      NewInfluxDevopsGroupBy(1),
+			"mongo-naive": NewMongoNaiveDevopsGroupBy(1),
+			"mongo":       NewMongoDevopsGroupBy(1),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(1),
 		},
 		"groupby-5": {
 			"cassandra":   NewCassandraDevopsGroupBy(5),
 			"influx":      NewInfluxDevopsGroupBy(5),
+			"mongo-naive": NewMongoNaiveDevopsGroupBy(5),
+			"mongo":       NewMongoDevopsGroupBy(5),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(5),
 		},
 		"groupby-all": {
 			"cassandra":   NewCassandraDevopsGroupBy(len(cpuMetrics)),
 			"influx":      NewInfluxDevopsGroupBy(len(cpuMetrics)),
+			"mongo":       NewMongoDevopsGroupBy(len(cpuMetrics)),
 			"timescaledb": NewTimescaleDBDevopsGroupBy(len(cpuMetrics)),
 		},
 		"5-metrics-1-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 1),
 			"influx":      NewInfluxDevops5Metrics(1, 1),
+			"mongo":       NewMongoDevops5Metrics(1, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 1),
 		},
 		"5-metrics-1-host-12-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(1, 12),
 			"influx":      NewInfluxDevops5Metrics(1, 12),
+			"mongo":       NewMongoDevops5Metrics(1, 12),
 			"timescaledb": NewTimescaleDBDevops5Metrics(1, 12),
 		},
 		"5-metrics-8-host-1-hr": {
 			"cassandra":   NewCassandraDevops5Metrics(8, 1),
 			"influx":      NewInfluxDevops5Metrics(8, 1),
+			"mongo":       NewMongoDevops5Metrics(8, 1),
 			"timescaledb": NewTimescaleDBDevops5Metrics(8, 1),
 		},
 		"lastpoint": {
 			"cassandra":   NewCassandraDevopsLastPointPerHost,
-			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
 			"influx":      NewInfluxDevopsLastPointPerHost,
+			"mongo":       NewMongoDevopsLastPointPerHost,
+			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
 		},
-		"high-cpu": {
+		"high-cpu-all-hosts": {
 			"cassandra":   NewCassandraDevopsHighCPU(0),
 			"influx":      NewInfluxDevopsHighCPU(0),
+			"mongo":       NewMongoDevopsHighCPU(0),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
 		},
-		"high-cpu-and-field": {
+		"high-cpu-1-host": {
 			"cassandra":   NewCassandraDevopsHighCPU(1),
 			"influx":      NewInfluxDevopsHighCPU(1),
+			"mongo":       NewMongoDevopsHighCPU(1),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},
 		"multiple-ors": {
@@ -101,16 +118,19 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 		"cpu-max-all-single-host": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
 			"influx":      NewInfluxDevopsAllMaxCPU(1),
+			"mongo":       NewMongoDevopsAllMaxCPU(1),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(1),
 		},
 		"cpu-max-all-eight-hosts": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(8),
 			"influx":      NewInfluxDevopsAllMaxCPU(8),
+			"mongo":       NewMongoDevopsAllMaxCPU(8),
 			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(8),
 		},
 		"groupby-orderby-limit": {
 			"cassandra":   NewCassandraDevopsGroupByOrderByLimit,
 			"influx":      NewInfluxDevopsGroupByOrderByLimit,
+			"mongo":       NewMongoDevopsGroupByOrderByLimit,
 			"timescaledb": NewTimescaleDBDevopsGroupByOrderByLimit,
 		},
 	},
