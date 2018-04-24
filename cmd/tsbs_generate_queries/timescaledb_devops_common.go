@@ -34,9 +34,9 @@ func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string
 	} else if timescaleUseTags {
 		hostnameClauses := []string{}
 		for _, s := range hostnames {
-			hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
+			hostnameClauses = append(hostnameClauses, fmt.Sprintf("'%s'", s))
 		}
-		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE %s)", strings.Join(hostnameClauses, " OR "))
+		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE hostname IN (%s))", strings.Join(hostnameClauses, " OR "))
 	} else {
 		hostnameClauses := []string{}
 		for _, s := range hostnames {
@@ -163,7 +163,7 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.
 			hostnameField = "tags.hostname"
 		}
 		joinStr = "JOIN tags ON cpu.tags_id = tags.id"
-		groupByStr = "tags.id, " + hostnameField
+		groupByStr = hostnameField // TODO(rrk) -- previously had tags.id as well, but not sure why? double check JSON still works
 	}
 
 	sqlQuery := fmt.Sprintf(`

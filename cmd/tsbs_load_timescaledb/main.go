@@ -20,7 +20,10 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/shirou/gopsutil/process"
+)
+
+const (
+	dbType = "postgres"
 )
 
 // Program option vars:
@@ -32,6 +35,7 @@ var (
 
 	workers         int
 	batchSize       int
+	limit           int64
 	doLoad          bool
 	reportingPeriod time.Duration
 
@@ -59,7 +63,7 @@ type insertData struct {
 
 type hypertableBatch struct {
 	hypertable string
-	rows       []insertData
+	rows       []*insertData
 }
 
 // Global vars
@@ -73,20 +77,21 @@ var (
 
 // Parse args:
 func init() {
-	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable", "Postgres connection url")
+	flag.StringVar(&postgresConnect, "postgres", "sslmode=disable", "PostgreSQL connection string")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to store data")
-	flag.StringVar(&host, "host", "localhost", "PostgreSQL hostname")
+	flag.StringVar(&host, "host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 
 	flag.IntVar(&batchSize, "batch-size", 10000, "Batch size (input items).")
 	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
+	flag.Int64Var(&limit, "limit", -1, "Number of items to insert (default unlimited).")
 	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 
 	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
 	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
-	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
 	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
 	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
@@ -104,16 +109,28 @@ func init() {
 }
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	if doLoad {
-		initBenchmarkDB(scanner)
-	} else {
-		//read the header
-		for scanner.Scan() {
-			if len(scanner.Bytes()) == 0 {
-				break
-			}
+	br := bufio.NewReader(os.Stdin)
+	var tags string
+	var cols string
+	var err error
+	// First three lines are header, with the first line containing the tags
+	// and their names, the second line containing the column names, and
+	// third line being blank to separate from the data
+	for i := 0; i < 3; i++ {
+		if i == 0 {
+			tags, err = br.ReadString('\n')
+		} else if i == 1 {
+			cols, err = br.ReadString('\n')
+		} else {
+			_, err = br.ReadString('\n')
 		}
+		if err != nil {
+			log.Fatalf("input has wrong header format: %v", err)
+		}
+	}
+
+	if doLoad {
+		initDB(tags, cols)
 	}
 
 	batchChan = make(chan *hypertableBatch, workers)
@@ -121,12 +138,12 @@ func main() {
 		go processBatches(wg)
 	}
 	scanFn := func() (int64, int64) {
-		return scan(batchSize, scanner), 0
+		return scan(batchSize, br), 0
 	}
 
 	/* If specified, generate a performance profile */
 	if len(profileFile) > 0 {
-		go profile()
+		go profileCPUAndMem(profileFile)
 	}
 
 	var replicationStatsWaitGroup sync.WaitGroup
@@ -136,55 +153,10 @@ func main() {
 
 	dr := load.NewDataReader(workers, workerFn, scanFn)
 	dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
-
-	took := dr.Took()
-	rowRate := float64(rowCount) / float64(took.Seconds())
-	columnRate := float64(metricCount) / float64(took.Seconds())
-
-	fmt.Printf("loaded %d metrics in %fsec with %d workers (mean rate %f/sec)\n", metricCount, took.Seconds(), workers, columnRate)
-	fmt.Printf("loaded %d rows in %fsec with %d workers (mean rate %f/sec)\n", rowCount, took.Seconds(), workers, rowRate)
+	dr.Summary(workers, &metricCount, &rowCount)
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
-	}
-}
-
-func profile() {
-	f, err := os.Create(profileFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	var proc *process.Process
-	for _ = range time.NewTicker(1 * time.Second).C {
-		if proc == nil {
-			procs, err := process.Processes()
-			if err != nil {
-				panic(err)
-			}
-			for _, p := range procs {
-				cmd, _ := p.Cmdline()
-				if strings.Contains(cmd, "postgres") && strings.Contains(cmd, "INSERT") {
-					proc = p
-					break
-				}
-			}
-		} else {
-			cpu, err := proc.CPUPercent()
-			if err != nil {
-				proc = nil
-				continue
-			}
-			mem, err := proc.MemoryInfo()
-			if err != nil {
-				proc = nil
-				continue
-			}
-
-			f.Write([]byte(fmt.Sprintf("%f,%d,%d,%d\n", cpu, mem.RSS, mem.VMS, mem.Swap)))
-
-		}
 	}
 }
 
@@ -197,27 +169,55 @@ func getConnectString() string {
 	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, databaseName, user, connectString)
 }
 
+func decodePoint(scanner *bufio.Scanner) (*insertData, string) {
+	data := &insertData{}
+	ok := scanner.Scan()
+	if !ok && scanner.Err() == nil { // nothing scanned & no error = EOF
+		return nil, ""
+	} else if !ok {
+		log.Fatalf("scan error: %v", scanner.Err())
+	}
+
+	// The first line is a CSV line of tags with the first element being "tags"
+	parts := strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
+	prefix := parts[0]
+	if prefix != "tags" {
+		log.Fatalf("data file in invalid format; got %s expected %s", prefix, "tags")
+	}
+	data.tags = parts[1]
+
+	// Scan again to get the data line
+	ok = scanner.Scan()
+	if !ok {
+		log.Fatalf("scan error: %v", scanner.Err())
+	}
+	parts = strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
+	prefix = parts[0]
+	data.fields = parts[1]
+
+	return data, prefix
+}
+
 // scan reads lines from stdin. It expects input in the TimescaleDB format,
 // which is a pair of lines: the first begins with the prefix 'tags' and is
 // CSV of tags, the second is a list of fields
-func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
-	batch := make(map[string][]insertData) // hypertable => copy lines
-	linesRead := int64(0)
+func scan(itemsPerBatch int, br *bufio.Reader) int64 {
+	batch := make(map[string][]*insertData) // hypertable => copy lines
+	itemsRead := int64(0)
 	n := 0
+	scanner := bufio.NewScanner(br)
 
-	data := insertData{}
-	for scanner.Scan() {
-		linesRead++
-
-		parts := strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
-		prefix := parts[0]
-		if prefix == "tags" {
-			data.tags = parts[1]
-			continue
-		} else {
-			data.fields = parts[1]
-			batch[prefix] = append(batch[prefix], data)
+	for {
+		if itemsRead == limit {
+			break
 		}
+
+		item, prefix := decodePoint(scanner)
+		if item == nil {
+			break
+		}
+		batch[prefix] = append(batch[prefix], item)
+		itemsRead++
 
 		n++
 		if n >= itemsPerBatch {
@@ -225,13 +225,9 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 				batchChan <- &hypertableBatch{hypertable, rows}
 			}
 
-			batch = make(map[string][]insertData)
+			batch = make(map[string][]*insertData)
 			n = 0
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading input: %s", err.Error())
 	}
 
 	// Finished reading input, make sure last batch goes out.
@@ -241,7 +237,7 @@ func scan(itemsPerBatch int, scanner *bufio.Scanner) int64 {
 		}
 	}
 
-	return linesRead / 2
+	return itemsRead
 }
 
 func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
@@ -448,7 +444,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(wg *sync.WaitGroup) {
-	db := sqlx.MustConnect("postgres", getConnectString())
+	db := sqlx.MustConnect(dbType, getConnectString())
 	defer db.Close()
 
 	for hypertableBatch := range batchChan {
@@ -483,93 +479,88 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 	}
 }
 
-func initBenchmarkDB(scanner *bufio.Scanner) {
+func initDB(tags, cols string) {
 	// Need to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
 	connectString := re.ReplaceAllString(getConnectString(), "")
 
-	db := sqlx.MustConnect("postgres", connectString)
+	db := sqlx.MustConnect(dbType, connectString)
 	db.MustExec("DROP DATABASE IF EXISTS " + databaseName)
 	db.MustExec("CREATE DATABASE " + databaseName)
 	db.Close()
 
-	dbBench := sqlx.MustConnect("postgres", getConnectString())
+	dbBench := sqlx.MustConnect(dbType, getConnectString())
 	defer dbBench.Close()
 
 	if useHypertable {
 		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 	}
 
-	for scanner.Scan() {
-		if len(scanner.Bytes()) == 0 {
-			return
-		}
+	parts := strings.Split(strings.TrimSpace(tags), ",")
+	if parts[0] != "tags" {
+		log.Fatalf("input header in wrong format. got '%s', expected 'tags'", parts[0])
+	}
+	createTagsTable(dbBench, parts[1:])
+	tableCols["tags"] = parts[1:]
 
-		parts := strings.Split(scanner.Text(), ",")
-		if parts[0] == "tags" {
-			createTagsTable(dbBench, parts[1:])
-			tableCols["tags"] = parts[1:]
+	parts = strings.Split(strings.TrimSpace(cols), ",")
+	hypertable := parts[0]
+	partitioningField := tableCols["tags"][0]
+	fieldDef := []string{}
+	indexes := []string{}
+	tableCols[hypertable] = parts[1:]
+
+	psuedoCols := []string{}
+	if inTableTag {
+		psuedoCols = append(psuedoCols, partitioningField)
+	}
+	psuedoCols = append(psuedoCols, parts[1:]...)
+	extraCols := 0 // set to 1 when hostname is kept in-table
+	for idx, field := range psuedoCols {
+		if len(field) == 0 {
 			continue
 		}
-
-		hypertable := parts[0]
-		partitioningField := tableCols["tags"][0]
-		fieldDef := []string{}
-		indexes := []string{}
-		tableCols[hypertable] = parts[1:]
-
-		psuedoCols := []string{}
-		if inTableTag {
-			psuedoCols = append(psuedoCols, partitioningField)
+		fieldType := "DOUBLE PRECISION"
+		idxType := fieldIndex
+		if inTableTag && idx == 0 {
+			fieldType = "TEXT"
+			idxType = ""
+			extraCols = 1
 		}
-		psuedoCols = append(psuedoCols, parts[1:]...)
-		extraCols := 0 // set to 1 when hostname is kept in-table
-		for idx, field := range psuedoCols {
-			if len(field) == 0 {
-				continue
-			}
-			fieldType := "DOUBLE PRECISION"
-			idxType := fieldIndex
-			if inTableTag && idx == 0 {
-				fieldType = "TEXT"
-				idxType = ""
-				extraCols = 1
-			}
 
-			fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
-			if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
-				for _, idx := range strings.Split(idxType, ",") {
-					indexDef := ""
-					if idx == "TIME-VALUE" {
-						indexDef = fmt.Sprintf("(time DESC, %s)", field)
-					} else if idx == "VALUE-TIME" {
-						indexDef = fmt.Sprintf("(%s,time DESC)", field)
-					} else if idx != "" {
-						panic(fmt.Sprintf("Unknown index type %v", idx))
-					}
+		fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
+		if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
+			for _, idx := range strings.Split(idxType, ",") {
+				indexDef := ""
+				if idx == "TIME-VALUE" {
+					indexDef = fmt.Sprintf("(time DESC, %s)", field)
+				} else if idx == "VALUE-TIME" {
+					indexDef = fmt.Sprintf("(%s,time DESC)", field)
+				} else if idx != "" {
+					panic(fmt.Sprintf("Unknown index type %v", idx))
+				}
 
-					if idx != "" {
-						indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
-					}
+				if idx != "" {
+					indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
 				}
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
-		if partitionIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
-		}
-		if timeIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
-		}
+	}
+	dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
+	if partitionIndex {
+		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+	}
+	if timeIndex {
+		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
+	}
 
-		for _, idxDef := range indexes {
-			dbBench.MustExec(idxDef)
-		}
+	for _, idxDef := range indexes {
+		dbBench.MustExec(idxDef)
+	}
 
-		if useHypertable {
-			dbBench.MustExec(
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
-		}
+	if useHypertable {
+		dbBench.MustExec(
+			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+				hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
 	}
 }
