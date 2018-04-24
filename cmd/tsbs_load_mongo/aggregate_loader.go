@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"hash/fnv"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+	"bitbucket.org/440-labs/influxdb-comparisons/load"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 )
@@ -30,8 +32,37 @@ func (i *hostnameIndexer) GetIndex(item *serialize.MongoPoint) int {
 	return -1
 }
 
-func scanConsistent(channels []*duplexChannel, itemsPerBatch int) int64 {
-	return scanWithIndexer(channels, itemsPerBatch, &hostnameIndexer{partitions: len(channels)})
+// aggBenchmark allows you to run a benchmark using the aggregated document format
+// for Mongo
+type aggBenchmark struct {
+	l        *load.BenchmarkRunner
+	channels []*duplexChannel
+	session  *mgo.Session
+}
+
+func newAggBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *aggBenchmark {
+	// To avoid workers overlapping on the documents they are working on,
+	// we have one channel per worker so we can uniformly & consistently
+	// spread the workload across workers in a non-overlapping fashion.
+	channels := []*duplexChannel{}
+	for i := 0; i < loader.NumWorkers(); i++ {
+		channels = append(channels, newDuplexChannel(1))
+	}
+	return &aggBenchmark{l: l, channels: channels, session: session}
+}
+
+func (b *aggBenchmark) Work(wg *sync.WaitGroup, i int) {
+	go processBatchesAggregate(wg, b.session, b.channels[i])
+}
+
+func (b *aggBenchmark) Scan(batchSize int, br *bufio.Reader) int64 {
+	return scanWithIndexer(b.channels, batchSize, br, &hostnameIndexer{partitions: len(b.channels)})
+}
+
+func (b *aggBenchmark) Close() {
+	for _, c := range b.channels {
+		c.close()
+	}
 }
 
 // point is a reusable data structure to store a BSON data document for Mongo,
@@ -81,9 +112,9 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *duple
 	var sess *mgo.Session
 	var db *mgo.Database
 	var collection *mgo.Collection
-	if doLoad {
+	if loader.DoLoad() {
 		sess = session.Copy()
-		db = sess.DB(dbName)
+		db = sess.DB(loader.DatabaseName())
 		collection = db.C(collectionName)
 	}
 	var createdDocs = make(map[string]bool)
@@ -141,7 +172,7 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *duple
 			docToEvents[docKey] = append(docToEvents[docKey], x)
 		}
 
-		if doLoad {
+		if loader.DoLoad() {
 			// Checks if any new documents need to be made and does so
 			bulk := collection.Bulk()
 			bulk = insertNewAggregateDocs(collection, bulk, createQueue)

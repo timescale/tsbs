@@ -29,15 +29,8 @@ const (
 // Program option vars:
 var (
 	postgresConnect string
-	databaseName    string
 	host            string
 	user            string
-
-	workers         int
-	batchSize       int
-	limit           int64
-	doLoad          bool
-	reportingPeriod time.Duration
 
 	useHypertable bool
 	logBatches    bool
@@ -71,23 +64,20 @@ var (
 	batchChan   chan *hypertableBatch
 	metricCount uint64
 	rowCount    uint64
+	loader      *load.BenchmarkRunner
 
 	tableCols map[string][]string
 )
 
 // Parse args:
 func init() {
+	loader = load.GetBenchmarkRunner()
+
 	flag.StringVar(&postgresConnect, "postgres", "sslmode=disable", "PostgreSQL connection string")
-	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to store data")
 	flag.StringVar(&host, "host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 
-	flag.IntVar(&batchSize, "batch-size", 10000, "Batch size (input items).")
-	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
-	flag.Int64Var(&limit, "limit", -1, "Number of items to insert (default unlimited).")
-	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
-	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 
 	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
 	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
@@ -106,6 +96,23 @@ func init() {
 
 	flag.Parse()
 	tableCols = make(map[string][]string)
+}
+
+type benchmark struct {
+	l *load.BenchmarkRunner
+	c chan *hypertableBatch
+}
+
+func (b *benchmark) Work(wg *sync.WaitGroup, _ int) {
+	go processBatches(wg)
+}
+
+func (b *benchmark) Scan(batchSize int, br *bufio.Reader) int64 {
+	return scan(batchSize, br)
+}
+
+func (b *benchmark) Close() {
+	close(b.c)
 }
 
 func main() {
@@ -129,17 +136,11 @@ func main() {
 		}
 	}
 
-	if doLoad {
-		initDB(tags, cols)
+	if loader.DoLoad() {
+		initDB(loader.DatabaseName(), tags, cols)
 	}
 
-	batchChan = make(chan *hypertableBatch, workers)
-	workerFn := func(wg *sync.WaitGroup, i int) {
-		go processBatches(wg)
-	}
-	scanFn := func() (int64, int64) {
-		return scan(batchSize, br), 0
-	}
+	batchChan = make(chan *hypertableBatch, loader.NumWorkers())
 
 	/* If specified, generate a performance profile */
 	if len(profileFile) > 0 {
@@ -151,9 +152,8 @@ func main() {
 		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	dr := load.NewDataReader(workers, workerFn, scanFn)
-	dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
-	dr.Summary(workers, &metricCount, &rowCount)
+	b := &benchmark{l: loader, c: batchChan}
+	loader.RunBenchmark(b, br, &metricCount, &rowCount)
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
@@ -166,7 +166,7 @@ func getConnectString() string {
 	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
 	connectString := re.ReplaceAllString(postgresConnect, "")
 
-	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, databaseName, user, connectString)
+	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
 }
 
 func decodePoint(scanner *bufio.Scanner) (*insertData, string) {
@@ -208,7 +208,7 @@ func scan(itemsPerBatch int, br *bufio.Reader) int64 {
 	scanner := bufio.NewScanner(br)
 
 	for {
-		if itemsRead == limit {
+		if itemsRead == loader.Limit() {
 			break
 		}
 
@@ -448,7 +448,7 @@ func processBatches(wg *sync.WaitGroup) {
 	defer db.Close()
 
 	for hypertableBatch := range batchChan {
-		if doLoad {
+		if loader.DoLoad() {
 			start := time.Now()
 			metricCountWorker := processCSI(db, hypertableBatch)
 			//metricCountWorker := processSplit(db, hypertableBatch)
@@ -457,7 +457,7 @@ func processBatches(wg *sync.WaitGroup) {
 			if logBatches {
 				now := time.Now()
 				took := now.Sub(start)
-				fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec (took %v)\n", now.Unix(), batchSize, float64(batchSize)/float64(took.Seconds()), took)
+				fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec (took %v)\n", now.Unix(), loader.BatchSize(), float64(loader.BatchSize())/float64(took.Seconds()), took)
 			}
 		}
 		atomic.AddUint64(&rowCount, uint64(len(hypertableBatch.rows)))
@@ -479,14 +479,14 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 	}
 }
 
-func initDB(tags, cols string) {
+func initDB(dbName, tags, cols string) {
 	// Need to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
 	connectString := re.ReplaceAllString(getConnectString(), "")
 
 	db := sqlx.MustConnect(dbType, connectString)
-	db.MustExec("DROP DATABASE IF EXISTS " + databaseName)
-	db.MustExec("CREATE DATABASE " + databaseName)
+	db.MustExec("DROP DATABASE IF EXISTS " + dbName)
+	db.MustExec("CREATE DATABASE " + dbName)
 	db.Close()
 
 	dbBench := sqlx.MustConnect(dbType, getConnectString())
