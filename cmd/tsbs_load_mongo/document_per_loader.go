@@ -11,20 +11,16 @@ import (
 	"github.com/globalsign/mgo"
 )
 
-type singleIndexer struct{}
-
-func (i *singleIndexer) GetIndex(_ *serialize.MongoPoint) int { return 0 }
-
 // naiveBenchmark allows you to run a benchmark using the naive, one document per
 // event Mongo approach
 type naiveBenchmark struct {
 	l        *load.BenchmarkRunner
-	channels []*duplexChannel
+	channels []*load.DuplexChannel
 	session  *mgo.Session
 }
 
 func newNaiveBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *naiveBenchmark {
-	channels := []*duplexChannel{newDuplexChannel(l.NumWorkers())}
+	channels := []*load.DuplexChannel{load.NewDuplexChannel(l.NumWorkers())}
 	return &naiveBenchmark{l: l, channels: channels, session: session}
 }
 
@@ -32,12 +28,13 @@ func (b *naiveBenchmark) Work(wg *sync.WaitGroup, _ int) {
 	go processBatchesPerEvent(wg, b.session, b.channels[0])
 }
 
-func (b *naiveBenchmark) Scan(batchSize int, br *bufio.Reader) int64 {
-	return scanWithIndexer(b.channels, batchSize, br, &singleIndexer{})
+func (b *naiveBenchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
+	decoder := &decoder{lenBuf: make([]byte, 8)}
+	return load.Scan(b.channels, batchSize, limit, br, decoder, &factory{})
 }
 
 func (b *naiveBenchmark) Close() {
-	b.channels[0].close()
+	b.channels[0].Close()
 }
 
 type singlePoint struct {
@@ -52,7 +49,7 @@ var spPool = &sync.Pool{New: func() interface{} { return &singlePoint{} }}
 // processBatchesPerEvent creates a new document for each incoming event for a simpler
 // approach to storing the data. This is _NOT_ the default since the aggregation method
 // is recommended by Mongo and other blogs
-func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, dc *duplexChannel) {
+func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, dc *load.DuplexChannel) {
 	var sess *mgo.Session
 	var db *mgo.Database
 	var collection *mgo.Collection
@@ -61,10 +58,10 @@ func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, dc *duplex
 		db = sess.DB(loader.DatabaseName())
 		collection = db.C(collectionName)
 	}
-	c := dc.toWorker
 
 	pvs := []interface{}{}
-	for batch := range c {
+	for x := range dc.GetWorkerChannel() {
+		batch := x.(*batch).arr
 		if cap(pvs) < len(batch) {
 			pvs = make([]interface{}, len(batch))
 		}
@@ -102,7 +99,7 @@ func processBatchesPerEvent(wg *sync.WaitGroup, session *mgo.Session, dc *duplex
 		for _, p := range pvs {
 			spPool.Put(p)
 		}
-		dc.sendToScanner()
+		dc.SendToScanner()
 	}
 	wg.Done()
 }

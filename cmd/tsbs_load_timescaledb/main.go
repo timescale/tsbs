@@ -54,14 +54,8 @@ type insertData struct {
 	fields string
 }
 
-type hypertableBatch struct {
-	hypertable string
-	rows       []*insertData
-}
-
 // Global vars
 var (
-	batchChan   chan *hypertableBatch
 	metricCount uint64
 	rowCount    uint64
 	loader      *load.BenchmarkRunner
@@ -100,19 +94,19 @@ func init() {
 
 type benchmark struct {
 	l *load.BenchmarkRunner
-	c chan *hypertableBatch
+	c *load.DuplexChannel
 }
 
 func (b *benchmark) Work(wg *sync.WaitGroup, _ int) {
-	go processBatches(wg)
+	go processBatches(wg, b.c)
 }
 
-func (b *benchmark) Scan(batchSize int, br *bufio.Reader) int64 {
-	return scan(batchSize, br)
+func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
+	return scan([]*load.DuplexChannel{b.c}, batchSize, limit, br)
 }
 
 func (b *benchmark) Close() {
-	close(b.c)
+	b.c.Close()
 }
 
 func main() {
@@ -140,7 +134,7 @@ func main() {
 		initDB(loader.DatabaseName(), tags, cols)
 	}
 
-	batchChan = make(chan *hypertableBatch, loader.NumWorkers())
+	batchChan := load.NewDuplexChannel(loader.NumWorkers())
 
 	/* If specified, generate a performance profile */
 	if len(profileFile) > 0 {
@@ -167,77 +161,6 @@ func getConnectString() string {
 	connectString := re.ReplaceAllString(postgresConnect, "")
 
 	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
-}
-
-func decodePoint(scanner *bufio.Scanner) (*insertData, string) {
-	data := &insertData{}
-	ok := scanner.Scan()
-	if !ok && scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil, ""
-	} else if !ok {
-		log.Fatalf("scan error: %v", scanner.Err())
-	}
-
-	// The first line is a CSV line of tags with the first element being "tags"
-	parts := strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
-	prefix := parts[0]
-	if prefix != "tags" {
-		log.Fatalf("data file in invalid format; got %s expected %s", prefix, "tags")
-	}
-	data.tags = parts[1]
-
-	// Scan again to get the data line
-	ok = scanner.Scan()
-	if !ok {
-		log.Fatalf("scan error: %v", scanner.Err())
-	}
-	parts = strings.SplitN(scanner.Text(), ",", 2) // prefix & then rest of line
-	prefix = parts[0]
-	data.fields = parts[1]
-
-	return data, prefix
-}
-
-// scan reads lines from stdin. It expects input in the TimescaleDB format,
-// which is a pair of lines: the first begins with the prefix 'tags' and is
-// CSV of tags, the second is a list of fields
-func scan(itemsPerBatch int, br *bufio.Reader) int64 {
-	batch := make(map[string][]*insertData) // hypertable => copy lines
-	itemsRead := int64(0)
-	n := 0
-	scanner := bufio.NewScanner(br)
-
-	for {
-		if itemsRead == loader.Limit() {
-			break
-		}
-
-		item, prefix := decodePoint(scanner)
-		if item == nil {
-			break
-		}
-		batch[prefix] = append(batch[prefix], item)
-		itemsRead++
-
-		n++
-		if n >= itemsPerBatch {
-			for hypertable, rows := range batch {
-				batchChan <- &hypertableBatch{hypertable, rows}
-			}
-
-			batch = make(map[string][]*insertData)
-			n = 0
-		}
-	}
-
-	// Finished reading input, make sure last batch goes out.
-	if n > 0 {
-		for hypertable, rows := range batch {
-			batchChan <- &hypertableBatch{hypertable, rows}
-		}
-	}
-
-	return itemsRead
 }
 
 func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
@@ -310,17 +233,16 @@ JOIN tags USING (%s);
 var calledOnce = false
 
 // TODO - Needs work to work without partition tag being in table
-func processSplit(db *sqlx.DB, hypertableBatch *hypertableBatch) int64 {
+func processSplit(db *sqlx.DB, hypertable string, rows []*insertData) int64 {
 	tagCols := strings.Join(tableCols["tags"], ",")
 	partitionKey := tableCols["tags"][0]
 
-	hypertable := hypertableBatch.hypertable
 	hypertableCols := strings.Join(tableCols[hypertable], ",")
 
-	tagRows := make([][]string, 0, len(hypertableBatch.rows))
-	dataRows := make([]string, 0, len(hypertableBatch.rows))
+	tagRows := make([][]string, 0, len(rows))
+	dataRows := make([]string, 0, len(rows))
 	ret := int64(0)
-	for _, data := range hypertableBatch.rows {
+	for _, data := range rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
 
@@ -367,19 +289,18 @@ var csi = make(map[string]int64)
 var mutex = &sync.RWMutex{}
 var insertFmt3 = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
 
-func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
+func processCSI(db *sqlx.DB, hypertable string, rows []*insertData) uint64 {
 	partitionKey := ""
 	if inTableTag {
 		partitionKey = tableCols["tags"][0] + ","
 	}
 
-	hypertable := hypertableBatch.hypertable
 	hypertableCols := strings.Join(tableCols[hypertable], ",")
 
-	tagRows := make([][]string, 0, len(hypertableBatch.rows))
-	dataRows := make([]string, 0, len(hypertableBatch.rows))
+	tagRows := make([][]string, 0, len(rows))
+	dataRows := make([]string, 0, len(rows))
 	ret := uint64(0)
-	for _, data := range hypertableBatch.rows {
+	for _, data := range rows {
 		tags := strings.Split(data.tags, ",")
 		metrics := strings.Split(data.fields, ",")
 		ret += uint64(len(metrics) - 1) // 1 field is timestamp
@@ -407,7 +328,7 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 	}
 
 	// Check if any of these tags has yet to be inserted
-	newTags := make([][]string, 0, len(hypertableBatch.rows))
+	newTags := make([][]string, 0, len(rows))
 	mutex.RLock()
 	for _, cols := range tagRows {
 		if _, ok := csi[cols[0]]; !ok {
@@ -443,24 +364,33 @@ func processCSI(db *sqlx.DB, hypertableBatch *hypertableBatch) uint64 {
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(wg *sync.WaitGroup) {
+func processBatches(wg *sync.WaitGroup, c *load.DuplexChannel) {
 	db := sqlx.MustConnect(dbType, getConnectString())
 	defer db.Close()
 
-	for hypertableBatch := range batchChan {
-		if loader.DoLoad() {
-			start := time.Now()
-			metricCountWorker := processCSI(db, hypertableBatch)
-			//metricCountWorker := processSplit(db, hypertableBatch)
-			atomic.AddUint64(&metricCount, metricCountWorker)
+	for item := range c.GetWorkerChannel() {
+		batches := item.(*hypertableArr)
+		rowsCnt := 0
+		for hypertable, rows := range batches.m {
+			rowsCnt += len(rows)
+			if loader.DoLoad() {
+				start := time.Now()
+				metricCountWorker := processCSI(db, hypertable, rows)
+				//metricCountWorker := processSplit(db, hypertable, rows)
+				atomic.AddUint64(&metricCount, metricCountWorker)
 
-			if logBatches {
-				now := time.Now()
-				took := now.Sub(start)
-				fmt.Printf("BATCH: time %d batchsize %d row rate %f/sec (took %v)\n", now.Unix(), loader.BatchSize(), float64(loader.BatchSize())/float64(took.Seconds()), took)
+				if logBatches {
+					now := time.Now()
+					took := now.Sub(start)
+					batchSize := len(rows)
+					fmt.Printf("BATCH: batchsize %d row rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
+				}
 			}
 		}
-		atomic.AddUint64(&rowCount, uint64(len(hypertableBatch.rows)))
+		batches.m = map[string][]*insertData{}
+		batches.cnt = 0
+		atomic.AddUint64(&rowCount, uint64(rowsCnt))
+		c.SendToScanner()
 	}
 	wg.Done()
 }

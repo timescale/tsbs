@@ -19,10 +19,11 @@ type hostnameIndexer struct {
 	partitions int
 }
 
-func (i *hostnameIndexer) GetIndex(item *serialize.MongoPoint) int {
+func (i *hostnameIndexer) GetIndex(item interface{}) int {
+	p := item.(*serialize.MongoPoint)
 	t := &serialize.MongoTag{}
-	for j := 0; j < item.TagsLength(); j++ {
-		item.Tags(t, j)
+	for j := 0; j < p.TagsLength(); j++ {
+		p.Tags(t, j)
 		if string(t.Key()) == "hostname" {
 			h := fnv.New32a()
 			h.Write([]byte(string(t.Value())))
@@ -36,7 +37,7 @@ func (i *hostnameIndexer) GetIndex(item *serialize.MongoPoint) int {
 // for Mongo
 type aggBenchmark struct {
 	l        *load.BenchmarkRunner
-	channels []*duplexChannel
+	channels []*load.DuplexChannel
 	session  *mgo.Session
 }
 
@@ -44,9 +45,9 @@ func newAggBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *aggBenchmar
 	// To avoid workers overlapping on the documents they are working on,
 	// we have one channel per worker so we can uniformly & consistently
 	// spread the workload across workers in a non-overlapping fashion.
-	channels := []*duplexChannel{}
+	channels := []*load.DuplexChannel{}
 	for i := 0; i < loader.NumWorkers(); i++ {
-		channels = append(channels, newDuplexChannel(1))
+		channels = append(channels, load.NewDuplexChannel(1))
 	}
 	return &aggBenchmark{l: l, channels: channels, session: session}
 }
@@ -55,13 +56,14 @@ func (b *aggBenchmark) Work(wg *sync.WaitGroup, i int) {
 	go processBatchesAggregate(wg, b.session, b.channels[i])
 }
 
-func (b *aggBenchmark) Scan(batchSize int, br *bufio.Reader) int64 {
-	return scanWithIndexer(b.channels, batchSize, br, &hostnameIndexer{partitions: len(b.channels)})
+func (b *aggBenchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
+	decoder := &decoder{lenBuf: make([]byte, 8)}
+	return load.ScanWithIndexer(b.channels, batchSize, limit, br, decoder, &factory{}, &hostnameIndexer{partitions: len(b.channels)})
 }
 
 func (b *aggBenchmark) Close() {
 	for _, c := range b.channels {
-		c.close()
+		c.Close()
 	}
 }
 
@@ -108,7 +110,7 @@ var pPool = &sync.Pool{New: func() interface{} { return &point{} }}
 //      ]
 //    ]
 //  }
-func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *duplexChannel) {
+func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *load.DuplexChannel) {
 	var sess *mgo.Session
 	var db *mgo.Database
 	var collection *mgo.Collection
@@ -119,13 +121,13 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *duple
 	}
 	var createdDocs = make(map[string]bool)
 	var createQueue = []interface{}{}
-	c := dc.toWorker
 
-	for batch := range c {
+	for x := range dc.GetWorkerChannel() {
 		docToEvents := make(map[string][]*point)
+		batch := x.(*batch)
 
 		eventCnt := uint64(0)
-		for _, event := range batch {
+		for _, event := range batch.arr {
 			tagsMap := map[string]string{}
 			t := &serialize.MongoTag{}
 			for j := 0; j < event.TagsLength(); j++ {
@@ -213,7 +215,7 @@ func processBatchesAggregate(wg *sync.WaitGroup, session *mgo.Session, dc *duple
 		// Update count of metrics inserted
 		atomic.AddUint64(&metricCount, eventCnt)
 
-		dc.sendToScanner()
+		dc.SendToScanner()
 	}
 	wg.Done()
 }
