@@ -1,6 +1,7 @@
 package load
 
 import (
+	"bufio"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -12,7 +13,7 @@ type DataReader struct {
 	itemsCount   int64
 	bytesCount   int64
 	inputDone    chan struct{}
-	scanFn       func() (int64, int64)
+	benchmark    Benchmark
 	workersGroup sync.WaitGroup
 
 	start time.Time
@@ -20,17 +21,17 @@ type DataReader struct {
 }
 
 // NewDataReader returns a new DataReader for the given parameters
-func NewDataReader(workers int, workerFn func(*sync.WaitGroup, int), scanFn func() (int64, int64)) *DataReader {
+func NewDataReader(workers int, b Benchmark) *DataReader {
 	d := &DataReader{
 		itemsCount: 0,
 		bytesCount: 0,
 		inputDone:  make(chan struct{}),
-		scanFn:     scanFn,
+		benchmark:  b,
 	}
 
 	for i := 0; i < workers; i++ {
 		d.workersGroup.Add(1)
-		workerFn(&d.workersGroup, i)
+		b.Work(&d.workersGroup, i)
 	}
 
 	return d
@@ -39,23 +40,22 @@ func NewDataReader(workers int, workerFn func(*sync.WaitGroup, int), scanFn func
 // Start begins the reading of input data and sending it to workers for loading.
 // If a non-0 reportingPeriod is supplied, a CSV of metrics is reported at
 // reportingPeriod intervals.
-// closeFn is a function for cleaning up any channels related to batching and reading.
 // metricCount is a pointer to an int64 that contains the number of metrics counted since the program began
 // rowCount is a (optional) pointer to an in64 that contains the number of rows counted since the program began
-func (d *DataReader) Start(reportPeriod time.Duration, closeFn func(), metricCount, rowCount *uint64) (int64, int64) {
+func (d *DataReader) Start(br *bufio.Reader, batchSize int, reportPeriod time.Duration, metricCount, rowCount *uint64) int64 {
 	d.start = time.Now()
 	if reportPeriod.Nanoseconds() > 0 {
 		go report(reportPeriod, metricCount, rowCount)
 	}
-	itemsRead, bytesRead := d.scanFn()
+	itemsRead := d.benchmark.Scan(batchSize, br)
 	close(d.inputDone)
 
 	<-d.inputDone
-	closeFn()
+	d.benchmark.Close()
 	d.workersGroup.Wait()
 	d.end = time.Now()
 
-	return itemsRead, bytesRead
+	return itemsRead
 }
 
 // Took returns the time.Duration of how long the scanning and processing input took

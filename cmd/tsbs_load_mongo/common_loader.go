@@ -2,11 +2,49 @@ package main
 
 import (
 	"bufio"
-	"os"
+	"encoding/binary"
+	"fmt"
+	"io"
+	"log"
 	"reflect"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+	flatbuffers "github.com/google/flatbuffers/go"
 )
+
+func decodeMongoPoint(r *bufio.Reader, lenBuf []byte) *serialize.MongoPoint {
+	item := &serialize.MongoPoint{}
+
+	_, err := r.Read(lenBuf)
+	if err == io.EOF {
+		return nil
+	}
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	// ensure correct len of receiving buffer
+	l := int(binary.LittleEndian.Uint64(lenBuf))
+	itemBuf := make([]byte, l)
+
+	// read the bytes and init the flatbuffer object
+	totRead := 0
+	for totRead < l {
+		m, err := r.Read(itemBuf[totRead:])
+		// (EOF is also fatal)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		totRead += m
+	}
+	if totRead != len(itemBuf) {
+		panic(fmt.Sprintf("reader/writer logic error, %d != %d", totRead, len(itemBuf)))
+	}
+	n := flatbuffers.GetUOffsetT(itemBuf)
+	item.Init(itemBuf, n)
+
+	return item
+}
 
 // ackAndMaybeSend adjust the outstanding batches count and potentially sends
 // another batch to the worker via ch. If unsent is non-empty, send. Returns
@@ -38,9 +76,8 @@ type batchIndexer interface {
 	GetIndex(*serialize.MongoPoint) int
 }
 
-func scanWithIndexer(channels []*duplexChannel, itemsPerBatch int, indexer batchIndexer) int64 {
+func scanWithIndexer(channels []*duplexChannel, itemsPerBatch int, br *bufio.Reader, indexer batchIndexer) int64 {
 	var itemsRead int64
-	r := bufio.NewReaderSize(os.Stdin, 1<<20)
 	lenBuf := make([]byte, 8)
 	numChannels := len(channels)
 
@@ -68,7 +105,7 @@ func scanWithIndexer(channels []*duplexChannel, itemsPerBatch int, indexer batch
 	ocnt := 0
 	olimit := numChannels * cap(channels[0].toWorker) * 3
 	for {
-		if itemsRead == limit {
+		if itemsRead == loader.Limit() {
 			break
 		}
 
@@ -83,7 +120,7 @@ func scanWithIndexer(channels []*duplexChannel, itemsPerBatch int, indexer batch
 			unsent[chosen] = ackAndMaybeSend(channels[chosen], &ocnt, unsent[chosen])
 		}
 
-		item := decodeMongoPoint(r, lenBuf)
+		item := decodeMongoPoint(br, lenBuf)
 		if item == nil {
 			break
 		}

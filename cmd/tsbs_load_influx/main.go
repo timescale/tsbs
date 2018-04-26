@@ -30,15 +30,9 @@ import (
 var (
 	csvDaemonUrls     string
 	daemonUrls        []string
-	dbName            string
 	replicationFactor int
-	workers           int
-	itemLimit         int64
-	batchSize         int
 	backoff           time.Duration
 	timeLimit         time.Duration
-	reportingPeriod   time.Duration
-	doLoad            bool
 	doDBCreate        bool
 	useGzip           bool
 	doAbortOnExist    bool
@@ -48,6 +42,7 @@ var (
 
 // Global vars
 var (
+	loader          *load.BenchmarkRunner
 	bufPool         sync.Pool
 	batchChan       chan *bytes.Buffer
 	backingOffChans []chan bool
@@ -66,18 +61,14 @@ var consistencyChoices = map[string]struct{}{
 
 // Parse args:
 func init() {
+	loader = load.GetBenchmarkRunner()
+
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
-	flag.StringVar(&dbName, "db-name", "benchmark", "Database name.")
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
 	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
-	flag.IntVar(&batchSize, "batch-size", 5000, "Batch size (1 line of input = 1 item).")
-	flag.IntVar(&workers, "workers", 1, "Number of parallel requests to make.")
-	flag.Int64Var(&itemLimit, "item-limit", -1, "Number of items to read from stdin before quitting. (1 item per 1 line of input.)")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
-	flag.DurationVar(&reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
-	flag.BoolVar(&doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
@@ -95,12 +86,47 @@ func init() {
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
+type benchmark struct {
+	l *load.BenchmarkRunner
+	c chan *bytes.Buffer
+}
+
+func (b *benchmark) Work(wg *sync.WaitGroup, i int) {
+	daemonUrl := daemonUrls[i%len(daemonUrls)]
+	backingOffChans[i] = make(chan bool, 100)
+	backingOffDones[i] = make(chan struct{})
+	cfg := HTTPWriterConfig{
+		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonUrl),
+		Host:           daemonUrl,
+		Database:       loader.DatabaseName(),
+		BackingOffChan: backingOffChans[i],
+		BackingOffDone: backingOffDones[i],
+	}
+	go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i])
+	go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
+}
+
+func (b *benchmark) Scan(batchSize int, br *bufio.Reader) int64 {
+	return scan(batchSize, br)
+}
+
+func (b *benchmark) Close() {
+	close(b.c)
+}
+
+func (b *benchmark) Cleanup() {
+	for i := range backingOffChans {
+		close(backingOffChans[i])
+		<-backingOffDones[i]
+	}
+}
+
 func main() {
 	if memprofile {
 		p := profile.Start(profile.MemProfile)
 		defer p.Stop()
 	}
-	if doLoad && doDBCreate {
+	if loader.DoLoad() && doDBCreate {
 		// check that there are no pre-existing databases:
 		existingDatabases, err := listDatabases(daemonUrls[0])
 		if err != nil {
@@ -116,7 +142,7 @@ func main() {
 		}
 
 		if len(existingDatabases) == 0 {
-			err = createDb(daemonUrls[0], dbName, replicationFactor)
+			err = createDb(daemonUrls[0], loader.DatabaseName(), replicationFactor)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -130,50 +156,22 @@ func main() {
 		},
 	}
 
-	backingOffChans = make([]chan bool, workers)
-	backingOffDones = make([]chan struct{}, workers)
+	backingOffChans = make([]chan bool, loader.NumWorkers())
+	backingOffDones = make([]chan struct{}, loader.NumWorkers())
+	batchChan = make(chan *bytes.Buffer, loader.NumWorkers())
 
-	batchChan = make(chan *bytes.Buffer, workers)
-	workerFn := func(wg *sync.WaitGroup, i int) {
-		daemonUrl := daemonUrls[i%len(daemonUrls)]
-		backingOffChans[i] = make(chan bool, 100)
-		backingOffDones[i] = make(chan struct{})
-		cfg := HTTPWriterConfig{
-			DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonUrl),
-			Host:           daemonUrl,
-			Database:       dbName,
-			BackingOffChan: backingOffChans[i],
-			BackingOffDone: backingOffDones[i],
-		}
-		go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i])
-		go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
-	}
-	scanFn := func() (int64, int64) {
-		return scan(batchSize)
-	}
-
-	dr := load.NewDataReader(workers, workerFn, scanFn)
-
-	itemsRead, bytesRead := dr.Start(reportingPeriod, func() { close(batchChan) }, &metricCount, &rowCount)
-	for i := range backingOffChans {
-		close(backingOffChans[i])
-		<-backingOffDones[i]
-	}
-
-	took := dr.Took()
-	itemsRate := float64(itemsRead) / float64(took.Seconds())
-	bytesRate := float64(bytesRead) / float64(took.Seconds())
-
-	fmt.Printf("loaded %d items in %fsec with %d workers (mean rate %f/sec, %.2fMB/sec from stdin)\n", itemsRead, took.Seconds(), workers, itemsRate, bytesRate/(1<<20))
+	br := bufio.NewReaderSize(os.Stdin, 4*1024*1024)
+	b := &benchmark{l: loader, c: batchChan}
+	loader.RunBenchmark(b, br, &metricCount, &rowCount)
 }
 
 // scan reads one item at a time from stdin. 1 item = 1 line.
 // When the requested number of items per batch is met, send a batch over batchChan for the workers to write.
-func scan(itemsPerBatch int) (int64, int64) {
+func scan(itemsPerBatch int, br *bufio.Reader) int64 {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	var n int
-	var itemsRead, bytesRead int64
+	var itemsRead int64
 	newline := []byte("\n")
 	var deadline time.Time
 	if timeLimit >= 0 {
@@ -182,10 +180,10 @@ func scan(itemsPerBatch int) (int64, int64) {
 
 	batchMetricCount := uint64(0)
 	batchRowCount := uint64(0)
-	scanner := bufio.NewScanner(bufio.NewReaderSize(os.Stdin, 4*1024*1024))
+	scanner := bufio.NewScanner(br)
 outer:
 	for scanner.Scan() {
-		if itemsRead == itemLimit {
+		if itemsRead == loader.Limit() {
 			break
 		}
 
@@ -207,7 +205,6 @@ outer:
 			batchRowCount = 0
 			batchMetricCount = 0
 
-			bytesRead += int64(buf.Len())
 			batchChan <- buf
 			buf = bufPool.Get().(*bytes.Buffer)
 			n = 0
@@ -228,7 +225,7 @@ outer:
 		batchChan <- buf
 	}
 
-	return itemsRead, bytesRead
+	return itemsRead
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
@@ -238,7 +235,7 @@ func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, bac
 		batchesSeen++
 
 		// Write the batch: try until backoff is not needed.
-		if doLoad {
+		if loader.DoLoad() {
 			var err error
 			for {
 				if useGzip {
