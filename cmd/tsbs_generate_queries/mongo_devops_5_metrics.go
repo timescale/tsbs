@@ -28,6 +28,6 @@ func NewMongoDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 // Dispatch fills in the query.Query
 func (d *MongoDevops5Metrics) Dispatch(scaleVar int) query.Query {
 	q := query.NewMongo() // from pool
-	d.MaxCPUUsageHourByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }
