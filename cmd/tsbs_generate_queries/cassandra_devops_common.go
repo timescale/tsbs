@@ -36,59 +36,31 @@ func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
 	return tagSet
 }
 
-// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
+// MaxCPUMetricsByMinute selects the MAX for numMetrics metrics under 'cpu',
+// per minute for nhosts hosts,
 // e.g. in psuedo-SQL:
 //
-// SELECT minute, MAX(usage_user) FROM cpu
-// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// AND time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY minute ORDER BY minute ASC
-func (d *CassandraDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
-	tagSet := d.getHostWhere(scaleVar, nhosts)
-
-	tagSets := [][]string{}
-	tagSets = append(tagSets, tagSet)
-
-	humanLabel := fmt.Sprintf("Cassandra max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
-	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-
-	q.AggregationType = []byte("max")
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
-
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
-	q.GroupByDuration = time.Minute
-
-	q.TagSets = tagSets
-}
-
-// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
-// e.g. in psuedo-SQL:
-//
-// SELECT minute, max(metric1), ..., max(metric5)
+// SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *CassandraDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *CassandraDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	tagSet := d.getHostWhere(scaleVar, nhosts)
+	metrics := getCPUMetricsSlice(numMetrics)
+	tagSet := d.getHostWhere(scaleVar, nHosts)
 
 	tagSets := [][]string{}
 	tagSets = append(tagSets, tagSet)
 
-	humanLabel := fmt.Sprintf("Cassandra 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	humanLabel := fmt.Sprintf("Cassandra %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 
 	q.AggregationType = []byte("max")
 	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte("usage_user,usage_system,usage_idle,usage_nice,usage_guest")
+	q.FieldName = []byte(strings.Join(metrics, ","))
 
 	q.TimeStart = interval.Start
 	q.TimeEnd = interval.End

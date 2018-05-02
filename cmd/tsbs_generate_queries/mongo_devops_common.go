@@ -146,19 +146,21 @@ func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, scaleVar, nho
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s (%s)", humanLabel, interval.StartString(), q.CollectionName))
 }
 
-// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
+// MaxCPUMetricsByMinute selects the MAX for numMetrics metrics under 'cpu',
+// per minute for nhosts hosts,
 // e.g. in psuedo-SQL:
 //
-// SELECT minute, MAX(usage_user) FROM cpu
+// SELECT minute, max(metric1), ..., max(metricN)
+// FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nHosts, nMetrics int, timeRange time.Duration) {
+func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
 	hostnames := getRandomHosts(scaleVar, nHosts)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
-	metrics := cpuMetrics[:nMetrics]
+	metrics := cpuMetrics[:numMetrics]
 
 	pipelineQuery := []bson.M{
 		{
@@ -206,7 +208,7 @@ func (d *MongoDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nHosts, 
 	pipelineQuery = append(pipelineQuery, group)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id": 1}})
 
-	humanLabel := []byte(fmt.Sprintf("Mongo %d cpu metrics, rand %4d hosts, rand %s by 1m", nMetrics, nHosts, timeRange))
+	humanLabel := []byte(fmt.Sprintf("Cassandra %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange))
 	q := qi.(*query.Mongo)
 	q.HumanLabel = humanLabel
 	q.BsonDoc = pipelineQuery

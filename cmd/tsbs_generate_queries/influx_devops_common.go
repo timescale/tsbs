@@ -40,45 +40,34 @@ func (d *InfluxDevops) getHostWhereString(scaleVar int, nhosts int) string {
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
-// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
-// e.g. in psuedo-SQL:
-//
-// SELECT minute, MAX(usage_user) FROM cpu
-// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// AND time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY minute ORDER BY minute ASC
-func (d *InfluxDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
-	whereHosts := d.getHostWhereString(scaleVar, nhosts)
+func (d *InfluxDevops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
+	selectClauses := make([]string, len(metrics))
+	for i, m := range metrics {
+		selectClauses[i] = fmt.Sprintf("%s(%s)", agg, m)
+	}
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
-
-	humanLabel := fmt.Sprintf("Influx max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	return selectClauses
 }
 
-// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
+// MaxCPUMetricsByMinute selects the MAX for numMetrics metrics under 'cpu',
+// per minute for nhosts hosts,
 // e.g. in psuedo-SQL:
 //
-// SELECT minute, max(metric1), ..., max(metric5)
+// SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *InfluxDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *InfluxDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	whereHosts := d.getHostWhereString(scaleVar, nhosts)
+	metrics := getCPUMetricsSlice(numMetrics)
+	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
+	whereHosts := d.getHostWhereString(scaleVar, nHosts)
 
 	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user), max(usage_system), max(usage_idle), max(usage_nice), max(usage_guest) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ", "), whereHosts, interval.StartString(), interval.EndString()))
 
-	humanLabel := fmt.Sprintf("Influx 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	humanLabel := fmt.Sprintf("Influx %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

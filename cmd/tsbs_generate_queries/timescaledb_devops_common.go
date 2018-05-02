@@ -65,37 +65,18 @@ func (d *TimescaleDBDevops) getSelectClausesAggMetrics(agg string, metrics []str
 
 const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 
-// MaxCPUUsageHourByMinute selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
+// MaxCPUMetricsByMinute selects the MAX for numMetrics metrics under 'cpu',
+// per minute for nhosts hosts,
 // e.g. in psuedo-SQL:
 //
-// SELECT minute, MAX(usage_user) FROM cpu
-// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// AND time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) MaxCPUUsageHourByMinute(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
-
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu where %s AND time >= '%s' AND time < '%s' GROUP BY minute ORDER BY minute ASC`, d.getHostWhereString(scaleVar, nhosts), interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
-
-	humanLabel := fmt.Sprintf("TimescaleDB max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
-	q := qi.(*query.TimescaleDB)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Hypertable = []byte("cpu")
-	q.SqlQuery = []byte(sqlQuery)
-}
-
-// CPU5Metrics selects the MAX of 5 metrics under 'cpu' per minute for nhosts hosts,
-// e.g. in psuedo-SQL:
-//
-// SELECT minute, max(metric1), ..., max(metric5)
+// SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
+func (d *TimescaleDBDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.AllInterval.RandWindow(timeRange)
-	metrics := getCPUMetricsSlice(5)
+	metrics := getCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
@@ -104,11 +85,11 @@ func (d *TimescaleDBDevops) CPU5Metrics(qi query.Query, scaleVar, nhosts int, ti
     WHERE %s AND time >= '%s' AND time < '%s'
     GROUP BY minute ORDER BY minute ASC`,
 		strings.Join(selectClauses, ", "),
-		d.getHostWhereString(scaleVar, nhosts),
+		d.getHostWhereString(scaleVar, nHosts),
 		interval.Start.Format(goTimeFmt),
 		interval.End.Format(goTimeFmt))
 
-	humanLabel := fmt.Sprintf("TimescaleDB 5 cpu metrics, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
+	humanLabel := fmt.Sprintf("TimescaleDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

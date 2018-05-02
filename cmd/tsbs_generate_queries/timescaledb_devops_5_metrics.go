@@ -28,6 +28,6 @@ func NewTimescaleDBDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 // Dispatch fills in the query.Query
 func (d *TimescaleDBDevops5Metrics) Dispatch(scaleVar int) query.Query {
 	q := query.NewTimescaleDB() // from pool
-	d.CPU5Metrics(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

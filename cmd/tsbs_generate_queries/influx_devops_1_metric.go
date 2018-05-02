@@ -28,6 +28,6 @@ func NewInfluxDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
 // Dispatch fills in the query.Query
 func (d *InfluxDevopsSingleMetric) Dispatch(scaleVar int) query.Query {
 	q := query.NewHTTP() // from pool
-	d.MaxCPUUsageHourByMinute(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 1, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }
