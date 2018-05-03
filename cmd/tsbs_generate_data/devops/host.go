@@ -1,9 +1,11 @@
-package main
+package devops
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 )
 
 // Count of choices for auto-generated tag values:
@@ -124,15 +126,15 @@ var (
 
 // Type Host models a machine being monitored by Telegraf.
 type Host struct {
-	SimulatedMeasurements []SimulatedMeasurement
+	SimulatedMeasurements []common.SimulatedMeasurement
 
 	// These are all assigned once, at Host creation:
 	Name, Region, Datacenter, Rack, OS, Arch          []byte
 	Team, Service, ServiceVersion, ServiceEnvironment []byte
 }
 
-func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
-	sm := []SimulatedMeasurement{
+func NewHostMeasurements(start time.Time) []common.SimulatedMeasurement {
+	sm := []common.SimulatedMeasurement{
 		NewCPUMeasurement(start),
 		NewDiskIOMeasurement(start),
 		NewDiskMeasurement(start),
@@ -147,8 +149,8 @@ func NewHostMeasurements(start time.Time) []SimulatedMeasurement {
 	return sm
 }
 
-func NewCPUOnlyHostMeasurements(start time.Time) []SimulatedMeasurement {
-	sm := []SimulatedMeasurement{
+func NewCPUOnlyHostMeasurements(start time.Time) []common.SimulatedMeasurement {
+	sm := []common.SimulatedMeasurement{
 		NewCPUMeasurement(start),
 	}
 
@@ -177,7 +179,7 @@ func NewRandHost(i int, start time.Time) Host {
 }
 */
 
-func NewHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []SimulatedMeasurement) Host {
+func NewHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []common.SimulatedMeasurement) Host {
 	sm := generator(start)
 
 	region := &Regions[rand.Intn(len(Regions))]

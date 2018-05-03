@@ -1,10 +1,11 @@
-package main
+package devops
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -17,13 +18,13 @@ var (
 	}
 
 	NginxFields = []LabeledDistributionMaker{
-		{[]byte("accepts"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("active"), func() Distribution { return CWD(ND(5, 1), 0, 100, 0) }},
-		{[]byte("handled"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("reading"), func() Distribution { return CWD(ND(5, 1), 0, 100, 0) }},
-		{[]byte("requests"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("waiting"), func() Distribution { return CWD(ND(5, 1), 0, 100, 0) }},
-		{[]byte("writing"), func() Distribution { return CWD(ND(5, 1), 0, 100, 0) }},
+		{[]byte("accepts"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("active"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 100, 0) }},
+		{[]byte("handled"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("reading"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 100, 0) }},
+		{[]byte("requests"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("waiting"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 100, 0) }},
+		{[]byte("writing"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 100, 0) }},
 	}
 )
 
@@ -31,11 +32,11 @@ type NginxMeasurement struct {
 	timestamp time.Time
 
 	port, serverName []byte
-	distributions    []Distribution
+	distributions    []common.Distribution
 }
 
 func NewNginxMeasurement(start time.Time) *NginxMeasurement {
-	distributions := make([]Distribution, len(NginxFields))
+	distributions := make([]common.Distribution, len(NginxFields))
 	for i := range NginxFields {
 		distributions[i] = NginxFields[i].DistributionMaker()
 	}

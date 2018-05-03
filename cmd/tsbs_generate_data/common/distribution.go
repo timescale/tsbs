@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"math"
@@ -11,7 +11,7 @@ type Distribution interface {
 	Get() float64 // should be idempotent
 }
 
-// NormalDistribution models a normal distribution.
+// NormalDistribution models a normal distribution (stateless).
 type NormalDistribution struct {
 	Mean   float64
 	StdDev float64
@@ -19,12 +19,13 @@ type NormalDistribution struct {
 	value float64
 }
 
+// ND creates a new normal distribution with the given mean/stddev
 func ND(mean, stddev float64) *NormalDistribution {
 	return &NormalDistribution{Mean: mean, StdDev: stddev}
 }
 
-// Advance advances this distribution. Since a normal distribution is
-// stateless, this is just overwrites the internal cache value.
+// Advance advances this distribution. Since the distribution is
+// stateless, this just overwrites the internal cache value.
 func (d *NormalDistribution) Advance() {
 	d.value = rand.NormFloat64()*d.StdDev + d.Mean
 }
@@ -34,7 +35,7 @@ func (d *NormalDistribution) Get() float64 {
 	return d.value
 }
 
-// UniformDistribution models a uniform distribution.
+// UniformDistribution models a uniform distribution (stateless).
 type UniformDistribution struct {
 	Low  float64
 	High float64
@@ -42,12 +43,13 @@ type UniformDistribution struct {
 	value float64
 }
 
+// UD creates a new uniform distribution with the given range
 func UD(low, high float64) *UniformDistribution {
 	return &UniformDistribution{Low: low, High: high}
 }
 
-// Advance advances this distribution. Since a uniform distribution is
-// stateless, this is just overwrites the internal cache value.
+// Advance advances this distribution. Since the distribution is
+// stateless, this just overwrites the internal cache value.
 func (d *UniformDistribution) Advance() {
 	x := rand.Float64() // uniform
 	x *= d.High - d.Low
@@ -55,7 +57,7 @@ func (d *UniformDistribution) Advance() {
 	d.value = x
 }
 
-// Get computes and returns the next value in the distribution.
+// Get returns the last computed value for this distribution.
 func (d *UniformDistribution) Get() float64 {
 	return d.value
 }
@@ -68,6 +70,7 @@ type RandomWalkDistribution struct {
 	State float64 // optional
 }
 
+// WD creates a new RandomWalkDistribution based on a given distribution and starting state
 func WD(step Distribution, state float64) *RandomWalkDistribution {
 	return &RandomWalkDistribution{Step: step, State: state}
 }
@@ -94,11 +97,12 @@ type ClampedRandomWalkDistribution struct {
 	State float64 // optional
 }
 
+// CWD returns a new ClampedRandomWalkDistribution based on a given distribution and optional starting state
 func CWD(step Distribution, min, max, state float64) *ClampedRandomWalkDistribution {
 	return &ClampedRandomWalkDistribution{
 		Step: step,
-		Min: min,
-		Max: max,
+		Min:  min,
+		Max:  max,
 
 		State: state,
 	}
@@ -136,21 +140,26 @@ func (d *MonotonicRandomWalkDistribution) Advance() {
 	d.State += math.Abs(d.Step.Get())
 }
 
+// Get returns the last computed value for this distribution.
 func (d *MonotonicRandomWalkDistribution) Get() float64 {
 	return d.State
 }
 
+// MWD creates a new MonotonicRandomWalkDistribution with a given distribution and initial state
 func MWD(step Distribution, state float64) *MonotonicRandomWalkDistribution {
 	return &MonotonicRandomWalkDistribution{Step: step, State: state}
 }
 
+// ConstantDistribution is a stateful distribution that always returns the same value
 type ConstantDistribution struct {
 	State float64
 }
 
-func (d *ConstantDistribution) Advacne() {
+// Advance does nothing in a constant distribution
+func (d *ConstantDistribution) Advance() {
 }
 
+// Get returns the last computed value for this distribution.
 func (d *ConstantDistribution) Get() float64 {
 	return d.State
 }

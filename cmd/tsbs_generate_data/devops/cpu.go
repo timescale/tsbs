@@ -1,9 +1,10 @@
-package main
+package devops
 
 import (
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -28,17 +29,17 @@ var (
 	}
 )
 
-var cpuND = &NormalDistribution{Mean: 0.0, StdDev: 1.0}
+var cpuND = &common.NormalDistribution{Mean: 0.0, StdDev: 1.0}
 
 type CPUMeasurement struct {
 	timestamp     time.Time
-	distributions []Distribution
+	distributions []common.Distribution
 }
 
 func NewCPUMeasurement(start time.Time) *CPUMeasurement {
-	distributions := make([]Distribution, len(CPUFieldKeys))
+	distributions := make([]common.Distribution, len(CPUFieldKeys))
 	for i := range distributions {
-		distributions[i] = &ClampedRandomWalkDistribution{
+		distributions[i] = &common.ClampedRandomWalkDistribution{
 			State: rand.Float64() * 100.0,
 			Min:   0.0,
 			Max:   100.0,

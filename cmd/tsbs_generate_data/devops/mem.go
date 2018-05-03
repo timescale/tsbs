@@ -1,10 +1,11 @@
-package main
+package devops
 
 import (
 	"math"
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -34,34 +35,34 @@ type MemMeasurement struct {
 
 	// these change:
 	timestamp                                         time.Time
-	bytesUsedDist, bytesCachedDist, bytesBufferedDist Distribution
+	bytesUsedDist, bytesCachedDist, bytesBufferedDist common.Distribution
 }
 
 func NewMemMeasurement(start time.Time) *MemMeasurement {
 	bytesTotal := MemoryMaxBytesChoices[rand.Intn(len(MemoryMaxBytesChoices))]
-	bytesUsedDist := &ClampedRandomWalkDistribution{
+	bytesUsedDist := &common.ClampedRandomWalkDistribution{
 		State: rand.Float64() * float64(bytesTotal),
 		Min:   0.0,
 		Max:   float64(bytesTotal),
-		Step: &NormalDistribution{
+		Step: &common.NormalDistribution{
 			Mean:   0.0,
 			StdDev: float64(bytesTotal) / 64,
 		},
 	}
-	bytesCachedDist := &ClampedRandomWalkDistribution{
+	bytesCachedDist := &common.ClampedRandomWalkDistribution{
 		State: rand.Float64() * float64(bytesTotal),
 		Min:   0.0,
 		Max:   float64(bytesTotal),
-		Step: &NormalDistribution{
+		Step: &common.NormalDistribution{
 			Mean:   0.0,
 			StdDev: float64(bytesTotal) / 64,
 		},
 	}
-	bytesBufferedDist := &ClampedRandomWalkDistribution{
+	bytesBufferedDist := &common.ClampedRandomWalkDistribution{
 		State: rand.Float64() * float64(bytesTotal),
 		Min:   0.0,
 		Max:   float64(bytesTotal),
-		Step: &NormalDistribution{
+		Step: &common.NormalDistribution{
 			Mean:   0.0,
 			StdDev: float64(bytesTotal) / 64,
 		},

@@ -1,10 +1,11 @@
-package main
+package devops
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -13,13 +14,13 @@ var (
 	SerialByteString = []byte("serial")
 
 	DiskIOFields = []LabeledDistributionMaker{
-		{[]byte("reads"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("writes"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("read_bytes"), func() Distribution { return MWD(ND(100, 1), 0) }},
-		{[]byte("write_bytes"), func() Distribution { return MWD(ND(100, 1), 0) }},
-		{[]byte("read_time"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("write_time"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("io_time"), func() Distribution { return MWD(ND(5, 1), 0) }},
+		{[]byte("reads"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("writes"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(common.ND(100, 1), 0) }},
+		{[]byte("write_bytes"), func() common.Distribution { return common.MWD(common.ND(100, 1), 0) }},
+		{[]byte("read_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("write_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("io_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
 	}
 )
 
@@ -27,11 +28,11 @@ type DiskIOMeasurement struct {
 	timestamp time.Time
 
 	serial        []byte
-	distributions []Distribution
+	distributions []common.Distribution
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
-	distributions := make([]Distribution, len(DiskIOFields))
+	distributions := make([]common.Distribution, len(DiskIOFields))
 	for i := range DiskIOFields {
 		distributions[i] = DiskIOFields[i].DistributionMaker()
 	}
