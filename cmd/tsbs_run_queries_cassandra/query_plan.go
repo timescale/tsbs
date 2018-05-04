@@ -122,7 +122,7 @@ type QueryPlanWithoutServerAggregation struct {
 func NewQueryPlanWithoutServerAggregation(aggrLabel string, groupByDuration time.Duration, fields []string, timeBuckets []TimeInterval, limit int, cqlQueries []CQLQuery) (*QueryPlanWithoutServerAggregation, error) {
 	aggrs := make(map[TimeInterval]map[string]Aggregator, len(timeBuckets))
 	for _, ti := range timeBuckets {
-		if len(aggrs) == limit {
+		if len(aggrs) > 0 && len(aggrs) == limit {
 			break
 		}
 		aggrs[ti] = make(map[string]Aggregator)
