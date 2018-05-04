@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"time"
@@ -6,7 +6,8 @@ import (
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
-type simulatorConfig interface {
+// SimulatorConfig is an interface to create a Simulator from a time.Duration
+type SimulatorConfig interface {
 	ToSimulator(time.Duration) Simulator
 }
 

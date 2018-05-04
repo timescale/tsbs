@@ -1,8 +1,9 @@
-package main
+package devops
 
 import (
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -29,13 +30,13 @@ var (
 
 type RandMeasurement struct {
 	timestamp     time.Time
-	distributions []Distribution
+	distributions []common.Distribution
 }
 
 func NewRandMeasurement(start time.Time) *RandMeasurement {
-	distributions := make([]Distribution, len(RandFieldKeys))
+	distributions := make([]common.Distribution, len(RandFieldKeys))
 	for i := range distributions {
-		distributions[i] = &UniformDistribution{
+		distributions[i] = &common.UniformDistribution{
 			Low:  0.0,
 			High: 100.0,
 		}

@@ -1,10 +1,11 @@
-package main
+package devops
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -15,14 +16,14 @@ var (
 	}
 
 	NetFields = []LabeledDistributionMaker{
-		{[]byte("bytes_sent"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("bytes_recv"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("packets_sent"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("packets_recv"), func() Distribution { return MWD(ND(50, 1), 0) }},
-		{[]byte("err_in"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("err_out"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("drop_in"), func() Distribution { return MWD(ND(5, 1), 0) }},
-		{[]byte("drop_out"), func() Distribution { return MWD(ND(5, 1), 0) }},
+		{[]byte("bytes_sent"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("bytes_recv"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("packets_sent"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("packets_recv"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
+		{[]byte("err_in"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("err_out"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("drop_in"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+		{[]byte("drop_out"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
 	}
 )
 
@@ -31,11 +32,11 @@ type NetMeasurement struct {
 
 	interfaceName []byte
 	uptime        time.Duration
-	distributions []Distribution
+	distributions []common.Distribution
 }
 
 func NewNetMeasurement(start time.Time) *NetMeasurement {
-	distributions := make([]Distribution, len(NetFields))
+	distributions := make([]common.Distribution, len(NetFields))
 	for i := range NetFields {
 		distributions[i] = NetFields[i].DistributionMaker()
 	}

@@ -1,10 +1,11 @@
-package main
+package devops
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -36,7 +37,7 @@ type DiskMeasurement struct {
 
 	path, fsType  []byte
 	uptime        time.Duration
-	freeBytesDist Distribution
+	freeBytesDist common.Distribution
 }
 
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
@@ -47,7 +48,7 @@ func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 		fsType: fsType,
 
 		timestamp:     start,
-		freeBytesDist: CWD(ND(50, 1), 0, OneTerabyte, OneTerabyte/2),
+		freeBytesDist: common.CWD(common.ND(50, 1), 0, OneTerabyte, OneTerabyte/2),
 	}
 }
 

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/devops"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 )
 
@@ -126,25 +128,25 @@ func main() {
 	out := bufio.NewWriterSize(os.Stdout, 4<<20)
 	defer out.Flush()
 
-	var cfg simulatorConfig
+	var cfg common.SimulatorConfig
 	switch useCase {
 	case "devops":
-		cfg = &DevopsSimulatorConfig{
+		cfg = &devops.DevopsSimulatorConfig{
 			Start: timestampStart,
 			End:   timestampEnd,
 
 			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
-			HostConstructor: NewHost,
+			HostConstructor: devops.NewHost,
 		}
 	case "cpu-only":
-		cfg = &CPUOnlySimulatorConfig{
+		cfg = &devops.CPUOnlySimulatorConfig{
 			Start: timestampStart,
 			End:   timestampEnd,
 
 			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
-			HostConstructor: NewCPUOnlyHost,
+			HostConstructor: devops.NewCPUOnlyHost,
 		}
 	default:
 		log.Fatalf("unknown use case: '%s'", useCase)
@@ -161,7 +163,7 @@ func main() {
 		serializer = &serialize.MongoSerializer{}
 	case "timescaledb":
 		out.WriteString("tags")
-		for _, key := range MachineTagKeys {
+		for _, key := range devops.MachineTagKeys {
 			out.WriteString(",")
 			out.Write(key)
 		}
@@ -183,7 +185,7 @@ func main() {
 	}
 
 	currentInterleavedGroup := uint(0)
-	point := MakeUsablePoint()
+	point := common.MakeUsablePoint()
 
 	for !sim.Finished() {
 		write := sim.Next(point)
