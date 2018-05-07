@@ -7,15 +7,23 @@ import (
 	"time"
 )
 
+const (
+	// DefaultBatchSize is the default size of batches to be inserted
+	DefaultBatchSize = 10000
+)
+
 // Benchmark is an interface that represents the skeleton of a program
 // needed to run an insert or load benchmark.
 type Benchmark interface {
 	Work(*sync.WaitGroup, int)
-	Scan(int, *bufio.Reader) int64
+	Scan(batchSize int, limit int64, br *bufio.Reader) int64
 	Close()
 }
 
+// CleaningBenchmark is an interface for programs that need to cleanup before
+// printing the summary. It should be combined with Benchmark
 type CleaningBenchmark interface {
+	Benchmark
 	Cleanup()
 }
 
@@ -35,7 +43,7 @@ var loader = &BenchmarkRunner{}
 // GetBenchmarkRunner returns the singleton BenchmarkRunner for use in a benchmark program
 // with a batch size of 10000
 func GetBenchmarkRunner() *BenchmarkRunner {
-	return GetBenchmarkRunnerWithBatchSize(10000)
+	return GetBenchmarkRunnerWithBatchSize(DefaultBatchSize)
 }
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
@@ -67,21 +75,11 @@ func (l *BenchmarkRunner) NumWorkers() int {
 	return l.workers
 }
 
-// BatchSize returns the value of the --batch-size flag (how large of an insert batch to use)
-func (l *BenchmarkRunner) BatchSize() int {
-	return l.batchSize
-}
-
-// Limit returns the value of the --limit flag (how many items to insert before stopping, -1 = all)
-func (l *BenchmarkRunner) Limit() int64 {
-	return l.limit
-}
-
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
 func (l *BenchmarkRunner) RunBenchmark(b Benchmark, br *bufio.Reader, metricCount, rowCount *uint64) {
 	dr := NewDataReader(l.workers, b)
-	dr.Start(br, l.batchSize, l.reportingPeriod, metricCount, rowCount)
+	dr.Start(br, l.batchSize, l.limit, l.reportingPeriod, metricCount, rowCount)
 	switch c := b.(type) {
 	case CleaningBenchmark:
 		c.Cleanup()

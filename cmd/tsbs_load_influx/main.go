@@ -32,7 +32,6 @@ var (
 	daemonUrls        []string
 	replicationFactor int
 	backoff           time.Duration
-	timeLimit         time.Duration
 	doDBCreate        bool
 	useGzip           bool
 	doAbortOnExist    bool
@@ -44,7 +43,6 @@ var (
 var (
 	loader          *load.BenchmarkRunner
 	bufPool         sync.Pool
-	batchChan       chan *bytes.Buffer
 	backingOffChans []chan bool
 	backingOffDones []chan struct{}
 
@@ -67,7 +65,6 @@ func init() {
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
 	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
-	flag.DurationVar(&timeLimit, "time-limit", -1, "Maximum duration to run (-1 is the default: no limit).")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
@@ -87,31 +84,34 @@ func init() {
 }
 
 type benchmark struct {
-	l *load.BenchmarkRunner
-	c chan *bytes.Buffer
+	l        *load.BenchmarkRunner
+	channels []*load.DuplexChannel
 }
 
 func (b *benchmark) Work(wg *sync.WaitGroup, i int) {
-	daemonUrl := daemonUrls[i%len(daemonUrls)]
+	daemonURL := daemonUrls[i%len(daemonUrls)]
 	backingOffChans[i] = make(chan bool, 100)
 	backingOffDones[i] = make(chan struct{})
 	cfg := HTTPWriterConfig{
-		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonUrl),
-		Host:           daemonUrl,
+		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonURL),
+		Host:           daemonURL,
 		Database:       loader.DatabaseName(),
 		BackingOffChan: backingOffChans[i],
 		BackingOffDone: backingOffDones[i],
 	}
-	go processBatches(wg, NewHTTPWriter(cfg, consistency), backingOffChans[i], backingOffDones[i])
+	go processBatches(wg, NewHTTPWriter(cfg, consistency), b.channels[0], backingOffChans[i], backingOffDones[i])
 	go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
 }
 
-func (b *benchmark) Scan(batchSize int, br *bufio.Reader) int64 {
-	return scan(batchSize, br)
+func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
+	decoder := &decoder{scanner: bufio.NewScanner(br)}
+	return load.Scan(b.channels, batchSize, limit, br, decoder, &factory{})
 }
 
 func (b *benchmark) Close() {
-	close(b.c)
+	for _, c := range b.channels {
+		c.Close()
+	}
 }
 
 func (b *benchmark) Cleanup() {
@@ -146,7 +146,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			time.Sleep(1000 * time.Millisecond)
+			time.Sleep(time.Second)
 		}
 	}
 
@@ -158,81 +158,17 @@ func main() {
 
 	backingOffChans = make([]chan bool, loader.NumWorkers())
 	backingOffDones = make([]chan struct{}, loader.NumWorkers())
-	batchChan = make(chan *bytes.Buffer, loader.NumWorkers())
+	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
 
 	br := bufio.NewReaderSize(os.Stdin, 4*1024*1024)
-	b := &benchmark{l: loader, c: batchChan}
+	b := &benchmark{l: loader, channels: channels}
 	loader.RunBenchmark(b, br, &metricCount, &rowCount)
 }
 
-// scan reads one item at a time from stdin. 1 item = 1 line.
-// When the requested number of items per batch is met, send a batch over batchChan for the workers to write.
-func scan(itemsPerBatch int, br *bufio.Reader) int64 {
-	buf := bufPool.Get().(*bytes.Buffer)
-
-	var n int
-	var itemsRead int64
-	newline := []byte("\n")
-	var deadline time.Time
-	if timeLimit >= 0 {
-		deadline = time.Now().Add(timeLimit)
-	}
-
-	batchMetricCount := uint64(0)
-	batchRowCount := uint64(0)
-	scanner := bufio.NewScanner(br)
-outer:
-	for scanner.Scan() {
-		if itemsRead == loader.Limit() {
-			break
-		}
-
-		itemsRead++
-		batchRowCount++
-		row := scanner.Bytes()
-		rowStr := string(row)
-		// Each influx line is format "csv-tags csv-fields timestamp", so we split by space
-		// and then on the middle element, we split by comma to count number of fields added
-		batchMetricCount += uint64(len(strings.Split(strings.Split(rowStr, " ")[1], ",")))
-
-		buf.Write(row)
-		buf.Write(newline)
-
-		n++
-		if n >= itemsPerBatch {
-			atomic.AddUint64(&metricCount, batchMetricCount)
-			atomic.AddUint64(&rowCount, batchRowCount)
-			batchRowCount = 0
-			batchMetricCount = 0
-
-			batchChan <- buf
-			buf = bufPool.Get().(*bytes.Buffer)
-			n = 0
-
-			if timeLimit >= 0 && time.Now().After(deadline) {
-				break outer
-			}
-
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading input: %s", err.Error())
-	}
-
-	// Finished reading input, make sure last batch goes out.
-	if n > 0 {
-		batchChan <- buf
-	}
-
-	return itemsRead
-}
-
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, backoffDst chan struct{}) {
-	var batchesSeen int64
-	for batch := range batchChan {
-		batchesSeen++
+func processBatches(wg *sync.WaitGroup, w *HTTPWriter, c *load.DuplexChannel, backoffSrc chan bool, backoffDst chan struct{}) {
+	for item := range c.GetWorkerChannel() {
+		batch := item.(*batch)
 
 		// Write the batch: try until backoff is not needed.
 		if loader.DoLoad() {
@@ -240,13 +176,13 @@ func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, bac
 			for {
 				if useGzip {
 					compressedBatch := bufPool.Get().(*bytes.Buffer)
-					fasthttp.WriteGzip(compressedBatch, batch.Bytes())
+					fasthttp.WriteGzip(compressedBatch, batch.buf.Bytes())
 					_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
 					// Return the compressed batch buffer to the pool.
 					compressedBatch.Reset()
 					bufPool.Put(compressedBatch)
 				} else {
-					_, err = w.WriteLineProtocol(batch.Bytes(), false)
+					_, err = w.WriteLineProtocol(batch.buf.Bytes(), false)
 				}
 
 				if err == BackoffError {
@@ -261,15 +197,18 @@ func processBatches(wg *sync.WaitGroup, w *HTTPWriter, backoffSrc chan bool, bac
 				log.Fatalf("Error writing: %s\n", err.Error())
 			}
 		}
+		atomic.AddUint64(&metricCount, batch.metrics)
+		atomic.AddUint64(&rowCount, batch.rows)
 
 		// Return the batch buffer to the pool.
-		batch.Reset()
-		bufPool.Put(batch)
+		batch.buf.Reset()
+		bufPool.Put(batch.buf)
+		c.SendToScanner()
 	}
 	wg.Done()
 }
 
-func processBackoffMessages(workerId int, src chan bool, dst chan struct{}) {
+func processBackoffMessages(workerID int, src chan bool, dst chan struct{}) {
 	var totalBackoffSecs float64
 	var start time.Time
 	last := false
@@ -279,18 +218,18 @@ func processBackoffMessages(workerId int, src chan bool, dst chan struct{}) {
 			last = true
 		} else if !this && last {
 			took := time.Now().Sub(start)
-			fmt.Printf("[worker %d] backoff took %.02fsec\n", workerId, took.Seconds())
+			fmt.Printf("[worker %d] backoff took %.02fsec\n", workerID, took.Seconds())
 			totalBackoffSecs += took.Seconds()
 			last = false
 			start = time.Now()
 		}
 	}
-	fmt.Printf("[worker %d] backoffs took a total of %fsec of runtime\n", workerId, totalBackoffSecs)
+	fmt.Printf("[worker %d] backoffs took a total of %fsec of runtime\n", workerID, totalBackoffSecs)
 	dst <- struct{}{}
 }
 
-func createDb(daemon_url, dbname string, replicationFactor int) error {
-	u, err := url.Parse(daemon_url)
+func createDb(daemonURL, dbName string, replicationFactor int) error {
+	u, err := url.Parse(daemonURL)
 	if err != nil {
 		return err
 	}
@@ -299,7 +238,7 @@ func createDb(daemon_url, dbname string, replicationFactor int) error {
 	u.Path = "query"
 	v := u.Query()
 	v.Set("consistency", "all")
-	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbname, replicationFactor))
+	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbName, replicationFactor))
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest("GET", u.String(), nil)
@@ -322,8 +261,8 @@ func createDb(daemon_url, dbname string, replicationFactor int) error {
 }
 
 // listDatabases lists the existing databases in InfluxDB.
-func listDatabases(daemonUrl string) ([]string, error) {
-	u := fmt.Sprintf("%s/query?q=show%%20databases", daemonUrl)
+func listDatabases(daemonURL string) ([]string, error) {
+	u := fmt.Sprintf("%s/query?q=show%%20databases", daemonURL)
 	resp, err := http.Get(u)
 	if err != nil {
 		return nil, fmt.Errorf("listDatabases error: %s", err.Error())

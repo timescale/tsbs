@@ -30,7 +30,6 @@ var (
 
 // Global vars
 var (
-	batchChan   chan *eventsBatch
 	metricCount uint64
 	loader      *load.BenchmarkRunner
 )
@@ -65,21 +64,24 @@ func init() {
 }
 
 type benchmark struct {
-	l       *load.BenchmarkRunner
-	c       chan *eventsBatch
-	session *gocql.Session
+	l        *load.BenchmarkRunner
+	channels []*load.DuplexChannel
+	session  *gocql.Session
 }
 
 func (b *benchmark) Work(wg *sync.WaitGroup, _ int) {
-	go processBatches(wg, b.session)
+	go processBatches(wg, b.session, b.channels[0])
 }
 
-func (b *benchmark) Scan(batchSize int, br *bufio.Reader) int64 {
-	return scan(batchSize, br)
+func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
+	decoder := &decoder{scanner: bufio.NewScanner(br)}
+	return load.Scan(b.channels, batchSize, limit, br, decoder, &factory{})
 }
 
 func (b *benchmark) Close() {
-	close(b.c)
+	for _, c := range b.channels {
+		c.Close()
+	}
 }
 
 func main() {
@@ -100,50 +102,17 @@ func main() {
 		defer session.Close()
 	}
 
-	batchChan = make(chan *eventsBatch, loader.NumWorkers())
-	b := &benchmark{l: loader, c: batchChan, session: session}
+	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
+	b := &benchmark{l: loader, channels: channels, session: session}
 	br := bufio.NewReader(os.Stdin)
 	loader.RunBenchmark(b, br, &metricCount, nil)
 }
 
-type eventsBatch struct {
-	rows []string
-}
-
-var ePool = &sync.Pool{New: func() interface{} { return &eventsBatch{rows: []string{}} }}
-
-// scan reads lines from br. The expected input is in the Cassandra CQL format.
-func scan(itemsPerBatch int, br *bufio.Reader) int64 {
-	var linesRead int64
-	scanner := bufio.NewScanner(br)
-	batch := ePool.Get().(*eventsBatch)
-	for scanner.Scan() {
-		linesRead++
-
-		batch.rows = append(batch.rows, scanner.Text())
-
-		if len(batch.rows) >= itemsPerBatch {
-			batchChan <- batch
-			batch = ePool.Get().(*eventsBatch)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading input: %s", err.Error())
-	}
-
-	// Finished reading input, make sure last batch goes out.
-	if len(batch.rows) > 0 {
-		batchChan <- batch
-	}
-
-	return linesRead
-}
-
 // processBatches reads eventsBatches (contains rows of CQL strings) from a
 // channel and creates a gocql.LoggedBatch to insert
-func processBatches(wg *sync.WaitGroup, session *gocql.Session) {
-	for events := range batchChan {
+func processBatches(wg *sync.WaitGroup, session *gocql.Session, ch *load.DuplexChannel) {
+	for item := range ch.GetWorkerChannel() {
+		events := item.(*eventsBatch)
 		if loader.DoLoad() {
 			batch := session.NewBatch(gocql.LoggedBatch)
 			for _, event := range events.rows {
@@ -158,6 +127,7 @@ func processBatches(wg *sync.WaitGroup, session *gocql.Session) {
 		atomic.AddUint64(&metricCount, uint64(len(events.rows)))
 		events.rows = events.rows[:0]
 		ePool.Put(events)
+		ch.SendToScanner()
 	}
 	wg.Done()
 }
