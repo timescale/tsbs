@@ -129,34 +129,40 @@ func (d *TimescaleDBDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.
 	metrics := getCPUMetricsSlice(numMetrics)
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 
-	selectClauses := make([]string, len(metrics))
+	selectClauses := make([]string, numMetrics)
+	meanClauses := make([]string, numMetrics)
 	for i, m := range metrics {
-		selectClauses[i] = fmt.Sprintf("avg(%s) as mean_%s", m, m)
+		meanClauses[i] = "mean_" + m
+		selectClauses[i] = fmt.Sprintf("avg(%s) as %s", m, meanClauses[i])
 	}
 
 	hostnameField := "hostname"
 	joinStr := ""
-	groupByStr := hostnameField
 	if timescaleUseJSON || timescaleUseTags {
 		if timescaleUseJSON {
 			hostnameField = "tags->>'hostname'"
 		} else if timescaleUseTags {
 			hostnameField = "tags.hostname"
 		}
-		joinStr = "JOIN tags ON cpu.tags_id = tags.id"
-		groupByStr = hostnameField // TODO(rrk) -- previously had tags.id as well, but not sure why? double check JSON still works
+		joinStr = "JOIN tags ON cpu_avg.tags_id = tags.id"
 	}
 
 	sqlQuery := fmt.Sprintf(`
-		SELECT date_trunc('hour', time) as hour, %s,
-    	%s
-    	FROM cpu
+        WITH cpu_avg AS (
+          SELECT date_trunc('hour', time) as hour, tags_id,
+          %s
+          FROM cpu
+          WHERE time >= '%s' AND time < '%s'
+          GROUP BY hour, tags_id
+        )
+        SELECT hour, %s, %s
+        FROM cpu_avg
         %s
-        WHERE time >= '%s' AND time < '%s'
-    	GROUP BY hour, %s ORDER BY hour`,
-		hostnameField, strings.Join(selectClauses, ", "), joinStr,
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), groupByStr)
-
+        ORDER BY hour, %s`,
+		strings.Join(selectClauses, ", "),
+		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
+		hostnameField, strings.Join(meanClauses, ", "),
+		joinStr, hostnameField)
 	humanLabel := fmt.Sprintf("TimescaleDB mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)

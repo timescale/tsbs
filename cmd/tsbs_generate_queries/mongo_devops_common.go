@@ -339,7 +339,11 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics i
 	pipelineQuery = append(pipelineQuery, group)
 
 	// Add sort operator
-	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id.time": 1}})
+	pipelineQuery = append(pipelineQuery, []bson.M{
+		{"$sort": bson.M{"_id.hostname": 1}},
+		{"$sort": bson.M{"_id.time": 1}},
+	}...)
+	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id.time": 1, "_id.hostname": 1}})
 
 	humanLabel := fmt.Sprintf("Mongo mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*query.Mongo)
@@ -355,7 +359,7 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics i
 // SELECT AVG(metric1), ..., AVG(metricN)
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY hour, hostname ORDER BY hour
+// GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.AllInterval.RandWindow(24 * time.Hour)
 	metrics := cpuMetrics[:numMetrics]
@@ -414,10 +418,11 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	}
 	pipelineQuery = append(pipelineQuery, group)
 
-	// Add sort operator
-	pipelineQuery = append(pipelineQuery, bson.M{
-		"$sort": bson.M{"_id.time": 1},
-	})
+	// Add sort operators
+	pipelineQuery = append(pipelineQuery, []bson.M{
+		{"$sort": bson.M{"_id.hostname": 1}},
+		{"$sort": bson.M{"_id.time": 1}},
+	}...)
 
 	humanLabel := fmt.Sprintf("Mongo mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
 	q := qi.(*query.Mongo)

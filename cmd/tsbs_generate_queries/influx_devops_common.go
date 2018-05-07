@@ -104,7 +104,7 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
 // SELECT AVG(metric1), ..., AVG(metricN)
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY hour, hostname ORDER BY hour
+// GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *InfluxDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
 	if numMetrics <= 0 {
 		panic("no metrics given")
