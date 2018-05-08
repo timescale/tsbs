@@ -20,10 +20,11 @@ const (
 // BenchmarkRunner contains the common components for running a query benchmarking
 // program against a database.
 type BenchmarkRunner struct {
-	StatProcessor *StatProcessor
-	Workers       int
+	sp      *StatProcessor
+	scanner *scanner
+	c       chan Query
 
-	scanner        *scanner
+	workers        int
 	limit          uint64
 	memProfile     string
 	printResponses bool
@@ -34,18 +35,16 @@ type BenchmarkRunner struct {
 // common functionality to be used by query benchmarker programs
 func NewBenchmarkRunner() *BenchmarkRunner {
 	ret := &BenchmarkRunner{}
-	sp := &StatProcessor{
-		statPool: GetStatPool(),
-		Limit:    &ret.limit,
-	}
 	ret.scanner = newScanner(&ret.limit)
-	ret.StatProcessor = sp
-	flag.Uint64Var(&sp.BurnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
+	ret.sp = &StatProcessor{
+		limit: &ret.limit,
+	}
+	flag.Uint64Var(&ret.sp.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	flag.Uint64Var(&ret.limit, "limit", 0, "Limit the number of queries to send, 0 = no limit")
-	flag.Uint64Var(&sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
+	flag.Uint64Var(&ret.sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.StringVar(&ret.memProfile, "memprofile", "", "Write a memory profile to this file.")
-	flag.IntVar(&ret.Workers, "workers", 1, "Number of concurrent requests to make.")
-	flag.BoolVar(&sp.PrewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
+	flag.IntVar(&ret.workers, "workers", 1, "Number of concurrent requests to make.")
+	flag.BoolVar(&ret.sp.PrewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.BoolVar(&ret.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	flag.IntVar(&ret.debug, "debug", 0, "Whether to print debug messages.")
 
@@ -67,33 +66,43 @@ func (b *BenchmarkRunner) DebugLevel() int {
 	return b.debug
 }
 
-// ProcessQueryFunc is a function that is used by a gorountine to process a Query
-type ProcessQueryFunc func(*sync.WaitGroup, int)
+// ProcessorCreate is a function that creates a new Procesor (called in Run)
+type ProcessorCreate func() Processor
+
+// Processor is an interface that handles the setup of a query processing worker and executes queries one at a time
+type Processor interface {
+	// Init initializes at global state for the Processor, possibly based on its worker number / ID
+	Init(workerNum int)
+	// ProcessQuery handles a given query and reports its stats
+	ProcessQuery(sp *StatProcessor, q Query)
+}
 
 // Run does the bulk of the benchmark execution. It launches a gorountine to track
 // stats, creates workers to process queries, read in the input, execute the queries,
 // and then does cleanup.
-func (b *BenchmarkRunner) Run(queryPool *sync.Pool, queryChan chan Query, queryFn ProcessQueryFunc) {
+func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
+	b.c = make(chan Query, b.workers)
+
 	// Launch the stats processor:
-	go b.StatProcessor.Process(b.Workers)
+	go b.sp.Process(b.workers)
 
 	// Launch the query processors:
 	var wg sync.WaitGroup
-	for i := 0; i < b.Workers; i++ {
+	for i := 0; i < b.workers; i++ {
 		wg.Add(1)
-		go queryFn(&wg, i)
+		go b.processorHandler(&wg, queryPool, createFn(), i)
 	}
 
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	wallStart := time.Now()
-	b.scanner.setReader(input).scan(queryPool, queryChan)
-	close(queryChan)
+	b.scanner.setReader(input).scan(queryPool, b.c)
+	close(b.c)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	wg.Wait()
-	b.StatProcessor.CloseAndWait()
+	b.sp.CloseAndWait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -111,4 +120,13 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, queryChan chan Query, queryF
 		pprof.WriteHeapProfile(f)
 		f.Close()
 	}
+}
+
+func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, qPool *sync.Pool, p Processor, workerNum int) {
+	p.Init(workerNum)
+	for q := range b.c {
+		p.ProcessQuery(b.sp, q)
+		qPool.Put(q)
+	}
+	wg.Done()
 }
