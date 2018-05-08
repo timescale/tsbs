@@ -1,4 +1,4 @@
-package benchmarker
+package query
 
 import (
 	"bufio"
@@ -6,8 +6,6 @@ import (
 	"encoding/gob"
 	"sync"
 	"testing"
-
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 type testQuery struct {
@@ -21,7 +19,7 @@ func (q *testQuery) GetID() uint64                { return q.ID }
 func (q *testQuery) SetID(id uint64)              { q.ID = id }
 func (q *testQuery) String() string               { return "test" }
 
-var testQueryPool sync.Pool = sync.Pool{
+var testQueryPool = sync.Pool{
 	New: func() interface{} {
 		return &testQuery{}
 	},
@@ -61,7 +59,7 @@ func TestScannerLimit(t *testing.T) {
 
 	for _, c := range cases {
 		var wg sync.WaitGroup // TODO: Add a timeout feature?
-		queryChan := make(chan query.Query, 1)
+		queryChan := make(chan Query, 1)
 		scanner := newQueryScanner(&c.limit)
 		got := uint64(0)
 		wg.Add(1)

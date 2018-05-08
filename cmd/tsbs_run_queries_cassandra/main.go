@@ -18,7 +18,6 @@ import (
 
 	"github.com/gocql/gocql"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
@@ -63,14 +62,14 @@ var (
 	queryPool           = &query.CassandraPool
 	queryChan           chan query.Query
 	aggrPlan            int
-	benchmarkComponents *benchmarker.BenchmarkComponents
+	benchmarkComponents *query.BenchmarkComponents
 	csi                 *ClientSideIndex
 	session             *gocql.Session
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = benchmarker.NewBenchmarkComponents()
+	benchmarkComponents = query.NewBenchmarkComponents()
 
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")

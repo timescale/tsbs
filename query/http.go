@@ -19,7 +19,7 @@ type HTTP struct {
 }
 
 // HTTPPool is a sync.Pool of HTTP Query types
-var HTTPPool sync.Pool = sync.Pool{
+var HTTPPool = sync.Pool{
 	New: func() interface{} {
 		return &HTTP{
 			HumanLabel:       []byte{},

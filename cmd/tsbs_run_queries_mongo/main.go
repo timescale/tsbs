@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
@@ -22,7 +21,7 @@ import (
 
 // Program option vars:
 var (
-	daemonUrl            string
+	daemonURL            string
 	databaseName         string
 	debug                int
 	prettyPrintResponses bool
@@ -34,7 +33,7 @@ var (
 var (
 	queryPool           = &query.MongoPool
 	queryChan           chan query.Query
-	benchmarkComponents *benchmarker.BenchmarkComponents
+	benchmarkComponents *query.BenchmarkComponents
 	session             *mgo.Session
 )
 
@@ -46,9 +45,9 @@ func init() {
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.M{})
-	benchmarkComponents = benchmarker.NewBenchmarkComponents()
+	benchmarkComponents = query.NewBenchmarkComponents()
 
-	flag.StringVar(&daemonUrl, "url", "mongodb://localhost:27017", "Daemon URL.")
+	flag.StringVar(&daemonURL, "url", "mongodb://localhost:27017", "Daemon URL.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
 	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
@@ -60,7 +59,7 @@ func init() {
 
 func main() {
 	var err error
-	session, err = mgo.DialWithTimeout(daemonUrl, timeout)
+	session, err = mgo.DialWithTimeout(daemonURL, timeout)
 	if err != nil {
 		log.Fatal(err)
 	}

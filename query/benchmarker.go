@@ -1,4 +1,4 @@
-package benchmarker
+package query
 
 import (
 	"bufio"
@@ -9,8 +9,6 @@ import (
 	"runtime/pprof"
 	"sync"
 	"time"
-
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 const (
@@ -61,7 +59,7 @@ type ProcessQueryFunc func(*sync.WaitGroup, int)
 // Run does the bulk of the benchmark execution. It launches a gorountine to track
 // stats, creates workers to process queries, read in the input, execute the queries,
 // and then does cleanup.
-func (bc *BenchmarkComponents) Run(queryPool *sync.Pool, queryChan chan query.Query, queryFn ProcessQueryFunc) {
+func (bc *BenchmarkComponents) Run(queryPool *sync.Pool, queryChan chan Query, queryFn ProcessQueryFunc) {
 	// Launch the stats processor:
 	go bc.StatProcessor.Process(bc.Workers)
 
