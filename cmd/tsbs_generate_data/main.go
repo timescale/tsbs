@@ -4,7 +4,7 @@
 // Cassandra query format
 // InfluxDB bulk load format
 // MongoDB BSON format
-// TimescaleDB psuedo-CSV format
+// TimescaleDB pseudo-CSV format
 
 // Supported use cases:
 // devops: scale-var is the number of hosts to simulate, with log messages

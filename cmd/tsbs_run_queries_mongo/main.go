@@ -105,7 +105,9 @@ func oneQuery(collection *mgo.Collection, q *query.Mongo) (float64, error) {
 	if doQueries {
 		pipe := collection.Pipe(q.BsonDoc).AllowDiskUse()
 		iter := pipe.Iter()
-		//fmt.Println(q.BsonDoc)
+		if debug > 0 {
+			fmt.Println(q.BsonDoc)
+		}
 		var result map[string]interface{}
 		cnt := 0
 		for iter.Next(&result) {
@@ -114,7 +116,9 @@ func oneQuery(collection *mgo.Collection, q *query.Mongo) (float64, error) {
 			}
 			cnt++
 		}
-		//fmt.Println(cnt)
+		if debug > 0 {
+			fmt.Println(cnt)
+		}
 		err = iter.Close()
 	}
 
