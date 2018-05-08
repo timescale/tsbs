@@ -106,8 +106,8 @@ func main() {
 
 	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
 	b := &benchmark{l: loader, channels: channels, session: session}
-	br := bufio.NewReader(os.Stdin)
-	loader.RunBenchmark(b, br, &metricCount, nil)
+
+	loader.RunBenchmark(b, &metricCount, nil)
 }
 
 // processBatches reads eventsBatches (contains rows of CQL strings) from a

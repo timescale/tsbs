@@ -3,6 +3,7 @@ package load
 import (
 	"bufio"
 	"flag"
+	"os"
 	"sync"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 const (
 	// DefaultBatchSize is the default size of batches to be inserted
 	DefaultBatchSize = 10000
+	defaultReadSize  = 4 << 20 // 4 MB
 )
 
 // Benchmark is an interface that represents the skeleton of a program
@@ -37,6 +39,8 @@ type BenchmarkRunner struct {
 	doLoad          bool
 	doInit          bool
 	reportingPeriod time.Duration
+	filename        string
+	br              *bufio.Reader
 }
 
 var loader = &BenchmarkRunner{}
@@ -84,12 +88,25 @@ func (l *BenchmarkRunner) NumWorkers() int {
 
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b Benchmark, br *bufio.Reader, metricCount, rowCount *uint64) {
+func (l *BenchmarkRunner) RunBenchmark(b Benchmark, metricCount, rowCount *uint64) {
 	dr := NewDataReader(l.workers, b)
-	dr.Start(br, l.batchSize, l.limit, l.reportingPeriod, metricCount, rowCount)
+	l.br = l.GetBufferedReader()
+	dr.Start(l.br, l.batchSize, l.limit, l.reportingPeriod, metricCount, rowCount)
 	switch c := b.(type) {
 	case CleaningBenchmark:
 		c.Cleanup()
 	}
 	dr.Summary(l.workers, metricCount, rowCount)
+}
+
+// GetBufferedReader returns the buffered Reader that should be used by the loader
+func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
+	if l.br == nil {
+		if len(l.filename) > 0 {
+			l.br = nil // TODO - Support reading from files
+		} else {
+			l.br = bufio.NewReaderSize(os.Stdin, defaultReadSize)
+		}
+	}
+	return l.br
 }
