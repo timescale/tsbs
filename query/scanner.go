@@ -1,12 +1,10 @@
-package benchmarker
+package query
 
 import (
 	"encoding/gob"
 	"io"
 	"log"
 	"sync"
-
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // QueryScanner is used to read in Queries from a Reader where they are
@@ -28,7 +26,7 @@ func (qs *QueryScanner) SetReader(r io.Reader) *QueryScanner {
 }
 
 // Scan reads encoded Queries and places them into a channel
-func (qs *QueryScanner) Scan(pool *sync.Pool, c chan query.Query) {
+func (qs *QueryScanner) Scan(pool *sync.Pool, c chan Query) {
 	dec := gob.NewDecoder(qs.r)
 
 	n := uint64(0)
@@ -37,7 +35,7 @@ func (qs *QueryScanner) Scan(pool *sync.Pool, c chan query.Query) {
 			break
 		}
 
-		q := pool.Get().(query.Query)
+		q := pool.Get().(Query)
 		err := dec.Decode(q)
 		if err == io.EOF {
 			break

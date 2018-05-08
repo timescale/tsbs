@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -35,12 +34,12 @@ var (
 var (
 	queryPool           = &query.TimescaleDBPool
 	queryChan           chan query.Query
-	benchmarkComponents *benchmarker.BenchmarkComponents
+	benchmarkComponents *query.BenchmarkComponents
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = benchmarker.NewBenchmarkComponents()
+	benchmarkComponents = query.NewBenchmarkComponents()
 	var hosts string
 
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",

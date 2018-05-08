@@ -1,4 +1,4 @@
-package benchmarker
+package query
 
 import "testing"
 

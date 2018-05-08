@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/benchmarker"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
@@ -28,12 +27,12 @@ var (
 var (
 	queryPool           = &query.HTTPPool
 	queryChan           chan query.Query
-	benchmarkComponents *benchmarker.BenchmarkComponents
+	benchmarkComponents *query.BenchmarkComponents
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = benchmarker.NewBenchmarkComponents()
+	benchmarkComponents = query.NewBenchmarkComponents()
 	var csvDaemonUrls string
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
