@@ -17,26 +17,28 @@ const (
 	LabelWarmQueries = "warm queries"
 )
 
-// BenchmarkComponents contains the common components for running a query benchmarking
+// BenchmarkRunner contains the common components for running a query benchmarking
 // program against a database.
-type BenchmarkComponents struct {
-	Scanner       *QueryScanner
+type BenchmarkRunner struct {
 	StatProcessor *StatProcessor
 	Workers       int
 
-	limit      uint64
-	memProfile string
+	scanner        *scanner
+	limit          uint64
+	memProfile     string
+	printResponses bool
+	debug          int
 }
 
-// NewBenchmarkComponents creates a new instance of BenchmarkComponents which is
+// NewBenchmarkRunner creates a new instance of BenchmarkRunner which is
 // common functionality to be used by query benchmarker programs
-func NewBenchmarkComponents() *BenchmarkComponents {
-	ret := &BenchmarkComponents{}
+func NewBenchmarkRunner() *BenchmarkRunner {
+	ret := &BenchmarkRunner{}
 	sp := &StatProcessor{
 		statPool: GetStatPool(),
 		Limit:    &ret.limit,
 	}
-	ret.Scanner = newQueryScanner(&ret.limit)
+	ret.scanner = newScanner(&ret.limit)
 	ret.StatProcessor = sp
 	flag.Uint64Var(&sp.BurnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	flag.Uint64Var(&ret.limit, "limit", 0, "Limit the number of queries to send, 0 = no limit")
@@ -44,13 +46,25 @@ func NewBenchmarkComponents() *BenchmarkComponents {
 	flag.StringVar(&ret.memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.IntVar(&ret.Workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.BoolVar(&sp.PrewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
+	flag.BoolVar(&ret.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
+	flag.IntVar(&ret.debug, "debug", 0, "Whether to print debug messages.")
 
 	return ret
 }
 
 // ResetLimit changes the number of queries to run, with 0 being all of them
-func (bc *BenchmarkComponents) ResetLimit(limit uint64) {
-	bc.limit = limit
+func (b *BenchmarkRunner) ResetLimit(limit uint64) {
+	b.limit = limit
+}
+
+// DoPrintResponses indicates whether responses for queries should be printed
+func (b *BenchmarkRunner) DoPrintResponses() bool {
+	return b.printResponses
+}
+
+// DebugLevel returns the level of debug messages for this benchmark
+func (b *BenchmarkRunner) DebugLevel() int {
+	return b.debug
 }
 
 // ProcessQueryFunc is a function that is used by a gorountine to process a Query
@@ -59,13 +73,13 @@ type ProcessQueryFunc func(*sync.WaitGroup, int)
 // Run does the bulk of the benchmark execution. It launches a gorountine to track
 // stats, creates workers to process queries, read in the input, execute the queries,
 // and then does cleanup.
-func (bc *BenchmarkComponents) Run(queryPool *sync.Pool, queryChan chan Query, queryFn ProcessQueryFunc) {
+func (b *BenchmarkRunner) Run(queryPool *sync.Pool, queryChan chan Query, queryFn ProcessQueryFunc) {
 	// Launch the stats processor:
-	go bc.StatProcessor.Process(bc.Workers)
+	go b.StatProcessor.Process(b.Workers)
 
 	// Launch the query processors:
 	var wg sync.WaitGroup
-	for i := 0; i < bc.Workers; i++ {
+	for i := 0; i < b.Workers; i++ {
 		wg.Add(1)
 		go queryFn(&wg, i)
 	}
@@ -73,13 +87,13 @@ func (bc *BenchmarkComponents) Run(queryPool *sync.Pool, queryChan chan Query, q
 	// Read in jobs, closing the job channel when done:
 	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	wallStart := time.Now()
-	bc.Scanner.SetReader(input).Scan(queryPool, queryChan)
+	b.scanner.setReader(input).scan(queryPool, queryChan)
 	close(queryChan)
 
 	// Block for workers to finish sending requests, closing the stats
 	// channel when done:
 	wg.Wait()
-	bc.StatProcessor.CloseAndWait()
+	b.StatProcessor.CloseAndWait()
 
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -89,8 +103,8 @@ func (bc *BenchmarkComponents) Run(queryPool *sync.Pool, queryChan chan Query, q
 	}
 
 	// (Optional) create a memory profile:
-	if len(bc.memProfile) > 0 {
-		f, err := os.Create(bc.memProfile)
+	if len(b.memProfile) > 0 {
+		f, err := os.Create(b.memProfile)
 		if err != nil {
 			log.Fatal(err)
 		}

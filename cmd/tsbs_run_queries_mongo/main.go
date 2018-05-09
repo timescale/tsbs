@@ -21,20 +21,18 @@ import (
 
 // Program option vars:
 var (
-	daemonURL            string
-	databaseName         string
-	debug                int
-	prettyPrintResponses bool
-	doQueries            bool
-	timeout              time.Duration
+	daemonURL    string
+	databaseName string
+	doQueries    bool
+	timeout      time.Duration
 )
 
 // Global vars:
 var (
-	queryPool           = &query.MongoPool
-	queryChan           chan query.Query
-	benchmarkComponents *query.BenchmarkComponents
-	session             *mgo.Session
+	queryPool       = &query.MongoPool
+	queryChan       chan query.Query
+	benchmarkRunner *query.BenchmarkRunner
+	session         *mgo.Session
 )
 
 // Parse args:
@@ -45,12 +43,10 @@ func init() {
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.M{})
-	benchmarkComponents = query.NewBenchmarkComponents()
+	benchmarkRunner = query.NewBenchmarkRunner()
 
 	flag.StringVar(&daemonURL, "url", "mongodb://localhost:27017", "Daemon URL.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.BoolVar(&doQueries, "do-queries", true, "Whether to perform queries (useful for benchmarking the query executor.)")
 	flag.DurationVar(&timeout, "read-timeout", 30*time.Second, "Timeout value for individual queries")
 
@@ -63,14 +59,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	queryChan = make(chan query.Query, benchmarkComponents.Workers)
-	benchmarkComponents.Run(queryPool, queryChan, processQueries)
+	queryChan = make(chan query.Query, benchmarkRunner.Workers)
+	benchmarkRunner.Run(queryPool, queryChan, processQueries)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries(wg *sync.WaitGroup, _ int) {
-	sp := benchmarkComponents.StatProcessor
+	sp := benchmarkRunner.StatProcessor
 	sess := session.Copy()
 	db := sess.DB(databaseName)
 	collection := db.C("point_data")
@@ -104,18 +100,18 @@ func oneQuery(collection *mgo.Collection, q *query.Mongo) (float64, error) {
 	if doQueries {
 		pipe := collection.Pipe(q.BsonDoc).AllowDiskUse()
 		iter := pipe.Iter()
-		if debug > 0 {
+		if benchmarkRunner.DebugLevel() > 0 {
 			fmt.Println(q.BsonDoc)
 		}
 		var result map[string]interface{}
 		cnt := 0
 		for iter.Next(&result) {
-			if prettyPrintResponses {
+			if benchmarkRunner.DoPrintResponses() {
 				fmt.Printf("ID %d: %v\n", q.GetID(), result)
 			}
 			cnt++
 		}
-		if debug > 0 {
+		if benchmarkRunner.DebugLevel() > 0 {
 			fmt.Println(cnt)
 		}
 		err = iter.Close()

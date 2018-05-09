@@ -60,7 +60,7 @@ func TestScannerLimit(t *testing.T) {
 	for _, c := range cases {
 		var wg sync.WaitGroup // TODO: Add a timeout feature?
 		queryChan := make(chan Query, 1)
-		scanner := newQueryScanner(&c.limit)
+		scanner := newScanner(&c.limit)
 		got := uint64(0)
 		wg.Add(1)
 		go func() { // simply count the number of queries we process
@@ -70,7 +70,7 @@ func TestScannerLimit(t *testing.T) {
 			wg.Done()
 		}()
 		input := bufio.NewReaderSize(bytes.NewReader(b.Bytes()), 1<<20)
-		scanner.SetReader(input).Scan(&testQueryPool, queryChan)
+		scanner.setReader(input).scan(&testQueryPool, queryChan)
 		close(queryChan)
 		wg.Wait()
 		if c.want != got {

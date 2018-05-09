@@ -16,29 +16,25 @@ import (
 
 // Program option vars:
 var (
-	daemonUrls           []string
-	databaseName         string
-	debug                int
-	prettyPrintResponses bool
-	chunkSize            uint64
+	daemonUrls   []string
+	databaseName string
+	chunkSize    uint64
 )
 
 // Global vars:
 var (
-	queryPool           = &query.HTTPPool
-	queryChan           chan query.Query
-	benchmarkComponents *query.BenchmarkComponents
+	queryPool       = &query.HTTPPool
+	queryChan       chan query.Query
+	benchmarkRunner *query.BenchmarkRunner
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = query.NewBenchmarkComponents()
+	benchmarkRunner = query.NewBenchmarkRunner()
 	var csvDaemonUrls string
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.Uint64Var(&chunkSize, "chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
 
 	flag.Parse()
@@ -50,23 +46,23 @@ func init() {
 }
 
 func main() {
-	queryChan = make(chan query.Query, benchmarkComponents.Workers)
-	benchmarkComponents.Run(queryPool, queryChan, processQueries)
+	queryChan = make(chan query.Query, benchmarkRunner.Workers)
+	benchmarkRunner.Run(queryPool, queryChan, processQueries)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
 // target server, while tracking latency.
 func processQueries(wg *sync.WaitGroup, workerID int) {
 	opts := &HTTPClientDoOptions{
-		Debug:                debug,
-		PrettyPrintResponses: prettyPrintResponses,
+		Debug:                benchmarkRunner.DebugLevel(),
+		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
 		chunkSize:            chunkSize,
 		database:             databaseName,
 	}
 	url := daemonUrls[workerID%len(daemonUrls)]
 	w := NewHTTPClient(url)
 
-	sp := benchmarkComponents.StatProcessor
+	sp := benchmarkRunner.StatProcessor
 	for q := range queryChan {
 		lagMillis, err := w.Do(q.(*query.HTTP), opts)
 		if err != nil {

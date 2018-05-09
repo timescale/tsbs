@@ -7,26 +7,26 @@ import (
 	"sync"
 )
 
-// QueryScanner is used to read in Queries from a Reader where they are
+// scanner is used to read in Queries from a Reader where they are
 // Go-encoded and then distribute them to workers
-type QueryScanner struct {
+type scanner struct {
 	r     io.Reader
 	limit *uint64
 }
 
-// NewQueryScanner returns a new QueryScanner for a given Reader and its limit
-func newQueryScanner(limit *uint64) *QueryScanner {
-	return &QueryScanner{limit: limit}
+// newScanner returns a new scanner for a given Reader and its limit
+func newScanner(limit *uint64) *scanner {
+	return &scanner{limit: limit}
 }
 
-// SetReader sets the source, an io.Reader, that the QueryScanner reads/decodes from
-func (qs *QueryScanner) SetReader(r io.Reader) *QueryScanner {
+// setReader sets the source, an io.Reader, that the scanner reads/decodes from
+func (qs *scanner) setReader(r io.Reader) *scanner {
 	qs.r = r
 	return qs
 }
 
-// Scan reads encoded Queries and places them into a channel
-func (qs *QueryScanner) Scan(pool *sync.Pool, c chan Query) {
+// scan reads encoded Queries and places them into a channel
+func (qs *scanner) scan(pool *sync.Pool, c chan Query) {
 	dec := gob.NewDecoder(qs.r)
 
 	n := uint64(0)

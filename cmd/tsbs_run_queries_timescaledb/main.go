@@ -21,25 +21,23 @@ import (
 
 // Program option vars:
 var (
-	postgresConnect      string
-	databaseName         string
-	hostList             []string
-	user                 string
-	debug                int
-	prettyPrintResponses bool
-	showExplain          bool
+	postgresConnect string
+	databaseName    string
+	hostList        []string
+	user            string
+	showExplain     bool
 )
 
 // Global vars:
 var (
-	queryPool           = &query.TimescaleDBPool
-	queryChan           chan query.Query
-	benchmarkComponents *query.BenchmarkComponents
+	queryPool       = &query.TimescaleDBPool
+	queryChan       chan query.Query
+	benchmarkRunner *query.BenchmarkRunner
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = query.NewBenchmarkComponents()
+	benchmarkRunner = query.NewBenchmarkRunner()
 	var hosts string
 
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",
@@ -48,14 +46,12 @@ func init() {
 	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 
-	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print JSON response bodies (for correctness checking) (default false).")
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
 
 	flag.Parse()
 
 	if showExplain {
-		benchmarkComponents.ResetLimit(1)
+		benchmarkRunner.ResetLimit(1)
 	}
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
@@ -65,8 +61,8 @@ func init() {
 }
 
 func main() {
-	queryChan = make(chan query.Query, benchmarkComponents.Workers)
-	benchmarkComponents.Run(queryPool, queryChan, processQueries)
+	queryChan = make(chan query.Query, benchmarkRunner.Workers)
+	benchmarkRunner.Run(queryPool, queryChan, processQueries)
 }
 
 // Get the connection string for a connection to PostgreSQL.
@@ -138,7 +134,7 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 		return took, err
 	}
 
-	if debug > 0 {
+	if opts.debug {
 		fmt.Println(qry)
 	}
 	if showExplain {
@@ -151,7 +147,7 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 			text += s + "\n"
 		}
 		fmt.Printf("%s\n\n%s\n-----\n\n", qry, text)
-	} else if prettyPrintResponses {
+	} else if opts.printResponse {
 		prettyPrintResponse(rows, q.(*query.TimescaleDB))
 	}
 	rows.Close()
@@ -166,11 +162,11 @@ func processQueries(wg *sync.WaitGroup, workerNumber int) {
 
 	opts := &queryExecutorOptions{
 		showExplain:   showExplain,
-		debug:         debug > 0,
-		printResponse: prettyPrintResponses,
+		debug:         benchmarkRunner.DebugLevel() > 0,
+		printResponse: benchmarkRunner.DoPrintResponses(),
 	}
 
-	sp := benchmarkComponents.StatProcessor
+	sp := benchmarkRunner.StatProcessor
 	for q := range queryChan {
 		lag, err := qe.Do(q, opts)
 		if err != nil {
