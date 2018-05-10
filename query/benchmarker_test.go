@@ -15,8 +15,9 @@ func (p *testProcessor) Init(workerNum int) {
 	p.count = 0
 }
 
-func (p *testProcessor) ProcessQuery(_ *StatProcessor, q Query) {
+func (p *testProcessor) ProcessQuery(_ Query, _ bool) ([]*Stat, error) {
 	p.count++
+	return nil, nil
 }
 
 func TestProcessorHandler(t *testing.T) {

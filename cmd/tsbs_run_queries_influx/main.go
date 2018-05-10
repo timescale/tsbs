@@ -64,21 +64,13 @@ func (p *processor) Init(workerNumber int) {
 	p.w = NewHTTPClient(url)
 }
 
-func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
-	lagMillis, err := p.w.Do(q.(*query.HTTP), p.opts)
+func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
+	hq := q.(*query.HTTP)
+	lag, err := p.w.Do(hq, p.opts)
 	if err != nil {
-		log.Fatalf("Error during request: %s\n", err.Error())
+		return nil, err
 	}
-	sp.SendStat(q.HumanLabelName(), lagMillis, !sp.PrewarmQueries)
-
-	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-	// then we immediately run it a second time and report that as the 'warm'
-	// stat. This guarantees that the warm stat will reflect optimal cache performance.
-	if sp.PrewarmQueries {
-		lagMillis, err = p.w.Do(q.(*query.HTTP), p.opts)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
-		}
-		sp.SendStat(q.HumanLabelName(), lagMillis, true)
-	}
+	stat := query.GetStat()
+	stat.Init(q.HumanLabelName(), lag)
+	return []*query.Stat{stat}, nil
 }

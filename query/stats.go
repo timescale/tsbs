@@ -26,10 +26,12 @@ var statPool = &sync.Pool{
 	},
 }
 
+// GetStat returns a Stat for use from a pool
 func GetStat() *Stat {
 	return statPool.Get().(*Stat).reset()
 }
 
+// GetPartialStat returns a partial Stat for use from a pool
 func GetPartialStat() *Stat {
 	s := GetStat()
 	s.IsPartial = true
@@ -37,19 +39,12 @@ func GetPartialStat() *Stat {
 }
 
 // Init safely initializes a (cold) Stat while minimizing heap allocations.
-func (s *Stat) Init(label []byte, value float64) {
+func (s *Stat) Init(label []byte, value float64) *Stat {
 	s.Label = s.Label[:0] // clear
 	s.Label = append(s.Label, label...)
 	s.Value = value
 	s.IsWarm = false
-}
-
-// InitWarm safely initializes a warm Stat while minimizing heap allocations.
-func (s *Stat) InitWarm(label []byte, value float64) {
-	s.Label = s.Label[:0] // clear
-	s.Label = append(s.Label, label...)
-	s.Value = value
-	s.IsWarm = true
+	return s
 }
 
 func (s *Stat) reset() *Stat {
@@ -76,6 +71,7 @@ type StatGroup struct {
 	Count int64
 }
 
+// NewStatGroup returns a new StatGroup with an initial size
 func NewStatGroup(size uint64) *StatGroup {
 	return &StatGroup{
 		Values: make([]float64, size),
