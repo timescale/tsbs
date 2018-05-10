@@ -51,7 +51,7 @@ func init() {
 
 func main() {
 	var session *mgo.Session
-	if loader.DoLoad() {
+	if loader.DoLoad() && loader.DoInit() {
 		var err error
 		session, err = mgo.DialWithTimeout(daemonURL, writeTimeout)
 		if err != nil {
