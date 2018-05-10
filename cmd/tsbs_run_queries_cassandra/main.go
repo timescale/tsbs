@@ -40,13 +40,11 @@ var (
 
 // Program option vars:
 var (
-	daemonUrl            string
-	aggrPlanLabel        string
-	subQueryParallelism  int
-	requestTimeout       time.Duration
-	csiTimeout           time.Duration
-	debug                int
-	prettyPrintResponses bool
+	daemonUrl           string
+	aggrPlanLabel       string
+	subQueryParallelism int
+	requestTimeout      time.Duration
+	csiTimeout          time.Duration
 )
 
 // Helpers for choice-like flags:
@@ -59,25 +57,23 @@ var (
 
 // Global vars:
 var (
-	queryPool           = &query.CassandraPool
-	queryChan           chan query.Query
-	aggrPlan            int
-	benchmarkComponents *query.BenchmarkComponents
-	csi                 *ClientSideIndex
-	session             *gocql.Session
+	queryPool       = &query.CassandraPool
+	queryChan       chan query.Query
+	aggrPlan        int
+	benchmarkRunner *query.BenchmarkRunner
+	csi             *ClientSideIndex
+	session         *gocql.Session
 )
 
 // Parse args:
 func init() {
-	benchmarkComponents = query.NewBenchmarkComponents()
+	benchmarkRunner = query.NewBenchmarkRunner()
 
 	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
 	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
 	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
 	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
-	flag.IntVar(&debug, "debug", 0, "Whether to print debug messages.")
-	flag.BoolVar(&prettyPrintResponses, "print-responses", false, "Pretty print response bodies (for correctness checking) (default false).")
 
 	flag.Parse()
 
@@ -96,8 +92,8 @@ func main() {
 	session = NewCassandraSession(daemonUrl, requestTimeout)
 	defer session.Close()
 
-	queryChan = make(chan query.Query, benchmarkComponents.Workers)
-	benchmarkComponents.Run(queryPool, queryChan, processQueries)
+	queryChan = make(chan query.Query, benchmarkRunner.Workers)
+	benchmarkRunner.Run(queryPool, queryChan, processQueries)
 }
 
 // processQueries reads byte buffers from queryChan and writes them to the
@@ -105,12 +101,12 @@ func main() {
 func processQueries(wg *sync.WaitGroup, _ int) {
 	opts := HLQueryExecutorDoOptions{
 		AggregationPlan:      aggrPlan,
-		Debug:                debug,
-		PrettyPrintResponses: prettyPrintResponses,
+		Debug:                benchmarkRunner.DebugLevel(),
+		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
 	}
 
-	qe := NewHLQueryExecutor(session, csi, debug)
-	sp := benchmarkComponents.StatProcessor
+	qe := NewHLQueryExecutor(session, csi, benchmarkRunner.DebugLevel())
+	sp := benchmarkRunner.StatProcessor
 
 	qFn := func(q *HLQuery, labels [][]byte, warm bool) {
 		qpLagMs, reqLagMs, err := qe.Do(q, opts)
