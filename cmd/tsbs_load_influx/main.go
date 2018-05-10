@@ -14,7 +14,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -158,9 +157,8 @@ func main() {
 	backingOffDones = make([]chan struct{}, loader.NumWorkers())
 	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
 
-	br := bufio.NewReaderSize(os.Stdin, 4*1024*1024)
 	b := &benchmark{l: loader, channels: channels}
-	loader.RunBenchmark(b, br, &metricCount, &rowCount)
+	loader.RunBenchmark(b, &metricCount, &rowCount)
 }
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.

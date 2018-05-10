@@ -15,7 +15,7 @@ mkdir -p ${dataDir}
 
 pushd ${dataDir}
 
-for format in "${formats[@]}"
+for format in ${formats}
 do
     fname="data_${format}_${scaleVar}_${useCase}_${tsStart}_${tsEnd}_${seed}.dat.gz"
     echo "$fname"

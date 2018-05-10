@@ -4,10 +4,8 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -74,8 +72,7 @@ func main() {
 		benchmark = newAggBenchmark(loader, session)
 	}
 
-	br := bufio.NewReaderSize(os.Stdin, 1<<20)
-	loader.RunBenchmark(benchmark, br, &metricCount, nil)
+	loader.RunBenchmark(benchmark, &metricCount, nil)
 }
 
 func createCollection(session *mgo.Session, collectionName string) {

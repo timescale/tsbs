@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -110,7 +109,7 @@ func (b *benchmark) Close() {
 }
 
 func main() {
-	br := bufio.NewReader(os.Stdin)
+	br := loader.GetBufferedReader()
 	var tags string
 	var cols string
 	var err error
@@ -147,7 +146,7 @@ func main() {
 	}
 
 	b := &benchmark{l: loader, c: batchChan}
-	loader.RunBenchmark(b, br, &metricCount, &rowCount)
+	loader.RunBenchmark(b, &metricCount, &rowCount)
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
@@ -365,8 +364,11 @@ func processCSI(db *sqlx.DB, hypertable string, rows []*insertData) uint64 {
 
 // processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
 func processBatches(wg *sync.WaitGroup, c *load.DuplexChannel) {
-	db := sqlx.MustConnect(dbType, getConnectString())
-	defer db.Close()
+	var db *sqlx.DB
+	if loader.DoLoad() {
+		db = sqlx.MustConnect(dbType, getConnectString())
+		defer db.Close()
+	}
 
 	for item := range c.GetWorkerChannel() {
 		batches := item.(*hypertableArr)
