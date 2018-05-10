@@ -130,7 +130,7 @@ func main() {
 		}
 	}
 
-	if loader.DoLoad() {
+	if loader.DoLoad() && loader.DoInit() {
 		initDB(loader.DatabaseName(), tags, cols)
 	}
 

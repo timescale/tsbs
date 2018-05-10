@@ -32,7 +32,6 @@ var (
 	daemonUrls        []string
 	replicationFactor int
 	backoff           time.Duration
-	doDBCreate        bool
 	useGzip           bool
 	doAbortOnExist    bool
 	memprofile        bool
@@ -66,7 +65,6 @@ func init() {
 	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
-	flag.BoolVar(&doDBCreate, "do-db-create", true, "Whether to create the database.")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
 	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
 
@@ -126,7 +124,7 @@ func main() {
 		p := profile.Start(profile.MemProfile)
 		defer p.Stop()
 	}
-	if loader.DoLoad() && doDBCreate {
+	if loader.DoLoad() && loader.DoInit() {
 		// check that there are no pre-existing databases:
 		existingDatabases, err := listDatabases(daemonUrls[0])
 		if err != nil {

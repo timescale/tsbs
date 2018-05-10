@@ -87,7 +87,9 @@ func (b *benchmark) Close() {
 func main() {
 	var session *gocql.Session
 	if loader.DoLoad() {
-		createKeyspace(hosts)
+		if loader.DoInit() {
+			createKeyspace(hosts)
+		}
 
 		cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
 		cluster.Keyspace = loader.DatabaseName()
