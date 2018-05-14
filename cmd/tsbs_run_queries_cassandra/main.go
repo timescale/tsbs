@@ -9,7 +9,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"time"
 
@@ -91,10 +90,8 @@ func main() {
 }
 
 type processor struct {
-	qe     *HLQueryExecutor
-	opts   *HLQueryExecutorDoOptions
-	qFn    func(sp *query.StatProcessor, q *HLQuery, labels [][]byte, warm bool)
-	labels map[string][][]byte
+	qe   *HLQueryExecutor
+	opts *HLQueryExecutorDoOptions
 }
 
 func newProcessor() query.Processor { return &processor{} }
@@ -105,60 +102,33 @@ func (p *processor) Init(workerNumber int) {
 		Debug:                benchmarkRunner.DebugLevel(),
 		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
 	}
-
 	p.qe = NewHLQueryExecutor(session, csi, benchmarkRunner.DebugLevel())
-
-	p.qFn = func(sp *query.StatProcessor, q *HLQuery, labels [][]byte, warm bool) {
-		qpLagMs, reqLagMs, err := p.qe.Do(q, *p.opts)
-		if err != nil {
-			log.Fatalf("Error during request: %s\n", err.Error())
-		}
-
-		// total stat
-		totalMs := qpLagMs + reqLagMs
-		if warm {
-			sp.SendStat(append(labels[0], " (warm)"...), totalMs, true)
-		} else {
-			sp.SendStat(labels[0], totalMs, false)
-		}
-
-		// qp lag stat:
-		if warm {
-			sp.SendPartialStat(append(labels[1], " (warm)"...), qpLagMs, true)
-		} else {
-			sp.SendPartialStat(labels[1], qpLagMs, false)
-		}
-
-		// req lag stat:
-		if warm {
-			sp.SendPartialStat(append(labels[2], " (warm)"...), reqLagMs, true)
-		} else {
-			sp.SendPartialStat(labels[2], reqLagMs, false)
-		}
-	}
-
-	p.labels = map[string][][]byte{}
 }
 
-func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
+func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, error) {
 	cq := q.(*query.Cassandra)
 	hlq := &HLQuery{*cq}
 	hlq.ForceUTC()
-	// if needed, prepare stat labels:
-	if _, ok := p.labels[string(hlq.HumanLabel)]; !ok {
-		p.labels[string(hlq.HumanLabel)] = [][]byte{
-			hlq.HumanLabel,
-			[]byte(fmt.Sprintf("%s-qp", hlq.HumanLabel)),
-			[]byte(fmt.Sprintf("%s-req", hlq.HumanLabel)),
+	labels := [][]byte{
+		q.HumanLabelName(),
+		append(q.HumanLabelName(), "-qp"...),
+		append(q.HumanLabelName(), "-req"...),
+	}
+	if isWarm {
+		for i, l := range labels {
+			labels[i] = append(l, " (warm)"...)
 		}
 	}
-	ls := p.labels[string(hlq.HumanLabel)]
-
-	p.qFn(sp, hlq, ls, !sp.PrewarmQueries)
-	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-	// then we immediately run it a second time and report that as the 'warm'
-	// stat. This guarantees that the warm stat will reflect optimal cache performance.
-	if sp.PrewarmQueries {
-		p.qFn(sp, hlq, ls, true)
+	qpLagMs, reqLagMs, err := p.qe.Do(hlq, *p.opts)
+	if err != nil {
+		return nil, err
 	}
+	// total stat
+	totalMs := qpLagMs + reqLagMs
+	stats := []*query.Stat{
+		query.GetPartialStat().Init(labels[1], qpLagMs),
+		query.GetPartialStat().Init(labels[2], reqLagMs),
+		query.GetStat().Init(labels[0], totalMs),
+	}
+	return stats, nil
 }

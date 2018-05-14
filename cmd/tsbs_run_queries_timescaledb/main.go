@@ -108,29 +108,40 @@ type queryExecutorOptions struct {
 	printResponse bool
 }
 
-type queryExecutor struct {
-	db *sqlx.DB
+type processor struct {
+	db   *sqlx.DB
+	opts *queryExecutorOptions
 }
 
-func newQueryExecutor(conn string) *queryExecutor {
-	return &queryExecutor{
-		db: sqlx.MustConnect("postgres", conn),
+func newProcessor() query.Processor { return &processor{} }
+
+func (p *processor) Init(workerNumber int) {
+	p.db = sqlx.MustConnect("postgres", getConnectString(workerNumber))
+	p.opts = &queryExecutorOptions{
+		showExplain:   showExplain,
+		debug:         benchmarkRunner.DebugLevel() > 0,
+		printResponse: benchmarkRunner.DoPrintResponses(),
 	}
 }
 
-func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64, error) {
+func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, error) {
+	// No need to run again for EXPLAIN
+	if isWarm && p.opts.showExplain {
+		return nil, nil
+	}
+	tq := q.(*query.TimescaleDB)
+
 	start := time.Now()
-	qry := string(q.(*query.TimescaleDB).SqlQuery)
+	qry := string(tq.SqlQuery)
 	if showExplain {
 		qry = "EXPLAIN ANALYZE " + qry
 	}
-	rows, err := qe.db.Queryx(qry)
-	took := float64(time.Since(start).Nanoseconds()) / 1e6
+	rows, err := p.db.Queryx(qry)
 	if err != nil {
-		return took, err
+		return nil, err
 	}
 
-	if opts.debug {
+	if p.opts.debug {
 		fmt.Println(qry)
 	}
 	if showExplain {
@@ -143,48 +154,13 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 			text += s + "\n"
 		}
 		fmt.Printf("%s\n\n%s\n-----\n\n", qry, text)
-	} else if opts.printResponse {
-		prettyPrintResponse(rows, q.(*query.TimescaleDB))
+	} else if p.opts.printResponse {
+		prettyPrintResponse(rows, tq)
 	}
 	rows.Close()
-	took = float64(time.Since(start).Nanoseconds()) / 1e6
-	return took, err
-}
+	took := float64(time.Since(start).Nanoseconds()) / 1e6
+	stat := query.GetStat()
+	stat.Init(q.HumanLabelName(), took)
 
-type processor struct {
-	qe   *queryExecutor
-	opts *queryExecutorOptions
-}
-
-func newProcessor() query.Processor { return &processor{} }
-
-func (p *processor) Init(workerNumber int) {
-	p.qe = newQueryExecutor(getConnectString(workerNumber))
-	p.opts = &queryExecutorOptions{
-		showExplain:   showExplain,
-		debug:         benchmarkRunner.DebugLevel() > 0,
-		printResponse: benchmarkRunner.DoPrintResponses(),
-	}
-}
-
-// processQueries reads byte buffers from queryChan and writes them to the
-// target server, while tracking latency.
-func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
-	lag, err := p.qe.Do(q, p.opts)
-	if err != nil {
-		panic(err)
-	}
-	sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
-
-	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-	// then we immediately run it a second time and report that as the 'warm'
-	// stat. This guarantees that the warm stat will reflect optimal cache performance.
-	if !showExplain && sp.PrewarmQueries {
-		// Warm run
-		lag, err = p.qe.Do(q, &queryExecutorOptions{})
-		if err != nil {
-			panic(err)
-		}
-		sp.SendStat(q.HumanLabelName(), lag, true)
-	}
+	return []*query.Stat{stat}, err
 }

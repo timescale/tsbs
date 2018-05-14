@@ -12,15 +12,15 @@ import (
 )
 
 const (
-	LabelAllQueries  = "all queries"
-	LabelColdQueries = "cold queries"
-	LabelWarmQueries = "warm queries"
+	labelAllQueries  = "all queries"
+	labelColdQueries = "cold queries"
+	labelWarmQueries = "warm queries"
 )
 
 // BenchmarkRunner contains the common components for running a query benchmarking
 // program against a database.
 type BenchmarkRunner struct {
-	sp      *StatProcessor
+	sp      *statProcessor
 	scanner *scanner
 	c       chan Query
 
@@ -36,7 +36,7 @@ type BenchmarkRunner struct {
 func NewBenchmarkRunner() *BenchmarkRunner {
 	ret := &BenchmarkRunner{}
 	ret.scanner = newScanner(&ret.limit)
-	ret.sp = &StatProcessor{
+	ret.sp = &statProcessor{
 		limit: &ret.limit,
 	}
 	flag.Uint64Var(&ret.sp.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
@@ -44,7 +44,7 @@ func NewBenchmarkRunner() *BenchmarkRunner {
 	flag.Uint64Var(&ret.sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.StringVar(&ret.memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.IntVar(&ret.workers, "workers", 1, "Number of concurrent requests to make.")
-	flag.BoolVar(&ret.sp.PrewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
+	flag.BoolVar(&ret.sp.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.BoolVar(&ret.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	flag.IntVar(&ret.debug, "debug", 0, "Whether to print debug messages.")
 
@@ -74,7 +74,7 @@ type Processor interface {
 	// Init initializes at global state for the Processor, possibly based on its worker number / ID
 	Init(workerNum int)
 	// ProcessQuery handles a given query and reports its stats
-	ProcessQuery(sp *StatProcessor, q Query)
+	ProcessQuery(q Query, isWarm bool) ([]*Stat, error)
 }
 
 // Run does the bulk of the benchmark execution. It launches a gorountine to track
@@ -84,7 +84,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
 	b.c = make(chan Query, b.workers)
 
 	// Launch the stats processor:
-	go b.sp.Process(b.workers)
+	go b.sp.process(b.workers)
 
 	// Launch the query processors:
 	var wg sync.WaitGroup
@@ -125,7 +125,24 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
 func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, qPool *sync.Pool, p Processor, workerNum int) {
 	p.Init(workerNum)
 	for q := range b.c {
-		p.ProcessQuery(b.sp, q)
+		//p.ProcessQuery(b.sp, q)
+		stats, err := p.ProcessQuery(q, false)
+		if err != nil {
+			panic(err)
+		}
+		b.sp.sendStats(stats)
+
+		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+		// then we immediately run it a second time and report that as the 'warm'
+		// stat. This guarantees that the warm stat will reflect optimal cache performance.
+		if b.sp.prewarmQueries {
+			// Warm run
+			stats, err = p.ProcessQuery(q, true)
+			if err != nil {
+				panic(err)
+			}
+			b.sp.sendStatsWarm(stats)
+		}
 		qPool.Put(q)
 	}
 	wg.Done()

@@ -76,8 +76,9 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	reader := bufio.NewReader(resp.Body)
 	buf := make([]byte, 8192)
 	for {
-		_, err := reader.Read(buf)
+		_, err = reader.Read(buf)
 		if err == io.EOF {
+			err = nil
 			break
 		} else if err != nil {
 			panic(err)
