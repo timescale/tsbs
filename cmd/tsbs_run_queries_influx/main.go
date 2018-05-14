@@ -9,7 +9,6 @@ import (
 	"flag"
 	"log"
 	"strings"
-	"sync"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
@@ -23,8 +22,6 @@ var (
 
 // Global vars:
 var (
-	queryPool       = &query.HTTPPool
-	queryChan       chan query.Query
 	benchmarkRunner *query.BenchmarkRunner
 )
 
@@ -46,42 +43,42 @@ func init() {
 }
 
 func main() {
-	queryChan = make(chan query.Query, benchmarkRunner.Workers)
-	benchmarkRunner.Run(queryPool, queryChan, processQueries)
+	benchmarkRunner.Run(&query.HTTPPool, newProcessor)
 }
 
-// processQueries reads byte buffers from queryChan and writes them to the
-// target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, workerID int) {
-	opts := &HTTPClientDoOptions{
+type processor struct {
+	w    *HTTPClient
+	opts *HTTPClientDoOptions
+}
+
+func newProcessor() query.Processor { return &processor{} }
+
+func (p *processor) Init(workerNumber int) {
+	p.opts = &HTTPClientDoOptions{
 		Debug:                benchmarkRunner.DebugLevel(),
 		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
 		chunkSize:            chunkSize,
 		database:             databaseName,
 	}
-	url := daemonUrls[workerID%len(daemonUrls)]
-	w := NewHTTPClient(url)
+	url := daemonUrls[workerNumber%len(daemonUrls)]
+	p.w = NewHTTPClient(url)
+}
 
-	sp := benchmarkRunner.StatProcessor
-	for q := range queryChan {
-		lagMillis, err := w.Do(q.(*query.HTTP), opts)
+func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
+	lagMillis, err := p.w.Do(q.(*query.HTTP), p.opts)
+	if err != nil {
+		log.Fatalf("Error during request: %s\n", err.Error())
+	}
+	sp.SendStat(q.HumanLabelName(), lagMillis, !sp.PrewarmQueries)
+
+	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+	// then we immediately run it a second time and report that as the 'warm'
+	// stat. This guarantees that the warm stat will reflect optimal cache performance.
+	if sp.PrewarmQueries {
+		lagMillis, err = p.w.Do(q.(*query.HTTP), p.opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
-		sp.SendStat(q.HumanLabelName(), lagMillis, !sp.PrewarmQueries)
-
-		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-		// then we immediately run it a second time and report that as the 'warm'
-		// stat. This guarantees that the warm stat will reflect optimal cache performance.
-		if sp.PrewarmQueries {
-			lagMillis, err = w.Do(q.(*query.HTTP), opts)
-			if err != nil {
-				log.Fatalf("Error during request: %s\n", err.Error())
-			}
-			sp.SendStat(q.HumanLabelName(), lagMillis, true)
-		}
-
-		queryPool.Put(q)
+		sp.SendStat(q.HumanLabelName(), lagMillis, true)
 	}
-	wg.Done()
 }

@@ -9,8 +9,8 @@ useTags=${useTags:-true}
 formats=${formats:-"timescaledb"}
 queryTypes=${queryTypes:-"1-host-1-hr 1-host-12-hr 8-host-1-hr groupby groupby-5 groupby-all lastpoint cpu-max-all-single-host cpu-max-all-eight-hosts high-cpu-all-hosts high-cpu-1-host groupby-orderby-limit 5-metrics-1-host-1-hr 5-metrics-1-host-12-hr 5-metrics-8-host-1-hr"}
 
-scaleVar=${scaleVar:-"1000"}
-queries=${queries:-"2500"}
+scaleVar=${scaleVar:-"4000"}
+queries=${queries:-"1000"}
 seed=${seed:-"123"}
 tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
 tsEnd=${tsEnd:-"2016-01-04T00:00:01Z"}

@@ -2,8 +2,6 @@
 //
 // It reads encoded Query objects from stdin, and makes concurrent requests
 // to the provided Mongo endpoint using mgo.
-//
-// TODO(rw): On my machine, this only decodes 700k/sec messages from stdin.
 package main
 
 import (
@@ -11,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
@@ -29,8 +26,6 @@ var (
 
 // Global vars:
 var (
-	queryPool       = &query.MongoPool
-	queryChan       chan query.Query
 	benchmarkRunner *query.BenchmarkRunner
 	session         *mgo.Session
 )
@@ -59,49 +54,55 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	queryChan = make(chan query.Query, benchmarkRunner.Workers)
-	benchmarkRunner.Run(queryPool, queryChan, processQueries)
+	benchmarkRunner.Run(&query.MongoPool, newProcessor)
 }
 
-// processQueries reads byte buffers from queryChan and writes them to the
-// target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, _ int) {
-	sp := benchmarkRunner.StatProcessor
-	sess := session.Copy()
-	db := sess.DB(databaseName)
-	collection := db.C("point_data")
-	for q := range queryChan {
-		lag, err := oneQuery(collection, q.(*query.Mongo))
+type processor struct {
+	qe   *queryExecutor
+	sess *mgo.Session
+}
+
+func newProcessor() query.Processor { return &processor{} }
+
+func (p *processor) Init(workerNumber int) {
+	p.sess = session.Copy()
+	db := p.sess.DB(databaseName)
+	p.qe = &queryExecutor{collection: db.C("point_data")}
+}
+
+func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
+	lag, err := p.qe.Do(q)
+	if err != nil {
+		panic(err)
+	}
+	sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
+
+	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+	// then we immediately run it a second time and report that as the 'warm'
+	// stat. This guarantees that the warm stat will reflect optimal cache performance.
+	if sp.PrewarmQueries {
+		lag, err = p.qe.Do(q)
 		if err != nil {
 			panic(err)
 		}
-
-		sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
-
-		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-		// then we immediately run it a second time and report that as the 'warm'
-		// stat. This guarantees that the warm stat will reflect optimal cache performance.
-		if sp.PrewarmQueries {
-			lag, err = oneQuery(collection, q.(*query.Mongo))
-			if err != nil {
-				panic(err)
-			}
-			sp.SendStat(q.HumanLabelName(), lag, true)
-		}
-		queryPool.Put(q)
+		sp.SendStat(q.HumanLabelName(), lag, true)
 	}
-	wg.Done()
 }
 
-// oneQuery executes on Query
-func oneQuery(collection *mgo.Collection, q *query.Mongo) (float64, error) {
+type queryExecutor struct {
+	collection *mgo.Collection
+}
+
+// Do executes a Query and reports its time to completion and any error
+func (qe *queryExecutor) Do(q query.Query) (float64, error) {
+	mq := q.(*query.Mongo)
 	start := time.Now().UnixNano()
 	var err error
 	if doQueries {
-		pipe := collection.Pipe(q.BsonDoc).AllowDiskUse()
+		pipe := qe.collection.Pipe(mq.BsonDoc).AllowDiskUse()
 		iter := pipe.Iter()
 		if benchmarkRunner.DebugLevel() > 0 {
-			fmt.Println(q.BsonDoc)
+			fmt.Println(mq.BsonDoc)
 		}
 		var result map[string]interface{}
 		cnt := 0

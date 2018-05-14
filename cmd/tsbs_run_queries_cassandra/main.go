@@ -5,15 +5,12 @@
 // to the provided Cassandra cluster. This program is a 'heavy client', i.e.
 // it builds a client-side index of table metadata before beginning the
 // benchmarking.
-//
-// TODO(rw): On my machine, this only decodes 700k/sec messages from stdin.
 package main
 
 import (
 	"flag"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -57,10 +54,8 @@ var (
 
 // Global vars:
 var (
-	queryPool       = &query.CassandraPool
-	queryChan       chan query.Query
-	aggrPlan        int
 	benchmarkRunner *query.BenchmarkRunner
+	aggrPlan        int
 	csi             *ClientSideIndex
 	session         *gocql.Session
 )
@@ -92,24 +87,29 @@ func main() {
 	session = NewCassandraSession(daemonUrl, requestTimeout)
 	defer session.Close()
 
-	queryChan = make(chan query.Query, benchmarkRunner.Workers)
-	benchmarkRunner.Run(queryPool, queryChan, processQueries)
+	benchmarkRunner.Run(&query.CassandraPool, newProcessor)
 }
 
-// processQueries reads byte buffers from queryChan and writes them to the
-// target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, _ int) {
-	opts := HLQueryExecutorDoOptions{
+type processor struct {
+	qe     *HLQueryExecutor
+	opts   *HLQueryExecutorDoOptions
+	qFn    func(sp *query.StatProcessor, q *HLQuery, labels [][]byte, warm bool)
+	labels map[string][][]byte
+}
+
+func newProcessor() query.Processor { return &processor{} }
+
+func (p *processor) Init(workerNumber int) {
+	p.opts = &HLQueryExecutorDoOptions{
 		AggregationPlan:      aggrPlan,
 		Debug:                benchmarkRunner.DebugLevel(),
 		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
 	}
 
-	qe := NewHLQueryExecutor(session, csi, benchmarkRunner.DebugLevel())
-	sp := benchmarkRunner.StatProcessor
+	p.qe = NewHLQueryExecutor(session, csi, benchmarkRunner.DebugLevel())
 
-	qFn := func(q *HLQuery, labels [][]byte, warm bool) {
-		qpLagMs, reqLagMs, err := qe.Do(q, opts)
+	p.qFn = func(sp *query.StatProcessor, q *HLQuery, labels [][]byte, warm bool) {
+		qpLagMs, reqLagMs, err := p.qe.Do(q, *p.opts)
 		if err != nil {
 			log.Fatalf("Error during request: %s\n", err.Error())
 		}
@@ -137,30 +137,28 @@ func processQueries(wg *sync.WaitGroup, _ int) {
 		}
 	}
 
-	labels := map[string][][]byte{}
-	for q := range queryChan {
-		cq := q.(*query.Cassandra)
-		hlq := &HLQuery{*cq}
-		hlq.ForceUTC()
-		// if needed, prepare stat labels:
-		if _, ok := labels[string(hlq.HumanLabel)]; !ok {
-			labels[string(hlq.HumanLabel)] = [][]byte{
-				hlq.HumanLabel,
-				[]byte(fmt.Sprintf("%s-qp", hlq.HumanLabel)),
-				[]byte(fmt.Sprintf("%s-req", hlq.HumanLabel)),
-			}
-		}
-		ls := labels[string(hlq.HumanLabel)]
+	p.labels = map[string][][]byte{}
+}
 
-		qFn(hlq, ls, !sp.PrewarmQueries)
-		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-		// then we immediately run it a second time and report that as the 'warm'
-		// stat. This guarantees that the warm stat will reflect optimal cache performance.
-		if sp.PrewarmQueries {
-			qFn(hlq, ls, true)
+func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
+	cq := q.(*query.Cassandra)
+	hlq := &HLQuery{*cq}
+	hlq.ForceUTC()
+	// if needed, prepare stat labels:
+	if _, ok := p.labels[string(hlq.HumanLabel)]; !ok {
+		p.labels[string(hlq.HumanLabel)] = [][]byte{
+			hlq.HumanLabel,
+			[]byte(fmt.Sprintf("%s-qp", hlq.HumanLabel)),
+			[]byte(fmt.Sprintf("%s-req", hlq.HumanLabel)),
 		}
-
-		queryPool.Put(q)
 	}
-	wg.Done()
+	ls := p.labels[string(hlq.HumanLabel)]
+
+	p.qFn(sp, hlq, ls, !sp.PrewarmQueries)
+	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+	// then we immediately run it a second time and report that as the 'warm'
+	// stat. This guarantees that the warm stat will reflect optimal cache performance.
+	if sp.PrewarmQueries {
+		p.qFn(sp, hlq, ls, true)
+	}
 }

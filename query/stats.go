@@ -17,6 +17,25 @@ type Stat struct {
 	IsPartial bool
 }
 
+var statPool = &sync.Pool{
+	New: func() interface{} {
+		return &Stat{
+			Label: make([]byte, 0, 1024),
+			Value: 0.0,
+		}
+	},
+}
+
+func GetStat() *Stat {
+	return statPool.Get().(*Stat).reset()
+}
+
+func GetPartialStat() *Stat {
+	s := GetStat()
+	s.IsPartial = true
+	return s
+}
+
 // Init safely initializes a (cold) Stat while minimizing heap allocations.
 func (s *Stat) Init(label []byte, value float64) {
 	s.Label = s.Label[:0] // clear
@@ -33,16 +52,12 @@ func (s *Stat) InitWarm(label []byte, value float64) {
 	s.IsWarm = true
 }
 
-// GetStatPool returns a sync.Pool for Stat
-func GetStatPool() sync.Pool {
-	return sync.Pool{
-		New: func() interface{} {
-			return &Stat{
-				Label: make([]byte, 0, 1024),
-				Value: 0.0,
-			}
-		},
-	}
+func (s *Stat) reset() *Stat {
+	s.Label = s.Label[:0]
+	s.Value = 0.0
+	s.IsWarm = false
+	s.IsPartial = false
+	return s
 }
 
 // StatGroup collects simple streaming statistics.

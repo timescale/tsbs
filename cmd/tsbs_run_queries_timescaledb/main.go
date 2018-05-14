@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
@@ -30,8 +29,6 @@ var (
 
 // Global vars:
 var (
-	queryPool       = &query.TimescaleDBPool
-	queryChan       chan query.Query
 	benchmarkRunner *query.BenchmarkRunner
 )
 
@@ -61,8 +58,7 @@ func init() {
 }
 
 func main() {
-	queryChan = make(chan query.Query, benchmarkRunner.Workers)
-	benchmarkRunner.Run(queryPool, queryChan, processQueries)
+	benchmarkRunner.Run(&query.TimescaleDBPool, newProcessor)
 }
 
 // Get the connection string for a connection to PostgreSQL.
@@ -155,37 +151,40 @@ func (qe *queryExecutor) Do(q query.Query, opts *queryExecutorOptions) (float64,
 	return took, err
 }
 
-// processQueries reads byte buffers from queryChan and writes them to the
-// target server, while tracking latency.
-func processQueries(wg *sync.WaitGroup, workerNumber int) {
-	qe := newQueryExecutor(getConnectString(workerNumber))
+type processor struct {
+	qe   *queryExecutor
+	opts *queryExecutorOptions
+}
 
-	opts := &queryExecutorOptions{
+func newProcessor() query.Processor { return &processor{} }
+
+func (p *processor) Init(workerNumber int) {
+	p.qe = newQueryExecutor(getConnectString(workerNumber))
+	p.opts = &queryExecutorOptions{
 		showExplain:   showExplain,
 		debug:         benchmarkRunner.DebugLevel() > 0,
 		printResponse: benchmarkRunner.DoPrintResponses(),
 	}
+}
 
-	sp := benchmarkRunner.StatProcessor
-	for q := range queryChan {
-		lag, err := qe.Do(q, opts)
+// processQueries reads byte buffers from queryChan and writes them to the
+// target server, while tracking latency.
+func (p *processor) ProcessQuery(sp *query.StatProcessor, q query.Query) {
+	lag, err := p.qe.Do(q, p.opts)
+	if err != nil {
+		panic(err)
+	}
+	sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
+
+	// If PrewarmQueries is set, we run the query as 'cold' first (see above),
+	// then we immediately run it a second time and report that as the 'warm'
+	// stat. This guarantees that the warm stat will reflect optimal cache performance.
+	if !showExplain && sp.PrewarmQueries {
+		// Warm run
+		lag, err = p.qe.Do(q, &queryExecutorOptions{})
 		if err != nil {
 			panic(err)
 		}
-		sp.SendStat(q.HumanLabelName(), lag, !sp.PrewarmQueries)
-
-		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
-		// then we immediately run it a second time and report that as the 'warm'
-		// stat. This guarantees that the warm stat will reflect optimal cache performance.
-		if !showExplain && sp.PrewarmQueries {
-			// Warm run
-			lag, err = qe.Do(q, &queryExecutorOptions{})
-			if err != nil {
-				panic(err)
-			}
-			sp.SendStat(q.HumanLabelName(), lag, true)
-		}
-		queryPool.Put(q)
+		sp.SendStat(q.HumanLabelName(), lag, true)
 	}
-	wg.Done()
 }
