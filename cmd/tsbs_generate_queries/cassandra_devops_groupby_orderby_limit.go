@@ -12,15 +12,15 @@ type CassandraDevopsGroupByOrderByLimit struct {
 }
 
 // NewCassandraDevopsGroupByOrderByLimit returns a new CassandraDevopsGroupByOrderByLimit for given paremeters
-func NewCassandraDevopsGroupByOrderByLimit(start, end time.Time) QueryGenerator {
-	underlying := newCassandraDevopsCommon(start, end)
+func NewCassandraDevopsGroupByOrderByLimit(start, end time.Time, scale int) QueryGenerator {
+	underlying := newCassandraDevopsCommon(start, end, scale)
 	return &CassandraDevopsGroupByOrderByLimit{
 		CassandraDevops: *underlying,
 	}
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsGroupByOrderByLimit) Dispatch(scaleVar int) query.Query {
+func (d *CassandraDevopsGroupByOrderByLimit) Dispatch() query.Query {
 	q := query.NewCassandra() // from pool
 	d.GroupByOrderByLimit(q)
 	return q

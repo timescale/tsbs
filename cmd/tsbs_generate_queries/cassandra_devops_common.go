@@ -10,22 +10,16 @@ import (
 
 // CassandraDevops produces Cassandra-specific queries for all the devops query types.
 type CassandraDevops struct {
-	AllInterval TimeInterval
+	*devopsCore
 }
 
 // NewCassandraDevops makes an CassandraDevops object ready to generate Queries.
-func newCassandraDevopsCommon(start, end time.Time) *CassandraDevops {
-	if !start.Before(end) {
-		panic("bad time order")
-	}
-
-	return &CassandraDevops{
-		AllInterval: NewTimeInterval(start, end),
-	}
+func newCassandraDevopsCommon(start, end time.Time, scale int) *CassandraDevops {
+	return &CassandraDevops{newDevopsCore(start, end, scale)}
 }
 
-func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
-	hostnames := getRandomHosts(scaleVar, nhosts)
+func (d *CassandraDevops) getHostWhere(nhosts int) []string {
+	hostnames := d.getRandomHosts(nhosts)
 
 	tagSet := []string{}
 	for _, hostname := range hostnames {
@@ -45,10 +39,10 @@ func (d *CassandraDevops) getHostWhere(scaleVar, nhosts int) []string {
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *CassandraDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
+func (d *CassandraDevops) MaxCPUMetricsByMinute(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+	interval := d.interval.RandWindow(timeRange)
 	metrics := getCPUMetricsSlice(numMetrics)
-	tagSet := d.getHostWhere(scaleVar, nHosts)
+	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
 	tagSets = append(tagSets, tagSet)
@@ -75,18 +69,18 @@ func (d *CassandraDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.AllInterval.RandWindow(time.Hour)
+	interval := d.interval.RandWindow(time.Hour)
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (rand end)"
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.AllInterval.StartString()))
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.interval.StartString()))
 
 	q.AggregationType = []byte("max")
 	q.MeasurementName = []byte("cpu")
 	q.FieldName = []byte("usage_user")
 
-	q.TimeStart = d.AllInterval.Start
+	q.TimeStart = d.interval.Start
 	q.TimeEnd = interval.End
 	q.GroupByDuration = time.Minute
 	q.OrderBy = []byte("timestamp_ns DESC")
@@ -101,7 +95,7 @@ func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *CassandraDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Query, numMetrics int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	interval := d.interval.RandWindow(24 * time.Hour)
 	metrics := cpuMetrics[:numMetrics]
 
 	humanLabel := fmt.Sprintf("Cassandra mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
@@ -125,9 +119,9 @@ func (d *CassandraDevops) MeanCPUMetricsDayByHourAllHostsGroupbyHost(qi query.Qu
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *CassandraDevops) MaxAllCPU(qi query.Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(8 * time.Hour)
-	tagSet := d.getHostWhere(scaleVar, nhosts)
+func (d *CassandraDevops) MaxAllCPU(qi query.Query, nhosts int) {
+	interval := d.interval.RandWindow(8 * time.Hour)
+	tagSet := d.getHostWhere(nhosts)
 
 	tagSets := [][]string{}
 	tagSets = append(tagSets, tagSet)
@@ -153,13 +147,13 @@ func (d *CassandraDevops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Cassandra last row per host"
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.AllInterval.StartString()))
+	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.interval.StartString()))
 
 	q.MeasurementName = []byte("cpu")
 	q.FieldName = []byte("usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice")
 
-	q.TimeStart = d.AllInterval.Start
-	q.TimeEnd = d.AllInterval.End
+	q.TimeStart = d.interval.Start
+	q.TimeEnd = d.interval.End
 
 	q.ForEveryN = []byte("hostname,1")
 }
@@ -172,9 +166,9 @@ func (d *CassandraDevops) LastPointPerHost(qi query.Query) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *CassandraDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
-	tagSet := d.getHostWhere(scaleVar, nhosts)
+func (d *CassandraDevops) HighCPUForHosts(qi query.Query, nhosts int) {
+	interval := d.interval.RandWindow(24 * time.Hour)
+	tagSet := d.getHostWhere(nhosts)
 
 	tagSets := [][]string{}
 	if len(tagSet) > 0 {
@@ -203,19 +197,3 @@ func (d *CassandraDevops) HighCPUForHosts(qi query.Query, scaleVar, nhosts int) 
 
 	q.TagSets = tagSets
 }
-
-//func (d *CassandraDevops) MeanCPUUsageDayByHourAllHostsGroupbyHost(qi query.Query, _ int) {
-//	interval := d.AllInterval.RandWindow(24*time.Hour)
-//
-//	v := url.Values{}
-//	v.Set("db", d.KeyspaceName)
-//	v.Set("q", fmt.Sprintf("SELECT count(usage_user) from cpu where time >= '%s' and time < '%s' group by time(1h)", interval.StartString(), interval.EndString()))
-//
-//	humanLabel := "Cassandra mean cpu, all hosts, rand 1day by 1hour"
-//	q := qi.(*query.Cassandra)
-//	q.HumanLabel = []byte(humanLabel)
-//	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-//	q.Method = []byte("GET")
-//	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-//	q.Body = nil
-//}

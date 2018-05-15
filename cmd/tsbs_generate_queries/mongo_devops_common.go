@@ -20,17 +20,12 @@ func init() {
 
 // MongoDevops produces Mongo-specific queries for the devops use case.
 type MongoDevops struct {
-	AllInterval TimeInterval
+	*devopsCore
 }
 
 // NewMongoDevops makes an MongoDevops object ready to generate Queries.
-func newMongoDevopsCommon(start, end time.Time) *MongoDevops {
-	if !start.Before(end) {
-		panic("bad time order")
-	}
-	return &MongoDevops{
-		AllInterval: NewTimeInterval(start, end),
-	}
+func newMongoDevopsCommon(start, end time.Time, scale int) *MongoDevops {
+	return &MongoDevops{newDevopsCore(start, end, scale)}
 }
 
 func getTimeFilterPipeline(interval TimeInterval) []bson.M {
@@ -96,9 +91,9 @@ func getTimeFilterDocs(interval TimeInterval) []interface{} {
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, scaleVar, nhosts int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
-	hostnames := getRandomHosts(scaleVar, nhosts)
+func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, nhosts int, timeRange time.Duration) {
+	interval := d.interval.RandWindow(timeRange)
+	hostnames := d.getRandomHosts(nhosts)
 
 	bucketNano := time.Minute.Nanoseconds()
 	pipelineQuery := []bson.M{
@@ -155,9 +150,9 @@ func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, scaleVar, nho
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.AllInterval.RandWindow(timeRange)
-	hostnames := getRandomHosts(scaleVar, nHosts)
+func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+	interval := d.interval.RandWindow(timeRange)
+	hostnames := d.getRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 	metrics := cpuMetrics[:numMetrics]
@@ -223,9 +218,9 @@ func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, scaleVar, nHosts, nu
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *MongoDevops) MaxAllCPU(qi query.Query, scaleVar, nHosts int) {
-	interval := d.AllInterval.RandWindow(8 * time.Hour)
-	hostnames := getRandomHosts(scaleVar, nHosts)
+func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
+	interval := d.interval.RandWindow(8 * time.Hour)
+	hostnames := d.getRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 	metrics := getCPUMetricsSlice(len(cpuMetrics))
@@ -292,7 +287,7 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, scaleVar, nHosts int) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	interval := d.interval.RandWindow(24 * time.Hour)
 	metrics := cpuMetrics[:numMetrics]
 	bucketNano := time.Hour.Nanoseconds()
 
@@ -361,7 +356,7 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics i
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
+	interval := d.interval.RandWindow(24 * time.Hour)
 	metrics := cpuMetrics[:numMetrics]
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
@@ -432,9 +427,9 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s (%s)", humanLabel, interval.StartString(), q.CollectionName))
 }
 
-func (d *MongoDevops) HighCPUForHosts(qi query.Query, scaleVar, nHosts int) {
-	interval := d.AllInterval.RandWindow(24 * time.Hour)
-	hostnames := getRandomHosts(scaleVar, nHosts)
+func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.interval.RandWindow(24 * time.Hour)
+	hostnames := d.getRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 
 	pipelineQuery := []bson.M{}
@@ -564,8 +559,8 @@ func (d *MongoDevops) LastPointPerHost(qi query.Query) {
 }
 
 func (d *MongoDevops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.AllInterval.RandWindow(time.Hour)
-	interval = NewTimeInterval(d.AllInterval.Start, interval.End)
+	interval := d.interval.RandWindow(time.Hour)
+	interval = NewTimeInterval(d.interval.Start, interval.End)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 

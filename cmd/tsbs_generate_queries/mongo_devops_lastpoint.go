@@ -12,8 +12,8 @@ type MongoDevopsLastPointPerHost struct {
 }
 
 // NewMongoDevopsLastPointPerHost returns a new MongoDevopsLastPointPerHost for given paremeters
-func NewMongoDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
-	underlying := newMongoDevopsCommon(start, end)
+func NewMongoDevopsLastPointPerHost(start, end time.Time, scale int) QueryGenerator {
+	underlying := newMongoDevopsCommon(start, end, scale)
 	return &MongoDevopsLastPointPerHost{
 		MongoDevops: *underlying,
 	}
@@ -21,7 +21,7 @@ func NewMongoDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsLastPointPerHost) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsLastPointPerHost) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
 	d.LastPointPerHost(q)
 	return q

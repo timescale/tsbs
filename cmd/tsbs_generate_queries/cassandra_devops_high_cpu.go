@@ -14,8 +14,8 @@ type CassandraDevopsHighCPU struct {
 
 // NewCassandraDevopsHighCPU produces a new function that produces a new CassandraDevopsHighCPU
 func NewCassandraDevopsHighCPU(hosts int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newCassandraDevopsCommon(start, end, scale)
 		return &CassandraDevopsHighCPU{
 			CassandraDevops: *underlying,
 			hosts:           hosts,
@@ -24,8 +24,8 @@ func NewCassandraDevopsHighCPU(hosts int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevopsHighCPU) Dispatch(scaleVar int) query.Query {
+func (d *CassandraDevopsHighCPU) Dispatch() query.Query {
 	q := query.NewCassandra() // from pool
-	d.HighCPUForHosts(q, scaleVar, d.hosts)
+	d.HighCPUForHosts(q, d.hosts)
 	return q
 }

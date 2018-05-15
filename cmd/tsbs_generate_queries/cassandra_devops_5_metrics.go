@@ -15,8 +15,8 @@ type CassandraDevops5Metrics struct {
 
 // NewCassandraDevops5Metrics produces a new function that produces a new CassandraDevops5Metrics
 func NewCassandraDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newCassandraDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newCassandraDevopsCommon(start, end, scale)
 		return &CassandraDevops5Metrics{
 			CassandraDevops: *underlying,
 			hosts:           hosts,
@@ -26,8 +26,8 @@ func NewCassandraDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *CassandraDevops5Metrics) Dispatch(scaleVar int) query.Query {
+func (d *CassandraDevops5Metrics) Dispatch() query.Query {
 	q := query.NewCassandra() // from pool
-	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

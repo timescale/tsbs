@@ -107,14 +107,6 @@ var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
 			"mongo":       NewMongoDevopsHighCPU(1),
 			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
 		},
-		"multiple-ors": {
-			"influx":      NewInfluxDevopsMultipleOrs,
-			"timescaledb": NewTimescaleDBDevopsMultipleOrs,
-		},
-		"multiple-ors-by-host": {
-			"influx":      NewInfluxDevopsMultipleOrsByHost,
-			"timescaledb": NewTimescaleDBDevopsMultipleOrsByHost,
-		},
 		"cpu-max-all-single-host": {
 			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
 			"influx":      NewInfluxDevopsAllMaxCPU(1),
@@ -242,7 +234,7 @@ func main() {
 
 	// Make the query generator:
 	maker := useCaseMatrix[useCase][queryType][format]
-	generator := maker(timestampStart, timestampEnd)
+	generator := maker(timestampStart, timestampEnd, scaleVar)
 
 	// Set up bookkeeping:
 	stats := make(map[string]int64)
@@ -258,7 +250,7 @@ func main() {
 
 	enc := gob.NewEncoder(out)
 	for i := 0; i < queryCount; i++ {
-		q := generator.Dispatch(scaleVar)
+		q := generator.Dispatch()
 
 		if currentInterleavedGroup == interleavedGenerationGroupID {
 			err := enc.Encode(q)

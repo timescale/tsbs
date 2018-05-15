@@ -15,8 +15,8 @@ type MongoDevopsSingleMetric struct {
 
 // NewMongoDevopsSingleMetric produces a new function that produces a new MongoDevopsSingleMetric
 func NewMongoDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoDevopsSingleMetric{
 			MongoDevops: *underlying,
 			hosts:       hosts,
@@ -26,8 +26,8 @@ func NewMongoDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsSingleMetric) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsSingleMetric) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
-	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 1, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, d.hosts, 1, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

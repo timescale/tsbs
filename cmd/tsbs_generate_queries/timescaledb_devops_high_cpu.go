@@ -14,8 +14,8 @@ type TimescaleDBDevopsHighCPU struct {
 
 // NewTimescaleDBDevopsHighCPU produces a new function that produces a new TimescaleDBDevopsHighCPU
 func NewTimescaleDBDevopsHighCPU(hosts int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newTimescaleDBDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newTimescaleDBDevopsCommon(start, end, scale)
 		return &TimescaleDBDevopsHighCPU{
 			TimescaleDBDevops: *underlying,
 			hosts:             hosts,
@@ -24,8 +24,8 @@ func NewTimescaleDBDevopsHighCPU(hosts int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *TimescaleDBDevopsHighCPU) Dispatch(scaleVar int) query.Query {
+func (d *TimescaleDBDevopsHighCPU) Dispatch() query.Query {
 	q := query.NewTimescaleDB() // from pool
-	d.HighCPUForHosts(q, scaleVar, d.hosts)
+	d.HighCPUForHosts(q, d.hosts)
 	return q
 }

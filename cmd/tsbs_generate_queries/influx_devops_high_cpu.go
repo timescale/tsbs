@@ -14,8 +14,8 @@ type InfluxDevopsHighCPU struct {
 
 // NewInfluxDevopsHighCPU produces a new function that produces a new InfluxDevopsHighCPU
 func NewInfluxDevopsHighCPU(hosts int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newInfluxDevopsCommon(start, end, scale)
 		return &InfluxDevopsHighCPU{
 			InfluxDevops: *underlying,
 			hosts:        hosts,
@@ -24,8 +24,8 @@ func NewInfluxDevopsHighCPU(hosts int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevopsHighCPU) Dispatch(scaleVar int) query.Query {
+func (d *InfluxDevopsHighCPU) Dispatch() query.Query {
 	q := query.NewHTTP() // from pool
-	d.HighCPUForHosts(q, scaleVar, d.hosts)
+	d.HighCPUForHosts(q, d.hosts)
 	return q
 }

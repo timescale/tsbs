@@ -14,8 +14,8 @@ type MongoDevopsAllMaxCPU struct {
 
 // NewMongoDevopsAllMaxCPU produces a new function that produces a new MongoDevopsAllMaxCPU
 func NewMongoDevopsAllMaxCPU(hosts int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoDevopsAllMaxCPU{
 			MongoDevops: *underlying,
 			hosts:       hosts,
@@ -24,8 +24,8 @@ func NewMongoDevopsAllMaxCPU(hosts int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsAllMaxCPU) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsAllMaxCPU) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
-	d.MaxAllCPU(q, scaleVar, d.hosts)
+	d.MaxAllCPU(q, d.hosts)
 	return q
 }

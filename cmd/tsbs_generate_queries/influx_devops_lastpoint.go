@@ -12,15 +12,15 @@ type InfluxDevopsLastPointPerHost struct {
 }
 
 // NewInfluxDevopsLastPointPerHost returns a new InfluxDevopsLastPointPerHost for given paremeters
-func NewInfluxDevopsLastPointPerHost(start, end time.Time) QueryGenerator {
-	underlying := newInfluxDevopsCommon(start, end)
+func NewInfluxDevopsLastPointPerHost(start, end time.Time, scale int) QueryGenerator {
+	underlying := newInfluxDevopsCommon(start, end, scale)
 	return &InfluxDevopsLastPointPerHost{
 		InfluxDevops: *underlying,
 	}
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevopsLastPointPerHost) Dispatch(scaleVar int) query.Query {
+func (d *InfluxDevopsLastPointPerHost) Dispatch() query.Query {
 	q := query.NewHTTP() // from pool
 	d.LastPointPerHost(q)
 	return q
