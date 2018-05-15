@@ -12,15 +12,15 @@ type MongoDevopsGroupByOrderByLimit struct {
 }
 
 // NewMongoDevopsGroupByOrderByLimit returns a new MongoDevopsGroupByOrderByLimit for given paremeters
-func NewMongoDevopsGroupByOrderByLimit(start, end time.Time) QueryGenerator {
-	underlying := newMongoDevopsCommon(start, end)
+func NewMongoDevopsGroupByOrderByLimit(start, end time.Time, scale int) QueryGenerator {
+	underlying := newMongoDevopsCommon(start, end, scale)
 	return &MongoDevopsGroupByOrderByLimit{
 		MongoDevops: *underlying,
 	}
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsGroupByOrderByLimit) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsGroupByOrderByLimit) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
 	d.GroupByOrderByLimit(q)
 	return q

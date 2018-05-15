@@ -15,8 +15,8 @@ type TimescaleDBDevops5Metrics struct {
 
 // NewTimescaleDBDevops5Metrics produces a new function that produces a new TimescaleDBDevops5Metrics
 func NewTimescaleDBDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newTimescaleDBDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newTimescaleDBDevopsCommon(start, end, scale)
 		return &TimescaleDBDevops5Metrics{
 			TimescaleDBDevops: *underlying,
 			hosts:             hosts,
@@ -26,8 +26,8 @@ func NewTimescaleDBDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *TimescaleDBDevops5Metrics) Dispatch(scaleVar int) query.Query {
+func (d *TimescaleDBDevops5Metrics) Dispatch() query.Query {
 	q := query.NewTimescaleDB() // from pool
-	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

@@ -15,8 +15,8 @@ type MongoNaiveDevopsSingleMetric struct {
 
 // NewMongoNaiveDevopsSingleMetric produces a new function that produces a new MongoNaiveDevopsSingleMetric
 func NewMongoNaiveDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoNaiveDevopsSingleMetric{
 			MongoDevops: *underlying,
 			hosts:       hosts,
@@ -26,8 +26,8 @@ func NewMongoNaiveDevopsSingleMetric(hosts, hours int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoNaiveDevopsSingleMetric) Dispatch(scaleVar int) query.Query {
+func (d *MongoNaiveDevopsSingleMetric) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
-	d.MaxCPUUsageHourByMinuteNaive(q, scaleVar, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUUsageHourByMinuteNaive(q, d.hosts, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

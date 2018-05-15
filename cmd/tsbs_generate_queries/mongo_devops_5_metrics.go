@@ -15,8 +15,8 @@ type MongoDevops5Metrics struct {
 
 // NewMongoDevops5Metrics produces a new function that produces a new MongoDevops5Metrics
 func NewMongoDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoDevops5Metrics{
 			MongoDevops: *underlying,
 			hosts:       hosts,
@@ -26,8 +26,8 @@ func NewMongoDevops5Metrics(hosts, hours int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevops5Metrics) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevops5Metrics) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
-	d.MaxCPUMetricsByMinute(q, scaleVar, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
+	d.MaxCPUMetricsByMinute(q, d.hosts, 5, time.Duration(int64(d.hours)*int64(time.Hour)))
 	return q
 }

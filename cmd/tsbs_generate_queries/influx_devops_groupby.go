@@ -14,8 +14,8 @@ type InfluxDevopsGroupby struct {
 
 // NewInfluxDevopsGroupBy produces a function that produces a new InfluxDevopsGroupby for the given parameters
 func NewInfluxDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newInfluxDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newInfluxDevopsCommon(start, end, scale)
 		return &InfluxDevopsGroupby{
 			InfluxDevops: *underlying,
 			numMetrics:   numMetrics,
@@ -24,7 +24,7 @@ func NewInfluxDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *InfluxDevopsGroupby) Dispatch(scaleVar int) query.Query {
+func (d *InfluxDevopsGroupby) Dispatch() query.Query {
 	q := query.NewHTTP() // from pool
 	d.MeanCPUMetricsDayByHourAllHostsGroupbyHost(q, d.numMetrics)
 	return q

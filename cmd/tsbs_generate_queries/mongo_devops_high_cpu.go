@@ -14,8 +14,8 @@ type MongoDevopsHighCPU struct {
 
 // NewMongoDevopsHighCPU produces a new function that produces a new MongoDevopsHighCPU
 func NewMongoDevopsHighCPU(hosts int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoDevopsHighCPU{
 			MongoDevops: *underlying,
 			hosts:       hosts,
@@ -24,8 +24,8 @@ func NewMongoDevopsHighCPU(hosts int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsHighCPU) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsHighCPU) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
-	d.HighCPUForHosts(q, scaleVar, d.hosts)
+	d.HighCPUForHosts(q, d.hosts)
 	return q
 }

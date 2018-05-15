@@ -14,8 +14,8 @@ type MongoDevopsGroupby struct {
 
 // NewMongoDevopsGroupBy produces a function that produces a new MongoDevopsGroupby for the given parameters
 func NewMongoDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoDevopsGroupby{
 			MongoDevops: *underlying,
 			numMetrics:  numMetrics,
@@ -24,7 +24,7 @@ func NewMongoDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoDevopsGroupby) Dispatch(scaleVar int) query.Query {
+func (d *MongoDevopsGroupby) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
 	d.GroupByTimeAndPrimaryTag(q, d.numMetrics)
 	return q

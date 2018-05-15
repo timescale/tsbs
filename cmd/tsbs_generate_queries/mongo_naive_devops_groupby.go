@@ -14,8 +14,8 @@ type MongoNaiveDevopsGroupby struct {
 
 // NewMongoNaiveDevopsGroupBy produces a function that produces a new MongoNaiveDevopsGroupby for the given parameters
 func NewMongoNaiveDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
-	return func(start, end time.Time) QueryGenerator {
-		underlying := newMongoDevopsCommon(start, end)
+	return func(start, end time.Time, scale int) QueryGenerator {
+		underlying := newMongoDevopsCommon(start, end, scale)
 		return &MongoNaiveDevopsGroupby{
 			MongoDevops: *underlying,
 			numMetrics:  numMetrics,
@@ -24,7 +24,7 @@ func NewMongoNaiveDevopsGroupBy(numMetrics int) QueryGeneratorMaker {
 }
 
 // Dispatch fills in the query.Query
-func (d *MongoNaiveDevopsGroupby) Dispatch(scaleVar int) query.Query {
+func (d *MongoNaiveDevopsGroupby) Dispatch() query.Query {
 	q := query.NewMongo() // from pool
 	d.GroupByTimeAndPrimaryTagNaive(q, d.numMetrics)
 	return q
