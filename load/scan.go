@@ -39,20 +39,32 @@ func sendOrQueueBatch(ch *DuplexChannel, count *int, batch Batch, unsent []Batch
 // append an item to it
 type Batch interface {
 	Len() int
-	Append(interface{})
+	Append(*Point)
+}
+
+// Point acts a 'holder' for the internal representation of a point in a given
+// load client. Instead of using interface{} as a return type, we get compile safety
+// by using Point
+type Point struct {
+	Data interface{}
+}
+
+// NewPoint creates a Point with the provided data as the internal representation
+func NewPoint(data interface{}) *Point {
+	return &Point{Data: data}
 }
 
 // PointIndexer determines the index of the Batch (and subsequently the channel) that a particular
 // point belongs to
 type PointIndexer interface {
-	GetIndex(interface{}) int
+	GetIndex(*Point) int
 }
 
 // constantIndexer always puts the item on a single channel. This is the typical
 // use case where all the workers share the same channel
 type constantIndexer struct{}
 
-func (i *constantIndexer) GetIndex(_ interface{}) int { return 0 }
+func (i *constantIndexer) GetIndex(_ *Point) int { return 0 }
 
 // BatchFactory returns a new empty batch for storing points.
 type BatchFactory interface {
@@ -61,7 +73,7 @@ type BatchFactory interface {
 
 // PointDecoder decodes the next data point in the process of scanning.
 type PointDecoder interface {
-	Decode(*bufio.Reader) interface{}
+	Decode(*bufio.Reader) *Point
 }
 
 // Scan reads data from the provided bufio.Reader br until a limit is reached (if -1, all items are read).

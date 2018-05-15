@@ -23,8 +23,8 @@ func (ha *hypertableArr) Len() int {
 	return ha.cnt
 }
 
-func (ha *hypertableArr) Append(item interface{}) {
-	that := item.(*point)
+func (ha *hypertableArr) Append(item *load.Point) {
+	that := item.Data.(*point)
 	k := that.hypertable
 	ha.m[k] = append(ha.m[k], that.row)
 	ha.cnt++
@@ -43,7 +43,7 @@ type decoder struct {
 	scanner *bufio.Scanner
 }
 
-func (d *decoder) Decode(_ *bufio.Reader) interface{} {
+func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	data := &insertData{}
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
@@ -69,10 +69,10 @@ func (d *decoder) Decode(_ *bufio.Reader) interface{} {
 	prefix = parts[0]
 	data.fields = parts[1]
 
-	return &point{
+	return load.NewPoint(&point{
 		hypertable: prefix,
 		row:        data,
-	}
+	})
 }
 
 func scan(channels []*load.DuplexChannel, batchSize int, limit int64, br *bufio.Reader) int64 {
