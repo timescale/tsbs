@@ -28,6 +28,11 @@ func newMongoDevopsCommon(start, end time.Time, scale int) *MongoDevops {
 	return &MongoDevops{newDevopsCore(start, end, scale)}
 }
 
+// GenerateEmptyQuery returns an empty query.Mongo
+func (d *MongoDevops) GenerateEmptyQuery() query.Query {
+	return query.NewMongo()
+}
+
 func getTimeFilterPipeline(interval TimeInterval) []bson.M {
 	return []bson.M{
 		{"$unwind": "$events"},
@@ -84,64 +89,7 @@ func getTimeFilterDocs(interval TimeInterval) []interface{} {
 	return docs
 }
 
-// MaxCPUUsageHourByMinuteNaive selects the MAX of the `usage_user` under 'cpu' per minute for nhosts hosts,
-// e.g. in psuedo-SQL:
-//
-// SELECT minute, MAX(usage_user) FROM cpu
-// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// AND time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, nhosts int, timeRange time.Duration) {
-	interval := d.interval.RandWindow(timeRange)
-	hostnames := d.getRandomHosts(nhosts)
-
-	bucketNano := time.Minute.Nanoseconds()
-	pipelineQuery := []bson.M{
-		{
-			"$match": map[string]interface{}{
-				"measurement": "cpu",
-				"timestamp_ns": map[string]interface{}{
-					"$gte": interval.StartUnixNano(),
-					"$lt":  interval.EndUnixNano(),
-				},
-				"tags.hostname": map[string]interface{}{
-					"$in": hostnames,
-				},
-			},
-		},
-		{
-			"$project": map[string]interface{}{
-				"_id": 0,
-				"time_bucket": map[string]interface{}{
-					"$subtract": []interface{}{
-						"$timestamp_ns",
-						map[string]interface{}{"$mod": []interface{}{"$timestamp_ns", bucketNano}},
-					},
-				},
-
-				"field": "$fields.usage_user",
-			},
-		},
-		{
-			"$group": map[string]interface{}{
-				"_id":       "$time_bucket",
-				"max_value": map[string]interface{}{"$max": "$field"},
-			},
-		},
-		{
-			"$sort": map[string]interface{}{"_id": 1},
-		},
-	}
-
-	humanLabel := []byte(fmt.Sprintf("Mongo max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange))
-	q := qi.(*query.Mongo)
-	q.HumanLabel = humanLabel
-	q.BsonDoc = pipelineQuery
-	q.CollectionName = []byte("point_data")
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s (%s)", humanLabel, interval.StartString(), q.CollectionName))
-}
-
-// MaxCPUMetricsByMinute selects the MAX for numMetrics metrics under 'cpu',
+// GroupByTime selects the MAX for numMetrics metrics under 'cpu',
 // per minute for nhosts hosts,
 // e.g. in psuedo-SQL:
 //
@@ -150,12 +98,12 @@ func (d *MongoDevops) MaxCPUUsageHourByMinuteNaive(qi query.Query, nhosts int, t
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.interval.RandWindow(timeRange)
 	hostnames := d.getRandomHosts(nHosts)
+	metrics := getCPUMetricsSlice(numMetrics)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
-	metrics := cpuMetrics[:numMetrics]
 
 	pipelineQuery := []bson.M{
 		{
@@ -203,7 +151,7 @@ func (d *MongoDevops) MaxCPUMetricsByMinute(qi query.Query, nHosts, numMetrics i
 	pipelineQuery = append(pipelineQuery, group)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id": 1}})
 
-	humanLabel := []byte(fmt.Sprintf("Cassandra %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange))
+	humanLabel := []byte(fmt.Sprintf("Mongo %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange))
 	q := qi.(*query.Mongo)
 	q.HumanLabel = humanLabel
 	q.BsonDoc = pipelineQuery
@@ -279,75 +227,6 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
 }
 
-// GroupByTimeAndPrimaryTagNaive selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
-// e.g. in psuedo-SQL:
-//
-// SELECT AVG(metric1), ..., AVG(metricN)
-// FROM cpu
-// WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
-// GROUP BY hour, hostname ORDER BY hour
-func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics int) {
-	interval := d.interval.RandWindow(24 * time.Hour)
-	metrics := cpuMetrics[:numMetrics]
-	bucketNano := time.Hour.Nanoseconds()
-
-	pipelineQuery := []bson.M{
-		{
-			"$match": bson.M{
-				"measurement": "cpu",
-				"timestamp_ns": bson.M{
-					"$gte": interval.StartUnixNano(),
-					"$lt":  interval.EndUnixNano(),
-				},
-			},
-		},
-		{
-			"$project": bson.M{
-				"_id": 0,
-				"time_bucket": bson.M{
-					"$subtract": []interface{}{
-						"$timestamp_ns",
-						bson.M{"$mod": []interface{}{"$timestamp_ns", bucketNano}},
-					},
-				},
-
-				"fields":      1,
-				"measurement": 1,
-				"tags":        "$tags.hostname",
-			},
-		},
-	}
-
-	// Add groupby operator
-	group := bson.M{
-		"$group": bson.M{
-			"_id": bson.M{
-				"time":     "$time_bucket",
-				"hostname": "$tags",
-			},
-		},
-	}
-	resultMap := group["$group"].(bson.M)
-	for _, metric := range metrics {
-		resultMap["avg_"+metric] = bson.M{"$avg": "$fields." + metric}
-	}
-	pipelineQuery = append(pipelineQuery, group)
-
-	// Add sort operator
-	pipelineQuery = append(pipelineQuery, []bson.M{
-		{"$sort": bson.M{"_id.hostname": 1}},
-		{"$sort": bson.M{"_id.time": 1}},
-	}...)
-	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id.time": 1, "_id.hostname": 1}})
-
-	humanLabel := fmt.Sprintf("Mongo mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
-	q := qi.(*query.Mongo)
-	q.HumanLabel = []byte(humanLabel)
-	q.BsonDoc = pipelineQuery
-	q.CollectionName = []byte("point_data")
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s (%s)", humanLabel, interval.StartString(), q.CollectionName))
-}
-
 // GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
 // e.g. in psuedo-SQL:
 //
@@ -356,8 +235,8 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTagNaive(qi query.Query, numMetrics i
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.interval.RandWindow(24 * time.Hour)
-	metrics := cpuMetrics[:numMetrics]
+	interval := d.interval.RandWindow(doubleGroupByDuration)
+	metrics := getCPUMetricsSlice(numMetrics)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 
@@ -427,8 +306,16 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s (%s)", humanLabel, interval.StartString(), q.CollectionName))
 }
 
+// HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a number of hosts (if 0, it will search all hosts),
+// e.g. in psuedo-SQL:
+//
+// SELECT * FROM cpu
+// WHERE usage_user > 90.0
+// AND time >= '$TIME_START' AND time < '$TIME_END'
+// AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(24 * time.Hour)
+	interval := d.interval.RandWindow(highCPUDuration)
 	hostnames := d.getRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 
@@ -468,12 +355,7 @@ func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 		},
 	})
 
-	humanLabel := "Mongo CPU over threshold, "
-	if nHosts > 0 {
-		humanLabel += fmt.Sprintf("%d host(s)", nHosts)
-	} else {
-		humanLabel += "all hosts"
-	}
+	humanLabel := getHighCPULabel("Mongo", nHosts)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -558,6 +440,11 @@ func (d *MongoDevops) LastPointPerHost(qi query.Query) {
 	q.HumanDescription = []byte(fmt.Sprintf("%s", humanLabel))
 }
 
+// GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// WHERE time < '$TIME'
+// GROUP BY t ORDER BY t DESC
+// LIMIT $LIMIT
 func (d *MongoDevops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.interval.RandWindow(time.Hour)
 	interval = NewTimeInterval(d.interval.Start, interval.End)

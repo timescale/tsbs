@@ -1,17 +1,14 @@
 package main
 
 import (
-	"time"
-
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
-// QueryGenerator describes a generator of queries, typically according to a
-// use case.
-type QueryGenerator interface {
-	Dispatch() query.Query
+// QueryFiller describes a type that can fill in a query and return it
+type QueryFiller interface {
+	// Fill fills in the query.Query with query details
+	Fill(query.Query) query.Query
 }
 
-// QueryGeneratorMaker is a function that takes a time range and returns a QueryGenerator
-// to build a Query from for the given time parameters
-type QueryGeneratorMaker func(time.Time, time.Time, int) QueryGenerator
+// QueryFillerMaker is a function that takes a DevopsGenerator and returns a QueryFiller
+type QueryFillerMaker func(DevopsGenerator) QueryFiller
