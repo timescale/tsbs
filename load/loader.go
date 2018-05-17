@@ -3,8 +3,10 @@ package load
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -39,8 +41,10 @@ type BenchmarkRunner struct {
 	doLoad          bool
 	doInit          bool
 	reportingPeriod time.Duration
-	filename        string
-	br              *bufio.Reader
+	filename        string // TODO implement file reading
+
+	// non-flag fields
+	br *bufio.Reader
 }
 
 var loader = &BenchmarkRunner{}
@@ -89,14 +93,26 @@ func (l *BenchmarkRunner) NumWorkers() int {
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
 func (l *BenchmarkRunner) RunBenchmark(b Benchmark, metricCount, rowCount *uint64) {
-	dr := NewDataReader(l.workers, b)
 	l.br = l.GetBufferedReader()
-	dr.Start(l.br, l.batchSize, l.limit, l.reportingPeriod, metricCount, rowCount)
+	var wg sync.WaitGroup
+
+	for i := 0; i < l.workers; i++ {
+		wg.Add(1)
+		b.Work(&wg, i)
+	}
+
+	start := time.Now()
+	l.scan(b, metricCount, rowCount)
 	switch c := b.(type) {
 	case CleaningBenchmark:
 		c.Cleanup()
 	}
-	dr.Summary(l.workers, metricCount, rowCount)
+
+	b.Close()
+	wg.Wait()
+	end := time.Now()
+
+	summary(end.Sub(start), l.workers, metricCount, rowCount)
 }
 
 // GetBufferedReader returns the buffered Reader that should be used by the loader
@@ -109,4 +125,57 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 		}
 	}
 	return l.br
+}
+
+// scan launches any needed reporting mechanism and proceeds to scan input data
+// to distribute to workers
+func (l *BenchmarkRunner) scan(b Benchmark, metricCount, rowCount *uint64) int64 {
+	if l.reportingPeriod.Nanoseconds() > 0 {
+		go report(l.reportingPeriod, metricCount, rowCount)
+	}
+	return b.Scan(l.batchSize, l.limit, l.br)
+}
+
+// summary prints the summary of statistics from loading
+func summary(took time.Duration, workers int, metricCount, rowCount *uint64) {
+	metricRate := float64(*metricCount) / float64(took.Seconds())
+	fmt.Println("\nSummary:")
+	fmt.Printf("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", *metricCount, took.Seconds(), workers, metricRate)
+	if rowCount != nil {
+		rowRate := float64(*rowCount) / float64(took.Seconds())
+		fmt.Printf("loaded %d rows in %0.3fsec with %d workers (mean rate %0.2f rows/sec)\n", *rowCount, took.Seconds(), workers, rowRate)
+	}
+}
+
+// report handles periodic reporting of loading stats
+func report(period time.Duration, metricCount, rowCount *uint64) {
+	start := time.Now()
+	prevTime := start
+	prevColCount := uint64(0)
+	prevRowCount := uint64(0)
+
+	rCount := uint64(0)
+	fmt.Printf("time,per. metric/s,metric total,overall metric/s,per. row/s,row total,overall row/s\n")
+	for now := range time.NewTicker(period).C {
+		cCount := atomic.LoadUint64(metricCount)
+		if rowCount != nil {
+			rCount = atomic.LoadUint64(rowCount)
+		}
+
+		sinceStart := now.Sub(start)
+		took := now.Sub(prevTime)
+		colrate := float64(cCount-prevColCount) / float64(took.Seconds())
+		overallColRate := float64(cCount) / float64(sinceStart.Seconds())
+		if rowCount != nil {
+			rowrate := float64(rCount-prevRowCount) / float64(took.Seconds())
+			overallRowRate := float64(rCount) / float64(sinceStart.Seconds())
+			fmt.Printf("%d,%0.3f,%E,%0.3f,%0.3f,%E,%0.3f\n", now.Unix(), colrate, float64(cCount), overallColRate, rowrate, float64(rCount), overallRowRate)
+		} else {
+			fmt.Printf("%d,%0.3f,%E,%0.3f,-,-,-\n", now.Unix(), colrate, float64(cCount), overallColRate)
+		}
+
+		prevColCount = cCount
+		prevRowCount = rCount
+		prevTime = now
+	}
 }
