@@ -72,12 +72,12 @@ func init() {
 
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
-	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed and how much the insert logic slows things down.")
+	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
 	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 
 	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
-	flag.DurationVar(&chunkTime, "chunk-time", 8*time.Hour, "Duration that each chunk should represent, e.g., 6h")
+	flag.DurationVar(&chunkTime, "chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
@@ -91,21 +91,22 @@ func init() {
 	tableCols = make(map[string][]string)
 }
 
-type benchmark struct {
-	l *load.BenchmarkRunner
-	c *load.DuplexChannel
+type benchmark struct{}
+
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+	return &decoder{scanner: bufio.NewScanner(br)}
 }
 
-func (b *benchmark) Work(wg *sync.WaitGroup, _ int) {
-	go processBatches(wg, b.c)
+func (b *benchmark) GetBatchFactory() load.BatchFactory {
+	return &factory{}
 }
 
-func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
-	return scan([]*load.DuplexChannel{b.c}, batchSize, limit, br)
+func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
+	return &load.ConstantIndexer{}
 }
 
-func (b *benchmark) Close() {
-	b.c.Close()
+func (b *benchmark) GetProcessor() load.Processor {
+	return &processor{}
 }
 
 func main() {
@@ -133,8 +134,6 @@ func main() {
 		initDB(loader.DatabaseName(), tags, cols)
 	}
 
-	batchChan := load.NewDuplexChannel(loader.NumWorkers())
-
 	/* If specified, generate a performance profile */
 	if len(profileFile) > 0 {
 		go profileCPUAndMem(profileFile)
@@ -145,8 +144,7 @@ func main() {
 		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	b := &benchmark{l: loader, c: batchChan}
-	loader.RunBenchmark(b, &metricCount, &rowCount)
+	loader.RunBenchmark(&benchmark{}, load.SingleQueue, &metricCount, &rowCount)
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
@@ -362,39 +360,44 @@ func processCSI(db *sqlx.DB, hypertable string, rows []*insertData) uint64 {
 	return ret
 }
 
-// processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(wg *sync.WaitGroup, c *load.DuplexChannel) {
-	var db *sqlx.DB
-	if loader.DoLoad() {
-		db = sqlx.MustConnect(dbType, getConnectString())
-		defer db.Close()
+type processor struct {
+	db *sqlx.DB
+}
+
+func (p *processor) Init(workerNum int, doLoad bool) {
+	if doLoad {
+		p.db = sqlx.MustConnect(dbType, getConnectString())
 	}
+}
 
-	for item := range c.GetWorkerChannel() {
-		batches := item.(*hypertableArr)
-		rowsCnt := 0
-		for hypertable, rows := range batches.m {
-			rowsCnt += len(rows)
-			if loader.DoLoad() {
-				start := time.Now()
-				metricCountWorker := processCSI(db, hypertable, rows)
-				//metricCountWorker := processSplit(db, hypertable, rows)
-				atomic.AddUint64(&metricCount, metricCountWorker)
+func (p *processor) Close(doLoad bool) {
+	if doLoad {
+		p.db.Close()
+	}
+}
 
-				if logBatches {
-					now := time.Now()
-					took := now.Sub(start)
-					batchSize := len(rows)
-					fmt.Printf("BATCH: batchsize %d row rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
-				}
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+	batches := b.(*hypertableArr)
+	rowsCnt := 0
+	for hypertable, rows := range batches.m {
+		rowsCnt += len(rows)
+		if doLoad {
+			start := time.Now()
+			metricCountWorker := processCSI(p.db, hypertable, rows)
+			//metricCountWorker := processSplit(db, hypertable, rows)
+			atomic.AddUint64(&metricCount, metricCountWorker)
+
+			if logBatches {
+				now := time.Now()
+				took := now.Sub(start)
+				batchSize := len(rows)
+				fmt.Printf("BATCH: batchsize %d row rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
 			}
 		}
-		batches.m = map[string][]*insertData{}
-		batches.cnt = 0
-		atomic.AddUint64(&rowCount, uint64(rowsCnt))
-		c.SendToScanner()
 	}
-	wg.Done()
+	batches.m = map[string][]*insertData{}
+	batches.cnt = 0
+	atomic.AddUint64(&rowCount, uint64(rowsCnt))
 }
 
 func createTagsTable(db *sqlx.DB, tags []string) {

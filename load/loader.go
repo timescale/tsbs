@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -12,23 +13,26 @@ import (
 
 const (
 	// DefaultBatchSize is the default size of batches to be inserted
-	DefaultBatchSize = 10000
+	defaultBatchSize = 10000
 	defaultReadSize  = 4 << 20 // 4 MB
+
+	// WorkerPerQueue is the value to have each worker have its own queue of batches
+	WorkerPerQueue = 0
+	// SingleQueue is the value to have only a single shared queue of work for all workers
+	SingleQueue = 1
 )
 
 // Benchmark is an interface that represents the skeleton of a program
 // needed to run an insert or load benchmark.
 type Benchmark interface {
-	Work(*sync.WaitGroup, int)
-	Scan(batchSize int, limit int64, br *bufio.Reader) int64
-	Close()
-}
-
-// CleaningBenchmark is an interface for programs that need to cleanup before
-// printing the summary. It should be combined with Benchmark
-type CleaningBenchmark interface {
-	Benchmark
-	Cleanup()
+	// GetPointDecoder returns the PointDecoder to use for this Benchmark
+	GetPointDecoder(br *bufio.Reader) PointDecoder
+	// GetBatchFactory returns the BatchFactory to use for this Benchmark
+	GetBatchFactory() BatchFactory
+	// GetPointIndexer returns the PointIndexer to use for this Benchmark
+	GetPointIndexer(maxPartitions uint) PointIndexer
+	// GetProcessor returns the Processor to use for this Benchmark
+	GetProcessor() Processor
 }
 
 // BenchmarkRunner is responsible for initializing and storing common
@@ -36,7 +40,7 @@ type CleaningBenchmark interface {
 type BenchmarkRunner struct {
 	dbName          string
 	batchSize       int
-	workers         int
+	workers         uint
 	limit           int64
 	doLoad          bool
 	doInit          bool
@@ -52,7 +56,7 @@ var loader = &BenchmarkRunner{}
 // GetBenchmarkRunner returns the singleton BenchmarkRunner for use in a benchmark program
 // with a batch size of 10000
 func GetBenchmarkRunner() *BenchmarkRunner {
-	return GetBenchmarkRunnerWithBatchSize(DefaultBatchSize)
+	return GetBenchmarkRunnerWithBatchSize(defaultBatchSize)
 }
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
@@ -61,7 +65,7 @@ func GetBenchmarkRunnerWithBatchSize(batchSize int) *BenchmarkRunner {
 	flag.StringVar(&loader.dbName, "db-name", "benchmark", "Name of database")
 
 	flag.IntVar(&loader.batchSize, "batch-size", batchSize, "Number of items to batch together in a single insert")
-	flag.IntVar(&loader.workers, "workers", 1, "Number of parallel clients inserting")
+	flag.UintVar(&loader.workers, "workers", 1, "Number of parallel clients inserting")
 	flag.Int64Var(&loader.limit, "limit", -1, "Number of items to insert (default unlimited).")
 	flag.BoolVar(&loader.doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed")
 	flag.BoolVar(&loader.doInit, "do-init", true, "Whether to initialize the database. Disable on all but one box if running on a multi client box setup.")
@@ -85,30 +89,35 @@ func (l *BenchmarkRunner) DoInit() bool {
 	return l.doInit
 }
 
-// NumWorkers returns the value of the --workers flag (how many parallel insert clients there are)
-func (l *BenchmarkRunner) NumWorkers() int {
-	return l.workers
-}
-
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b Benchmark, metricCount, rowCount *uint64) {
+func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint, metricCount, rowCount *uint64) {
 	l.br = l.GetBufferedReader()
 	var wg sync.WaitGroup
 
-	for i := 0; i < l.workers; i++ {
+	channels := []*duplexChannel{}
+	maxPartitions := workQueues
+	if workQueues == WorkerPerQueue {
+		maxPartitions = l.workers
+	} else if workQueues > l.workers {
+		panic(fmt.Sprintf("cannot have more work queues (%d) than workers (%d)", workQueues, l.workers))
+	}
+	perQueue := int(math.Ceil(float64(l.workers / maxPartitions)))
+	for i := uint(0); i < maxPartitions; i++ {
+		channels = append(channels, newDuplexChannel(perQueue))
+	}
+
+	for i := 0; i < int(l.workers); i++ {
 		wg.Add(1)
-		b.Work(&wg, i)
+		go work(b, &wg, channels[i%len(channels)], i, l.doLoad)
 	}
 
 	start := time.Now()
-	l.scan(b, metricCount, rowCount)
-	switch c := b.(type) {
-	case CleaningBenchmark:
-		c.Cleanup()
-	}
+	l.scan(b, channels, maxPartitions, metricCount, rowCount)
 
-	b.Close()
+	for _, c := range channels {
+		c.close()
+	}
 	wg.Wait()
 	end := time.Now()
 
@@ -129,15 +138,30 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 
 // scan launches any needed reporting mechanism and proceeds to scan input data
 // to distribute to workers
-func (l *BenchmarkRunner) scan(b Benchmark, metricCount, rowCount *uint64) int64 {
+func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel, maxPartitions uint, metricCount, rowCount *uint64) int64 {
 	if l.reportingPeriod.Nanoseconds() > 0 {
 		go report(l.reportingPeriod, metricCount, rowCount)
 	}
-	return b.Scan(l.batchSize, l.limit, l.br)
+	return scanWithIndexer(channels, l.batchSize, l.limit, l.br, b.GetPointDecoder(l.br), b.GetBatchFactory(), b.GetPointIndexer(maxPartitions))
+}
+
+// work is the processing function for each worker in the loader
+func work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int, doLoad bool) {
+	proc := b.GetProcessor()
+	proc.Init(workerNum, doLoad)
+	for b := range c.toWorker {
+		proc.ProcessBatch(b, doLoad)
+		c.sendToScanner()
+	}
+	wg.Done()
+	switch c := proc.(type) {
+	case ProcessorCloser:
+		c.Close(doLoad)
+	}
 }
 
 // summary prints the summary of statistics from loading
-func summary(took time.Duration, workers int, metricCount, rowCount *uint64) {
+func summary(took time.Duration, workers uint, metricCount, rowCount *uint64) {
 	metricRate := float64(*metricCount) / float64(took.Seconds())
 	fmt.Println("\nSummary:")
 	fmt.Printf("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", *metricCount, took.Seconds(), workers, metricRate)

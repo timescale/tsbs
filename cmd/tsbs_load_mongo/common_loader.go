@@ -9,6 +9,7 @@ import (
 
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
+	"github.com/globalsign/mgo"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -67,4 +68,17 @@ type factory struct{}
 
 func (f *factory) New() load.Batch {
 	return &batch{arr: []*serialize.MongoPoint{}}
+}
+
+type mongoBenchmark struct {
+	l       *load.BenchmarkRunner
+	session *mgo.Session
+}
+
+func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) load.PointDecoder {
+	return &decoder{lenBuf: make([]byte, 8)}
+}
+
+func (b *mongoBenchmark) GetBatchFactory() load.BatchFactory {
+	return &factory{}
 }

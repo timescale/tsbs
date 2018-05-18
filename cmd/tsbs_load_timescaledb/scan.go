@@ -74,8 +74,3 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 		row:        data,
 	})
 }
-
-func scan(channels []*load.DuplexChannel, batchSize int, limit int64, br *bufio.Reader) int64 {
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	return load.Scan(channels, batchSize, limit, br, decoder, &factory{})
-}
