@@ -5,7 +5,6 @@ import (
 	"hash/fnv"
 	"log"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
@@ -39,6 +38,9 @@ type aggBenchmark struct {
 }
 
 func newAggBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *aggBenchmark {
+	// Pre-create the needed empty subdoc for new aggregate docs
+	generateEmptyHourDoc()
+
 	return &aggBenchmark{mongoBenchmark{l, session}}
 }
 
@@ -112,7 +114,7 @@ func (p *aggProcessor) Init(workerNum int, doLoad bool) {
 //      ]
 //    ]
 //  }
-func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) {
+func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	docToEvents := make(map[string][]*point)
 	batch := b.(*batch)
 
@@ -202,9 +204,7 @@ func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) {
 			}
 		}
 	}
-	// Update count of metrics inserted
-	atomic.AddUint64(&metricCount, eventCnt)
-
+	return eventCnt, 0
 }
 
 // insertNewAggregateDocs handles creating new aggregated documents when new devices

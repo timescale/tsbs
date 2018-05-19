@@ -32,8 +32,7 @@ var (
 
 // Global vars
 var (
-	metricCount uint64
-	loader      *load.BenchmarkRunner
+	loader *load.BenchmarkRunner
 )
 
 // Parse args:
@@ -68,14 +67,11 @@ func main() {
 		benchmark = newNaiveBenchmark(loader, session)
 		workQueues = load.SingleQueue
 	} else {
-		// Pre-create the needed empty subdoc for new aggregate docs
-		generateEmptyHourDoc()
-
 		benchmark = newAggBenchmark(loader, session)
 		workQueues = load.WorkerPerQueue
 	}
 
-	loader.RunBenchmark(benchmark, workQueues, &metricCount, nil)
+	loader.RunBenchmark(benchmark, workQueues)
 }
 
 func createCollection(session *mgo.Session, collectionName string) {

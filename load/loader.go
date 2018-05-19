@@ -48,7 +48,9 @@ type BenchmarkRunner struct {
 	filename        string // TODO implement file reading
 
 	// non-flag fields
-	br *bufio.Reader
+	br        *bufio.Reader
+	metricCnt uint64
+	rowCnt    uint64
 }
 
 var loader = &BenchmarkRunner{}
@@ -91,7 +93,7 @@ func (l *BenchmarkRunner) DoInit() bool {
 
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint, metricCount, rowCount *uint64) {
+func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 	l.br = l.GetBufferedReader()
 	var wg sync.WaitGroup
 
@@ -109,11 +111,11 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint, metricCount
 
 	for i := 0; i < int(l.workers); i++ {
 		wg.Add(1)
-		go work(b, &wg, channels[i%len(channels)], i, l.doLoad)
+		go l.work(b, &wg, channels[i%len(channels)], i)
 	}
 
 	start := time.Now()
-	l.scan(b, channels, maxPartitions, metricCount, rowCount)
+	l.scan(b, channels, maxPartitions)
 
 	for _, c := range channels {
 		c.close()
@@ -121,7 +123,7 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint, metricCount
 	wg.Wait()
 	end := time.Now()
 
-	summary(end.Sub(start), l.workers, metricCount, rowCount)
+	l.summary(end.Sub(start))
 }
 
 // GetBufferedReader returns the buffered Reader that should be used by the loader
@@ -138,64 +140,63 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 
 // scan launches any needed reporting mechanism and proceeds to scan input data
 // to distribute to workers
-func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel, maxPartitions uint, metricCount, rowCount *uint64) int64 {
+func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel, maxPartitions uint) int64 {
 	if l.reportingPeriod.Nanoseconds() > 0 {
-		go report(l.reportingPeriod, metricCount, rowCount)
+		go l.report(l.reportingPeriod)
 	}
 	return scanWithIndexer(channels, l.batchSize, l.limit, l.br, b.GetPointDecoder(l.br), b.GetBatchFactory(), b.GetPointIndexer(maxPartitions))
 }
 
 // work is the processing function for each worker in the loader
-func work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int, doLoad bool) {
+func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int) {
 	proc := b.GetProcessor()
-	proc.Init(workerNum, doLoad)
+	proc.Init(workerNum, l.doLoad)
 	for b := range c.toWorker {
-		proc.ProcessBatch(b, doLoad)
+		metricCnt, rowCnt := proc.ProcessBatch(b, l.doLoad)
+		atomic.AddUint64(&l.metricCnt, metricCnt)
+		atomic.AddUint64(&l.rowCnt, rowCnt)
 		c.sendToScanner()
 	}
 	wg.Done()
 	switch c := proc.(type) {
 	case ProcessorCloser:
-		c.Close(doLoad)
+		c.Close(l.doLoad)
 	}
 }
 
 // summary prints the summary of statistics from loading
-func summary(took time.Duration, workers uint, metricCount, rowCount *uint64) {
-	metricRate := float64(*metricCount) / float64(took.Seconds())
+func (l *BenchmarkRunner) summary(took time.Duration) {
+	metricRate := float64(l.metricCnt) / float64(took.Seconds())
 	fmt.Println("\nSummary:")
-	fmt.Printf("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", *metricCount, took.Seconds(), workers, metricRate)
-	if rowCount != nil {
-		rowRate := float64(*rowCount) / float64(took.Seconds())
-		fmt.Printf("loaded %d rows in %0.3fsec with %d workers (mean rate %0.2f rows/sec)\n", *rowCount, took.Seconds(), workers, rowRate)
+	fmt.Printf("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", l.metricCnt, took.Seconds(), l.workers, metricRate)
+	if l.rowCnt > 0 {
+		rowRate := float64(l.rowCnt) / float64(took.Seconds())
+		fmt.Printf("loaded %d rows in %0.3fsec with %d workers (mean rate %0.2f rows/sec)\n", l.rowCnt, took.Seconds(), l.workers, rowRate)
 	}
 }
 
 // report handles periodic reporting of loading stats
-func report(period time.Duration, metricCount, rowCount *uint64) {
+func (l *BenchmarkRunner) report(period time.Duration) {
 	start := time.Now()
 	prevTime := start
 	prevColCount := uint64(0)
 	prevRowCount := uint64(0)
 
-	rCount := uint64(0)
 	fmt.Printf("time,per. metric/s,metric total,overall metric/s,per. row/s,row total,overall row/s\n")
 	for now := range time.NewTicker(period).C {
-		cCount := atomic.LoadUint64(metricCount)
-		if rowCount != nil {
-			rCount = atomic.LoadUint64(rowCount)
-		}
+		cCount := atomic.LoadUint64(&l.metricCnt)
+		rCount := atomic.LoadUint64(&l.rowCnt)
 
 		sinceStart := now.Sub(start)
 		took := now.Sub(prevTime)
 		colrate := float64(cCount-prevColCount) / float64(took.Seconds())
 		overallColRate := float64(cCount) / float64(sinceStart.Seconds())
-		if rowCount != nil {
+		if rCount > 0 {
 			rowrate := float64(rCount-prevRowCount) / float64(took.Seconds())
 			overallRowRate := float64(rCount) / float64(sinceStart.Seconds())
-			fmt.Printf("%d,%0.3f,%E,%0.3f,%0.3f,%E,%0.3f\n", now.Unix(), colrate, float64(cCount), overallColRate, rowrate, float64(rCount), overallRowRate)
+			fmt.Printf("%d,%0.2f,%E,%0.2f,%0.2f,%E,%0.2f\n", now.Unix(), colrate, float64(cCount), overallColRate, rowrate, float64(rCount), overallRowRate)
 		} else {
-			fmt.Printf("%d,%0.3f,%E,%0.3f,-,-,-\n", now.Unix(), colrate, float64(cCount), overallColRate)
+			fmt.Printf("%d,%0.2f,%E,%0.2f,-,-,-\n", now.Unix(), colrate, float64(cCount), overallColRate)
 		}
 
 		prevColCount = cCount

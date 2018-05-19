@@ -16,7 +16,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
@@ -41,9 +40,6 @@ var (
 var (
 	loader  *load.BenchmarkRunner
 	bufPool sync.Pool
-
-	rowCount    uint64
-	metricCount uint64
 )
 
 var consistencyChoices = map[string]struct{}{
@@ -131,7 +127,7 @@ func main() {
 		},
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue, &metricCount, &rowCount)
+	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
 }
 
 type processor struct {
@@ -160,7 +156,7 @@ func (p *processor) Close(_ bool) {
 	<-p.backingOffDone
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch)
 
 	// Write the batch: try until backoff is not needed.
@@ -190,12 +186,13 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}
 	}
-	atomic.AddUint64(&metricCount, batch.metrics)
-	atomic.AddUint64(&rowCount, batch.rows)
+	metricCnt := batch.metrics
+	rowCnt := batch.rows
 
 	// Return the batch buffer to the pool.
 	batch.buf.Reset()
 	bufPool.Put(batch.buf)
+	return metricCnt, rowCnt
 }
 
 func processBackoffMessages(workerID int, src chan bool, dst chan struct{}) {

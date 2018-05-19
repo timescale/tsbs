@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
@@ -29,8 +28,7 @@ var (
 
 // Global vars
 var (
-	metricCount uint64
-	loader      *load.BenchmarkRunner
+	loader *load.BenchmarkRunner
 )
 
 // Map of user specified strings to gocql consistency settings
@@ -102,8 +100,7 @@ func main() {
 		defer session.Close()
 	}
 
-	b := &benchmark{session: session}
-	loader.RunBenchmark(b, load.SingleQueue, &metricCount, nil)
+	loader.RunBenchmark(&benchmark{session: session}, load.SingleQueue)
 }
 
 type processor struct {
@@ -114,7 +111,7 @@ func (p *processor) Init(_ int, _ bool) {}
 
 // ProcessBatch reads eventsBatches which contain rows of CQL strings and
 // creates a gocql.LoggedBatch to insert
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	events := b.(*eventsBatch)
 	if doLoad {
 		batch := p.session.NewBatch(gocql.LoggedBatch)
@@ -127,9 +124,10 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}
 	}
-	atomic.AddUint64(&metricCount, uint64(len(events.rows)))
+	metricCnt := uint64(len(events.rows))
 	events.rows = events.rows[:0]
 	ePool.Put(events)
+	return metricCnt, 0
 }
 
 func createKeyspace(hosts string) {
