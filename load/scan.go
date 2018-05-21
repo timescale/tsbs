@@ -84,9 +84,13 @@ type PointDecoder interface {
 // Data is decoded by PointDecoder decoder and then placed into appropriate batches, using the supplied PointIndexer,
 // which are then dispatched to workers (duplexChannel chosen by PointIndexer). Scan does flow control to make sure workers are not left idle for too long
 // and also that the scanning process  does not starve them of CPU.
-func scanWithIndexer(channels []*duplexChannel, batchSize int, limit int64, br *bufio.Reader, decoder PointDecoder, factory BatchFactory, indexer PointIndexer) int64 {
-	var itemsRead int64
+func scanWithIndexer(channels []*duplexChannel, batchSize uint, limit uint64, br *bufio.Reader, decoder PointDecoder, factory BatchFactory, indexer PointIndexer) uint64 {
+	var itemsRead uint64
 	numChannels := len(channels)
+
+	if batchSize < 1 {
+		panic("--batch-size cannot be less than 1")
+	}
 
 	// Current batches (per channel) that are being filled
 	batches := make([]Batch, numChannels)
@@ -117,7 +121,7 @@ func scanWithIndexer(channels []*duplexChannel, batchSize int, limit int64, br *
 	ocnt := 0
 	olimit := numChannels * cap(channels[0].toWorker) * 3
 	for {
-		if itemsRead == limit {
+		if limit > 0 && itemsRead == limit {
 			break
 		}
 
@@ -141,7 +145,7 @@ func scanWithIndexer(channels []*duplexChannel, batchSize int, limit int64, br *
 		batches[idx].Append(item)
 
 		itemsRead++
-		if batches[idx].Len() >= batchSize {
+		if batches[idx].Len() >= int(batchSize) {
 			unsent[idx] = sendOrQueueBatch(channels[idx], &ocnt, batches[idx], unsent[idx])
 			batches[idx] = factory.New()
 		}
