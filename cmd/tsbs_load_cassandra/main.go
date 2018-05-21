@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -64,24 +63,23 @@ func init() {
 }
 
 type benchmark struct {
-	l        *load.BenchmarkRunner
-	channels []*load.DuplexChannel
-	session  *gocql.Session
+	session *gocql.Session
 }
 
-func (b *benchmark) Work(wg *sync.WaitGroup, _ int) {
-	go processBatches(wg, b.session, b.channels[0])
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+	return &decoder{scanner: bufio.NewScanner(br)}
 }
 
-func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	return load.Scan(b.channels, batchSize, limit, br, decoder, &factory{})
+func (b *benchmark) GetBatchFactory() load.BatchFactory {
+	return &factory{}
 }
 
-func (b *benchmark) Close() {
-	for _, c := range b.channels {
-		c.Close()
-	}
+func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
+	return &load.ConstantIndexer{}
+}
+
+func (b *benchmark) GetProcessor() load.Processor {
+	return &processor{b.session}
 }
 
 func main() {
@@ -104,34 +102,34 @@ func main() {
 		defer session.Close()
 	}
 
-	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
-	b := &benchmark{l: loader, channels: channels, session: session}
-
-	loader.RunBenchmark(b, &metricCount, nil)
+	b := &benchmark{session: session}
+	loader.RunBenchmark(b, load.SingleQueue, &metricCount, nil)
 }
 
-// processBatches reads eventsBatches (contains rows of CQL strings) from a
-// channel and creates a gocql.LoggedBatch to insert
-func processBatches(wg *sync.WaitGroup, session *gocql.Session, ch *load.DuplexChannel) {
-	for item := range ch.GetWorkerChannel() {
-		events := item.(*eventsBatch)
-		if loader.DoLoad() {
-			batch := session.NewBatch(gocql.LoggedBatch)
-			for _, event := range events.rows {
-				batch.Query(event)
-			}
+type processor struct {
+	session *gocql.Session
+}
 
-			err := session.ExecuteBatch(batch)
-			if err != nil {
-				log.Fatalf("Error writing: %s\n", err.Error())
-			}
+func (p *processor) Init(_ int, _ bool) {}
+
+// ProcessBatch reads eventsBatches which contain rows of CQL strings and
+// creates a gocql.LoggedBatch to insert
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+	events := b.(*eventsBatch)
+	if doLoad {
+		batch := p.session.NewBatch(gocql.LoggedBatch)
+		for _, event := range events.rows {
+			batch.Query(event)
 		}
-		atomic.AddUint64(&metricCount, uint64(len(events.rows)))
-		events.rows = events.rows[:0]
-		ePool.Put(events)
-		ch.SendToScanner()
+
+		err := p.session.ExecuteBatch(batch)
+		if err != nil {
+			log.Fatalf("Error writing: %s\n", err.Error())
+		}
 	}
-	wg.Done()
+	atomic.AddUint64(&metricCount, uint64(len(events.rows)))
+	events.rows = events.rows[:0]
+	ePool.Put(events)
 }
 
 func createKeyspace(hosts string) {

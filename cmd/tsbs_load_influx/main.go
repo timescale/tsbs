@@ -39,10 +39,8 @@ var (
 
 // Global vars
 var (
-	loader          *load.BenchmarkRunner
-	bufPool         sync.Pool
-	backingOffChans []chan bool
-	backingOffDones []chan struct{}
+	loader  *load.BenchmarkRunner
+	bufPool sync.Pool
 
 	rowCount    uint64
 	metricCount uint64
@@ -80,42 +78,22 @@ func init() {
 	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
-type benchmark struct {
-	l        *load.BenchmarkRunner
-	channels []*load.DuplexChannel
+type benchmark struct{}
+
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+	return &decoder{scanner: bufio.NewScanner(br)}
 }
 
-func (b *benchmark) Work(wg *sync.WaitGroup, i int) {
-	daemonURL := daemonUrls[i%len(daemonUrls)]
-	backingOffChans[i] = make(chan bool, 100)
-	backingOffDones[i] = make(chan struct{})
-	cfg := HTTPWriterConfig{
-		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", i, daemonURL),
-		Host:           daemonURL,
-		Database:       loader.DatabaseName(),
-		BackingOffChan: backingOffChans[i],
-		BackingOffDone: backingOffDones[i],
-	}
-	go processBatches(wg, NewHTTPWriter(cfg, consistency), b.channels[0], backingOffChans[i], backingOffDones[i])
-	go processBackoffMessages(i, backingOffChans[i], backingOffDones[i])
+func (b *benchmark) GetBatchFactory() load.BatchFactory {
+	return &factory{}
 }
 
-func (b *benchmark) Scan(batchSize int, limit int64, br *bufio.Reader) int64 {
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	return load.Scan(b.channels, batchSize, limit, br, decoder, &factory{})
+func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
+	return &load.ConstantIndexer{}
 }
 
-func (b *benchmark) Close() {
-	for _, c := range b.channels {
-		c.Close()
-	}
-}
-
-func (b *benchmark) Cleanup() {
-	for i := range backingOffChans {
-		close(backingOffChans[i])
-		<-backingOffDones[i]
-	}
+func (b *benchmark) GetProcessor() load.Processor {
+	return &processor{}
 }
 
 func main() {
@@ -153,55 +131,71 @@ func main() {
 		},
 	}
 
-	backingOffChans = make([]chan bool, loader.NumWorkers())
-	backingOffDones = make([]chan struct{}, loader.NumWorkers())
-	channels := []*load.DuplexChannel{load.NewDuplexChannel(loader.NumWorkers())}
-
-	b := &benchmark{l: loader, channels: channels}
-	loader.RunBenchmark(b, &metricCount, &rowCount)
+	loader.RunBenchmark(&benchmark{}, load.SingleQueue, &metricCount, &rowCount)
 }
 
-// processBatches reads byte buffers from batchChan and writes them to the target server, while tracking stats on the write.
-func processBatches(wg *sync.WaitGroup, w *HTTPWriter, c *load.DuplexChannel, backoffSrc chan bool, backoffDst chan struct{}) {
-	for item := range c.GetWorkerChannel() {
-		batch := item.(*batch)
+type processor struct {
+	backingOffChan chan bool
+	backingOffDone chan struct{}
+	httpWriter     *HTTPWriter
+}
 
-		// Write the batch: try until backoff is not needed.
-		if loader.DoLoad() {
-			var err error
-			for {
-				if useGzip {
-					compressedBatch := bufPool.Get().(*bytes.Buffer)
-					fasthttp.WriteGzip(compressedBatch, batch.buf.Bytes())
-					_, err = w.WriteLineProtocol(compressedBatch.Bytes(), true)
-					// Return the compressed batch buffer to the pool.
-					compressedBatch.Reset()
-					bufPool.Put(compressedBatch)
-				} else {
-					_, err = w.WriteLineProtocol(batch.buf.Bytes(), false)
-				}
+func (p *processor) Init(numWorker int, _ bool) {
+	daemonURL := daemonUrls[numWorker%len(daemonUrls)]
+	p.backingOffChan = make(chan bool, 100)
+	p.backingOffDone = make(chan struct{})
+	cfg := HTTPWriterConfig{
+		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", numWorker, daemonURL),
+		Host:           daemonURL,
+		Database:       loader.DatabaseName(),
+		BackingOffChan: p.backingOffChan,
+		BackingOffDone: p.backingOffDone,
+	}
+	p.httpWriter = NewHTTPWriter(cfg, consistency)
+	go processBackoffMessages(numWorker, p.backingOffChan, p.backingOffDone)
+}
 
-				if err == BackoffError {
-					backoffSrc <- true
-					time.Sleep(backoff)
-				} else {
-					backoffSrc <- false
-					break
-				}
+func (p *processor) Close(_ bool) {
+	close(p.backingOffChan)
+	<-p.backingOffDone
+}
+
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+	batch := b.(*batch)
+
+	// Write the batch: try until backoff is not needed.
+	if doLoad {
+		var err error
+		for {
+			if useGzip {
+				compressedBatch := bufPool.Get().(*bytes.Buffer)
+				fasthttp.WriteGzip(compressedBatch, batch.buf.Bytes())
+				_, err = p.httpWriter.WriteLineProtocol(compressedBatch.Bytes(), true)
+				// Return the compressed batch buffer to the pool.
+				compressedBatch.Reset()
+				bufPool.Put(compressedBatch)
+			} else {
+				_, err = p.httpWriter.WriteLineProtocol(batch.buf.Bytes(), false)
 			}
-			if err != nil {
-				log.Fatalf("Error writing: %s\n", err.Error())
+
+			if err == BackoffError {
+				p.backingOffChan <- true
+				time.Sleep(backoff)
+			} else {
+				p.backingOffChan <- false
+				break
 			}
 		}
-		atomic.AddUint64(&metricCount, batch.metrics)
-		atomic.AddUint64(&rowCount, batch.rows)
-
-		// Return the batch buffer to the pool.
-		batch.buf.Reset()
-		bufPool.Put(batch.buf)
-		c.SendToScanner()
+		if err != nil {
+			log.Fatalf("Error writing: %s\n", err.Error())
+		}
 	}
-	wg.Done()
+	atomic.AddUint64(&metricCount, batch.metrics)
+	atomic.AddUint64(&rowCount, batch.rows)
+
+	// Return the batch buffer to the pool.
+	batch.buf.Reset()
+	bufPool.Put(batch.buf)
 }
 
 func processBackoffMessages(workerID int, src chan bool, dst chan struct{}) {

@@ -63,16 +63,19 @@ func main() {
 	}
 
 	var benchmark load.Benchmark
+	var workQueues uint
 	if documentPer {
 		benchmark = newNaiveBenchmark(loader, session)
+		workQueues = load.SingleQueue
 	} else {
 		// Pre-create the needed empty subdoc for new aggregate docs
 		generateEmptyHourDoc()
 
 		benchmark = newAggBenchmark(loader, session)
+		workQueues = load.WorkerPerQueue
 	}
 
-	loader.RunBenchmark(benchmark, &metricCount, nil)
+	loader.RunBenchmark(benchmark, workQueues, &metricCount, nil)
 }
 
 func createCollection(session *mgo.Session, collectionName string) {
