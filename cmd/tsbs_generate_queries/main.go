@@ -14,134 +14,32 @@ import (
 	"time"
 )
 
-var measurements = []string{
-	"redis",
-	"net",
-	"nginx",
-	"postgresl",
-	"kernel",
-	"mem",
-	"cpu",
-	"diskio",
-	"disk",
-}
-
-// query generator choices {use-case, query-type, format}
-// (This object is shown to the user when flag.Usage is called.)
-var useCaseMatrix = map[string]map[string]map[string]QueryGeneratorMaker{
+var useCaseMatrix = map[string]map[string]QueryFillerMaker{
 	"devops": {
-		"1-host-1-hr": {
-			"cassandra":   NewCassandraDevopsSingleMetric(1, 1),
-			"influx":      NewInfluxDevopsSingleMetric(1, 1),
-			"mongo-naive": NewMongoNaiveDevopsSingleMetric(1, 1),
-			"mongo":       NewMongoDevopsSingleMetric(1, 1),
-			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 1),
-		},
-		"1-host-12-hr": {
-			"cassandra":   NewCassandraDevopsSingleMetric(1, 12),
-			"influx":      NewInfluxDevopsSingleMetric(1, 12),
-			"mongo-naive": NewMongoNaiveDevopsSingleMetric(1, 12),
-			"mongo":       NewMongoDevopsSingleMetric(1, 12),
-			"timescaledb": NewTimescaleDBDevopsSingleMetric(1, 12),
-		},
-		"8-host-1-hr": {
-			"cassandra":   NewCassandraDevopsSingleMetric(8, 1),
-			"influx":      NewInfluxDevopsSingleMetric(8, 1),
-			"mongo-naive": NewMongoNaiveDevopsSingleMetric(8, 1),
-			"mongo":       NewMongoDevopsSingleMetric(8, 1),
-			"timescaledb": NewTimescaleDBDevopsSingleMetric(8, 1),
-		},
-		"groupby": {
-			"cassandra":   NewCassandraDevopsGroupBy(1),
-			"influx":      NewInfluxDevopsGroupBy(1),
-			"mongo-naive": NewMongoNaiveDevopsGroupBy(1),
-			"mongo":       NewMongoDevopsGroupBy(1),
-			"timescaledb": NewTimescaleDBDevopsGroupBy(1),
-		},
-		"groupby-5": {
-			"cassandra":   NewCassandraDevopsGroupBy(5),
-			"influx":      NewInfluxDevopsGroupBy(5),
-			"mongo-naive": NewMongoNaiveDevopsGroupBy(5),
-			"mongo":       NewMongoDevopsGroupBy(5),
-			"timescaledb": NewTimescaleDBDevopsGroupBy(5),
-		},
-		"groupby-all": {
-			"cassandra":   NewCassandraDevopsGroupBy(len(cpuMetrics)),
-			"influx":      NewInfluxDevopsGroupBy(len(cpuMetrics)),
-			"mongo":       NewMongoDevopsGroupBy(len(cpuMetrics)),
-			"timescaledb": NewTimescaleDBDevopsGroupBy(len(cpuMetrics)),
-		},
-		"5-metrics-1-host-1-hr": {
-			"cassandra":   NewCassandraDevops5Metrics(1, 1),
-			"influx":      NewInfluxDevops5Metrics(1, 1),
-			"mongo":       NewMongoDevops5Metrics(1, 1),
-			"timescaledb": NewTimescaleDBDevops5Metrics(1, 1),
-		},
-		"5-metrics-1-host-12-hr": {
-			"cassandra":   NewCassandraDevops5Metrics(1, 12),
-			"influx":      NewInfluxDevops5Metrics(1, 12),
-			"mongo":       NewMongoDevops5Metrics(1, 12),
-			"timescaledb": NewTimescaleDBDevops5Metrics(1, 12),
-		},
-		"5-metrics-8-host-1-hr": {
-			"cassandra":   NewCassandraDevops5Metrics(8, 1),
-			"influx":      NewInfluxDevops5Metrics(8, 1),
-			"mongo":       NewMongoDevops5Metrics(8, 1),
-			"timescaledb": NewTimescaleDBDevops5Metrics(8, 1),
-		},
-		"lastpoint": {
-			"cassandra":   NewCassandraDevopsLastPointPerHost,
-			"influx":      NewInfluxDevopsLastPointPerHost,
-			"mongo":       NewMongoDevopsLastPointPerHost,
-			"timescaledb": NewTimescaleDBDevopsLastPointPerHost,
-		},
-		"high-cpu-all-hosts": {
-			"cassandra":   NewCassandraDevopsHighCPU(0),
-			"influx":      NewInfluxDevopsHighCPU(0),
-			"mongo":       NewMongoDevopsHighCPU(0),
-			"timescaledb": NewTimescaleDBDevopsHighCPU(0),
-		},
-		"high-cpu-1-host": {
-			"cassandra":   NewCassandraDevopsHighCPU(1),
-			"influx":      NewInfluxDevopsHighCPU(1),
-			"mongo":       NewMongoDevopsHighCPU(1),
-			"timescaledb": NewTimescaleDBDevopsHighCPU(1),
-		},
-		"cpu-max-all-single-host": {
-			"cassandra":   NewCassandraDevopsAllMaxCPU(1),
-			"influx":      NewInfluxDevopsAllMaxCPU(1),
-			"mongo":       NewMongoDevopsAllMaxCPU(1),
-			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(1),
-		},
-		"cpu-max-all-eight-hosts": {
-			"cassandra":   NewCassandraDevopsAllMaxCPU(8),
-			"influx":      NewInfluxDevopsAllMaxCPU(8),
-			"mongo":       NewMongoDevopsAllMaxCPU(8),
-			"timescaledb": NewTimescaleDBDevopsAllMaxCPU(8),
-		},
-		"groupby-orderby-limit": {
-			"cassandra":   NewCassandraDevopsGroupByOrderByLimit,
-			"influx":      NewInfluxDevopsGroupByOrderByLimit,
-			"mongo":       NewMongoDevopsGroupByOrderByLimit,
-			"timescaledb": NewTimescaleDBDevopsGroupByOrderByLimit,
-		},
+		"1-host-1-hr":             NewDevopsSingleGroupby(1, 1, 1),
+		"1-host-12-hr":            NewDevopsSingleGroupby(1, 1, 12),
+		"8-host-1-hr":             NewDevopsSingleGroupby(1, 8, 1),
+		"5-metrics-1-host-1-hr":   NewDevopsSingleGroupby(5, 1, 1),
+		"5-metrics-1-host-12-hr":  NewDevopsSingleGroupby(5, 1, 12),
+		"5-metrics-8-host-1-hr":   NewDevopsSingleGroupby(5, 8, 1),
+		"cpu-max-all-single-host": NewDevopsMaxAllCPU(1),
+		"cpu-max-all-eight-hosts": NewDevopsMaxAllCPU(1),
+		"groupby":                 NewDevopsGroupBy(1),
+		"groupby-5":               NewDevopsGroupBy(5),
+		"groupby-all":             NewDevopsGroupBy(len(cpuMetrics)),
+		"groupby-orderby-limit":   NewDevopsGroupByOrderByLimit,
+		"high-cpu-all-hosts":      NewDevopsHighCPU(0),
+		"high-cpu-1-host":         NewDevopsHighCPU(1),
+		"lastpoint":               NewDevopsLastPointPerHost,
 	},
 }
 
 // Program option vars:
 var (
-	useCase   string
-	queryType string
-	format    string
+	generator DevopsGenerator
+	filler    QueryFiller
 
-	scaleVar   int
 	queryCount int
-
-	timestampStartStr string
-	timestampEndStr   string
-
-	timestampStart time.Time
-	timestampEnd   time.Time
 
 	seed  int64
 	debug int
@@ -152,6 +50,25 @@ var (
 	interleavedGenerationGroupID uint
 	interleavedGenerationGroups  uint
 )
+
+func getGenerator(format string, start, end time.Time, scale int) DevopsGenerator {
+	if format == "cassandra" {
+		return newCassandraDevopsCommon(start, end, scale)
+	} else if format == "influx" {
+		return newInfluxDevopsCommon(start, end, scale)
+	} else if format == "mongo" {
+		return newMongoDevopsCommon(start, end, scale)
+	} else if format == "mongo-naive" {
+		return newMongoNaiveDevopsCommon(start, end, scale)
+	} else if format == "timescaledb" {
+		tgen := newTimescaleDBDevopsCommon(start, end, scale)
+		tgen.useJSON = timescaleUseJSON
+		tgen.useTags = timescaleUseTags
+		return tgen
+	}
+
+	panic(fmt.Sprintf("no devops generator specified for format '%s'", format))
+}
 
 // Parse args:
 func init() {
@@ -164,13 +81,14 @@ func init() {
 		fmt.Fprintf(os.Stderr, "\n")
 		fmt.Fprintf(os.Stderr, "The use case matrix of choices is:\n")
 		for uc, queryTypes := range useCaseMatrix {
-			for qt, formats := range queryTypes {
-				for f := range formats {
-					fmt.Fprintf(os.Stderr, "  use case: %s, query type: %s, format: %s\n", uc, qt, f)
-				}
+			for qt := range queryTypes {
+				fmt.Fprintf(os.Stderr, "  use case: %s, query type: %s\n", uc, qt)
 			}
 		}
 	}
+
+	var useCase, queryType, format, timestampStartStr, timestampEndStr string
+	var scaleVar int
 
 	flag.StringVar(&format, "format", "", "Format to emit. (Choices are in the use case matrix.)")
 	flag.StringVar(&useCase, "use-case", "", "Use case to model. (Choices are in the use case matrix.)")
@@ -205,10 +123,6 @@ func init() {
 		log.Fatalf("invalid query type specifier: '%s'", queryType)
 	}
 
-	if _, ok := useCaseMatrix[useCase][queryType][format]; !ok {
-		log.Fatalf("invalid format specifier: '%s'", format)
-	}
-
 	// the default seed is the current timestamp:
 	if seed == 0 {
 		seed = int64(time.Now().Nanosecond())
@@ -217,25 +131,24 @@ func init() {
 
 	// Parse timestamps:
 	var err error
-	timestampStart, err = time.Parse(time.RFC3339, timestampStartStr)
+	timestampStart, err := time.Parse(time.RFC3339, timestampStartStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	timestampStart = timestampStart.UTC()
-	timestampEnd, err = time.Parse(time.RFC3339, timestampEndStr)
+	timestampEnd, err := time.Parse(time.RFC3339, timestampEndStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	timestampEnd = timestampEnd.UTC()
+
+	// Make the query generator:
+	generator = getGenerator(format, timestampStart, timestampEnd, scaleVar)
+	filler = useCaseMatrix[useCase][queryType](generator)
 }
 
 func main() {
 	rand.Seed(seed)
-
-	// Make the query generator:
-	maker := useCaseMatrix[useCase][queryType][format]
-	generator := maker(timestampStart, timestampEnd, scaleVar)
-
 	// Set up bookkeeping:
 	stats := make(map[string]int64)
 
@@ -250,7 +163,8 @@ func main() {
 
 	enc := gob.NewEncoder(out)
 	for i := 0; i < queryCount; i++ {
-		q := generator.Dispatch()
+		q := generator.GenerateEmptyQuery()
+		q = filler.Fill(q)
 
 		if currentInterleavedGroup == interleavedGenerationGroupID {
 			err := enc.Encode(q)

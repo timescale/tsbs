@@ -4,14 +4,26 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"reflect"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
+const (
+	allHosts              = "all hosts"
+	doubleGroupByDuration = 24 * time.Hour
+	highCPUDuration       = 24 * time.Hour
+)
+
 type devopsCore struct {
 	interval TimeInterval
 	scale    int
+}
+
+// DevopsGenerator is query generator for a database type that handles the Devops use case
+type DevopsGenerator interface {
+	GenerateEmptyQuery() query.Query
 }
 
 func newDevopsCore(start, end time.Time, scale int) *devopsCore {
@@ -60,6 +72,46 @@ type Devops interface {
 	MeanCPUMetricsDayByHourAllHostsGroupbyHost(query.Query, int)
 }
 
+// SingleGroupbyFiller is a type that can fill in a single groupby query
+type SingleGroupbyFiller interface {
+	GroupByTime(query.Query, int, int, time.Duration)
+}
+
+// DoubleGroupbyFiller is a type that can fill in a double groupby query
+type DoubleGroupbyFiller interface {
+	GroupByTimeAndPrimaryTag(query.Query, int)
+}
+
+// LastPointFiller is a type that can fill in a last point query
+type LastPointFiller interface {
+	LastPointPerHost(query.Query)
+}
+
+// MaxAllFiller is a type that can fill in a max all CPU metrics query
+type MaxAllFiller interface {
+	MaxAllCPU(query.Query, int)
+}
+
+// GroupbyOrderbyLimitFiller is a type that can fill in a groupby-orderby-limit query
+type GroupbyOrderbyLimitFiller interface {
+	GroupByOrderByLimit(query.Query)
+}
+
+// HighCPUFiller is a type that can fill in a high-cpu query
+type HighCPUFiller interface {
+	HighCPUForHosts(query.Query, int)
+}
+
+func getHighCPULabel(dbName string, nHosts int) string {
+	label := dbName + " CPU over threshold, "
+	if nHosts > 0 {
+		label += fmt.Sprintf("%d host(s)", nHosts)
+	} else {
+		label += allHosts
+	}
+	return label
+}
+
 func getRandomHosts(scale, nhosts int) []string {
 	if nhosts > scale {
 		log.Fatal("nhosts > scaleVar")
@@ -73,4 +125,8 @@ func getRandomHosts(scale, nhosts int) []string {
 	}
 
 	return hostnames
+}
+
+func panicUnimplementedQuery(dg DevopsGenerator) {
+	panic(fmt.Sprintf("database (%v) does not implement query", reflect.TypeOf(dg)))
 }
