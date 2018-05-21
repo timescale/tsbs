@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
@@ -55,9 +54,7 @@ type insertData struct {
 
 // Global vars
 var (
-	metricCount uint64
-	rowCount    uint64
-	loader      *load.BenchmarkRunner
+	loader *load.BenchmarkRunner
 
 	tableCols map[string][]string
 )
@@ -144,7 +141,7 @@ func main() {
 		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue, &metricCount, &rowCount)
+	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
@@ -376,16 +373,16 @@ func (p *processor) Close(doLoad bool) {
 	}
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
+func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*hypertableArr)
-	rowsCnt := 0
+	rowCnt := 0
+	metricCnt := uint64(0)
 	for hypertable, rows := range batches.m {
-		rowsCnt += len(rows)
+		rowCnt += len(rows)
 		if doLoad {
 			start := time.Now()
-			metricCountWorker := processCSI(p.db, hypertable, rows)
+			metricCnt += processCSI(p.db, hypertable, rows)
 			//metricCountWorker := processSplit(db, hypertable, rows)
-			atomic.AddUint64(&metricCount, metricCountWorker)
 
 			if logBatches {
 				now := time.Now()
@@ -397,7 +394,7 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) {
 	}
 	batches.m = map[string][]*insertData{}
 	batches.cnt = 0
-	atomic.AddUint64(&rowCount, uint64(rowsCnt))
+	return metricCnt, uint64(rowCnt)
 }
 
 func createTagsTable(db *sqlx.DB, tags []string) {

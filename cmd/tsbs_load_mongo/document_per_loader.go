@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"sync"
-	"sync/atomic"
 
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
 	"bitbucket.org/440-labs/influxdb-comparisons/load"
@@ -56,13 +55,13 @@ func (p *naiveProcessor) Init(workerNUm int, doLoad bool) {
 // ProcessBatch creates a new document for each incoming event for a simpler
 // approach to storing the data. This is _NOT_ the default since the aggregation method
 // is recommended by Mongo and other blogs
-func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) {
+func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch).arr
 	if cap(p.pvs) < len(batch) {
 		p.pvs = make([]interface{}, len(batch))
 	}
 	p.pvs = p.pvs[:len(batch)]
-
+	var metricCnt uint64
 	for i, event := range batch {
 		x := spPool.Get().(*singlePoint)
 
@@ -81,7 +80,7 @@ func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) {
 			x.Tags[string(t.Key())] = string(t.Value())
 		}
 		p.pvs[i] = x
-		atomic.AddUint64(&metricCount, uint64(event.FieldsLength()))
+		metricCnt += uint64(event.FieldsLength())
 	}
 
 	if doLoad {
@@ -95,4 +94,6 @@ func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) {
 	for _, p := range p.pvs {
 		spPool.Put(p)
 	}
+
+	return metricCnt, 0
 }
