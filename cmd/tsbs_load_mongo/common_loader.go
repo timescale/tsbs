@@ -16,7 +16,7 @@ type decoder struct {
 	lenBuf []byte
 }
 
-func (d *decoder) Decode(r *bufio.Reader) interface{} {
+func (d *decoder) Decode(r *bufio.Reader) *load.Point {
 	item := &serialize.MongoPoint{}
 
 	_, err := r.Read(d.lenBuf)
@@ -47,7 +47,7 @@ func (d *decoder) Decode(r *bufio.Reader) interface{} {
 	n := flatbuffers.GetUOffsetT(itemBuf)
 	item.Init(itemBuf, n)
 
-	return item
+	return load.NewPoint(item)
 }
 
 type batch struct {
@@ -58,8 +58,8 @@ func (b *batch) Len() int {
 	return len(b.arr)
 }
 
-func (b *batch) Append(item interface{}) {
-	that := item.(*serialize.MongoPoint)
+func (b *batch) Append(item *load.Point) {
+	that := item.Data.(*serialize.MongoPoint)
 	b.arr = append(b.arr, that)
 }
 

@@ -5,20 +5,20 @@ package load
 // to process and the toScan channel allows the worker to acknowledge completion.
 // Using this we can accomplish better flow control between the scanner and workers.
 type DuplexChannel struct {
-	toWorker  chan interface{}
+	toWorker  chan Batch
 	toScanner chan bool
 }
 
 // NewDuplexChannel returns a DuplexChannel whose buffer sizes are equal to queue
 func NewDuplexChannel(queue int) *DuplexChannel {
 	return &DuplexChannel{
-		toWorker:  make(chan interface{}, queue),
+		toWorker:  make(chan Batch, queue),
 		toScanner: make(chan bool, queue),
 	}
 }
 
 // sendToWorker passes a batch of work on to the worker from the scanner
-func (dc *DuplexChannel) sendToWorker(b interface{}) {
+func (dc *DuplexChannel) sendToWorker(b Batch) {
 	dc.toWorker <- b
 }
 
@@ -28,7 +28,7 @@ func (dc *DuplexChannel) SendToScanner() {
 }
 
 // GetWorkerChannel returns the channel that data from the scanner comes on
-func (dc *DuplexChannel) GetWorkerChannel() chan interface{} {
+func (dc *DuplexChannel) GetWorkerChannel() chan Batch {
 	return dc.toWorker
 }
 

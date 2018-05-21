@@ -19,8 +19,8 @@ type hostnameIndexer struct {
 	partitions int
 }
 
-func (i *hostnameIndexer) GetIndex(item interface{}) int {
-	p := item.(*serialize.MongoPoint)
+func (i *hostnameIndexer) GetIndex(item *load.Point) int {
+	p := item.Data.(*serialize.MongoPoint)
 	t := &serialize.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
 		p.Tags(t, j)
