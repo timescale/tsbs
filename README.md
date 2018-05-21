@@ -129,7 +129,7 @@ Variables needed:
 1. the same use case, seed, # of devices, and start time as used in data generation
 1. an end time that is one second after the end time from data generation. E.g., for `2016-01-04T00:00:00Z` use `2016-01-04T00:00:01Z`
 1. the number of queries to generate. E.g., `1000`
-1. and the type of query you'd like to generate. E.g., `1-host-1-hr`
+1. and the type of query you'd like to generate. E.g., `single-groupby(1,1,1)`
 
 For the last step there are numerous queries to choose from, which are
 listed in [Appendix I](#appendix-i-query-types). Additionally, the file
@@ -143,8 +143,8 @@ For generating just one set of queries for a given type:
 $ tsbs_generate_queries -seed=123 -scale-var=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:01Z" \
-    -queries=1000 -query-type="1-host-1-hr" -format="timescaledb" \
-    | gzip > /tmp/timescaledb-queries-1-host-1-hr.gz
+    -queries=1000 -query-type="single-groupby(1,1,1)" -format="timescaledb" \
+    | gzip > /tmp/timescaledb-queries-single-groupby(1,1,1).gz
 ```
 
 For generating sets of queries for multiple types:
@@ -152,7 +152,7 @@ For generating sets of queries for multiple types:
 $ formats="timescaledb" scaleVar=4000 seed=123 \
     tsStart="2016-01-01T00:00:00Z" \
     tsEnd="2016-01-04T00:00:01Z" \
-    queries=1000 queryTypes="1-host-1-hr 1-host-12-hr groupby" \
+    queries=1000 queryTypes="single-groupby(1,1,1) single-groupby(1,1,12) double-groupby(1)" \
     dataDir="/tmp" script/generate_queries.sh
 ```
 
@@ -257,10 +257,10 @@ to run multiple query types in a row. The queries it generates should be
 put in a file with one query per line and the path given to the script.
 For example, if you had a file named `queries.txt` that looked like this:
 ```text
-high-cpu-and-field
-cpu-max-all-eight-hosts
+high-cpu(1)
+cpu-max-all(8)
 groupby-orderby-limit
-groupby
+double-groupby(1)
 ```
 
 You could generate a run script named `query_test.sh`:
@@ -275,13 +275,13 @@ And the resulting script file would look like:
 ```bash
 #!/bin/bash
 # Queries
-cat /tmp/queries/timescaledb-high-cpu-and-field-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --postgres="host=localhost user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-high-cpu-and-field-queries.out
+cat /tmp/queries/timescaledb-high-cpu(1)-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-high-cpu(1)-queries.out
 
-cat /tmp/queries/timescaledb-cpu-max-all-eight-hosts-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --postgres="host=localhost user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-cpu-max-all-eight-hosts-queries.out
+cat /tmp/queries/timescaledb-cpu-max-all(8)-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-cpu-max-all(8)-queries.out
 
-cat /tmp/queries/timescaledb-groupby-orderby-limit-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --postgres="host=localhost user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-groupby-orderby-limit-queries.out
+cat /tmp/queries/timescaledb-groupby-orderby-limit-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-groupby-orderby-limit-queries.out
 
-cat /tmp/queries/timescaledb-groupby-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --postgres="host=localhost user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-groupby-queries.out
+cat /tmp/queries/timescaledb-double-groupby(1)-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-double-groupby(1)-queries.out
 ```
 
 ### Query validation (optional)
@@ -296,18 +296,18 @@ the results.
 ### Devops / cpu-only
 |Query type|Description|
 |:---|:---|
-|1-host-1-hr| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 1 hour
-|1-host-12-hr| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 12 hours
-|8-host-1-hr| Simple aggregrate (MAX) on one metric for 8 hosts, every 5 mins for 1 hour
-|5-metrics-1-host-1-hr| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 1 hour
-|5-metrics-1-host-12-hr| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 12 hours
-|5-metrics-8-host-1-hr| Simple aggregrate (MAX) on 5 metrics for 8 hosts, every 5 mins for 1 hour
-|cpu-max-all-single-host| Aggregate across all CPU metrics per hour over 1 hour for a single host
-|cpu-max-all-eight-hosts| Aggregate across all CPU metrics per hour over 1 hour for eight hosts
-|groupby| Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 24 hours
-|groupby-5| Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 24 hours
-|groupby-all| Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 24 hours
-|high-cpu-all-hosts| All the readings where one metric is above a threshold across all hosts
-|high-cpu-1-host| All the readings where one metric is above a threshold for a particular host
+|single-groupby(1,1,1)| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 1 hour
+|single-groupby(1,1,12)| Simple aggregrate (MAX) on one metric for 1 host, every 5 mins for 12 hours
+|single-groupby(1,8,1)| Simple aggregrate (MAX) on one metric for 8 hosts, every 5 mins for 1 hour
+|single-groupby(5,1,1)| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 1 hour
+|single-groupby(5,1,12)| Simple aggregrate (MAX) on 5 metrics for 1 host, every 5 mins for 12 hours
+|single-groupby(5,8,1)| Simple aggregrate (MAX) on 5 metrics for 8 hosts, every 5 mins for 1 hour
+|cpu-max-all(1)| Aggregate across all CPU metrics per hour over 1 hour for a single host
+|cpu-max-all(8)| Aggregate across all CPU metrics per hour over 1 hour for eight hosts
+|double-groupby(1)| Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 24 hours
+|double-groupby(5)| Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 24 hours
+|double-groupby(all)| Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 24 hours
+|high-cpu(all)| All the readings where one metric is above a threshold across all hosts
+|high-cpu(1)| All the readings where one metric is above a threshold for a particular host
 |lastpoint| The last reading for each host
 |groupby-orderby-limit| The last 5 aggregate readings (across time) before a randomly chosen endpoint

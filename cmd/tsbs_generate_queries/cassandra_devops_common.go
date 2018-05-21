@@ -76,7 +76,7 @@ func (d *CassandraDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, ti
 func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.interval.RandWindow(time.Hour)
 
-	humanLabel := "Cassandra max cpu over last 5 min-intervals (rand end)"
+	humanLabel := "Cassandra max cpu over last 5 min-intervals (random end)"
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.interval.StartString()))
@@ -103,7 +103,7 @@ func (d *CassandraDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics in
 	interval := d.interval.RandWindow(doubleGroupByDuration)
 	metrics := getCPUMetricsSlice(numMetrics)
 
-	humanLabel := fmt.Sprintf("Cassandra mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
+	humanLabel := getDoubleGroupByLabel("Cassandra", numMetrics)
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -124,14 +124,14 @@ func (d *CassandraDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics in
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *CassandraDevops) MaxAllCPU(qi query.Query, nhosts int) {
-	interval := d.interval.RandWindow(8 * time.Hour)
-	tagSet := d.getHostWhere(nhosts)
+func (d *CassandraDevops) MaxAllCPU(qi query.Query, nHosts int) {
+	interval := d.interval.RandWindow(maxAllDuration)
+	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
 	tagSets = append(tagSets, tagSet)
 
-	humanLabel := fmt.Sprintf("Cassandra max cpu all fields, rand %4d hosts, rand 12hr by 1h", nhosts)
+	humanLabel := getMaxAllLabel("Cassandra", nHosts)
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

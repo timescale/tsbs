@@ -157,7 +157,7 @@ func (d *MongoNaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics i
 	}...)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id.time": 1, "_id.hostname": 1}})
 
-	humanLabel := fmt.Sprintf("Mongo [NAIVE] mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
+	humanLabel := getDoubleGroupByLabel("Mongo [NAIVE]", numMetrics)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery

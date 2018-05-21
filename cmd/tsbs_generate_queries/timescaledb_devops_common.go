@@ -108,7 +108,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
 
-	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (rand end)"
+	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.EndString()))
@@ -161,7 +161,7 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
 		hostnameField, strings.Join(meanClauses, ", "),
 		joinStr, hostnameField)
-	humanLabel := fmt.Sprintf("TimescaleDB mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
+	humanLabel := getDoubleGroupByLabel("TimescaleDB", numMetrics)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -176,8 +176,8 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nhosts int) {
-	interval := d.interval.RandWindow(8 * time.Hour)
+func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nHosts int) {
+	interval := d.interval.RandWindow(maxAllDuration)
 	metrics := getCPUMetricsSlice(len(cpuMetrics))
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
@@ -187,10 +187,10 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nhosts int) {
 	WHERE %s AND time >= '%s' AND time < '%s'
 	GROUP BY hour ORDER BY hour`,
 		strings.Join(selectClauses, ", "),
-		d.getHostWhereString(nhosts),
+		d.getHostWhereString(nHosts),
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
-	humanLabel := fmt.Sprintf("TimescaleDB max cpu all fields, rand %4d hosts, rand 8hr by 1h", nhosts)
+	humanLabel := getMaxAllLabel("TimescaleDB", nHosts)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

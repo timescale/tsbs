@@ -167,7 +167,7 @@ func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRa
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(8 * time.Hour)
+	interval := d.interval.RandWindow(maxAllDuration)
 	hostnames := d.getRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
@@ -219,7 +219,7 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
 	pipelineQuery = append(pipelineQuery, group)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id": 1}})
 
-	humanLabel := fmt.Sprintf("Mongo max cpu all fields, rand %4d hosts, rand 8hr by 1h", nHosts)
+	humanLabel := getMaxAllLabel("Mongo", nHosts)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -298,7 +298,7 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 		{"$sort": bson.M{"_id.time": 1}},
 	}...)
 
-	humanLabel := fmt.Sprintf("Mongo mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
+	humanLabel := getDoubleGroupByLabel("Mongo", numMetrics)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -492,7 +492,7 @@ func (d *MongoDevops) GroupByOrderByLimit(qi query.Query) {
 		{"$limit": 5},
 	}...)
 
-	humanLabel := "Mongo max cpu over last 5 min-intervals (rand end)"
+	humanLabel := "Mongo max cpu over last 5 min-intervals (random end)"
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
