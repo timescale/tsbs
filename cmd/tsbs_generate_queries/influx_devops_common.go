@@ -6,17 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // InfluxDevops produces Influx-specific queries for all the devops query types.
 type InfluxDevops struct {
-	*devopsCore
+	*devops.Core
 }
 
 // NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
 func newInfluxDevopsCommon(start, end time.Time, scale int) *InfluxDevops {
-	return &InfluxDevops{newDevopsCore(start, end, scale)}
+	return &InfluxDevops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.HTTP
@@ -35,7 +36,7 @@ func (d *InfluxDevops) getHostWhereWithHostnames(hostnames []string) string {
 }
 
 func (d *InfluxDevops) getHostWhereString(nHosts int) string {
-	hostnames := d.getRandomHosts(nHosts)
+	hostnames := d.GetRandomHosts(nHosts)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -58,8 +59,8 @@ func (d *InfluxDevops) getSelectClausesAggMetrics(agg string, metrics []string) 
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *InfluxDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.interval.RandWindow(timeRange)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(timeRange)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	whereHosts := d.getHostWhereString(nHosts)
 
@@ -81,7 +82,7 @@ func (d *InfluxDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeR
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.interval.RandWindow(time.Hour)
+	interval := d.Interval.RandWindow(time.Hour)
 
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
 
@@ -105,18 +106,14 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	metrics := getCPUMetricsSlice(numMetrics)
-	interval := d.interval.RandWindow(doubleGroupByDuration)
-
-	selectClauses := make([]string, len(metrics))
-	for i, m := range metrics {
-		selectClauses[i] = fmt.Sprintf("mean(%s)", m)
-	}
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	selectClauses := d.getSelectClausesAggMetrics("mean", metrics)
 
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString()))
 
-	humanLabel := getDoubleGroupByLabel("Influx", numMetrics)
+	humanLabel := devops.GetDoubleGroupByLabel("Influx", numMetrics)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -133,13 +130,14 @@ func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) 
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *InfluxDevops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(maxAllDuration)
+	interval := d.Interval.RandWindow(devops.MaxAllDuration)
 	whereHosts := d.getHostWhereString(nHosts)
+	selectClauses := d.getSelectClausesAggMetrics("max", devops.GetAllCPUMetrics())
 
 	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT max(usage_user),max(usage_system),max(usage_idle),max(usage_nice),max(usage_iowait),max(usage_irq),max(usage_softirq),max(usage_steal),max(usage_guest),max(usage_guest_nice) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
+	v.Set("q", fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ","), whereHosts, interval.StartString(), interval.EndString()))
 
-	humanLabel := getMaxAllLabel("Influx", nHosts)
+	humanLabel := devops.GetMaxAllLabel("Influx", nHosts)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -171,7 +169,7 @@ func (d *InfluxDevops) LastPointPerHost(qi query.Query) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *InfluxDevops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(highCPUDuration)
+	interval := d.Interval.RandWindow(devops.HighCPUDuration)
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""
@@ -182,7 +180,7 @@ func (d *InfluxDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString()))
 
-	humanLabel := getHighCPULabel("Influx", nHosts)
+	humanLabel := devops.GetHighCPULabel("Influx", nHosts)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))

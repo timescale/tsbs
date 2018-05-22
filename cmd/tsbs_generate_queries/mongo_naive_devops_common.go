@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/globalsign/mgo/bson"
 )
@@ -20,12 +21,12 @@ func init() {
 
 // MongoNaiveDevops produces Mongo-specific queries for the devops use case.
 type MongoNaiveDevops struct {
-	*devopsCore
+	*devops.Core
 }
 
 // NewMongoNaiveDevops makes an MongoNaiveDevops object ready to generate Queries.
 func newMongoNaiveDevopsCommon(start, end time.Time, scale int) *MongoNaiveDevops {
-	return &MongoNaiveDevops{newDevopsCore(start, end, scale)}
+	return &MongoNaiveDevops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
@@ -43,9 +44,9 @@ func (d *MongoNaiveDevops) GenerateEmptyQuery() query.Query {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *MongoNaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.interval.RandWindow(timeRange)
-	hostnames := d.getRandomHosts(nHosts)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(timeRange)
+	hostnames := d.GetRandomHosts(nHosts)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 
 	bucketNano := time.Minute.Nanoseconds()
 	pipelineQuery := []bson.M{
@@ -104,8 +105,8 @@ func (d *MongoNaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, t
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *MongoNaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.interval.RandWindow(doubleGroupByDuration)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	bucketNano := time.Hour.Nanoseconds()
 
 	pipelineQuery := []bson.M{
@@ -157,7 +158,7 @@ func (d *MongoNaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics i
 	}...)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id.time": 1, "_id.hostname": 1}})
 
-	humanLabel := getDoubleGroupByLabel("Mongo [NAIVE]", numMetrics)
+	humanLabel := devops.GetDoubleGroupByLabel("Mongo [NAIVE]", numMetrics)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery

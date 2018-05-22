@@ -5,19 +5,20 @@ import (
 	"strings"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 // TimescaleDBDevops produces TimescaleDB-specific queries for all the devops query types.
 type TimescaleDBDevops struct {
-	*devopsCore
+	*devops.Core
 	useJSON bool
 	useTags bool
 }
 
 // NewTimescaleDBDevops makes an TimescaleDBDevops object ready to generate Queries.
 func newTimescaleDBDevopsCommon(start, end time.Time, scale int) *TimescaleDBDevops {
-	return &TimescaleDBDevops{newDevopsCore(start, end, scale), false, false}
+	return &TimescaleDBDevops{devops.NewCore(start, end, scale), false, false}
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB
@@ -48,7 +49,7 @@ func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string
 }
 
 func (d *TimescaleDBDevops) getHostWhereString(nhosts int) string {
-	hostnames := d.getRandomHosts(nhosts)
+	hostnames := d.GetRandomHosts(nhosts)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -73,8 +74,8 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *TimescaleDBDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.interval.RandWindow(timeRange)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(timeRange)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
@@ -101,7 +102,7 @@ func (d *TimescaleDBDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, 
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.interval.RandWindow(time.Hour)
+	interval := d.Interval.RandWindow(time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
 
 	where := fmt.Sprintf("WHERE time < '%s'", timeStr)
@@ -124,8 +125,8 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	metrics := getCPUMetricsSlice(numMetrics)
-	interval := d.interval.RandWindow(doubleGroupByDuration)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 
 	selectClauses := make([]string, numMetrics)
 	meanClauses := make([]string, numMetrics)
@@ -161,7 +162,7 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
 		hostnameField, strings.Join(meanClauses, ", "),
 		joinStr, hostnameField)
-	humanLabel := getDoubleGroupByLabel("TimescaleDB", numMetrics)
+	humanLabel := devops.GetDoubleGroupByLabel("TimescaleDB", numMetrics)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -177,8 +178,8 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(maxAllDuration)
-	metrics := getCPUMetricsSlice(len(cpuMetrics))
+	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
@@ -190,7 +191,7 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nHosts int) {
 		d.getHostWhereString(nHosts),
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
 
-	humanLabel := getMaxAllLabel("TimescaleDB", nHosts)
+	humanLabel := devops.GetMaxAllLabel("TimescaleDB", nHosts)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -232,12 +233,12 @@ func (d *TimescaleDBDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	interval := d.interval.RandWindow(highCPUDuration)
+	interval := d.Interval.RandWindow(devops.HighCPUDuration)
 
 	sqlQuery := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' %s`,
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostWhereClause)
 
-	humanLabel := getHighCPULabel("TimescaleDB", nHosts)
+	humanLabel := devops.GetHighCPULabel("TimescaleDB", nHosts)
 	q := qi.(*query.TimescaleDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
