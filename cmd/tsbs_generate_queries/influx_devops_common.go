@@ -88,7 +88,7 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where))
 
-	humanLabel := "Influx max cpu over last 5 min-intervals (rand end)"
+	humanLabel := "Influx max cpu over last 5 min-intervals (random end)"
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -116,7 +116,7 @@ func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) 
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString()))
 
-	humanLabel := fmt.Sprintf("Influx mean of %d metrics, all hosts, rand 1day by 1hr", numMetrics)
+	humanLabel := getDoubleGroupByLabel("Influx", numMetrics)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
@@ -132,14 +132,14 @@ func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) 
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *InfluxDevops) MaxAllCPU(qi query.Query, nhosts int) {
-	interval := d.interval.RandWindow(8 * time.Hour)
-	whereHosts := d.getHostWhereString(nhosts)
+func (d *InfluxDevops) MaxAllCPU(qi query.Query, nHosts int) {
+	interval := d.interval.RandWindow(maxAllDuration)
+	whereHosts := d.getHostWhereString(nHosts)
 
 	v := url.Values{}
 	v.Set("q", fmt.Sprintf("SELECT max(usage_user),max(usage_system),max(usage_idle),max(usage_nice),max(usage_iowait),max(usage_irq),max(usage_softirq),max(usage_steal),max(usage_guest),max(usage_guest_nice) from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", whereHosts, interval.StartString(), interval.EndString()))
 
-	humanLabel := fmt.Sprintf("Influx max cpu all fields, rand %4d hosts, rand 12hr by 1m", nhosts)
+	humanLabel := getMaxAllLabel("Influx", nHosts)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))

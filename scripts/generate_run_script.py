@@ -31,9 +31,9 @@ Usage flags:
 EXAMPLE:
 
 queries.txt:
-#1-host-12-hr
-5-metrics-1-host-1-hr
-5-metrics-1-host-12-hr
+#single-groupby(1,1,1)
+single-groupby(5,1,1)
+single-groupby(5,1,12)
 
 Command:
 python generate_query_run -d timescaledb -w 8
@@ -44,9 +44,9 @@ Result:
 NUM_WORKERS=8 BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_8_10000.out
 
 # Queries
-cat /tmp/queries/timescaledb-5-metrics-1-host-1-hr-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-1-hr-queries.out
+cat /tmp/queries/timescaledb-single-groupby(5,1,1)-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby(5,1,1)-queries.out
 
-cat /tmp/queries/timescaledb-5-metrics-1-host-12-hr-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable timescaledb.disable_optimizations=false" | tee query_timescaledb_timescaledb-5-metrics-1-host-12-hr-queries.out
+cat /tmp/queries/timescaledb-single-groupby(5,1,12)-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby(5,1,12)-queries.out
 '''
 import argparse
 import os
@@ -78,12 +78,9 @@ def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
         # Cassandra has an extra option to choose between server & client
         # aggregation plans. Client seems to be better in all cases
         extra_args = '--aggregation-plan=client'
-    elif label == 'timescaledb':
+    elif label == 'timescaledb' or label == 'postgres':
         # TimescaleDB needs the connection string
-        extra_args = '--postgres="{}"'.format('host={} user=postgres sslmode=disable'.format(hostname))
-    elif label == 'postgres':
-        # Postgres needs the connection string
-        extra_args = '--postgres="{}"'.format('host={} user=postgres sslmode=disable'.format(hostname))
+        extra_args = '--hosts="{}" --postgres="{}"'.format(hostname, 'user=postgres sslmode=disable')
 
     return 'cat {} | gunzip | tsbs_run_queries_{} --workers={} {} {} {} | tee {}.out'.format(
         queryfile, benchmarker, workers, limit_arg, extra_args, extra_query_args, output_file)

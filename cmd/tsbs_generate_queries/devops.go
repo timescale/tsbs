@@ -14,6 +14,14 @@ const (
 	allHosts              = "all hosts"
 	doubleGroupByDuration = 24 * time.Hour
 	highCPUDuration       = 24 * time.Hour
+	maxAllDuration        = 8 * time.Hour
+
+	labelSingleGroupby       = "single-groupby"
+	labelDoubleGroupby       = "double-groupby"
+	labelLastpoint           = "lastpoint"
+	labelMaxAll              = "cpu-max-all"
+	labelGroupbyOrderbyLimit = "groupby-orderby-limit"
+	labelHighCPU             = "high-cpu"
 )
 
 type devopsCore struct {
@@ -61,17 +69,6 @@ func getCPUMetricsSlice(numMetrics int) []string {
 	return cpuMetrics[:numMetrics]
 }
 
-// Devops describes a devops query generator.
-type Devops interface {
-	CPU5Metrics(query.Query, int, int, time.Duration)
-	GroupByOrderByLimit(query.Query)
-	HighCPUForHosts(query.Query, int, int)
-	LastPointPerHost(query.Query)
-	MaxAllCPU(query.Query, int, int)
-	MaxCPUUsageHourByMinute(query.Query, int, int, time.Duration)
-	MeanCPUMetricsDayByHourAllHostsGroupbyHost(query.Query, int)
-}
-
 // SingleGroupbyFiller is a type that can fill in a single groupby query
 type SingleGroupbyFiller interface {
 	GroupByTime(query.Query, int, int, time.Duration)
@@ -102,6 +99,10 @@ type HighCPUFiller interface {
 	HighCPUForHosts(query.Query, int)
 }
 
+func getDoubleGroupByLabel(dbName string, numMetrics int) string {
+	return fmt.Sprintf("%s mean of %d metrics, all hosts, random %s by 1hr", dbName, numMetrics, doubleGroupByDuration)
+}
+
 func getHighCPULabel(dbName string, nHosts int) string {
 	label := dbName + " CPU over threshold, "
 	if nHosts > 0 {
@@ -112,12 +113,16 @@ func getHighCPULabel(dbName string, nHosts int) string {
 	return label
 }
 
-func getRandomHosts(scale, nhosts int) []string {
-	if nhosts > scale {
-		log.Fatal("nhosts > scaleVar")
+func getMaxAllLabel(dbName string, nHosts int) string {
+	return fmt.Sprintf("%s max of all CPU fields, random %4d hosts, random %s by 1h", dbName, nHosts, maxAllDuration)
+}
+
+func getRandomHosts(scale, nHosts int) []string {
+	if nHosts > scale {
+		log.Fatalf("number of hosts (%d) larger than --scale-var (%d)", nHosts, scale)
 	}
 
-	nn := rand.Perm(scale)[:nhosts]
+	nn := rand.Perm(scale)[:nHosts]
 
 	hostnames := []string{}
 	for _, n := range nn {

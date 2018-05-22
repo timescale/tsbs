@@ -16,21 +16,21 @@ import (
 
 var useCaseMatrix = map[string]map[string]QueryFillerMaker{
 	"devops": {
-		"1-host-1-hr":             NewDevopsSingleGroupby(1, 1, 1),
-		"1-host-12-hr":            NewDevopsSingleGroupby(1, 1, 12),
-		"8-host-1-hr":             NewDevopsSingleGroupby(1, 8, 1),
-		"5-metrics-1-host-1-hr":   NewDevopsSingleGroupby(5, 1, 1),
-		"5-metrics-1-host-12-hr":  NewDevopsSingleGroupby(5, 1, 12),
-		"5-metrics-8-host-1-hr":   NewDevopsSingleGroupby(5, 8, 1),
-		"cpu-max-all-single-host": NewDevopsMaxAllCPU(1),
-		"cpu-max-all-eight-hosts": NewDevopsMaxAllCPU(1),
-		"groupby":                 NewDevopsGroupBy(1),
-		"groupby-5":               NewDevopsGroupBy(5),
-		"groupby-all":             NewDevopsGroupBy(len(cpuMetrics)),
-		"groupby-orderby-limit":   NewDevopsGroupByOrderByLimit,
-		"high-cpu-all-hosts":      NewDevopsHighCPU(0),
-		"high-cpu-1-host":         NewDevopsHighCPU(1),
-		"lastpoint":               NewDevopsLastPointPerHost,
+		labelSingleGroupby + "(1,1,1)":  NewDevopsSingleGroupby(1, 1, 1),
+		labelSingleGroupby + "(1,1,12)": NewDevopsSingleGroupby(1, 1, 12),
+		labelSingleGroupby + "(1,8,1)":  NewDevopsSingleGroupby(1, 8, 1),
+		labelSingleGroupby + "(5,1,1)":  NewDevopsSingleGroupby(5, 1, 1),
+		labelSingleGroupby + "(5,1,12)": NewDevopsSingleGroupby(5, 1, 12),
+		labelSingleGroupby + "(5,8,1)":  NewDevopsSingleGroupby(5, 8, 1),
+		labelMaxAll + "(1)":             NewDevopsMaxAllCPU(1),
+		labelMaxAll + "(8)":             NewDevopsMaxAllCPU(1),
+		labelDoubleGroupby + "(1)":      NewDevopsGroupBy(1),
+		labelDoubleGroupby + "(5)":      NewDevopsGroupBy(5),
+		labelDoubleGroupby + "(all)":    NewDevopsGroupBy(len(cpuMetrics)),
+		labelGroupbyOrderbyLimit:        NewDevopsGroupByOrderByLimit,
+		labelHighCPU + "(all)":          NewDevopsHighCPU(0),
+		labelHighCPU + "(1)":            NewDevopsHighCPU(1),
+		labelLastpoint:                  NewDevopsLastPointPerHost,
 	},
 }
 
@@ -97,8 +97,8 @@ func init() {
 	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
-	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "Use separate JSON tags table when querying")
-	flag.BoolVar(&timescaleUseTags, "timescale-use-tags", true, "Use separate tags table when querying")
+	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
+	flag.BoolVar(&timescaleUseTags, "timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
 
 	flag.StringVar(&timestampStartStr, "timestamp-start", "2016-01-01T00:00:00Z", "Beginning timestamp (RFC3339).")
 	flag.StringVar(&timestampEndStr, "timestamp-end", "2016-01-02T06:00:00Z", "Ending timestamp (RFC3339).")
