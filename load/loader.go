@@ -39,9 +39,9 @@ type Benchmark interface {
 // flags across all database systems and ultimately running a supplied Benchmark
 type BenchmarkRunner struct {
 	dbName          string
-	batchSize       int
+	batchSize       uint
 	workers         uint
-	limit           int64
+	limit           uint64
 	doLoad          bool
 	doInit          bool
 	reportingPeriod time.Duration
@@ -63,12 +63,12 @@ func GetBenchmarkRunner() *BenchmarkRunner {
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
 // with a non-default batch size.
-func GetBenchmarkRunnerWithBatchSize(batchSize int) *BenchmarkRunner {
+func GetBenchmarkRunnerWithBatchSize(batchSize uint) *BenchmarkRunner {
 	flag.StringVar(&loader.dbName, "db-name", "benchmark", "Name of database")
 
-	flag.IntVar(&loader.batchSize, "batch-size", batchSize, "Number of items to batch together in a single insert")
+	flag.UintVar(&loader.batchSize, "batch-size", batchSize, "Number of items to batch together in a single insert")
 	flag.UintVar(&loader.workers, "workers", 1, "Number of parallel clients inserting")
-	flag.Int64Var(&loader.limit, "limit", -1, "Number of items to insert (default unlimited).")
+	flag.Uint64Var(&loader.limit, "limit", 0, "Number of items to insert (0 = all of them).")
 	flag.BoolVar(&loader.doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed")
 	flag.BoolVar(&loader.doInit, "do-init", true, "Whether to initialize the database. Disable on all but one box if running on a multi client box setup.")
 	flag.DurationVar(&loader.reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
@@ -140,7 +140,7 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 
 // scan launches any needed reporting mechanism and proceeds to scan input data
 // to distribute to workers
-func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel, maxPartitions uint) int64 {
+func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel, maxPartitions uint) uint64 {
 	if l.reportingPeriod.Nanoseconds() > 0 {
 		go l.report(l.reportingPeriod)
 	}
