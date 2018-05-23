@@ -1,4 +1,4 @@
-package main
+package cassandra
 
 import (
 	"fmt"
@@ -9,22 +9,22 @@ import (
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
-// CassandraDevops produces Cassandra-specific queries for all the devops query types.
-type CassandraDevops struct {
+// Devops produces Cassandra-specific queries for all the devops query types.
+type Devops struct {
 	*devops.Core
 }
 
-// NewCassandraDevops makes an CassandraDevops object ready to generate Queries.
-func newCassandraDevopsCommon(start, end time.Time, scale int) *CassandraDevops {
-	return &CassandraDevops{devops.NewCore(start, end, scale)}
+// NewDevops makes an Devops object ready to generate Queries.
+func NewDevops(start, end time.Time, scale int) *Devops {
+	return &Devops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.Cassandra
-func (d *CassandraDevops) GenerateEmptyQuery() query.Query {
+func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewCassandra()
 }
 
-func (d *CassandraDevops) getHostWhere(nHosts int) []string {
+func (d *Devops) getHostWhere(nHosts int) []string {
 	hostnames := d.GetRandomHosts(nHosts)
 
 	tagSet := []string{}
@@ -45,7 +45,7 @@ func (d *CassandraDevops) getHostWhere(nHosts int) []string {
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *CassandraDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	tagSet := d.getHostWhere(nHosts)
@@ -74,7 +74,7 @@ func (d *CassandraDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, ti
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query) {
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (random end)"
@@ -100,7 +100,7 @@ func (d *CassandraDevops) GroupByOrderByLimit(qi query.Query) {
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
-func (d *CassandraDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 
@@ -125,7 +125,7 @@ func (d *CassandraDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics in
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *CassandraDevops) MaxAllCPU(qi query.Query, nHosts int) {
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.MaxAllDuration)
 	tagSet := d.getHostWhere(nHosts)
 
@@ -149,7 +149,7 @@ func (d *CassandraDevops) MaxAllCPU(qi query.Query, nHosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *CassandraDevops) LastPointPerHost(qi query.Query) {
+func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Cassandra last row per host"
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
@@ -172,7 +172,7 @@ func (d *CassandraDevops) LastPointPerHost(qi query.Query) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *CassandraDevops) HighCPUForHosts(qi query.Query, nHosts int) {
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.HighCPUDuration)
 	tagSet := d.getHostWhere(nHosts)
 

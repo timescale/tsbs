@@ -1,4 +1,4 @@
-package main
+package influx
 
 import (
 	"fmt"
@@ -10,22 +10,22 @@ import (
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
-// InfluxDevops produces Influx-specific queries for all the devops query types.
-type InfluxDevops struct {
+// Devops produces Influx-specific queries for all the devops query types.
+type Devops struct {
 	*devops.Core
 }
 
-// NewInfluxDevops makes an InfluxDevops object ready to generate Queries.
-func newInfluxDevopsCommon(start, end time.Time, scale int) *InfluxDevops {
-	return &InfluxDevops{devops.NewCore(start, end, scale)}
+// NewDevops makes an Devops object ready to generate Queries.
+func NewDevops(start, end time.Time, scale int) *Devops {
+	return &Devops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.HTTP
-func (d *InfluxDevops) GenerateEmptyQuery() query.Query {
+func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewHTTP()
 }
 
-func (d *InfluxDevops) getHostWhereWithHostnames(hostnames []string) string {
+func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 	hostnameClauses := []string{}
 	for _, s := range hostnames {
 		hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
@@ -35,12 +35,12 @@ func (d *InfluxDevops) getHostWhereWithHostnames(hostnames []string) string {
 	return "(" + combinedHostnameClause + ")"
 }
 
-func (d *InfluxDevops) getHostWhereString(nHosts int) string {
+func (d *Devops) getHostWhereString(nHosts int) string {
 	hostnames := d.GetRandomHosts(nHosts)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
-func (d *InfluxDevops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
+func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
 	selectClauses := make([]string, len(metrics))
 	for i, m := range metrics {
 		selectClauses[i] = fmt.Sprintf("%s(%s)", agg, m)
@@ -58,7 +58,7 @@ func (d *InfluxDevops) getSelectClausesAggMetrics(agg string, metrics []string) 
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *InfluxDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
@@ -81,7 +81,7 @@ func (d *InfluxDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeR
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
 
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
@@ -105,7 +105,7 @@ func (d *InfluxDevops) GroupByOrderByLimit(qi query.Query) {
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
-func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 	selectClauses := d.getSelectClausesAggMetrics("mean", metrics)
@@ -129,7 +129,7 @@ func (d *InfluxDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) 
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *InfluxDevops) MaxAllCPU(qi query.Query, nHosts int) {
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.MaxAllDuration)
 	whereHosts := d.getHostWhereString(nHosts)
 	selectClauses := d.getSelectClausesAggMetrics("max", devops.GetAllCPUMetrics())
@@ -147,7 +147,7 @@ func (d *InfluxDevops) MaxAllCPU(qi query.Query, nHosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *InfluxDevops) LastPointPerHost(qi query.Query) {
+func (d *Devops) LastPointPerHost(qi query.Query) {
 	v := url.Values{}
 	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
 
@@ -168,7 +168,7 @@ func (d *InfluxDevops) LastPointPerHost(qi query.Query) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *InfluxDevops) HighCPUForHosts(qi query.Query, nHosts int) {
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.HighCPUDuration)
 	var hostWhereClause string
 	if nHosts == 0 {

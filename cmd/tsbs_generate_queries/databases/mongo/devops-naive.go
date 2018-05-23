@@ -1,4 +1,4 @@
-package main
+package mongo
 
 import (
 	"encoding/gob"
@@ -19,18 +19,18 @@ func init() {
 	gob.Register([]bson.M{})
 }
 
-// MongoNaiveDevops produces Mongo-specific queries for the devops use case.
-type MongoNaiveDevops struct {
+// NaiveDevops produces Mongo-specific queries for the devops use case.
+type NaiveDevops struct {
 	*devops.Core
 }
 
-// NewMongoNaiveDevops makes an MongoNaiveDevops object ready to generate Queries.
-func newMongoNaiveDevopsCommon(start, end time.Time, scale int) *MongoNaiveDevops {
-	return &MongoNaiveDevops{devops.NewCore(start, end, scale)}
+// NewNaiveDevops makes an NaiveDevops object ready to generate Queries.
+func NewNaiveDevops(start, end time.Time, scale int) *NaiveDevops {
+	return &NaiveDevops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
-func (d *MongoNaiveDevops) GenerateEmptyQuery() query.Query {
+func (d *NaiveDevops) GenerateEmptyQuery() query.Query {
 	return query.NewMongo()
 }
 
@@ -43,7 +43,7 @@ func (d *MongoNaiveDevops) GenerateEmptyQuery() query.Query {
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoNaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *NaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	hostnames := d.GetRandomHosts(nHosts)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
@@ -104,7 +104,7 @@ func (d *MongoNaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, t
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
-func (d *MongoNaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+func (d *NaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	bucketNano := time.Hour.Nanoseconds()
