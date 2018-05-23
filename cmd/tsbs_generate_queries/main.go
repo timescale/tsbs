@@ -12,32 +12,35 @@ import (
 	"os"
 	"sort"
 	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
 )
 
-var useCaseMatrix = map[string]map[string]QueryFillerMaker{
+var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	"devops": {
-		labelSingleGroupby + "(1,1,1)":  NewDevopsSingleGroupby(1, 1, 1),
-		labelSingleGroupby + "(1,1,12)": NewDevopsSingleGroupby(1, 1, 12),
-		labelSingleGroupby + "(1,8,1)":  NewDevopsSingleGroupby(1, 8, 1),
-		labelSingleGroupby + "(5,1,1)":  NewDevopsSingleGroupby(5, 1, 1),
-		labelSingleGroupby + "(5,1,12)": NewDevopsSingleGroupby(5, 1, 12),
-		labelSingleGroupby + "(5,8,1)":  NewDevopsSingleGroupby(5, 8, 1),
-		labelMaxAll + "(1)":             NewDevopsMaxAllCPU(1),
-		labelMaxAll + "(8)":             NewDevopsMaxAllCPU(1),
-		labelDoubleGroupby + "(1)":      NewDevopsGroupBy(1),
-		labelDoubleGroupby + "(5)":      NewDevopsGroupBy(5),
-		labelDoubleGroupby + "(all)":    NewDevopsGroupBy(len(cpuMetrics)),
-		labelGroupbyOrderbyLimit:        NewDevopsGroupByOrderByLimit,
-		labelHighCPU + "(all)":          NewDevopsHighCPU(0),
-		labelHighCPU + "(1)":            NewDevopsHighCPU(1),
-		labelLastpoint:                  NewDevopsLastPointPerHost,
+		devops.LabelSingleGroupby + "(1,1,1)":  devops.NewSingleGroupby(1, 1, 1),
+		devops.LabelSingleGroupby + "(1,1,12)": devops.NewSingleGroupby(1, 1, 12),
+		devops.LabelSingleGroupby + "(1,8,1)":  devops.NewSingleGroupby(1, 8, 1),
+		devops.LabelSingleGroupby + "(5,1,1)":  devops.NewSingleGroupby(5, 1, 1),
+		devops.LabelSingleGroupby + "(5,1,12)": devops.NewSingleGroupby(5, 1, 12),
+		devops.LabelSingleGroupby + "(5,8,1)":  devops.NewSingleGroupby(5, 8, 1),
+		devops.LabelMaxAll + "(1)":             devops.NewMaxAllCPU(1),
+		devops.LabelMaxAll + "(8)":             devops.NewMaxAllCPU(1),
+		devops.LabelDoubleGroupby + "(1)":      devops.NewGroupBy(1),
+		devops.LabelDoubleGroupby + "(5)":      devops.NewGroupBy(5),
+		devops.LabelDoubleGroupby + "(all)":    devops.NewGroupBy(devops.GetCPUMetricsLen()),
+		devops.LabelGroupbyOrderbyLimit:        devops.NewGroupByOrderByLimit,
+		devops.LabelHighCPU + "(all)":          devops.NewHighCPU(0),
+		devops.LabelHighCPU + "(1)":            devops.NewHighCPU(1),
+		devops.LabelLastpoint:                  devops.NewLastPointPerHost,
 	},
 }
 
 // Program option vars:
 var (
-	generator DevopsGenerator
-	filler    QueryFiller
+	generator utils.DevopsGenerator
+	filler    utils.QueryFiller
 
 	queryCount int
 
@@ -51,7 +54,7 @@ var (
 	interleavedGenerationGroups  uint
 )
 
-func getGenerator(format string, start, end time.Time, scale int) DevopsGenerator {
+func getGenerator(format string, start, end time.Time, scale int) utils.DevopsGenerator {
 	if format == "cassandra" {
 		return newCassandraDevopsCommon(start, end, scale)
 	} else if format == "influx" {

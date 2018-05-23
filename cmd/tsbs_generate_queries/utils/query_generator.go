@@ -1,8 +1,13 @@
-package main
+package utils
 
 import (
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
+
+// DevopsGenerator is query generator for a database type that handles the Devops use case
+type DevopsGenerator interface {
+	GenerateEmptyQuery() query.Query
+}
 
 // QueryFiller describes a type that can fill in a query and return it
 type QueryFiller interface {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 	"github.com/globalsign/mgo/bson"
 )
@@ -20,12 +22,12 @@ func init() {
 
 // MongoDevops produces Mongo-specific queries for the devops use case.
 type MongoDevops struct {
-	*devopsCore
+	*devops.Core
 }
 
 // NewMongoDevops makes an MongoDevops object ready to generate Queries.
 func newMongoDevopsCommon(start, end time.Time, scale int) *MongoDevops {
-	return &MongoDevops{newDevopsCore(start, end, scale)}
+	return &MongoDevops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
@@ -33,7 +35,7 @@ func (d *MongoDevops) GenerateEmptyQuery() query.Query {
 	return query.NewMongo()
 }
 
-func getTimeFilterPipeline(interval TimeInterval) []bson.M {
+func getTimeFilterPipeline(interval utils.TimeInterval) []bson.M {
 	return []bson.M{
 		{"$unwind": "$events"},
 		{
@@ -70,7 +72,7 @@ func getTimeFilterPipeline(interval TimeInterval) []bson.M {
 
 const aggDateFmt = "20060102" // see Go docs for how we arrive at this time format
 
-func getTimeFilterDocs(interval TimeInterval) []interface{} {
+func getTimeFilterDocs(interval utils.TimeInterval) []interface{} {
 	docs := []interface{}{}
 	startDay := interval.Start.Format(aggDateFmt)
 	startHr := interval.Start.Hour()
@@ -99,9 +101,9 @@ func getTimeFilterDocs(interval TimeInterval) []interface{} {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.interval.RandWindow(timeRange)
-	hostnames := d.getRandomHosts(nHosts)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(timeRange)
+	hostnames := d.GetRandomHosts(nHosts)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 
@@ -167,11 +169,11 @@ func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRa
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(maxAllDuration)
-	hostnames := d.getRandomHosts(nHosts)
+	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	hostnames := d.GetRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
-	metrics := getCPUMetricsSlice(len(cpuMetrics))
+	metrics := devops.GetAllCPUMetrics()
 
 	pipelineQuery := []bson.M{
 		{
@@ -219,7 +221,7 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
 	pipelineQuery = append(pipelineQuery, group)
 	pipelineQuery = append(pipelineQuery, bson.M{"$sort": bson.M{"_id": 1}})
 
-	humanLabel := getMaxAllLabel("Mongo", nHosts)
+	humanLabel := devops.GetMaxAllLabel("Mongo", nHosts)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -235,8 +237,8 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.interval.RandWindow(doubleGroupByDuration)
-	metrics := getCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 
@@ -298,7 +300,7 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 		{"$sort": bson.M{"_id.time": 1}},
 	}...)
 
-	humanLabel := getDoubleGroupByLabel("Mongo", numMetrics)
+	humanLabel := devops.GetDoubleGroupByLabel("Mongo", numMetrics)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -315,8 +317,8 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.interval.RandWindow(highCPUDuration)
-	hostnames := d.getRandomHosts(nHosts)
+	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	hostnames := d.GetRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
 
 	pipelineQuery := []bson.M{}
@@ -355,7 +357,7 @@ func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 		},
 	})
 
-	humanLabel := getHighCPULabel("Mongo", nHosts)
+	humanLabel := devops.GetHighCPULabel("Mongo", nHosts)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -446,8 +448,8 @@ func (d *MongoDevops) LastPointPerHost(qi query.Query) {
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *MongoDevops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.interval.RandWindow(time.Hour)
-	interval = NewTimeInterval(d.interval.Start, interval.End)
+	interval := d.Interval.RandWindow(time.Hour)
+	interval = utils.NewTimeInterval(d.Interval.Start, interval.End)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 

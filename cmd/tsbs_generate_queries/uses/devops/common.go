@@ -1,0 +1,162 @@
+package devops
+
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"reflect"
+	"time"
+
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
+	"bitbucket.org/440-labs/influxdb-comparisons/query"
+)
+
+const (
+	allHosts = "all hosts"
+	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
+	DoubleGroupByDuration = 24 * time.Hour
+	// HighCPUDuration is the how big the time range for DoubleGroupBy query is
+	HighCPUDuration = 24 * time.Hour
+	// MaxAllDuration is the how big the time range for DoubleGroupBy query is
+	MaxAllDuration = 8 * time.Hour
+
+	// LabelSingleGroupby is the label prefix for queries of the single groupby variety
+	LabelSingleGroupby = "single-groupby"
+	// LabelDoubleGroupby is the label prefix for queries of the double groupby variety
+	LabelDoubleGroupby = "double-groupby"
+	// LabelLastpoint is the label for the lastpoint query
+	LabelLastpoint = "lastpoint"
+	// LabelMaxAll is the label prefix for queries of the max all variety
+	LabelMaxAll = "cpu-max-all"
+	// LabelGroupbyOrderbyLimit is the label for groupby-orderby-limit query
+	LabelGroupbyOrderbyLimit = "groupby-orderby-limit"
+	// LabelHighCPU is the prefix for queries of the high-CPU variety
+	LabelHighCPU = "high-cpu"
+)
+
+// Core is the common component of all generators for all systems
+type Core struct {
+	// Interval is the entire time range of the dataset
+	Interval utils.TimeInterval
+	// Scale is the cardinality of the dataset in terms of devices/hosts
+	Scale int
+}
+
+// NewCore returns a new Core for the given time range and cardinality
+func NewCore(start, end time.Time, scale int) *Core {
+	if !start.Before(end) {
+		panic("bad time order")
+	}
+
+	return &Core{utils.NewTimeInterval(start, end), scale}
+}
+
+// GetRandomHosts returns a random set of nHosts from a given Core
+func (d *Core) GetRandomHosts(nHosts int) []string {
+	return getRandomHosts(d.Scale, nHosts)
+}
+
+// cpuMetrics is the list of metric names for CPU
+var cpuMetrics = []string{
+	"usage_user",
+	"usage_system",
+	"usage_idle",
+	"usage_nice",
+	"usage_iowait",
+	"usage_irq",
+	"usage_softirq",
+	"usage_steal",
+	"usage_guest",
+	"usage_guest_nice",
+}
+
+// GetCPUMetricsSlice returns a subset of metrics for the CPU
+func GetCPUMetricsSlice(numMetrics int) []string {
+	if numMetrics <= 0 {
+		panic("no metrics given")
+	}
+	if numMetrics > len(cpuMetrics) {
+		panic("too many metrics asked for")
+	}
+	return cpuMetrics[:numMetrics]
+}
+
+// GetAllCPUMetrics returns all the metrics for CPU
+func GetAllCPUMetrics() []string {
+	return cpuMetrics
+}
+
+// GetCPUMetricsLen returns the number of metrics in CPU
+func GetCPUMetricsLen() int {
+	return len(cpuMetrics)
+}
+
+// SingleGroupbyFiller is a type that can fill in a single groupby query
+type SingleGroupbyFiller interface {
+	GroupByTime(query.Query, int, int, time.Duration)
+}
+
+// DoubleGroupbyFiller is a type that can fill in a double groupby query
+type DoubleGroupbyFiller interface {
+	GroupByTimeAndPrimaryTag(query.Query, int)
+}
+
+// LastPointFiller is a type that can fill in a last point query
+type LastPointFiller interface {
+	LastPointPerHost(query.Query)
+}
+
+// MaxAllFiller is a type that can fill in a max all CPU metrics query
+type MaxAllFiller interface {
+	MaxAllCPU(query.Query, int)
+}
+
+// GroupbyOrderbyLimitFiller is a type that can fill in a groupby-orderby-limit query
+type GroupbyOrderbyLimitFiller interface {
+	GroupByOrderByLimit(query.Query)
+}
+
+// HighCPUFiller is a type that can fill in a high-cpu query
+type HighCPUFiller interface {
+	HighCPUForHosts(query.Query, int)
+}
+
+// GetDoubleGroupByLabel returns the Query human-readable label for DoubleGroupBy queries
+func GetDoubleGroupByLabel(dbName string, numMetrics int) string {
+	return fmt.Sprintf("%s mean of %d metrics, all hosts, random %s by 1hr", dbName, numMetrics, DoubleGroupByDuration)
+}
+
+// GetHighCPULabel returns the Query human-readable label for HighCPU queries
+func GetHighCPULabel(dbName string, nHosts int) string {
+	label := dbName + " CPU over threshold, "
+	if nHosts > 0 {
+		label += fmt.Sprintf("%d host(s)", nHosts)
+	} else {
+		label += allHosts
+	}
+	return label
+}
+
+// GetMaxAllLabel returns the Query human-readable label for MaxAllCPU queries
+func GetMaxAllLabel(dbName string, nHosts int) string {
+	return fmt.Sprintf("%s max of all CPU fields, random %4d hosts, random %s by 1h", dbName, nHosts, MaxAllDuration)
+}
+
+func getRandomHosts(scale, nHosts int) []string {
+	if nHosts > scale {
+		log.Fatalf("number of hosts (%d) larger than --scale-var (%d)", nHosts, scale)
+	}
+
+	nn := rand.Perm(scale)[:nHosts]
+
+	hostnames := []string{}
+	for _, n := range nn {
+		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
+	}
+
+	return hostnames
+}
+
+func panicUnimplementedQuery(dg utils.DevopsGenerator) {
+	panic(fmt.Sprintf("database (%v) does not implement query", reflect.TypeOf(dg)))
+}
