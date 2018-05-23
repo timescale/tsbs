@@ -25,8 +25,7 @@ import (
 
 // Program option vars:
 var (
-	csvDaemonUrls     string
-	daemonUrls        []string
+	daemonURLs        []string
 	replicationFactor int
 	backoff           time.Duration
 	useGzip           bool
@@ -51,8 +50,9 @@ var consistencyChoices = map[string]struct{}{
 // Parse args:
 func init() {
 	loader = load.GetBenchmarkRunner()
+	var csvDaemonURLs string
 
-	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
+	flag.StringVar(&csvDaemonURLs, "urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
 	flag.StringVar(&consistency, "consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
@@ -66,11 +66,10 @@ func init() {
 		log.Fatalf("invalid consistency settings")
 	}
 
-	daemonUrls = strings.Split(csvDaemonUrls, ",")
-	if len(daemonUrls) == 0 {
+	daemonURLs = strings.Split(csvDaemonURLs, ",")
+	if len(daemonURLs) == 0 {
 		log.Fatal("missing 'urls' flag")
 	}
-	fmt.Printf("daemon URLs: %v\n", daemonUrls)
 }
 
 type benchmark struct{}
@@ -97,27 +96,31 @@ func main() {
 		defer p.Stop()
 	}
 	if loader.DoLoad() && loader.DoInit() {
+		daemonURL := daemonURLs[0] // pick first one since it always exists
+
 		// check that there are no pre-existing databases:
-		existingDatabases, err := listDatabases(daemonUrls[0])
+		existingDatabases, err := listDatabases(daemonURL)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		if len(existingDatabases) > 0 {
-			if doAbortOnExist {
-				log.Fatalf("There are databases already in the data store. If you know what you are doing, run the command:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", existingDatabases[0])
-			} else {
-				log.Printf("Info: there are databases already in the data store.")
+		for _, db := range existingDatabases {
+			if db == loader.DatabaseName() && doAbortOnExist {
+				log.Fatalf("Database already exists. If you know what you're doing, run:\ncurl 'http://localhost:8086/query?q=drop%%20database%%20%s'\n", db)
 			}
 		}
 
-		if len(existingDatabases) == 0 {
-			err = createDb(daemonUrls[0], loader.DatabaseName(), replicationFactor)
-			if err != nil {
-				log.Fatal(err)
-			}
-			time.Sleep(time.Second)
+		err = removeDatabase(daemonURL, loader.DatabaseName())
+		if err != nil {
+			log.Fatal(err)
 		}
+		time.Sleep(time.Second)
+
+		err = createDb(daemonURL, loader.DatabaseName(), replicationFactor)
+		if err != nil {
+			log.Fatal(err)
+		}
+		time.Sleep(time.Second)
 	}
 
 	bufPool = sync.Pool{
@@ -136,7 +139,7 @@ type processor struct {
 }
 
 func (p *processor) Init(numWorker int, _ bool) {
-	daemonURL := daemonUrls[numWorker%len(daemonUrls)]
+	daemonURL := daemonURLs[numWorker%len(daemonURLs)]
 	p.backingOffChan = make(chan bool, 100)
 	p.backingOffDone = make(chan struct{})
 	cfg := HTTPWriterConfig{
@@ -242,6 +245,18 @@ func createDb(daemonURL, dbName string, replicationFactor int) error {
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("bad db create")
+	}
+	return nil
+}
+
+func removeDatabase(daemonURL, dbName string) error {
+	u := fmt.Sprintf("%s/query?q=drop+database+%s", daemonURL, dbName)
+	resp, err := http.Post(u, "text/plain", nil)
+	if err != nil {
+		return fmt.Errorf("drop db error: %s", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("drop db returned non-200 code: %d", resp.StatusCode)
 	}
 	return nil
 }
