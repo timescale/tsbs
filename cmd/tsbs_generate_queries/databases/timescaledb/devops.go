@@ -1,4 +1,4 @@
-package main
+package timescaledb
 
 import (
 	"fmt"
@@ -9,31 +9,31 @@ import (
 	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
-// TimescaleDBDevops produces TimescaleDB-specific queries for all the devops query types.
-type TimescaleDBDevops struct {
+// Devops produces TimescaleDB-specific queries for all the devops query types.
+type Devops struct {
 	*devops.Core
-	useJSON bool
-	useTags bool
+	UseJSON bool
+	UseTags bool
 }
 
-// NewTimescaleDBDevops makes an TimescaleDBDevops object ready to generate Queries.
-func newTimescaleDBDevopsCommon(start, end time.Time, scale int) *TimescaleDBDevops {
-	return &TimescaleDBDevops{devops.NewCore(start, end, scale), false, false}
+// NewDevops makes an Devops object ready to generate Queries.
+func NewDevops(start, end time.Time, scale int) *Devops {
+	return &Devops{devops.NewCore(start, end, scale), false, false}
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB
-func (d *TimescaleDBDevops) GenerateEmptyQuery() query.Query {
+func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewTimescaleDB()
 }
 
-func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string {
+func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 	hostnameClauses := []string{}
-	if d.useJSON {
+	if d.UseJSON {
 		for _, s := range hostnames {
 			hostnameClauses = append(hostnameClauses, fmt.Sprintf("tagset @> '{\"hostname\": \"%s\"}'", s))
 		}
 		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE %s)", strings.Join(hostnameClauses, " OR "))
-	} else if d.useTags {
+	} else if d.UseTags {
 		for _, s := range hostnames {
 			hostnameClauses = append(hostnameClauses, fmt.Sprintf("'%s'", s))
 		}
@@ -48,12 +48,12 @@ func (d *TimescaleDBDevops) getHostWhereWithHostnames(hostnames []string) string
 	}
 }
 
-func (d *TimescaleDBDevops) getHostWhereString(nhosts int) string {
+func (d *Devops) getHostWhereString(nhosts int) string {
 	hostnames := d.GetRandomHosts(nhosts)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
-func (d *TimescaleDBDevops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
+func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
 	selectClauses := make([]string, len(metrics))
 	for i, m := range metrics {
 		selectClauses[i] = fmt.Sprintf("%[1]s(%[2]s) as %[1]s_%[2]s", agg, m)
@@ -73,7 +73,7 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *TimescaleDBDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
@@ -101,7 +101,7 @@ func (d *TimescaleDBDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, 
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
 	timeStr := interval.End.Format(goTimeFmt)
 
@@ -124,7 +124,7 @@ func (d *TimescaleDBDevops) GroupByOrderByLimit(qi query.Query) {
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
-func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 
@@ -137,10 +137,10 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 
 	hostnameField := "hostname"
 	joinStr := ""
-	if d.useJSON || d.useTags {
-		if d.useJSON {
+	if d.UseJSON || d.UseTags {
+		if d.UseJSON {
 			hostnameField = "tags->>'hostname'"
-		} else if d.useTags {
+		} else if d.UseTags {
 			hostnameField = "tags.hostname"
 		}
 		joinStr = "JOIN tags ON cpu_avg.tags_id = tags.id"
@@ -177,7 +177,7 @@ func (d *TimescaleDBDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics 
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nHosts int) {
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.MaxAllDuration)
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
@@ -200,11 +200,11 @@ func (d *TimescaleDBDevops) MaxAllCPU(qi query.Query, nHosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query) {
+func (d *Devops) LastPointPerHost(qi query.Query) {
 	var sqlQuery string
-	if d.useTags {
+	if d.UseTags {
 		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.hostname) * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.hostname, b.time DESC")
-	} else if d.useJSON {
+	} else if d.UseJSON {
 		sqlQuery = fmt.Sprintf("SELECT DISTINCT ON (t.tagset->>'hostname') * FROM tags t INNER JOIN LATERAL(SELECT * FROM cpu c WHERE c.tags_id = t.id ORDER BY time DESC LIMIT 1) AS b ON true ORDER BY t.tagset->>'hostname', b.time DESC")
 	} else {
 		sqlQuery = fmt.Sprintf(`SELECT DISTINCT ON (hostname) * FROM cpu ORDER BY hostname, time DESC`)
@@ -226,7 +226,7 @@ func (d *TimescaleDBDevops) LastPointPerHost(qi query.Query) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *TimescaleDBDevops) HighCPUForHosts(qi query.Query, nHosts int) {
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""

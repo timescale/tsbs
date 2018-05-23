@@ -13,6 +13,10 @@ import (
 	"sort"
 	"time"
 
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/cassandra"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/influx"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/mongo"
+	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/timescaledb"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
 	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
 )
@@ -56,17 +60,17 @@ var (
 
 func getGenerator(format string, start, end time.Time, scale int) utils.DevopsGenerator {
 	if format == "cassandra" {
-		return newCassandraDevopsCommon(start, end, scale)
+		return cassandra.NewDevops(start, end, scale)
 	} else if format == "influx" {
-		return newInfluxDevopsCommon(start, end, scale)
+		return influx.NewDevops(start, end, scale)
 	} else if format == "mongo" {
-		return newMongoDevopsCommon(start, end, scale)
+		return mongo.NewDevops(start, end, scale)
 	} else if format == "mongo-naive" {
-		return newMongoNaiveDevopsCommon(start, end, scale)
+		return mongo.NewNaiveDevops(start, end, scale)
 	} else if format == "timescaledb" {
-		tgen := newTimescaleDBDevopsCommon(start, end, scale)
-		tgen.useJSON = timescaleUseJSON
-		tgen.useTags = timescaleUseTags
+		tgen := timescaledb.NewDevops(start, end, scale)
+		tgen.UseJSON = timescaleUseJSON
+		tgen.UseTags = timescaleUseTags
 		return tgen
 	}
 

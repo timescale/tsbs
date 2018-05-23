@@ -1,4 +1,4 @@
-package main
+package mongo
 
 import (
 	"encoding/gob"
@@ -20,18 +20,18 @@ func init() {
 	gob.Register([]bson.M{})
 }
 
-// MongoDevops produces Mongo-specific queries for the devops use case.
-type MongoDevops struct {
+// Devops produces Mongo-specific queries for the devops use case.
+type Devops struct {
 	*devops.Core
 }
 
-// NewMongoDevops makes an MongoDevops object ready to generate Queries.
-func newMongoDevopsCommon(start, end time.Time, scale int) *MongoDevops {
-	return &MongoDevops{devops.NewCore(start, end, scale)}
+// NewDevops makes an Devops object ready to generate Queries.
+func NewDevops(start, end time.Time, scale int) *Devops {
+	return &Devops{devops.NewCore(start, end, scale)}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
-func (d *MongoDevops) GenerateEmptyQuery() query.Query {
+func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewMongo()
 }
 
@@ -100,7 +100,7 @@ func getTimeFilterDocs(interval utils.TimeInterval) []interface{} {
 // WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
-func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
+func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	hostnames := d.GetRandomHosts(nHosts)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
@@ -168,7 +168,7 @@ func (d *MongoDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRa
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.MaxAllDuration)
 	hostnames := d.GetRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
@@ -236,7 +236,7 @@ func (d *MongoDevops) MaxAllCPU(qi query.Query, nHosts int) {
 // FROM cpu
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
-func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	docs := getTimeFilterDocs(interval)
@@ -316,7 +316,7 @@ func (d *MongoDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // WHERE usage_user > 90.0
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
-func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.HighCPUDuration)
 	hostnames := d.GetRandomHosts(nHosts)
 	docs := getTimeFilterDocs(interval)
@@ -366,7 +366,7 @@ func (d *MongoDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
-func (d *MongoDevops) LastPointPerHost(qi query.Query) {
+func (d *Devops) LastPointPerHost(qi query.Query) {
 	pipelineQuery := []bson.M{
 		{"$match": bson.M{"measurement": "cpu"}},
 		{
@@ -447,7 +447,7 @@ func (d *MongoDevops) LastPointPerHost(qi query.Query) {
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
-func (d *MongoDevops) GroupByOrderByLimit(qi query.Query) {
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
 	interval = utils.NewTimeInterval(d.Interval.Start, interval.End)
 	docs := getTimeFilterDocs(interval)
