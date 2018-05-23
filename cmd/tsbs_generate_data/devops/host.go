@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/common"
 )
 
 // Count of choices for auto-generated tag values:

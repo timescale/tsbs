@@ -13,12 +13,12 @@ import (
 	"sort"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/cassandra"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/influx"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/mongo"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/databases/timescaledb"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/databases/influx"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/databases/mongo"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
 )
 
 var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{

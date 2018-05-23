@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/uses/devops"
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"bitbucket.org/440-labs/tsbs/query"
 )
 
 // Devops produces Cassandra-specific queries for all the devops query types.

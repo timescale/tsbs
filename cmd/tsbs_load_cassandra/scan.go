@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/load"
+	"bitbucket.org/440-labs/tsbs/load"
 )
 
 type decoder struct {

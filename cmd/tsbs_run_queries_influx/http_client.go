@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/query"
 )
 
 var bytesSlash = []byte("/") // heap optimization

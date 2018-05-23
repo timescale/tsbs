@@ -7,8 +7,8 @@ import (
 	"io"
 	"log"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
-	"bitbucket.org/440-labs/influxdb-comparisons/load"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
+	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/globalsign/mgo"
 	flatbuffers "github.com/google/flatbuffers/go"
 )

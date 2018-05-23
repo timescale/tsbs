@@ -10,7 +10,7 @@ import (
 	"log"
 	"strings"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/query"
 )
 
 // Program option vars:

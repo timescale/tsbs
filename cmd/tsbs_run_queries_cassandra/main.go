@@ -12,9 +12,8 @@ import (
 	"log"
 	"time"
 
+	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/gocql/gocql"
-
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
 )
 
 const (

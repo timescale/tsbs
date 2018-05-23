@@ -13,8 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/load"
-
+	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/gocql/gocql"
 )
 

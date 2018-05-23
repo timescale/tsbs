@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )

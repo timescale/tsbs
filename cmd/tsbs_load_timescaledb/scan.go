@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/load"
+	"bitbucket.org/440-labs/tsbs/load"
 )
 
 // point is a single row of data keyed by which hypertable it belongs

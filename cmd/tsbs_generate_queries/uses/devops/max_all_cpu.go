@@ -1,8 +1,8 @@
 package devops
 
 import (
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
+	"bitbucket.org/440-labs/tsbs/query"
 )
 
 // MaxAllCPU contains info for filling in a query.Query for "max all" queries

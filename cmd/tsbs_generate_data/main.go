@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/common"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/devops"
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/common"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/devops"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // Output data format choices:

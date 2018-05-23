@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_queries/utils"
-	"bitbucket.org/440-labs/influxdb-comparisons/query"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
+	"bitbucket.org/440-labs/tsbs/query"
 )
 
 const (

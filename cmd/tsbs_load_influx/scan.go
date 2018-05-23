@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/load"
+	"bitbucket.org/440-labs/tsbs/load"
 )
 
 var newLine = []byte("\n")

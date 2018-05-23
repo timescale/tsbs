@@ -3,7 +3,7 @@ package common
 import (
 	"time"
 
-	"bitbucket.org/440-labs/influxdb-comparisons/cmd/tsbs_generate_data/serialize"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // SimulatorConfig is an interface to create a Simulator from a time.Duration
