@@ -40,24 +40,24 @@ func (sp *statProcessor) sendStatsWarm(stats []*Stat) {
 	}
 
 	for _, s := range stats {
-		s.IsWarm = true
+		s.isWarm = true
 	}
 	sp.sendStats(stats)
 }
 
-// Process collects latency results, aggregating them into summary
+// process collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
-func (sp *statProcessor) process(workers int) {
+func (sp *statProcessor) process(workers uint) {
 	sp.c = make(chan *Stat, workers)
 	sp.wg.Add(1)
 	const allQueriesLabel = labelAllQueries
-	statMapping := map[string]*StatGroup{
-		allQueriesLabel: NewStatGroup(*sp.limit),
+	statMapping := map[string]*statGroup{
+		allQueriesLabel: newStatGroup(*sp.limit),
 	}
 	// Only needed when differentiating between cold & warm
 	if sp.prewarmQueries {
-		statMapping[labelColdQueries] = NewStatGroup(*sp.limit)
-		statMapping[labelWarmQueries] = NewStatGroup(*sp.limit)
+		statMapping[labelColdQueries] = newStatGroup(*sp.limit)
+		statMapping[labelWarmQueries] = newStatGroup(*sp.limit)
 	}
 
 	i := uint64(0)
@@ -72,28 +72,28 @@ func (sp *statProcessor) process(workers int) {
 				log.Fatal(err)
 			}
 		}
-		if _, ok := statMapping[string(stat.Label)]; !ok {
-			statMapping[string(stat.Label)] = NewStatGroup(*sp.limit)
+		if _, ok := statMapping[string(stat.label)]; !ok {
+			statMapping[string(stat.label)] = newStatGroup(*sp.limit)
 		}
 
-		statMapping[string(stat.Label)].Push(stat.Value)
+		statMapping[string(stat.label)].push(stat.value)
 
-		if !stat.IsPartial {
-			statMapping[allQueriesLabel].Push(stat.Value)
+		if !stat.isPartial {
+			statMapping[allQueriesLabel].push(stat.value)
 
 			// Only needed when differentiating between cold & warm
 			if sp.prewarmQueries {
-				if stat.IsWarm {
-					statMapping[labelWarmQueries].Push(stat.Value)
+				if stat.isWarm {
+					statMapping[labelWarmQueries].push(stat.value)
 				} else {
-					statMapping[labelColdQueries].Push(stat.Value)
+					statMapping[labelColdQueries].push(stat.value)
 				}
 			}
 
 			// If we're prewarming queries (i.e., running them twice in a row),
 			// only increment the counter for the first (cold) query. Otherwise,
 			// increment for every query.
-			if !sp.prewarmQueries || !stat.IsWarm {
+			if !sp.prewarmQueries || !stat.isWarm {
 				i++
 			}
 		}
@@ -106,7 +106,7 @@ func (sp *statProcessor) process(workers int) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			WriteStatGroupMap(os.Stderr, statMapping)
+			writeStatGroupMap(os.Stderr, statMapping)
 			_, err = fmt.Fprintf(os.Stderr, "\n")
 			if err != nil {
 				log.Fatal(err)
@@ -119,7 +119,7 @@ func (sp *statProcessor) process(workers int) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	WriteStatGroupMap(os.Stdout, statMapping)
+	writeStatGroupMap(os.Stdout, statMapping)
 	sp.wg.Done()
 }
 

@@ -20,7 +20,6 @@ import (
 var (
 	daemonURL    string
 	databaseName string
-	doQueries    bool
 	timeout      time.Duration
 )
 
@@ -42,7 +41,6 @@ func init() {
 
 	flag.StringVar(&daemonURL, "url", "mongodb://localhost:27017", "Daemon URL.")
 	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.BoolVar(&doQueries, "do-queries", true, "Whether to perform queries (useful for benchmarking the query executor.)")
 	flag.DurationVar(&timeout, "read-timeout", 30*time.Second, "Timeout value for individual queries")
 
 	flag.Parse()
@@ -72,26 +70,23 @@ func (p *processor) Init(workerNumber int) {
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	mq := q.(*query.Mongo)
 	start := time.Now().UnixNano()
-	var err error
-	if doQueries {
-		pipe := p.collection.Pipe(mq.BsonDoc).AllowDiskUse()
-		iter := pipe.Iter()
-		if benchmarkRunner.DebugLevel() > 0 {
-			fmt.Println(mq.BsonDoc)
-		}
-		var result map[string]interface{}
-		cnt := 0
-		for iter.Next(&result) {
-			if benchmarkRunner.DoPrintResponses() {
-				fmt.Printf("ID %d: %v\n", q.GetID(), result)
-			}
-			cnt++
-		}
-		if benchmarkRunner.DebugLevel() > 0 {
-			fmt.Println(cnt)
-		}
-		err = iter.Close()
+	pipe := p.collection.Pipe(mq.BsonDoc).AllowDiskUse()
+	iter := pipe.Iter()
+	if benchmarkRunner.DebugLevel() > 0 {
+		fmt.Println(mq.BsonDoc)
 	}
+	var result map[string]interface{}
+	cnt := 0
+	for iter.Next(&result) {
+		if benchmarkRunner.DoPrintResponses() {
+			fmt.Printf("ID %d: %v\n", q.GetID(), result)
+		}
+		cnt++
+	}
+	if benchmarkRunner.DebugLevel() > 0 {
+		fmt.Println(cnt)
+	}
+	err := iter.Close()
 
 	took := time.Now().UnixNano() - start
 	lag := float64(took) / 1e6 // milliseconds

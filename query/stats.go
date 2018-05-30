@@ -9,19 +9,20 @@ import (
 	"sync"
 )
 
-// Stat represents one statistical measurement.
+// Stat represents one statistical measurement, typically used to store the
+// latency of a query (or part of query).
 type Stat struct {
-	Label     []byte
-	Value     float64
-	IsWarm    bool
-	IsPartial bool
+	label     []byte
+	value     float64
+	isWarm    bool
+	isPartial bool
 }
 
 var statPool = &sync.Pool{
 	New: func() interface{} {
 		return &Stat{
-			Label: make([]byte, 0, 1024),
-			Value: 0.0,
+			label: make([]byte, 0, 1024),
+			value: 0.0,
 		}
 	},
 }
@@ -34,123 +35,123 @@ func GetStat() *Stat {
 // GetPartialStat returns a partial Stat for use from a pool
 func GetPartialStat() *Stat {
 	s := GetStat()
-	s.IsPartial = true
+	s.isPartial = true
 	return s
 }
 
-// Init safely initializes a (cold) Stat while minimizing heap allocations.
+// Init safely initializes a Stat while minimizing heap allocations.
 func (s *Stat) Init(label []byte, value float64) *Stat {
-	s.Label = s.Label[:0] // clear
-	s.Label = append(s.Label, label...)
-	s.Value = value
-	s.IsWarm = false
+	s.label = s.label[:0] // clear
+	s.label = append(s.label, label...)
+	s.value = value
+	s.isWarm = false
 	return s
 }
 
 func (s *Stat) reset() *Stat {
-	s.Label = s.Label[:0]
-	s.Value = 0.0
-	s.IsWarm = false
-	s.IsPartial = false
+	s.label = s.label[:0]
+	s.value = 0.0
+	s.isWarm = false
+	s.isPartial = false
 	return s
 }
 
-// StatGroup collects simple streaming statistics.
-type StatGroup struct {
-	Min    float64
-	Max    float64
-	Mean   float64
-	Sum    float64
-	Values []float64
+// statGroup collects simple streaming statistics.
+type statGroup struct {
+	min    float64
+	max    float64
+	mean   float64
+	sum    float64
+	values []float64
 
 	// used for stddev calculations
 	m      float64
 	s      float64
-	StdDev float64
+	stdDev float64
 
-	Count int64
+	count int64
 }
 
-// NewStatGroup returns a new StatGroup with an initial size
-func NewStatGroup(size uint64) *StatGroup {
-	return &StatGroup{
-		Values: make([]float64, size),
-		Count:  0,
+// newStatGroup returns a new StatGroup with an initial size
+func newStatGroup(size uint64) *statGroup {
+	return &statGroup{
+		values: make([]float64, size),
+		count:  0,
 	}
 }
 
-// Median returns the median value of the StatGroup
-func (s *StatGroup) Median() float64 {
-	sort.Float64s(s.Values[:s.Count])
-	if s.Count == 0 {
+// median returns the median value of the StatGroup
+func (s *statGroup) median() float64 {
+	sort.Float64s(s.values[:s.count])
+	if s.count == 0 {
 		return 0
-	} else if s.Count%2 == 0 {
-		idx := s.Count / 2
-		return (s.Values[idx] + s.Values[idx-1]) / 2.0
+	} else if s.count%2 == 0 {
+		idx := s.count / 2
+		return (s.values[idx] + s.values[idx-1]) / 2.0
 	} else {
-		return s.Values[s.Count/2]
+		return s.values[s.count/2]
 	}
 }
 
-// Push updates a StatGroup with a new value.
-func (s *StatGroup) Push(n float64) {
-	if s.Count == 0 {
-		s.Min = n
-		s.Max = n
-		s.Mean = n
-		s.Count = 1
-		s.Sum = n
+// push updates a StatGroup with a new value.
+func (s *statGroup) push(n float64) {
+	if s.count == 0 {
+		s.min = n
+		s.max = n
+		s.mean = n
+		s.count = 1
+		s.sum = n
 
 		s.m = n
 		s.s = 0.0
-		s.StdDev = 0.0
-		if len(s.Values) > 0 {
-			s.Values[0] = n
+		s.stdDev = 0.0
+		if len(s.values) > 0 {
+			s.values[0] = n
 		} else {
-			s.Values = append(s.Values, n)
+			s.values = append(s.values, n)
 		}
 		return
 	}
 
-	if n < s.Min {
-		s.Min = n
+	if n < s.min {
+		s.min = n
 	}
-	if n > s.Max {
-		s.Max = n
+	if n > s.max {
+		s.max = n
 	}
 
-	s.Sum += n
+	s.sum += n
 
 	// constant-space mean update:
-	sum := s.Mean*float64(s.Count) + n
-	s.Mean = sum / float64(s.Count+1)
-	if int(s.Count) == len(s.Values) {
-		s.Values = append(s.Values, n)
+	sum := s.mean*float64(s.count) + n
+	s.mean = sum / float64(s.count+1)
+	if int(s.count) == len(s.values) {
+		s.values = append(s.values, n)
 	} else {
-		s.Values[s.Count] = n
+		s.values[s.count] = n
 	}
 
-	s.Count++
+	s.count++
 
 	oldM := s.m
-	s.m += (n - oldM) / float64(s.Count)
+	s.m += (n - oldM) / float64(s.count)
 	s.s += (n - oldM) * (n - s.m)
-	s.StdDev = math.Sqrt(s.s / (float64(s.Count) - 1.0))
+	s.stdDev = math.Sqrt(s.s / (float64(s.count) - 1.0))
 }
 
-// String makes a simple description of a StatGroup.
-func (s *StatGroup) String() string {
-	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d", s.Min, s.Median(), s.Mean, s.Max, s.StdDev, s.Sum/1e3, s.Count)
+// string makes a simple description of a statGroup.
+func (s *statGroup) string() string {
+	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d", s.min, s.median(), s.mean, s.max, s.stdDev, s.sum/1e3, s.count)
 }
 
-func (s *StatGroup) Write(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "%s\n", s.String())
+func (s *statGroup) write(w io.Writer) error {
+	_, err := fmt.Fprintf(w, "%s\n", s.string())
 	return err
 }
 
-// WriteStatGroupMap writes a map of StatGroups in an ordered fashion by
+// writeStatGroupMap writes a map of StatGroups in an ordered fashion by
 // key that they are stored by
-func WriteStatGroupMap(w io.Writer, statGroups map[string]*StatGroup) {
+func writeStatGroupMap(w io.Writer, statGroups map[string]*statGroup) {
 	maxKeyLength := 0
 	keys := make([]string, 0, len(statGroups))
 	for k := range statGroups {
@@ -172,7 +173,7 @@ func WriteStatGroupMap(w io.Writer, statGroups map[string]*StatGroup) {
 			log.Fatal(err)
 		}
 
-		err = v.Write(w)
+		err = v.write(w)
 		if err != nil {
 			log.Fatal(err)
 		}

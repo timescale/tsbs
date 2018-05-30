@@ -24,7 +24,7 @@ type BenchmarkRunner struct {
 	scanner *scanner
 	c       chan Query
 
-	workers        int
+	workers        uint
 	limit          uint64
 	memProfile     string
 	printResponses bool
@@ -43,7 +43,7 @@ func NewBenchmarkRunner() *BenchmarkRunner {
 	flag.Uint64Var(&ret.limit, "limit", 0, "Limit the number of queries to send, 0 = no limit")
 	flag.Uint64Var(&ret.sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.StringVar(&ret.memProfile, "memprofile", "", "Write a memory profile to this file.")
-	flag.IntVar(&ret.workers, "workers", 1, "Number of concurrent requests to make.")
+	flag.UintVar(&ret.workers, "workers", 1, "Number of concurrent requests to make.")
 	flag.BoolVar(&ret.sp.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.BoolVar(&ret.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	flag.IntVar(&ret.debug, "debug", 0, "Whether to print debug messages.")
@@ -81,6 +81,12 @@ type Processor interface {
 // stats, creates workers to process queries, read in the input, execute the queries,
 // and then does cleanup.
 func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
+	if b.workers == 0 {
+		panic("must have at least one worker")
+	}
+	if b.sp.burnIn > b.limit {
+		panic("burn-in is larger than limit")
+	}
 	b.c = make(chan Query, b.workers)
 
 	// Launch the stats processor:
@@ -88,7 +94,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
 
 	// Launch the query processors:
 	var wg sync.WaitGroup
-	for i := 0; i < b.workers; i++ {
+	for i := 0; i < int(b.workers); i++ {
 		wg.Add(1)
 		go b.processorHandler(&wg, queryPool, createFn(), i)
 	}
