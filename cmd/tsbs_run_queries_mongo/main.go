@@ -18,15 +18,14 @@ import (
 
 // Program option vars:
 var (
-	daemonURL    string
-	databaseName string
-	timeout      time.Duration
+	daemonURL string
+	timeout   time.Duration
 )
 
 // Global vars:
 var (
-	benchmarkRunner *query.BenchmarkRunner
-	session         *mgo.Session
+	runner  *query.BenchmarkRunner
+	session *mgo.Session
 )
 
 // Parse args:
@@ -37,10 +36,9 @@ func init() {
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.M{})
-	benchmarkRunner = query.NewBenchmarkRunner()
+	runner = query.NewBenchmarkRunner()
 
 	flag.StringVar(&daemonURL, "url", "mongodb://localhost:27017", "Daemon URL.")
-	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.DurationVar(&timeout, "read-timeout", 30*time.Second, "Timeout value for individual queries")
 
 	flag.Parse()
@@ -52,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	benchmarkRunner.Run(&query.MongoPool, newProcessor)
+	runner.Run(&query.MongoPool, newProcessor)
 }
 
 type processor struct {
@@ -63,7 +61,7 @@ func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
 	sess := session.Copy()
-	db := sess.DB(databaseName)
+	db := sess.DB(runner.DatabaseName())
 	p.collection = db.C("point_data")
 }
 
@@ -72,18 +70,18 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	start := time.Now().UnixNano()
 	pipe := p.collection.Pipe(mq.BsonDoc).AllowDiskUse()
 	iter := pipe.Iter()
-	if benchmarkRunner.DebugLevel() > 0 {
+	if runner.DebugLevel() > 0 {
 		fmt.Println(mq.BsonDoc)
 	}
 	var result map[string]interface{}
 	cnt := 0
 	for iter.Next(&result) {
-		if benchmarkRunner.DoPrintResponses() {
+		if runner.DoPrintResponses() {
 			fmt.Printf("ID %d: %v\n", q.GetID(), result)
 		}
 		cnt++
 	}
-	if benchmarkRunner.DebugLevel() > 0 {
+	if runner.DebugLevel() > 0 {
 		fmt.Println(cnt)
 	}
 	err := iter.Close()

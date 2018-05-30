@@ -21,7 +21,6 @@ import (
 // Program option vars:
 var (
 	postgresConnect string
-	databaseName    string
 	hostList        []string
 	user            string
 	showExplain     bool
@@ -29,17 +28,16 @@ var (
 
 // Global vars:
 var (
-	benchmarkRunner *query.BenchmarkRunner
+	runner *query.BenchmarkRunner
 )
 
 // Parse args:
 func init() {
-	benchmarkRunner = query.NewBenchmarkRunner()
+	runner = query.NewBenchmarkRunner()
 	var hosts string
 
 	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",
 		"String of additional PostgreSQL connection parameters, e.g., 'sslmode=disable'. Parameters for host and database will be ignored.")
-	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 
@@ -48,7 +46,7 @@ func init() {
 	flag.Parse()
 
 	if showExplain {
-		benchmarkRunner.ResetLimit(1)
+		runner.ResetLimit(1)
 	}
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
@@ -58,7 +56,7 @@ func init() {
 }
 
 func main() {
-	benchmarkRunner.Run(&query.TimescaleDBPool, newProcessor)
+	runner.Run(&query.TimescaleDBPool, newProcessor)
 }
 
 // Get the connection string for a connection to PostgreSQL.
@@ -74,7 +72,7 @@ func getConnectString(workerNumber int) string {
 
 	// Round robin the host/worker assignment by assigning a host based on workerNumber % totalNumberOfHosts
 	host := hostList[workerNumber%len(hostList)]
-	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, databaseName, user, connectString)
+	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, runner.DatabaseName(), user, connectString)
 }
 
 // prettyPrintResponse prints a Query and its response in JSON format with two
@@ -119,8 +117,8 @@ func (p *processor) Init(workerNumber int) {
 	p.db = sqlx.MustConnect("postgres", getConnectString(workerNumber))
 	p.opts = &queryExecutorOptions{
 		showExplain:   showExplain,
-		debug:         benchmarkRunner.DebugLevel() > 0,
-		printResponse: benchmarkRunner.DoPrintResponses(),
+		debug:         runner.DebugLevel() > 0,
+		printResponse: runner.DoPrintResponses(),
 	}
 }
 

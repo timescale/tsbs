@@ -15,23 +15,21 @@ import (
 
 // Program option vars:
 var (
-	daemonUrls   []string
-	databaseName string
-	chunkSize    uint64
+	daemonUrls []string
+	chunkSize  uint64
 )
 
 // Global vars:
 var (
-	benchmarkRunner *query.BenchmarkRunner
+	runner *query.BenchmarkRunner
 )
 
 // Parse args:
 func init() {
-	benchmarkRunner = query.NewBenchmarkRunner()
+	runner = query.NewBenchmarkRunner()
 	var csvDaemonUrls string
 
 	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
-	flag.StringVar(&databaseName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.Uint64Var(&chunkSize, "chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
 
 	flag.Parse()
@@ -43,7 +41,7 @@ func init() {
 }
 
 func main() {
-	benchmarkRunner.Run(&query.HTTPPool, newProcessor)
+	runner.Run(&query.HTTPPool, newProcessor)
 }
 
 type processor struct {
@@ -55,10 +53,10 @@ func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
 	p.opts = &HTTPClientDoOptions{
-		Debug:                benchmarkRunner.DebugLevel(),
-		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
+		Debug:                runner.DebugLevel(),
+		PrettyPrintResponses: runner.DoPrintResponses(),
 		chunkSize:            chunkSize,
-		database:             databaseName,
+		database:             runner.DatabaseName(),
 	}
 	url := daemonUrls[workerNumber%len(daemonUrls)]
 	p.w = NewHTTPClient(url)

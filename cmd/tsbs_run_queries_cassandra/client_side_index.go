@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/gocql/gocql"
 )
 
 // A ClientSideIndex wraps runtime data used to translate an HLQuery into
@@ -191,17 +193,14 @@ func (s *Series) MatchesTagSets(tagsets [][]string) bool {
 
 // FetchSeriesCollection returns all series in Cassandra that can be used for
 // fulfilling a query.
-func FetchSeriesCollection(daemonUrl string, timeout time.Duration) []Series {
-	session := NewCassandraSession(daemonUrl, timeout)
-	defer session.Close()
-
+func FetchSeriesCollection(session *gocql.Session) []Series {
 	seriesCollection := []Series{}
 
 	for _, tableName := range BlessedTables {
-		var seriesId string
+		var seriesID string
 		iter := session.Query(fmt.Sprintf(`SELECT DISTINCT series_id FROM %s`, tableName)).Iter()
-		for iter.Scan(&seriesId) {
-			s := NewSeries(tableName, seriesId)
+		for iter.Scan(&seriesID) {
+			s := NewSeries(tableName, seriesID)
 			seriesCollection = append(seriesCollection, s)
 		}
 		if err := iter.Close(); err != nil {
