@@ -112,10 +112,11 @@ func (p *processor) Init(_ int, _ bool) {}
 // creates a gocql.LoggedBatch to insert
 func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	events := b.(*eventsBatch)
+
 	if doLoad {
 		batch := p.session.NewBatch(gocql.LoggedBatch)
 		for _, event := range events.rows {
-			batch.Query(event)
+			batch.Query(singleMetricToInsertStatement(event))
 		}
 
 		err := p.session.ExecuteBatch(batch)

@@ -9,14 +9,14 @@ import (
 type CassandraSerializer struct{}
 
 // Serialize writes Point data to the given writer, conforming to the
-// Cassandra query format.
+// Cassandra format.
 //
 // This function writes output that looks like:
-// INSERT INTO <tablename> (series_id, ts_ns, value) VALUES (<series_id>, <timestamp_nanoseconds>, <field value>)
-// where series_id looks like: <measurement>,<tagset>#<field name>#<time shard>
+// series_double,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production,usage_guest_nice,2016-01-01,1451606400000000000,38.2431182911542820
 //
-// For example:
-// INSERT INTO all_series (series_id, timestamp_ns, value) VALUES ('cpu,hostname=host_01#user#2016-01-01', 12345, 42.1)\n
+// Which the loader will decode into a statement that looks like this:
+// INSERT INTO series_double(series_id,timestamp_ns,value) VALUES('cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production#usage_guest_nice#2016-01-01', 1451606400000000000, 38.2431182911542820)
+
 func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	seriesIDPrefix := make([]byte, 0, 256)
 	seriesIDPrefix = append(seriesIDPrefix, p.measurementName...)
@@ -31,25 +31,22 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	timestampBucket := p.timestamp.UTC().Format("2006-01-02")
 
 	for fieldID := 0; fieldID < len(p.fieldKeys); fieldID++ {
-		v := p.fieldValues[fieldID]
-		tableName := fmt.Sprintf("measurements.series_%s", typeNameForCassandra(v))
+		value := p.fieldValues[fieldID]
+		tableName := fmt.Sprintf("series_%s", typeNameForCassandra(value))
 
 		buf := make([]byte, 0, 256)
-		buf = append(buf, []byte("INSERT INTO ")...)
 		buf = append(buf, []byte(tableName)...)
-		buf = append(buf, []byte(" (series_id, timestamp_ns, value) VALUES ('")...)
+		buf = append(buf, []byte(",")...)
 		buf = append(buf, seriesIDPrefix...)
-		buf = append(buf, byte('#'))
+		buf = append(buf, []byte(",")...)
 		buf = append(buf, p.fieldKeys[fieldID]...)
-		buf = append(buf, byte('#'))
+		buf = append(buf, []byte(",")...)
 		buf = append(buf, []byte(timestampBucket)...)
-		buf = append(buf, byte('\''))
-		buf = append(buf, ", "...)
-		buf = append(buf, []byte(fmt.Sprintf("%d, ", timestampNanos))...)
+		buf = append(buf, []byte(",")...)
+		buf = append(buf, []byte(fmt.Sprintf("%d,", timestampNanos))...)
+		buf = fastFormatAppend(value, buf)
 
-		buf = fastFormatAppend(v, buf)
-
-		buf = append(buf, []byte(")\n")...)
+		buf = append(buf, []byte("\n")...)
 
 		_, err := w.Write(buf)
 		if err != nil {
