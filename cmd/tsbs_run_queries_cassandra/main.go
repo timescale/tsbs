@@ -19,7 +19,6 @@ import (
 const (
 	BucketDuration   = 24 * time.Hour
 	BucketTimeLayout = "2006-01-02"
-	BlessedKeyspace  = "measurements"
 )
 
 // Blessed tables that hold benchmark data:
@@ -35,7 +34,7 @@ var (
 
 // Program option vars:
 var (
-	daemonUrl           string
+	daemonURL           string
 	aggrPlanLabel       string
 	subQueryParallelism int
 	requestTimeout      time.Duration
@@ -52,17 +51,17 @@ var (
 
 // Global vars:
 var (
-	benchmarkRunner *query.BenchmarkRunner
-	aggrPlan        int
-	csi             *ClientSideIndex
-	session         *gocql.Session
+	runner   *query.BenchmarkRunner
+	aggrPlan int
+	csi      *ClientSideIndex
+	session  *gocql.Session
 )
 
 // Parse args:
 func init() {
-	benchmarkRunner = query.NewBenchmarkRunner()
+	runner = query.NewBenchmarkRunner()
 
-	flag.StringVar(&daemonUrl, "url", "localhost:9042", "Cassandra URL.")
+	flag.StringVar(&daemonURL, "url", "localhost:9042", "Cassandra URL.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
 	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
 	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
@@ -79,13 +78,15 @@ func init() {
 
 func main() {
 	// Make client-side index:
-	csi = NewClientSideIndex(FetchSeriesCollection(daemonUrl, csiTimeout))
+	session = NewCassandraSession(daemonURL, runner.DatabaseName(), csiTimeout)
+	csi = NewClientSideIndex(FetchSeriesCollection(session))
+	session.Close()
 
 	// Make database connection pool:
-	session = NewCassandraSession(daemonUrl, requestTimeout)
+	session = NewCassandraSession(daemonURL, runner.DatabaseName(), requestTimeout)
 	defer session.Close()
 
-	benchmarkRunner.Run(&query.CassandraPool, newProcessor)
+	runner.Run(&query.CassandraPool, newProcessor)
 }
 
 type processor struct {
@@ -98,10 +99,10 @@ func newProcessor() query.Processor { return &processor{} }
 func (p *processor) Init(workerNumber int) {
 	p.opts = &HLQueryExecutorDoOptions{
 		AggregationPlan:      aggrPlan,
-		Debug:                benchmarkRunner.DebugLevel(),
-		PrettyPrintResponses: benchmarkRunner.DoPrintResponses(),
+		Debug:                runner.DebugLevel(),
+		PrettyPrintResponses: runner.DoPrintResponses(),
 	}
-	p.qe = NewHLQueryExecutor(session, csi, benchmarkRunner.DebugLevel())
+	p.qe = NewHLQueryExecutor(session, csi, runner.DebugLevel())
 }
 
 func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, error) {

@@ -24,6 +24,7 @@ type BenchmarkRunner struct {
 	scanner *scanner
 	c       chan Query
 
+	dbName         string
 	workers        uint
 	limit          uint64
 	memProfile     string
@@ -39,6 +40,7 @@ func NewBenchmarkRunner() *BenchmarkRunner {
 	ret.sp = &statProcessor{
 		limit: &ret.limit,
 	}
+	flag.StringVar(&ret.dbName, "db-name", "benchmark", "Name of database to use for queries")
 	flag.Uint64Var(&ret.sp.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	flag.Uint64Var(&ret.limit, "limit", 0, "Limit the number of queries to send, 0 = no limit")
 	flag.Uint64Var(&ret.sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
@@ -64,6 +66,11 @@ func (b *BenchmarkRunner) DoPrintResponses() bool {
 // DebugLevel returns the level of debug messages for this benchmark
 func (b *BenchmarkRunner) DebugLevel() int {
 	return b.debug
+}
+
+// DatabaseName returns the name of the database to run queries against
+func (b *BenchmarkRunner) DatabaseName() string {
+	return b.dbName
 }
 
 // ProcessorCreate is a function that creates a new Procesor (called in Run)
