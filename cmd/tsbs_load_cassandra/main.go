@@ -141,7 +141,7 @@ func createKeyspace(hosts string) {
 	}
 	defer session.Close()
 
-	// Drop the measurements keyspace to avoid errors about existing keyspaces
+	// Drop the keyspace to avoid errors about existing keyspaces
 	if err := session.Query(fmt.Sprintf("drop keyspace if exists %s;", loader.DatabaseName())).Exec(); err != nil {
 		log.Fatal(err)
 	}
