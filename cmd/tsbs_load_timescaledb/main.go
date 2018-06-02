@@ -20,7 +20,9 @@ import (
 )
 
 const (
-	dbType = "postgres"
+	dbType       = "postgres"
+	timeValueIdx = "TIME-VALUE"
+	valueTimeIdx = "VALUE-TIME"
 )
 
 // Program option vars:
@@ -53,10 +55,12 @@ type insertData struct {
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
-
+	loader    *load.BenchmarkRunner
 	tableCols map[string][]string
 )
+
+// allows for testing
+var fatal = log.Fatalf
 
 // Parse args:
 func init() {
@@ -77,7 +81,7 @@ func init() {
 
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
-	flag.StringVar(&fieldIndex, "field-index", "VALUE-TIME", "index types for tags (comma deliminated)")
+	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")
@@ -107,24 +111,7 @@ func (b *benchmark) GetProcessor() load.Processor {
 
 func main() {
 	br := loader.GetBufferedReader()
-	var tags string
-	var cols string
-	var err error
-	// First three lines are header, with the first line containing the tags
-	// and their names, the second line containing the column names, and
-	// third line being blank to separate from the data
-	for i := 0; i < 3; i++ {
-		if i == 0 {
-			tags, err = br.ReadString('\n')
-		} else if i == 1 {
-			cols, err = br.ReadString('\n')
-		} else {
-			_, err = br.ReadString('\n')
-		}
-		if err != nil {
-			log.Fatalf("input has wrong header format: %v", err)
-		}
-	}
+	tags, cols := readDataHeader(br)
 
 	if loader.DoLoad() && loader.DoInit() {
 		initDB(loader.DatabaseName(), tags, cols)
@@ -147,11 +134,38 @@ func main() {
 	}
 }
 
+func readDataHeader(br *bufio.Reader) (tags, cols string) {
+	// First three lines are header, with the first line containing the tags
+	// and their names, the second line containing the column names, and
+	// third line being blank to separate from the data
+	for i := 0; i < 3; i++ {
+		var err error
+		var empty string
+		if i == 0 {
+			tags, err = br.ReadString('\n')
+			tags = strings.TrimSpace(tags)
+		} else if i == 1 {
+			cols, err = br.ReadString('\n')
+			cols = strings.TrimSpace(cols)
+		} else {
+			empty, err = br.ReadString('\n')
+			empty = strings.TrimSpace(empty)
+			if len(empty) > 0 {
+				fatal("input has wrong header format: third line is not blank")
+			}
+		}
+		if err != nil {
+			fatal("input has wrong header format: %v", err)
+		}
+	}
+	return tags, cols
+}
+
 func getConnectString() string {
 	// User might be passing in host=hostname the connect string out of habit which may override the
 	// multi host configuration. Same for dbname= and user=. This sanitizes that.
 	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
-	connectString := re.ReplaceAllString(postgresConnect, "")
+	connectString := strings.TrimSpace(re.ReplaceAllString(postgresConnect, ""))
 
 	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
 }
@@ -206,76 +220,6 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 		return ret
 	}
 	return nil
-}
-
-// 1 - tag cols JOIN w/ ,
-// 2 - metric cols JOIN w/ ,
-// 3 - Each row tags + metrics joined
-// 4 - hypertable name
-// 5 - partitionKey
-// 6 - same as 2
-// 7 - same as 5
-// 8 - same as 2
-// 9 - same as 1
-var insertFmt2 = `INSERT INTO %s(time,tags_id,%s,%s)
-SELECT time,id,%s,%s
-FROM (VALUES %s) as temp(%s,time,%s)
-JOIN tags USING (%s);
-`
-
-var calledOnce = false
-
-// TODO - Needs work to work without partition tag being in table
-func processSplit(db *sqlx.DB, hypertable string, rows []*insertData) int64 {
-	tagCols := strings.Join(tableCols["tags"], ",")
-	partitionKey := tableCols["tags"][0]
-
-	hypertableCols := strings.Join(tableCols[hypertable], ",")
-
-	tagRows := make([][]string, 0, len(rows))
-	dataRows := make([]string, 0, len(rows))
-	ret := int64(0)
-	for _, data := range rows {
-		tags := strings.Split(data.tags, ",")
-		metrics := strings.Split(data.fields, ",")
-
-		ret += int64(len(metrics) - 1) // 1 field is timestamp
-		r := "("
-		// TODO -- support more than 10 common tags
-		for _, t := range tags[:10] {
-			r += fmt.Sprintf("'%s',", t)
-		}
-		for ind, value := range metrics {
-			if ind == 0 {
-				timeInt, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					panic(err)
-				}
-				secs := timeInt / 1e9
-				r += fmt.Sprintf("'%s'::timestamptz", time.Unix(secs, timeInt%1e9).Format("2006-01-02 15:04:05.999999 -7:00"))
-			} else {
-				r += fmt.Sprintf(", %v", value)
-			}
-		}
-		r += ")"
-		dataRows = append(dataRows, r)
-		tagRows = append(tagRows, tags[:10]) //fmt.Sprintf("('%s')", strings.Join(tags[:10], "','")))
-	}
-
-	if !calledOnce {
-		insertTags(db, tagRows, false)
-		calledOnce = true
-	}
-
-	tx := db.MustBegin()
-	_ = tx.MustExec(fmt.Sprintf(insertFmt2, hypertable, partitionKey, hypertableCols, partitionKey, hypertableCols, strings.Join(dataRows, ","), tagCols, hypertableCols, tagCols))
-
-	err := tx.Commit()
-	if err != nil {
-		panic(err)
-	}
-
-	return ret
 }
 
 var csi = make(map[string]int64)
@@ -381,7 +325,6 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 		if doLoad {
 			start := time.Now()
 			metricCnt += processCSI(p.db, hypertable, rows)
-			//metricCountWorker := processSplit(db, hypertable, rows)
 
 			if logBatches {
 				now := time.Now()
@@ -410,7 +353,7 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 	}
 }
 
-func initDB(dbName, tags, cols string) {
+func dropExistingDB(dbName string) {
 	// Need to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
 	connectString := re.ReplaceAllString(getConnectString(), "")
@@ -419,13 +362,34 @@ func initDB(dbName, tags, cols string) {
 	db.MustExec("DROP DATABASE IF EXISTS " + dbName)
 	db.MustExec("CREATE DATABASE " + dbName)
 	db.Close()
+}
+
+func getCreateIndexOnFieldCmds(hypertable, field, idxType string) []string {
+	ret := []string{}
+	for _, idx := range strings.Split(idxType, ",") {
+		if idx == "" {
+			continue
+		}
+
+		indexDef := ""
+		if idx == timeValueIdx {
+			indexDef = fmt.Sprintf("(time DESC, %s)", field)
+		} else if idx == valueTimeIdx {
+			indexDef = fmt.Sprintf("(%s, time DESC)", field)
+		} else {
+			fatal("Unknown index type %v", idx)
+		}
+
+		ret = append(ret, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
+	}
+	return ret
+}
+
+func initDB(dbName, tags, cols string) {
+	dropExistingDB(dbName)
 
 	dbBench := sqlx.MustConnect(dbType, getConnectString())
 	defer dbBench.Close()
-
-	if useHypertable {
-		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-	}
 
 	parts := strings.Split(strings.TrimSpace(tags), ",")
 	if parts[0] != "tags" {
@@ -437,14 +401,15 @@ func initDB(dbName, tags, cols string) {
 	parts = strings.Split(strings.TrimSpace(cols), ",")
 	hypertable := parts[0]
 	partitioningField := tableCols["tags"][0]
-	fieldDef := []string{}
-	indexes := []string{}
 	tableCols[hypertable] = parts[1:]
 
 	psuedoCols := []string{}
 	if inTableTag {
 		psuedoCols = append(psuedoCols, partitioningField)
 	}
+
+	fieldDef := []string{}
+	indexes := []string{}
 	psuedoCols = append(psuedoCols, parts[1:]...)
 	extraCols := 0 // set to 1 when hostname is kept in-table
 	for idx, field := range psuedoCols {
@@ -461,20 +426,7 @@ func initDB(dbName, tags, cols string) {
 
 		fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
 		if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
-			for _, idx := range strings.Split(idxType, ",") {
-				indexDef := ""
-				if idx == "TIME-VALUE" {
-					indexDef = fmt.Sprintf("(time DESC, %s)", field)
-				} else if idx == "VALUE-TIME" {
-					indexDef = fmt.Sprintf("(%s,time DESC)", field)
-				} else if idx != "" {
-					panic(fmt.Sprintf("Unknown index type %v", idx))
-				}
-
-				if idx != "" {
-					indexes = append(indexes, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
-				}
-			}
+			indexes = append(indexes, getCreateIndexOnFieldCmds(hypertable, field, idxType)...)
 		}
 	}
 	dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
@@ -490,6 +442,7 @@ func initDB(dbName, tags, cols string) {
 	}
 
 	if useHypertable {
+		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 		dbBench.MustExec(
 			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
 				hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
