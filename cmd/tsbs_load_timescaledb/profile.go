@@ -43,8 +43,7 @@ func profileCPUAndMem(file string) {
 				continue
 			}
 
-			f.Write([]byte(fmt.Sprintf("%f,%d,%d,%d\n", cpu, mem.RSS, mem.VMS, mem.Swap)))
-
+			fmt.Fprintf(f, "%f,%d,%d,%d\n", cpu, mem.RSS, mem.VMS, mem.Swap)
 		}
 	}
 }
