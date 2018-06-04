@@ -31,9 +31,9 @@ Usage flags:
 EXAMPLE:
 
 queries.txt:
-#single-groupby(1,1,1)
-single-groupby(5,1,1)
-single-groupby(5,1,12)
+#single-groupby-1-1-1
+single-groupby-5-1-1
+single-groupby-5-1-12
 
 Command:
 python generate_query_run -d timescaledb -w 8
@@ -44,9 +44,9 @@ Result:
 NUM_WORKERS=8 BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_8_10000.out
 
 # Queries
-cat /tmp/queries/timescaledb-single-groupby(5,1,1)-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby(5,1,1)-queries.out
+cat /tmp/queries/timescaledb-single-groupby-5-1-1-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-1-queries.out
 
-cat /tmp/queries/timescaledb-single-groupby(5,1,12)-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby(5,1,12)-queries.out
+cat /tmp/queries/timescaledb-single-groupby-5-1-12-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-12-queries.out
 '''
 import argparse
 import os
