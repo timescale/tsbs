@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"log"
 	"strings"
 
 	"bitbucket.org/440-labs/tsbs/load"
@@ -43,27 +42,31 @@ type decoder struct {
 	scanner *bufio.Scanner
 }
 
+const tagsPrefix = "tags"
+
 func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	data := &insertData{}
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
 		return nil
 	} else if !ok {
-		log.Fatalf("scan error: %v", d.scanner.Err())
+		fatal("scan error: %v", d.scanner.Err())
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"
 	parts := strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix := parts[0]
-	if prefix != "tags" {
-		log.Fatalf("data file in invalid format; got %s expected %s", prefix, "tags")
+	if prefix != tagsPrefix {
+		fatal("data file in invalid format; got %s expected %s", prefix, tagsPrefix)
+		return nil
 	}
 	data.tags = parts[1]
 
 	// Scan again to get the data line
 	ok = d.scanner.Scan()
 	if !ok {
-		log.Fatalf("scan error: %v", d.scanner.Err())
+		fatal("scan error: %v", d.scanner.Err())
+		return nil
 	}
 	parts = strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix = parts[0]
