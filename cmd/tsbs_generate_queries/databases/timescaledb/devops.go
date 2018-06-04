@@ -37,7 +37,7 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 		for _, s := range hostnames {
 			hostnameClauses = append(hostnameClauses, fmt.Sprintf("'%s'", s))
 		}
-		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE hostname IN (%s))", strings.Join(hostnameClauses, " OR "))
+		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE hostname IN (%s))", strings.Join(hostnameClauses, ","))
 	} else {
 		for _, s := range hostnames {
 			hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))

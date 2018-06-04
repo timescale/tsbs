@@ -7,7 +7,7 @@ useJson=${useJson:-false}
 useTags=${useTags:-true}
 
 formats=${formats:-"timescaledb"}
-queryTypes=${queryTypes:-"single-groupby(1,1,1) single-groupby(1,1,12) single-groupby(1,8,1) single-groupby(5,1,1) single-groupby(5,1,12) single-groupby(5,8,1) double-groupby(1) double-groupby(5) double-groupby(all) cpu-max-all(1) cpu-max-all(8) high-cpu(all) high-cpu(1) lastpoint groupby-orderby-limit"}
+queryTypes=${queryTypes:-"single-groupby-1-1-1 single-groupby-1-1-12 single-groupby-1-8-1 single-groupby-5-1-1 single-groupby-5-1-12 single-groupby-5-8-1 double-groupby-1 double-groupby-5 double-groupby-all cpu-max-all-1 cpu-max-all-8 high-cpu-all high-cpu-1 lastpoint groupby-orderby-limit"}
 
 scaleVar=${scaleVar:-"4000"}
 queries=${queries:-"1000"}
