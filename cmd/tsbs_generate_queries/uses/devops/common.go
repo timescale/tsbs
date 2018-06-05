@@ -12,7 +12,12 @@ import (
 )
 
 const (
-	allHosts = "all hosts"
+	allHosts                = "all hosts"
+	errNHostsCannotNegative = "nHosts cannot be negative"
+	errNoMetrics            = "cannot get 0 metrics"
+	errTooManyMetrics       = "too many metrics asked for"
+	errBadTimeOrder         = "bad time order: start is after end"
+
 	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
 	DoubleGroupByDuration = 24 * time.Hour
 	// HighCPUDuration is the how big the time range for DoubleGroupBy query is
@@ -34,6 +39,9 @@ const (
 	LabelHighCPU = "high-cpu"
 )
 
+// for ease of testing
+var fatal = log.Fatalf
+
 // Core is the common component of all generators for all systems
 type Core struct {
 	// Interval is the entire time range of the dataset
@@ -45,7 +53,8 @@ type Core struct {
 // NewCore returns a new Core for the given time range and cardinality
 func NewCore(start, end time.Time, scale int) *Core {
 	if !start.Before(end) {
-		panic("bad time order")
+		fatal(errBadTimeOrder)
+		return nil
 	}
 
 	return &Core{utils.NewTimeInterval(start, end), scale}
@@ -73,10 +82,12 @@ var cpuMetrics = []string{
 // GetCPUMetricsSlice returns a subset of metrics for the CPU
 func GetCPUMetricsSlice(numMetrics int) []string {
 	if numMetrics <= 0 {
-		panic("no metrics given")
+		fatal(errNoMetrics)
+		return nil
 	}
 	if numMetrics > len(cpuMetrics) {
-		panic("too many metrics asked for")
+		fatal(errTooManyMetrics)
+		return nil
 	}
 	return cpuMetrics[:numMetrics]
 }
@@ -123,7 +134,7 @@ type HighCPUFiller interface {
 
 // GetDoubleGroupByLabel returns the Query human-readable label for DoubleGroupBy queries
 func GetDoubleGroupByLabel(dbName string, numMetrics int) string {
-	return fmt.Sprintf("%s mean of %d metrics, all hosts, random %s by 1hr", dbName, numMetrics, DoubleGroupByDuration)
+	return fmt.Sprintf("%s mean of %d metrics, all hosts, random %s by 1h", dbName, numMetrics, DoubleGroupByDuration)
 }
 
 // GetHighCPULabel returns the Query human-readable label for HighCPU queries
@@ -131,20 +142,28 @@ func GetHighCPULabel(dbName string, nHosts int) string {
 	label := dbName + " CPU over threshold, "
 	if nHosts > 0 {
 		label += fmt.Sprintf("%d host(s)", nHosts)
-	} else {
+	} else if nHosts == 0 {
 		label += allHosts
+	} else {
+		fatal("nHosts cannot be negative")
+		return ""
 	}
 	return label
 }
 
 // GetMaxAllLabel returns the Query human-readable label for MaxAllCPU queries
 func GetMaxAllLabel(dbName string, nHosts int) string {
-	return fmt.Sprintf("%s max of all CPU fields, random %4d hosts, random %s by 1h", dbName, nHosts, MaxAllDuration)
+	return fmt.Sprintf("%s max of all CPU metrics, random %4d hosts, random %s by 1h", dbName, nHosts, MaxAllDuration)
 }
 
 func getRandomHosts(scale, nHosts int) []string {
+	if nHosts < 1 {
+		fatal("number of hosts cannot be < 1; got %d", nHosts)
+		return nil
+	}
 	if nHosts > scale {
-		log.Fatalf("number of hosts (%d) larger than --scale-var (%d)", nHosts, scale)
+		fatal("number of hosts (%d) larger than --scale-var (%d)", nHosts, scale)
+		return nil
 	}
 
 	nn := rand.Perm(scale)[:nHosts]
