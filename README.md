@@ -133,14 +133,14 @@ Variables needed:
 
 For the last step there are numerous queries to choose from, which are
 listed in [Appendix I](#appendix-i-query-types). Additionally, the file
-`script/generate_queries.sh` contains a list of all of them as the
+`scripts/generate_queries.sh` contains a list of all of them as the
 default value for the environmental variable `queryTypes`. If you are
 generating more than one type of query, we recommend you use that
 helper script.
 
 For generating just one set of queries for a given type:
 ```bash
-$ tsbs_generate_queries -seed=123 -scale-var=4000 \
+$ tsbs_generate_queries -use-case="cpu-only" -seed=123 -scale-var=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:01Z" \
     -queries=1000 -query-type="single-groupby-1-1-1" -format="timescaledb" \
@@ -153,7 +153,7 @@ $ formats="timescaledb" scaleVar=4000 seed=123 \
     tsStart="2016-01-01T00:00:00Z" \
     tsEnd="2016-01-04T00:00:01Z" \
     queries=1000 queryTypes="single-groupby-1-1-1 single-groupby-1-1-12 double-groupby-1" \
-    dataDir="/tmp" script/generate_queries.sh
+    dataDir="/tmp" scripts/generate_queries.sh
 ```
 
 A full list of query types can be found in
@@ -173,7 +173,7 @@ flags. To find the flags for a particular database, use the `-help` flag
 (e.g., `tsbs_load_timescaledb -help`).
 
 Instead of calling these binaries directly, we also supply
-`script/load_<database>.sh` for convenience with many of the flags set
+`scripts/load_<database>.sh` for convenience with many of the flags set
 to a reasonable default for some of the databases.
 So for loading into TimescaleDB, ensure thatTimescaleDB is running and
 then use:
@@ -181,7 +181,7 @@ then use:
 # Will insert using 2 clients, batch sizes of 10k, from a file
 # named `timescaledb-data.gz` in directory `/tmp`
 $ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp \       
-    script/load_timescaledb.sh
+    scripts/load_timescaledb.sh
 ```
 
 This will create a new database called `benchmark` where the data is
