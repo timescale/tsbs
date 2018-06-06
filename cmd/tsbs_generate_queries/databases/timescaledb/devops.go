@@ -78,7 +78,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute,
+	sqlQuery := fmt.Sprintf(`SELECT time_bucket('1 minute', time) AS minute,
     %s
     FROM cpu
     WHERE %s AND time >= '%s' AND time < '%s'
@@ -97,7 +97,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 }
 
 // GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
-// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// SELECT time_bucket('1 minute', time) AS t, MAX(cpu) FROM cpu
 // WHERE time < '$TIME'
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
@@ -107,7 +107,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 
 	where := fmt.Sprintf("WHERE time < '%s'", timeStr)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
+	sqlQuery := fmt.Sprintf(`SELECT time_bucket('1 minute', time) AS minute, max(usage_user) FROM cpu %s GROUP BY minute ORDER BY minute DESC LIMIT 5`, where)
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
 	q := qi.(*query.TimescaleDB)
@@ -148,7 +148,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	sqlQuery := fmt.Sprintf(`
         WITH cpu_avg AS (
-          SELECT date_trunc('hour', time) as hour, tags_id,
+          SELECT time_bucket('1 hour', time) as hour, tags_id,
           %s
           FROM cpu
           WHERE time >= '%s' AND time < '%s'
@@ -182,7 +182,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
-	sqlQuery := fmt.Sprintf(`SELECT date_trunc('hour', time) AS hour,
+	sqlQuery := fmt.Sprintf(`SELECT time_bucket('1 hour', time) AS hour,
     %s
     FROM cpu
 	WHERE %s AND time >= '%s' AND time < '%s'
