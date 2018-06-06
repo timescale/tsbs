@@ -19,10 +19,10 @@ const (
 	errBadTimeOrder         = "bad time order: start is after end"
 
 	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
-	DoubleGroupByDuration = 24 * time.Hour
-	// HighCPUDuration is the how big the time range for DoubleGroupBy query is
-	HighCPUDuration = 24 * time.Hour
-	// MaxAllDuration is the how big the time range for DoubleGroupBy query is
+	DoubleGroupByDuration = 12 * time.Hour
+	// HighCPUDuration is the how big the time range for HighCPU query is
+	HighCPUDuration = 12 * time.Hour
+	// MaxAllDuration is the how big the time range for MaxAll query is
 	MaxAllDuration = 8 * time.Hour
 
 	// LabelSingleGroupby is the label prefix for queries of the single groupby variety
