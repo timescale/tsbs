@@ -17,8 +17,8 @@ pushd ${dataDir}
 
 for format in ${formats}
 do
-    fname="data_${format}_${scaleVar}_${useCase}_${tsStart}_${tsEnd}_${seed}.dat.gz"
-    echo "$fname"
+    fname="data_${format}_${useCase}_${scaleVar}_${tsStart}_${tsEnd}_${logInterval}_${seed}.dat.gz"
+    echo "Generating $fname:"
     if [ ! -f "$fname" ]; then
         $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -log-interval $logInterval -use-case $useCase | gzip > $fname
         ln -s $fname ${format}-data.gz

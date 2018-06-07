@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,14 +34,16 @@ var (
 	logBatches    bool
 	useJSON       bool
 	inTableTag    bool
+	hashWorkers   bool
 
 	numberPartitions int
 	chunkTime        time.Duration
 
-	timeIndex       bool
-	partitionIndex  bool
-	fieldIndex      string
-	fieldIndexCount int
+	timeIndex          bool
+	timePartitionIndex bool
+	partitionIndex     bool
+	fieldIndex         string
+	fieldIndexCount    int
 
 	profileFile          string
 	replicationStatsFile string
@@ -75,11 +76,14 @@ func init() {
 	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
 	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
+	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
+	flag.BoolVar(&hashWorkers, "hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 
 	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
 	flag.DurationVar(&chunkTime, "chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
+	flag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
 	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma deliminated)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
@@ -101,8 +105,12 @@ func (b *benchmark) GetBatchFactory() load.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
+func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
+	if hashWorkers {
+		return &hostnameIndexer{partitions: maxPartitions}
+	}
 	return &load.ConstantIndexer{}
+
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
@@ -127,7 +135,11 @@ func main() {
 		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	if hashWorkers {
+		loader.RunBenchmark(&benchmark{}, load.WorkerPerQueue)
+	} else {
+		loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	}
 
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
@@ -168,175 +180,6 @@ func getConnectString() string {
 	connectString := strings.TrimSpace(re.ReplaceAllString(postgresConnect, ""))
 
 	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
-}
-
-func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
-	tagCols := tableCols["tags"]
-	cols := tagCols
-	values := make([]string, 0)
-	if useJSON {
-		cols = []string{"tagset"}
-		for _, row := range tagRows {
-			json := "('{"
-			for i, k := range tagCols {
-				if i != 0 {
-					json += ","
-				}
-				json += fmt.Sprintf("\"%s\": \"%s\"", k, row[i])
-			}
-			json += "}')"
-			values = append(values, json)
-		}
-	} else {
-		for _, val := range tagRows {
-			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:10], "','")))
-		}
-	}
-	tx := db.MustBegin()
-	defer tx.Commit()
-
-	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
-	if err != nil {
-		panic(err)
-	}
-
-	// Results will be used to make a Golang index for faster inserts
-	if returnResults {
-		resCols, _ := res.Columns()
-		resVals := make([]interface{}, len(resCols))
-		resValsPtrs := make([]interface{}, len(resCols))
-		for i := range resVals {
-			resValsPtrs[i] = &resVals[i]
-		}
-		ret := make(map[string]int64)
-		for res.Next() {
-			err = res.Scan(resValsPtrs...)
-			if err != nil {
-				panic(err)
-			}
-			ret[fmt.Sprintf("%v", resVals[1])] = resVals[0].(int64)
-		}
-		res.Close()
-		return ret
-	}
-	return nil
-}
-
-var csi = make(map[string]int64)
-var mutex = &sync.RWMutex{}
-var insertFmt3 = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
-
-func processCSI(db *sqlx.DB, hypertable string, rows []*insertData) uint64 {
-	partitionKey := ""
-	if inTableTag {
-		partitionKey = tableCols["tags"][0] + ","
-	}
-
-	hypertableCols := strings.Join(tableCols[hypertable], ",")
-
-	tagRows := make([][]string, 0, len(rows))
-	dataRows := make([]string, 0, len(rows))
-	ret := uint64(0)
-	for _, data := range rows {
-		tags := strings.Split(data.tags, ",")
-		metrics := strings.Split(data.fields, ",")
-		ret += uint64(len(metrics) - 1) // 1 field is timestamp
-
-		timeInt, err := strconv.ParseInt(metrics[0], 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		ts := time.Unix(0, timeInt).Format("2006-01-02 15:04:05.999999 -0700")
-
-		// The last arguments in these sprintf's may seem a bit confusing at first, but
-		// it does work. We want each value to be surrounded by single quotes (' '), and
-		// to be separated by a comma. That means we strings.Join them with "', '", which
-		// leaves the first value without a preceding ' and the last with out a trailing ',
-		// therefore we put the %s returned by the Join inside of '' to solve the problem
-		var r string
-		if inTableTag {
-			r = fmt.Sprintf("('%s','[REPLACE_CSI]', '%s', '%s')", ts, tags[0], strings.Join(metrics[1:], "', '"))
-		} else {
-			r = fmt.Sprintf("('%s', '[REPLACE_CSI]', '%s')", ts, strings.Join(metrics[1:], "', '"))
-		}
-
-		dataRows = append(dataRows, r)
-		tagRows = append(tagRows, tags[:10])
-	}
-
-	// Check if any of these tags has yet to be inserted
-	newTags := make([][]string, 0, len(rows))
-	mutex.RLock()
-	for _, cols := range tagRows {
-		if _, ok := csi[cols[0]]; !ok {
-			newTags = append(newTags, cols)
-		}
-	}
-	mutex.RUnlock()
-	if len(newTags) > 0 {
-		mutex.Lock()
-		res := insertTags(db, newTags, true)
-		for k, v := range res {
-			csi[k] = v
-		}
-		mutex.Unlock()
-	}
-
-	mutex.RLock()
-	for i, r := range dataRows {
-		// TODO -- support more than 10 common tags
-		tagKey := tagRows[i][0]
-		dataRows[i] = strings.Replace(r, "[REPLACE_CSI]", strconv.FormatInt(csi[tagKey], 10), 1)
-	}
-	mutex.RUnlock()
-	tx := db.MustBegin()
-	_ = tx.MustExec(fmt.Sprintf(insertFmt3, hypertable, partitionKey, hypertableCols, strings.Join(dataRows, ",")))
-
-	err := tx.Commit()
-	if err != nil {
-		panic(err)
-	}
-
-	return ret
-}
-
-type processor struct {
-	db *sqlx.DB
-}
-
-func (p *processor) Init(workerNum int, doLoad bool) {
-	if doLoad {
-		p.db = sqlx.MustConnect(dbType, getConnectString())
-	}
-}
-
-func (p *processor) Close(doLoad bool) {
-	if doLoad {
-		p.db.Close()
-	}
-}
-
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
-	batches := b.(*hypertableArr)
-	rowCnt := 0
-	metricCnt := uint64(0)
-	for hypertable, rows := range batches.m {
-		rowCnt += len(rows)
-		if doLoad {
-			start := time.Now()
-			metricCnt += processCSI(p.db, hypertable, rows)
-
-			if logBatches {
-				now := time.Now()
-				took := now.Sub(start)
-				batchSize := len(rows)
-				fmt.Printf("BATCH: batchsize %d row rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
-			}
-		}
-	}
-	batches.m = map[string][]*insertData{}
-	batches.cnt = 0
-	return metricCnt, uint64(rowCnt)
 }
 
 func createTagsTable(db *sqlx.DB, tags []string) {
@@ -433,7 +276,13 @@ func initDB(dbName, tags, cols string) {
 	if partitionIndex {
 		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
 	}
-	if timeIndex {
+
+	// Only allow one or the other, it's probably never right to have both.
+	// Experimentation suggests (so far) that for 100k devices it is better to
+	// use --time-partition-index for reduced index lock contention.
+	if timePartitionIndex {
+		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
+	} else if timeIndex {
 		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
 	}
 
