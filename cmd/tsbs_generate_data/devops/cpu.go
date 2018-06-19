@@ -9,13 +9,8 @@ import (
 )
 
 var (
-	CPUByteString      = []byte("cpu")       // heap optimization
-	CPUTotalByteString = []byte("cpu-total") // heap optimization
-)
-
-var (
-	// Field keys for 'cpu' points.
-	CPUFieldKeys = [][]byte{
+	CPUByteString = []byte("cpu") // heap optimization
+	CPUFieldKeys  = [][]byte{
 		[]byte("usage_user"),
 		[]byte("usage_system"),
 		[]byte("usage_idle"),
@@ -37,7 +32,15 @@ type CPUMeasurement struct {
 }
 
 func NewCPUMeasurement(start time.Time) *CPUMeasurement {
-	distributions := make([]common.Distribution, len(CPUFieldKeys))
+	return newCPUMeasurementNumDistributions(start, len(CPUFieldKeys))
+}
+
+func newSingleCPUMeasurement(start time.Time) *CPUMeasurement {
+	return newCPUMeasurementNumDistributions(start, 1)
+}
+
+func newCPUMeasurementNumDistributions(start time.Time, numDistributions int) *CPUMeasurement {
+	distributions := make([]common.Distribution, numDistributions)
 	for i := range distributions {
 		distributions[i] = &common.ClampedRandomWalkDistribution{
 			State: rand.Float64() * 100.0,

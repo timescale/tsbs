@@ -146,7 +146,16 @@ func main() {
 
 			InitHostCount:   initScaleVar,
 			HostCount:       scaleVar,
-			HostConstructor: devops.NewCPUOnlyHost,
+			HostConstructor: devops.NewHostCPUOnly,
+		}
+	case "cpu-single":
+		cfg = &devops.CPUOnlySimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			InitHostCount:   initScaleVar,
+			HostCount:       scaleVar,
+			HostConstructor: devops.NewHostCPUSingle,
 		}
 	default:
 		log.Fatalf("unknown use case: '%s'", useCase)
