@@ -2,10 +2,24 @@ package main
 
 import (
 	"bufio"
+	"hash/fnv"
 	"strings"
 
 	"bitbucket.org/440-labs/tsbs/load"
 )
+
+// hostnameIndexer is used to consistently send the same hostnames to the same worker
+type hostnameIndexer struct {
+	partitions uint
+}
+
+func (i *hostnameIndexer) GetIndex(item *load.Point) int {
+	p := item.Data.(*point)
+	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
+	h := fnv.New32a()
+	h.Write([]byte(hostname))
+	return int(h.Sum32()) % int(i.partitions)
+}
 
 // point is a single row of data keyed by which hypertable it belongs
 type point struct {

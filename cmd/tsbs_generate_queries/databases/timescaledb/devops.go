@@ -186,7 +186,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
     %s
     FROM cpu
 	WHERE %s AND time >= '%s' AND time < '%s'
-	GROUP BY hour ORDER BY hour`,
+    GROUP BY hour ORDER BY hour`,
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
