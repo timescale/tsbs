@@ -7,7 +7,7 @@ import (
 	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
-// A DevopsSimulator generates data similar to telemetry from Telegraf.
+// DevopsSimulator generates data similar to telemetry, with metrics from a variety of device systems.
 // It fulfills the Simulator interface.
 type DevopsSimulator struct {
 	madePoints uint64
