@@ -1,6 +1,7 @@
 package devops
 
 import (
+	"math"
 	"math/rand"
 	"time"
 
@@ -67,6 +68,9 @@ func (m *CPUMeasurement) ToPoint(p *serialize.Point) {
 	p.SetTimestamp(&m.timestamp)
 
 	for i := range m.distributions {
-		p.AppendField(CPUFieldKeys[i], m.distributions[i].Get())
+		// Use ints for CPU metrics.
+		// The full float64 precision in the distributions list is bad for compression on some systems (e.g., ZFS).
+		// Anything above int precision is also not that common or useful for a devops CPU monitoring use case.
+		p.AppendField(CPUFieldKeys[i], math.Round(m.distributions[i].Get()))
 	}
 }
