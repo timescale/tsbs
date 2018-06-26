@@ -3,7 +3,6 @@ package serialize
 import (
 	"fmt"
 	"io"
-	"strconv"
 )
 
 // TimescaleDBSerializer writes a Point in a serialized form for TimescaleDB
@@ -44,27 +43,4 @@ func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
 	buf = append(buf, '\n')
 	_, err = w.Write(buf)
 	return err
-}
-
-func fastFormatAppend(v interface{}, buf []byte) []byte {
-	switch v.(type) {
-	case int:
-		return strconv.AppendInt(buf, int64(v.(int)), 10)
-	case int64:
-		return strconv.AppendInt(buf, v.(int64), 10)
-	case float64:
-		return strconv.AppendFloat(buf, v.(float64), 'f', 16, 64)
-	case float32:
-		return strconv.AppendFloat(buf, float64(v.(float32)), 'f', 16, 32)
-	case bool:
-		return strconv.AppendBool(buf, v.(bool))
-	case []byte:
-		buf = append(buf, v.([]byte)...)
-		return buf
-	case string:
-		buf = append(buf, v.(string)...)
-		return buf
-	default:
-		panic(fmt.Sprintf("unknown field type for %#v", v))
-	}
 }

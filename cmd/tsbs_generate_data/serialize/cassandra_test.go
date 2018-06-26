@@ -21,9 +21,9 @@ func TestCassandraSerializerSerialize(t *testing.T) {
 				tagValues:       [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")},
 				timestamp:       &now,
 				fieldKeys:       [][]byte{[]byte("usage_guest_nice")},
-				fieldValues:     []interface{}{38.2431182911542820},
+				fieldValues:     []interface{}{float64(38.24311829)},
 			},
-			output: "series_double,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38.2431182911542820\n",
+			output: "series_double,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38.24311829\n",
 		},
 	}
 
