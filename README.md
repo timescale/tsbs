@@ -5,10 +5,10 @@ This code is a fork of work initially made public by InfluxDB at https://github.
 
 Current databases supported:
 
-+ TimescaleDB
-+ MongoDB
-+ InfluxDB
-+ Cassandra
++ TimescaleDB [(supplemental docs)](docs/timescaledb.md)
++ MongoDB [(supplemental docs)](docs/mongo.md)
++ InfluxDB [(supplemental docs)](docs/influx.md)
++ Cassandra [(supplemental docs)](docs/cassandra.md)
 
 ## Overview
 
