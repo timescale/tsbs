@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/tsbs/load"
-	"github.com/pkg/profile"
 	"github.com/valyala/fasthttp"
 )
 
@@ -30,7 +29,6 @@ var (
 	backoff           time.Duration
 	useGzip           bool
 	doAbortOnExist    bool
-	memprofile        bool
 	consistency       string
 )
 
@@ -58,7 +56,6 @@ func init() {
 	flag.DurationVar(&backoff, "backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
 	flag.BoolVar(&useGzip, "gzip", true, "Whether to gzip encode requests (default true).")
 	flag.BoolVar(&doAbortOnExist, "do-abort-on-exist", true, "Whether to abort if the destination database already exists.")
-	flag.BoolVar(&memprofile, "memprofile", false, "Whether to write a memprofile (file automatically determined).")
 
 	flag.Parse()
 
@@ -91,10 +88,6 @@ func (b *benchmark) GetProcessor() load.Processor {
 }
 
 func main() {
-	if memprofile {
-		p := profile.Start(profile.MemProfile)
-		defer p.Stop()
-	}
 	if loader.DoLoad() && loader.DoInit() {
 		daemonURL := daemonURLs[0] // pick first one since it always exists
 

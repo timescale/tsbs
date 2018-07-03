@@ -47,7 +47,7 @@ func init() {
 	flag.StringVar(&hosts, "hosts", "localhost:9042", "Comma separated list of Cassandra hosts in a cluster.")
 
 	flag.IntVar(&replicationFactor, "replication-factor", 1, "Number of nodes that must have a copy of each key.")
-	flag.StringVar(&consistencyLevel, "consistency-level", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
+	flag.StringVar(&consistencyLevel, "consistency", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
 	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
 
 	flag.Parse()

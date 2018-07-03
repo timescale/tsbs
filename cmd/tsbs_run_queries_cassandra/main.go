@@ -34,11 +34,10 @@ var (
 
 // Program option vars:
 var (
-	daemonURL           string
-	aggrPlanLabel       string
-	subQueryParallelism int
-	requestTimeout      time.Duration
-	csiTimeout          time.Duration
+	daemonURL      string
+	aggrPlanLabel  string
+	requestTimeout time.Duration
+	csiTimeout     time.Duration
 )
 
 // Helpers for choice-like flags:
@@ -61,10 +60,9 @@ var (
 func init() {
 	runner = query.NewBenchmarkRunner()
 
-	flag.StringVar(&daemonURL, "url", "localhost:9042", "Cassandra URL.")
+	flag.StringVar(&daemonURL, "host", "localhost:9042", "Cassandra hostname and port combination.")
 	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
-	flag.IntVar(&subQueryParallelism, "subquery-workers", 1, "Number of concurrent subqueries to make (because the client does a scatter+gather operation).")
-	flag.DurationVar(&requestTimeout, "request-timeout", 1*time.Second, "Maximum request timeout.")
+	flag.DurationVar(&requestTimeout, "read-timeout", 1*time.Second, "Maximum request timeout.")
 	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
 
 	flag.Parse()
