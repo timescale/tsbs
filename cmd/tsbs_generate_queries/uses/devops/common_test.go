@@ -3,6 +3,7 @@ package devops
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -126,13 +127,13 @@ func TestGetRandomHosts(t *testing.T) {
 			desc:   "1 host out of 100",
 			scale:  100,
 			nHosts: 1,
-			want:   "host_47",
+			want:   "host_83",
 		},
 		{
 			desc:   "5 host out of 100",
 			scale:  100,
 			nHosts: 5,
-			want:   "host_47,host_29,host_35,host_8,host_54",
+			want:   "host_83,host_68,host_80,host_60,host_62",
 		},
 		{
 			desc:        "5 host out of 1",
@@ -220,5 +221,47 @@ func TestGetMaxAllLabel(t *testing.T) {
 	got := GetMaxAllLabel("Foo", 100)
 	if got != want {
 		t.Errorf("incorrect output: got %s want %s", got, want)
+	}
+}
+
+func TestGetRandomSubsetPerm(t *testing.T) {
+	cases := []struct {
+		scale  int
+		nItems int
+	}{
+		{scale: 10, nItems: 0},
+		{scale: 10, nItems: 1},
+		{scale: 10, nItems: 5},
+		{scale: 10, nItems: 10},
+		{scale: 1000, nItems: 1000},
+	}
+
+	for _, c := range cases {
+		ret := getRandomSubsetPerm(c.scale, c.nItems)
+		if len(ret) != c.nItems {
+			t.Errorf("return list not long enough: got %d want %d (scale %d)", len(ret), c.nItems, c.scale)
+		}
+		sort.Ints(ret)
+		prev := -1
+		for _, x := range ret {
+			if x == prev {
+				t.Errorf("duplicate int found in sorted result (scale %d nItems %d)", c.scale, c.nItems)
+			}
+			prev = x
+		}
+	}
+}
+
+func TestGetRandomSubsetPermError(t *testing.T) {
+	errMsg := ""
+	fatal = func(format string, args ...interface{}) {
+		errMsg = fmt.Sprintf(format, args...)
+	}
+	ret := getRandomSubsetPerm(10, 11)
+	if ret != nil {
+		t.Errorf("return was non-nil: %v", ret)
+	}
+	if errMsg != errMoreItemsThanScale {
+		t.Errorf("incorrect output: got %s", errMsg)
 	}
 }
