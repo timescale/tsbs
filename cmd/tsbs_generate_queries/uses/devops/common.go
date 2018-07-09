@@ -17,6 +17,7 @@ const (
 	errNoMetrics            = "cannot get 0 metrics"
 	errTooManyMetrics       = "too many metrics asked for"
 	errBadTimeOrder         = "bad time order: start is after end"
+	errMoreItemsThanScale   = "cannot get random permutation with more items than scale"
 
 	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
 	DoubleGroupByDuration = 12 * time.Hour
@@ -166,7 +167,7 @@ func getRandomHosts(scale, nHosts int) []string {
 		return nil
 	}
 
-	nn := rand.Perm(scale)[:nHosts]
+	nn := getRandomSubsetPerm(scale, nHosts)
 
 	hostnames := []string{}
 	for _, n := range nn {
@@ -174,6 +175,32 @@ func getRandomHosts(scale, nHosts int) []string {
 	}
 
 	return hostnames
+}
+
+// getRandomSubsetPerm returns a subset of nItems of a permutation of numbers
+// from 0 to scale. This is an alternative to rand.Perm and then taking a
+// sub-slice, which used up a lot more memory and slowed down query generation
+// significantly. The subset of the permutation should have no duplicates.
+func getRandomSubsetPerm(scale, nItems int) []int {
+	if nItems > scale {
+		fatal(errMoreItemsThanScale)
+		return nil
+	}
+
+	seen := map[int]bool{}
+	res := []int{}
+	for i := 0; i < nItems; i++ {
+		for {
+			n := rand.Intn(scale)
+			// Keep iterating until a previously unseen int is found
+			if !seen[n] {
+				seen[n] = true
+				res = append(res, n)
+				break
+			}
+		}
+	}
+	return res
 }
 
 func panicUnimplementedQuery(dg utils.DevopsGenerator) {
