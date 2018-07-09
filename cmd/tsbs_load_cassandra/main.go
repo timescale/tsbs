@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"bitbucket.org/440-labs/tsbs/load"
@@ -60,7 +59,7 @@ func init() {
 }
 
 type benchmark struct {
-	session *gocql.Session
+	dbc *dbCreator
 }
 
 func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
@@ -76,34 +75,19 @@ func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
-	return &processor{b.session}
+	return &processor{b.dbc}
+}
+
+func (b *benchmark) GetDBCreator() load.DBCreator {
+	return b.dbc
 }
 
 func main() {
-	var session *gocql.Session
-	if loader.DoLoad() {
-		if loader.DoInit() {
-			createKeyspace(hosts)
-		}
-
-		cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
-		cluster.Keyspace = loader.DatabaseName()
-		cluster.Timeout = writeTimeout
-		cluster.Consistency = consistencyMapping[consistencyLevel]
-		cluster.ProtoVersion = 4
-		var err error
-		session, err = cluster.CreateSession()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer session.Close()
-	}
-
-	loader.RunBenchmark(&benchmark{session: session}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{dbc: &dbCreator{}}, load.SingleQueue)
 }
 
 type processor struct {
-	session *gocql.Session
+	dbc *dbCreator
 }
 
 func (p *processor) Init(_ int, _ bool) {}
@@ -114,12 +98,12 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	events := b.(*eventsBatch)
 
 	if doLoad {
-		batch := p.session.NewBatch(gocql.LoggedBatch)
+		batch := p.dbc.clientSession.NewBatch(gocql.LoggedBatch)
 		for _, event := range events.rows {
 			batch.Query(singleMetricToInsertStatement(event))
 		}
 
-		err := p.session.ExecuteBatch(batch)
+		err := p.dbc.clientSession.ExecuteBatch(batch)
 		if err != nil {
 			log.Fatalf("Error writing: %s\n", err.Error())
 		}
@@ -128,41 +112,4 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	events.rows = events.rows[:0]
 	ePool.Put(events)
 	return metricCnt, 0
-}
-
-func createKeyspace(hosts string) {
-	cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
-	cluster.Consistency = consistencyMapping[consistencyLevel]
-	cluster.ProtoVersion = 4
-	cluster.Timeout = 10 * time.Second
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-
-	// Drop the keyspace to avoid errors about existing keyspaces
-	if err := session.Query(fmt.Sprintf("drop keyspace if exists %s;", loader.DatabaseName())).Exec(); err != nil {
-		log.Fatal(err)
-	}
-
-	replicationConfiguration := fmt.Sprintf("{ 'class': 'SimpleStrategy', 'replication_factor': %d }", replicationFactor)
-	if err := session.Query(fmt.Sprintf("create keyspace %s with replication = %s;", loader.DatabaseName(), replicationConfiguration)).Exec(); err != nil {
-		log.Print("if you know what you are doing, drop the keyspace with a command line:")
-		log.Print(fmt.Sprintf("echo 'drop keyspace %s;' | cqlsh <host>", loader.DatabaseName()))
-		log.Fatal(err)
-	}
-	for _, cassandraTypename := range []string{"bigint", "float", "double", "boolean", "blob"} {
-		q := fmt.Sprintf(`CREATE TABLE %s.series_%s (
-					series_id text,
-					timestamp_ns bigint,
-					value %s,
-					PRIMARY KEY (series_id, timestamp_ns)
-				 )
-				 WITH COMPACT STORAGE;`,
-			loader.DatabaseName(), cassandraTypename, cassandraTypename)
-		if err := session.Query(q).Exec(); err != nil {
-			log.Fatal(err)
-		}
-	}
 }

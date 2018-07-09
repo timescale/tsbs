@@ -20,6 +20,8 @@ const (
 	WorkerPerQueue = 0
 	// SingleQueue is the value to have only a single shared queue of work for all workers
 	SingleQueue = 1
+
+	errDBExistsFmt = "database \"%s\" exists: aborting."
 )
 
 // change for more useful testing
@@ -36,6 +38,8 @@ type Benchmark interface {
 	GetPointIndexer(maxPartitions uint) PointIndexer
 	// GetProcessor returns the Processor to use for this Benchmark
 	GetProcessor() Processor
+
+	GetDBCreator() DBCreator
 }
 
 // BenchmarkRunner is responsible for initializing and storing common
@@ -46,7 +50,8 @@ type BenchmarkRunner struct {
 	workers         uint
 	limit           uint64
 	doLoad          bool
-	doInit          bool
+	doCreateDB      bool
+	doAbortOnExist  bool
 	reportingPeriod time.Duration
 	filename        string // TODO implement file reading
 
@@ -72,8 +77,9 @@ func GetBenchmarkRunnerWithBatchSize(batchSize uint) *BenchmarkRunner {
 	flag.UintVar(&loader.batchSize, "batch-size", batchSize, "Number of items to batch together in a single insert")
 	flag.UintVar(&loader.workers, "workers", 1, "Number of parallel clients inserting")
 	flag.Uint64Var(&loader.limit, "limit", 0, "Number of items to insert (0 = all of them).")
-	flag.BoolVar(&loader.doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed")
-	flag.BoolVar(&loader.doInit, "do-init", true, "Whether to initialize the database. Disable on all but one box if running on a multi client box setup.")
+	flag.BoolVar(&loader.doLoad, "do-load", true, "Whether to write data. Set this flag to false to check input read speed.")
+	flag.BoolVar(&loader.doCreateDB, "do-create-db", true, "Whether to create the database. Disable on all but one client if running on a multi client setup.")
+	flag.BoolVar(&loader.doAbortOnExist, "do-abort-on-exist", false, "Whether to abort if a database with the given name already exists.")
 	flag.DurationVar(&loader.reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 
 	return loader
@@ -84,20 +90,13 @@ func (l *BenchmarkRunner) DatabaseName() string {
 	return l.dbName
 }
 
-// DoLoad returns the value of the --do-load flag (whether to actually load or not)
-func (l *BenchmarkRunner) DoLoad() bool {
-	return l.doLoad
-}
-
-// DoInit returns the value of the --do-init flag (whether to actually initialize the DB or not)
-func (l *BenchmarkRunner) DoInit() bool {
-	return l.doInit
-}
-
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
 func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 	l.br = l.GetBufferedReader()
+	cleanupFn := l.useDBCreator(b.GetDBCreator())
+	defer cleanupFn()
+
 	channels := l.createChannels(workQueues)
 
 	var wg sync.WaitGroup
@@ -128,6 +127,46 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 		}
 	}
 	return l.br
+}
+
+// useDBCreator handles a DBCreator by running it according to flags set by the
+// user. The function returns a function that the caller should defer or run
+// when the benchmark is finished
+func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
+	// empty function to 'defer' from caller
+	fn := func() {}
+
+	if l.doLoad {
+		// DBCreator should still be Init'd even if -do-create-db is false since
+		// it can initialize the connecting session
+		dbc.Init()
+		switch dbcc := dbc.(type) {
+		case DBCreatorCloser:
+			fn = dbcc.Close
+		}
+
+		exists := dbc.DBExists(l.dbName)
+		if exists && l.doAbortOnExist {
+			panic(fmt.Sprintf(errDBExistsFmt, l.dbName))
+		}
+		if l.doCreateDB {
+			if exists {
+				err := dbc.RemoveOldDB(l.dbName)
+				if err != nil {
+					panic(err)
+				}
+			}
+			err := dbc.CreateDB(l.dbName)
+			if err != nil {
+				panic(err)
+			}
+		}
+		switch dbcp := dbc.(type) {
+		case DBCreatorPost:
+			dbcp.PostCreateDB(l.dbName)
+		}
+	}
+	return fn
 }
 
 func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {

@@ -110,22 +110,18 @@ func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
 		return &hostnameIndexer{partitions: maxPartitions}
 	}
 	return &load.ConstantIndexer{}
-
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
 	return &processor{}
 }
 
+func (b *benchmark) GetDBCreator() load.DBCreator {
+	return &dbCreator{}
+}
+
 func main() {
-	br := loader.GetBufferedReader()
-	tags, cols := readDataHeader(br)
-
-	if loader.DoLoad() && loader.DoInit() {
-		initDB(loader.DatabaseName(), tags, cols)
-	}
-
-	/* If specified, generate a performance profile */
+	// If specified, generate a performance profile
 	if len(profileFile) > 0 {
 		go profileCPUAndMem(profileFile)
 	}
@@ -144,33 +140,6 @@ func main() {
 	if len(replicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
 	}
-}
-
-func readDataHeader(br *bufio.Reader) (tags, cols string) {
-	// First three lines are header, with the first line containing the tags
-	// and their names, the second line containing the column names, and
-	// third line being blank to separate from the data
-	for i := 0; i < 3; i++ {
-		var err error
-		var empty string
-		if i == 0 {
-			tags, err = br.ReadString('\n')
-			tags = strings.TrimSpace(tags)
-		} else if i == 1 {
-			cols, err = br.ReadString('\n')
-			cols = strings.TrimSpace(cols)
-		} else {
-			empty, err = br.ReadString('\n')
-			empty = strings.TrimSpace(empty)
-			if len(empty) > 0 {
-				fatal("input has wrong header format: third line is not blank")
-			}
-		}
-		if err != nil {
-			fatal("input has wrong header format: %v", err)
-		}
-	}
-	return tags, cols
 }
 
 func getConnectString() string {
@@ -193,107 +162,5 @@ func createTagsTable(db *sqlx.DB, tags []string) {
 		db.MustExec(fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
 		db.MustExec(fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
 		db.MustExec(fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
-	}
-}
-
-func dropExistingDB(dbName string) {
-	// Need to connect to user's database in order to drop/create db-name database
-	re := regexp.MustCompile(`(dbname)=\S*\b`)
-	connectString := re.ReplaceAllString(getConnectString(), "")
-
-	db := sqlx.MustConnect(dbType, connectString)
-	db.MustExec("DROP DATABASE IF EXISTS " + dbName)
-	db.MustExec("CREATE DATABASE " + dbName)
-	db.Close()
-}
-
-func getCreateIndexOnFieldCmds(hypertable, field, idxType string) []string {
-	ret := []string{}
-	for _, idx := range strings.Split(idxType, ",") {
-		if idx == "" {
-			continue
-		}
-
-		indexDef := ""
-		if idx == timeValueIdx {
-			indexDef = fmt.Sprintf("(time DESC, %s)", field)
-		} else if idx == valueTimeIdx {
-			indexDef = fmt.Sprintf("(%s, time DESC)", field)
-		} else {
-			fatal("Unknown index type %v", idx)
-		}
-
-		ret = append(ret, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
-	}
-	return ret
-}
-
-func initDB(dbName, tags, cols string) {
-	dropExistingDB(dbName)
-
-	dbBench := sqlx.MustConnect(dbType, getConnectString())
-	defer dbBench.Close()
-
-	parts := strings.Split(strings.TrimSpace(tags), ",")
-	if parts[0] != "tags" {
-		log.Fatalf("input header in wrong format. got '%s', expected 'tags'", parts[0])
-	}
-	createTagsTable(dbBench, parts[1:])
-	tableCols["tags"] = parts[1:]
-
-	parts = strings.Split(strings.TrimSpace(cols), ",")
-	hypertable := parts[0]
-	partitioningField := tableCols["tags"][0]
-	tableCols[hypertable] = parts[1:]
-
-	psuedoCols := []string{}
-	if inTableTag {
-		psuedoCols = append(psuedoCols, partitioningField)
-	}
-
-	fieldDef := []string{}
-	indexes := []string{}
-	psuedoCols = append(psuedoCols, parts[1:]...)
-	extraCols := 0 // set to 1 when hostname is kept in-table
-	for idx, field := range psuedoCols {
-		if len(field) == 0 {
-			continue
-		}
-		fieldType := "DOUBLE PRECISION"
-		idxType := fieldIndex
-		if inTableTag && idx == 0 {
-			fieldType = "TEXT"
-			idxType = ""
-			extraCols = 1
-		}
-
-		fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
-		if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
-			indexes = append(indexes, getCreateIndexOnFieldCmds(hypertable, field, idxType)...)
-		}
-	}
-	dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
-	if partitionIndex {
-		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
-	}
-
-	// Only allow one or the other, it's probably never right to have both.
-	// Experimentation suggests (so far) that for 100k devices it is better to
-	// use --time-partition-index for reduced index lock contention.
-	if timePartitionIndex {
-		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
-	} else if timeIndex {
-		dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
-	}
-
-	for _, idxDef := range indexes {
-		dbBench.MustExec(idxDef)
-	}
-
-	if useHypertable {
-		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-		dbBench.MustExec(
-			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
 	}
 }

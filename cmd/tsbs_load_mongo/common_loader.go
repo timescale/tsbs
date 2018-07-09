@@ -9,7 +9,6 @@ import (
 
 	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 	"bitbucket.org/440-labs/tsbs/load"
-	"github.com/globalsign/mgo"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -71,8 +70,8 @@ func (f *factory) New() load.Batch {
 }
 
 type mongoBenchmark struct {
-	l       *load.BenchmarkRunner
-	session *mgo.Session
+	l   *load.BenchmarkRunner
+	dbc *dbCreator
 }
 
 func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) load.PointDecoder {
@@ -81,4 +80,8 @@ func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) load.PointDecoder {
 
 func (b *mongoBenchmark) GetBatchFactory() load.BatchFactory {
 	return &factory{}
+}
+
+func (b *mongoBenchmark) GetDBCreator() load.DBCreator {
+	return b.dbc
 }

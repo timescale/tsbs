@@ -5,13 +5,9 @@ package main
 
 import (
 	"flag"
-	"log"
-	"strings"
 	"time"
 
 	"bitbucket.org/440-labs/tsbs/load"
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
 )
 
 const (
@@ -47,96 +43,15 @@ func init() {
 }
 
 func main() {
-	var session *mgo.Session
-	if loader.DoLoad() && loader.DoInit() {
-		var err error
-		session, err = mgo.DialWithTimeout(daemonURL, writeTimeout)
-		if err != nil {
-			log.Fatal(err)
-		}
-		session.SetMode(mgo.Eventual, false)
-		defer session.Close()
-
-		cleanupCollections(session)
-		createCollection(session, collectionName)
-	}
-
 	var benchmark load.Benchmark
 	var workQueues uint
 	if documentPer {
-		benchmark = newNaiveBenchmark(loader, session)
+		benchmark = newNaiveBenchmark(loader)
 		workQueues = load.SingleQueue
 	} else {
-		benchmark = newAggBenchmark(loader, session)
+		benchmark = newAggBenchmark(loader)
 		workQueues = load.WorkerPerQueue
 	}
 
 	loader.RunBenchmark(benchmark, workQueues)
-}
-
-func createCollection(session *mgo.Session, collectionName string) {
-	cmd := make(bson.D, 0, 4)
-	cmd = append(cmd, bson.DocElem{"create", collectionName})
-
-	// wiredtiger settings
-	cmd = append(cmd, bson.DocElem{
-		"storageEngine", map[string]interface{}{
-			"wiredTiger": map[string]interface{}{
-				"configString": "block_compressor=snappy",
-			},
-		},
-	})
-
-	dbName := loader.DatabaseName()
-	err := session.DB(dbName).Run(cmd, nil)
-	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			return
-		}
-		log.Fatalf("Create collection err: %v\n", err)
-	}
-
-	collection := session.DB(dbName).C(collectionName)
-	var key []string
-	if documentPer {
-		key = []string{"measurement", "tags.hostname", timestampField}
-	} else {
-		key = []string{aggKeyID, "measurement", "tags.hostname"}
-	}
-
-	index := mgo.Index{
-		Key:        key,
-		Unique:     false, // Unique does not work on the entire array of tags!
-		Background: false,
-		Sparse:     false,
-	}
-	err = collection.EnsureIndex(index)
-	if err != nil {
-		log.Fatalf("Create basic index err: %v\n", err)
-	}
-
-	// To make updates for new records more efficient, we need a efficient doc
-	// lookup index
-	if !documentPer {
-		err = collection.EnsureIndex(mgo.Index{
-			Key:        []string{aggDocID},
-			Unique:     false,
-			Background: false,
-			Sparse:     false,
-		})
-		if err != nil {
-			log.Fatalf("Create agg doc index err: %v\n", err)
-		}
-	}
-}
-
-func cleanupCollections(session *mgo.Session) {
-	dbName := loader.DatabaseName()
-	collections, err := session.DB(dbName).CollectionNames()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, name := range collections {
-		session.DB(dbName).C(name).DropCollection()
-	}
 }
