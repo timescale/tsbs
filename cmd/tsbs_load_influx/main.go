@@ -41,6 +41,9 @@ var consistencyChoices = map[string]struct{}{
 	"all":    struct{}{},
 }
 
+// allows for testing
+var fatal = log.Fatalf
+
 // Parse args:
 func init() {
 	loader = load.GetBenchmarkRunner()

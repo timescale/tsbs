@@ -3,11 +3,12 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"log"
 	"strings"
 
 	"bitbucket.org/440-labs/tsbs/load"
 )
+
+const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
 
 var newLine = []byte("\n")
 
@@ -20,7 +21,8 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
 		return nil
 	} else if !ok {
-		log.Fatalf("scan error: %v", d.scanner.Err())
+		fatal("scan error: %v", d.scanner.Err())
+		return nil
 	}
 	return load.NewPoint(d.scanner.Bytes())
 }
@@ -41,7 +43,12 @@ func (b *batch) Append(item *load.Point) {
 	b.rows++
 	// Each influx line is format "csv-tags csv-fields timestamp", so we split by space
 	// and then on the middle element, we split by comma to count number of fields added
-	b.metrics += uint64(len(strings.Split(strings.Split(thatStr, " ")[1], ",")))
+	args := strings.Split(thatStr, " ")
+	if len(args) != 3 {
+		fatal(errNotThreeTuplesFmt, len(args))
+		return
+	}
+	b.metrics += uint64(len(strings.Split(args[1], ",")))
 
 	b.buf.Write(that)
 	b.buf.Write(newLine)
