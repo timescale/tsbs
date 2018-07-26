@@ -65,6 +65,7 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 		return nil
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
+		return nil
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"

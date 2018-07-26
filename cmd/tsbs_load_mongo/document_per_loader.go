@@ -15,12 +15,12 @@ type naiveBenchmark struct {
 	mongoBenchmark
 }
 
-func newNaiveBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *naiveBenchmark {
-	return &naiveBenchmark{mongoBenchmark{l, session}}
+func newNaiveBenchmark(l *load.BenchmarkRunner) *naiveBenchmark {
+	return &naiveBenchmark{mongoBenchmark{l, &dbCreator{}}}
 }
 
 func (b *naiveBenchmark) GetProcessor() load.Processor {
-	return &naiveProcessor{session: b.session}
+	return &naiveProcessor{dbc: b.dbc}
 }
 
 func (b *naiveBenchmark) GetPointIndexer(_ uint) load.PointIndexer {
@@ -37,7 +37,7 @@ type singlePoint struct {
 var spPool = &sync.Pool{New: func() interface{} { return &singlePoint{} }}
 
 type naiveProcessor struct {
-	session    *mgo.Session
+	dbc        *dbCreator
 	collection *mgo.Collection
 
 	pvs []interface{}
@@ -45,7 +45,7 @@ type naiveProcessor struct {
 
 func (p *naiveProcessor) Init(workerNUm int, doLoad bool) {
 	if doLoad {
-		sess := p.session.Copy()
+		sess := p.dbc.session.Copy()
 		db := sess.DB(loader.DatabaseName())
 		p.collection = db.C(collectionName)
 	}

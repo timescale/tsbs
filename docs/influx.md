@@ -31,12 +31,6 @@ cpu,hostname=host_0,region=eu-central-1,datacenter=eu-central-1b,rack=21,os=Ubun
 Consistency level for writes to the database. Options are `all`, `any`, `one`,
 or `quorum`. Only applies for the clustered version.
 
-#### `-do-abort-on-exist` (type: `boolean`, default: `true`)
-
-Whether to abort the benchmark if the database named already exists. This is to
-prevent accidentally overwriting a database of the same name or a previous run
-of the benchmark.
-
 #### `-replication-factor` (type: `int`, default: `1`)
 
 Level of replication for each write, i.e., number of nodes to store the

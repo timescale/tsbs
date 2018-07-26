@@ -44,6 +44,10 @@ func (b *testBenchmark) GetProcessor() Processor {
 	return b.processors[idx]
 }
 
+func (b *testBenchmark) GetDBCreator() DBCreator {
+	return nil
+}
+
 func TestCreateChannelsAndPartitions(t *testing.T) {
 	cases := []struct {
 		desc           string

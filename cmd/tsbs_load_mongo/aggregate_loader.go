@@ -37,15 +37,15 @@ type aggBenchmark struct {
 	mongoBenchmark
 }
 
-func newAggBenchmark(l *load.BenchmarkRunner, session *mgo.Session) *aggBenchmark {
+func newAggBenchmark(l *load.BenchmarkRunner) *aggBenchmark {
 	// Pre-create the needed empty subdoc for new aggregate docs
 	generateEmptyHourDoc()
 
-	return &aggBenchmark{mongoBenchmark{l, session}}
+	return &aggBenchmark{mongoBenchmark{l, &dbCreator{}}}
 }
 
 func (b *aggBenchmark) GetProcessor() load.Processor {
-	return &aggProcessor{session: b.session}
+	return &aggProcessor{dbc: b.dbc}
 }
 
 func (b *aggBenchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
@@ -71,7 +71,7 @@ func generateEmptyHourDoc() {
 var pPool = &sync.Pool{New: func() interface{} { return &point{} }}
 
 type aggProcessor struct {
-	session    *mgo.Session
+	dbc        *dbCreator
 	collection *mgo.Collection
 
 	createdDocs map[string]bool
@@ -80,7 +80,7 @@ type aggProcessor struct {
 
 func (p *aggProcessor) Init(workerNum int, doLoad bool) {
 	if doLoad {
-		sess := p.session.Copy()
+		sess := p.dbc.session.Copy()
 		db := sess.DB(loader.DatabaseName())
 		p.collection = db.C(collectionName)
 	}
