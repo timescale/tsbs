@@ -64,16 +64,10 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	whereHosts := d.getHostWhereString(nHosts)
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ", "), whereHosts, interval.StartString(), interval.EndString()))
-
 	humanLabel := fmt.Sprintf("Influx %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	influxql := fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ", "), whereHosts, interval.StartString(), interval.EndString())
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
 // GroupByOrderByLimit benchmarks a query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
@@ -83,19 +77,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
-
 	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where))
-
 	humanLabel := "Influx max cpu over last 5 min-intervals (random end)"
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	influxql := fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where)
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
 // GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
@@ -110,16 +97,10 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
 	selectClauses := d.getSelectClausesAggMetrics("mean", metrics)
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString()))
-
 	humanLabel := devops.GetDoubleGroupByLabel("Influx", numMetrics)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	influxql := fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString())
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
 // MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
@@ -134,30 +115,18 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	whereHosts := d.getHostWhereString(nHosts)
 	selectClauses := d.getSelectClausesAggMetrics("max", devops.GetAllCPUMetrics())
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ","), whereHosts, interval.StartString(), interval.EndString()))
-
 	humanLabel := devops.GetMaxAllLabel("Influx", nHosts)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	influxql := fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ","), whereHosts, interval.StartString(), interval.EndString())
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
 func (d *Devops) LastPointPerHost(qi query.Query) {
-	v := url.Values{}
-	v.Set("q", "SELECT * from cpu group by \"hostname\" order by time desc limit 1")
-
 	humanLabel := "Influx last row per host"
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: cpu", humanLabel))
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
+	humanDesc := humanLabel + ": cpu"
+	influxql := "SELECT * from cpu group by \"hostname\" order by time desc limit 1"
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
 // HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
@@ -177,13 +146,18 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		hostWhereClause = fmt.Sprintf("and %s", d.getHostWhereString(nHosts))
 	}
 
-	v := url.Values{}
-	v.Set("q", fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString()))
-
 	humanLabel := devops.GetHighCPULabel("Influx", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval)
+	influxql := fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString())
+	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
+}
+
+func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, influxql string) {
+	v := url.Values{}
+	v.Set("q", influxql)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval))
+	q.HumanDescription = []byte(humanDesc)
 	q.Method = []byte("GET")
 	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
 	q.Body = nil

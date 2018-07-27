@@ -17,13 +17,6 @@ type statProcessor struct {
 	wg             sync.WaitGroup
 }
 
-func (sp *statProcessor) getStat(partial bool) *Stat {
-	if partial {
-		return GetPartialStat()
-	}
-	return GetStat()
-}
-
 func (sp *statProcessor) sendStats(stats []*Stat) {
 	if stats == nil {
 		return
