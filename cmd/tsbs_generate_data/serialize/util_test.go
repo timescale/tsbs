@@ -34,6 +34,13 @@ func TestFastFormatAppend(t *testing.T) {
 			shouldPanic: false,
 		},
 		{
+			desc:        "fastFormatAppend should properly append an int to a given byte string",
+			inputString: []byte("values,"),
+			input:       int64(5000000000),
+			output:      []byte("values,5000000000"),
+			shouldPanic: false,
+		},
+		{
 			desc:        "fastFormatAppend should properly append a byte string to a given byte string",
 			inputString: []byte("values,"),
 			input:       []byte("bytestring"),
