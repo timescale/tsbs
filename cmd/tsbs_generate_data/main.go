@@ -1,7 +1,7 @@
 // tsbs_generate_data generates time series data from pre-specified use cases.
 //
 // Supported formats:
-// Cassandra query format
+// Cassandra CSV format
 // InfluxDB bulk load format
 // MongoDB BSON format
 // TimescaleDB pseudo-CSV format
@@ -29,11 +29,25 @@ import (
 	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
-// Output data format choices:
-var formatChoices = []string{"cassandra", "influx", "mongo", "timescaledb"}
+const (
+	// Output data format choices (alphabetical order)
+	formatCassandra   = "cassandra"
+	formatInflux      = "influx"
+	formatMongo       = "mongo"
+	formatTimescaleDB = "timescaledb"
 
-// Use case choices:
-var useCaseChoices = []string{"devops", "cpu-only"}
+	// Use case choices (make sure to update TestGetConfig if adding a new one)
+	useCaseCPUOnly   = "cpu-only"
+	useCaseCPUSingle = "cpu-single"
+	useCaseDevops    = "devops"
+)
+
+// semi-constants
+var (
+	formatChoices = []string{formatCassandra, formatInflux, formatMongo, formatTimescaleDB}
+	// allows for testing
+	fatal = log.Fatalf
+)
 
 // Program option vars:
 var (
@@ -87,17 +101,6 @@ func init() {
 		initScaleVar = scaleVar
 	}
 
-	validFormat := false
-	for _, s := range formatChoices {
-		if s == format {
-			validFormat = true
-			break
-		}
-	}
-	if !validFormat {
-		log.Fatal("invalid format specifier")
-	}
-
 	// the default seed is the current timestamp:
 	if seed == 0 {
 		seed = int64(time.Now().Nanosecond())
@@ -119,83 +122,24 @@ func init() {
 }
 
 func main() {
+	if !validateFormat(format) {
+		log.Fatal("invalid format specifier")
+	}
+
 	if len(profileFile) > 0 {
 		defer startMemoryProfile(profileFile)()
 	}
 
 	rand.Seed(seed)
-
 	out := bufio.NewWriterSize(os.Stdout, 4<<20)
 	defer out.Flush()
 
-	var cfg common.SimulatorConfig
-	switch useCase {
-	case "devops":
-		cfg = &devops.DevopsSimulatorConfig{
-			Start: timestampStart,
-			End:   timestampEnd,
-
-			InitHostCount:   initScaleVar,
-			HostCount:       scaleVar,
-			HostConstructor: devops.NewHost,
-		}
-	case "cpu-only":
-		cfg = &devops.CPUOnlySimulatorConfig{
-			Start: timestampStart,
-			End:   timestampEnd,
-
-			InitHostCount:   initScaleVar,
-			HostCount:       scaleVar,
-			HostConstructor: devops.NewHostCPUOnly,
-		}
-	case "cpu-single":
-		cfg = &devops.CPUOnlySimulatorConfig{
-			Start: timestampStart,
-			End:   timestampEnd,
-
-			InitHostCount:   initScaleVar,
-			HostCount:       scaleVar,
-			HostConstructor: devops.NewHostCPUSingle,
-		}
-	default:
-		log.Fatalf("unknown use case: '%s'", useCase)
-	}
+	cfg := getConfig(useCase)
 	sim := cfg.ToSimulator(logInterval)
-
-	var serializer serialize.PointSerializer
-	switch format {
-	case "cassandra":
-		serializer = &serialize.CassandraSerializer{}
-	case "influx":
-		serializer = &serialize.InfluxSerializer{}
-	case "mongo":
-		serializer = &serialize.MongoSerializer{}
-	case "timescaledb":
-		out.WriteString("tags")
-		for _, key := range devops.MachineTagKeys {
-			out.WriteString(",")
-			out.Write(key)
-		}
-		out.WriteString("\n")
-		for measurementName, fields := range sim.Fields() {
-			out.WriteString(measurementName)
-			for _, field := range fields {
-				out.WriteString(",")
-				out.Write(field)
-
-			}
-			out.WriteString("\n")
-		}
-		out.WriteString("\n")
-
-		serializer = &serialize.TimescaleDBSerializer{}
-	default:
-		log.Fatalf("unknown format: '%s'", format)
-	}
+	serializer := getSerializer(sim, format, out)
 
 	currentInterleavedGroup := uint(0)
-	point := common.MakeUsablePoint()
-
+	point := serialize.NewPoint()
 	for !sim.Finished() {
 		write := sim.Next(point)
 		if !write {
@@ -221,6 +165,83 @@ func main() {
 	err := out.Flush()
 	if err != nil {
 		log.Fatal(err.Error())
+	}
+}
+
+func validateFormat(format string) bool {
+	for _, s := range formatChoices {
+		if s == format {
+			return true
+		}
+	}
+	return false
+}
+
+func getConfig(useCase string) common.SimulatorConfig {
+	switch useCase {
+	case useCaseDevops:
+		return &devops.DevopsSimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			InitHostCount:   initScaleVar,
+			HostCount:       scaleVar,
+			HostConstructor: devops.NewHost,
+		}
+	case useCaseCPUOnly:
+		return &devops.CPUOnlySimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			InitHostCount:   initScaleVar,
+			HostCount:       scaleVar,
+			HostConstructor: devops.NewHostCPUOnly,
+		}
+	case useCaseCPUSingle:
+		return &devops.CPUOnlySimulatorConfig{
+			Start: timestampStart,
+			End:   timestampEnd,
+
+			InitHostCount:   initScaleVar,
+			HostCount:       scaleVar,
+			HostConstructor: devops.NewHostCPUSingle,
+		}
+	default:
+		fatal("unknown use case: '%s'", useCase)
+		return nil
+	}
+}
+
+func getSerializer(sim common.Simulator, format string, out *bufio.Writer) serialize.PointSerializer {
+	switch format {
+	case formatCassandra:
+		return &serialize.CassandraSerializer{}
+	case formatInflux:
+		return &serialize.InfluxSerializer{}
+	case formatMongo:
+		return &serialize.MongoSerializer{}
+	case formatTimescaleDB:
+		out.WriteString("tags")
+		for _, key := range devops.MachineTagKeys {
+			out.WriteString(",")
+			out.Write(key)
+		}
+		out.WriteString("\n")
+		for measurementName, fields := range sim.Fields() {
+			out.WriteString(measurementName)
+			for _, field := range fields {
+				out.WriteString(",")
+				out.Write(field)
+
+			}
+			out.WriteString("\n")
+		}
+		out.WriteString("\n")
+
+		return &serialize.TimescaleDBSerializer{}
+	default:
+		fatal("unknown format: '%s'", format)
+		return nil
 	}
 }
 

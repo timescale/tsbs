@@ -72,7 +72,7 @@ func (d *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simu
 
 func (d *CPUOnlySimulator) Fields() map[string][][]byte {
 	data := make(map[string][][]byte)
-	point := common.MakeUsablePoint()
+	point := serialize.NewPoint()
 	d.hosts[0].SimulatedMeasurements[0].ToPoint(point)
 	data[string(point.MeasurementName())] = point.FieldKeys()
 

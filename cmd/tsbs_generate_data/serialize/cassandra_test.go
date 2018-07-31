@@ -1,39 +1,76 @@
 package serialize
 
 import (
-	"bytes"
 	"testing"
-	"time"
 )
 
 func TestCassandraSerializerSerialize(t *testing.T) {
-	now := time.Unix(1451606400, 0)
+	cases := []serializeCase{
+		{
+			desc:       "a regular Point",
+			inputPoint: testPointDefault,
+			output:     "series_double,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38.24311829\n",
+		},
+		{
+			desc:       "a regular Point using int as value",
+			inputPoint: testPointInt,
+			output:     "series_bigint,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38\n",
+		},
+		{
+			desc:       "a Point with no tags",
+			inputPoint: testPointNoTags,
+			output:     "series_double,cpu,usage_guest_nice,2016-01-01,1451606400000000000,38.24311829\n",
+		},
+	}
+	testSerializer(t, cases, &CassandraSerializer{})
+}
+
+func TestTypeNameForCassandra(t *testing.T) {
 	cases := []struct {
-		desc       string
-		inputPoint *Point
-		output     string
+		desc string
+		v    interface{}
+		want string
 	}{
 		{
-			desc: "A Point object should result in CSV output written by the IO Writer",
-			inputPoint: &Point{
-				measurementName: []byte("cpu"),
-				tagKeys:         [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")},
-				tagValues:       [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")},
-				timestamp:       &now,
-				fieldKeys:       [][]byte{[]byte("usage_guest_nice")},
-				fieldValues:     []interface{}{float64(38.24311829)},
-			},
-			output: "series_double,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38.24311829\n",
+			desc: "type int",
+			v:    int(5),
+			want: "bigint",
+		},
+		{
+			desc: "type int64",
+			v:    int(5000000000),
+			want: "bigint",
+		},
+		{
+			desc: "type float32",
+			v:    float32(3.2),
+			want: "float",
+		},
+		{
+			desc: "type float64",
+			v:    float64(3.23234545234),
+			want: "double",
+		},
+		{
+			desc: "type bool",
+			v:    true,
+			want: "boolean",
+		},
+		{
+			desc: "type []byte",
+			v:    []byte("test"),
+			want: "blob",
+		},
+		{
+			desc: "type string",
+			v:    "test",
+			want: "blob",
 		},
 	}
 
 	for _, c := range cases {
-		b := new(bytes.Buffer)
-		serializer := &CassandraSerializer{}
-		serializer.Serialize(c.inputPoint, b)
-		got := b.String()
-		if got != c.output {
-			t.Errorf("%s \nOutput incorrect: \nWant: %s \nGot: %s", c.desc, c.output, got)
+		if got := typeNameForCassandra(c.v); got != c.want {
+			t.Errorf("%s: incorrect type name: got %s want %s", c.desc, got, c.want)
 		}
 	}
 }

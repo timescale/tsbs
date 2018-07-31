@@ -75,7 +75,7 @@ func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) common.Simul
 func (d *DevopsSimulator) Fields() map[string][][]byte {
 	data := make(map[string][][]byte)
 	for _, sm := range d.hosts[0].SimulatedMeasurements {
-		point := common.MakeUsablePoint()
+		point := serialize.NewPoint()
 		sm.ToPoint(point)
 		data[string(point.MeasurementName())] = point.FieldKeys()
 	}

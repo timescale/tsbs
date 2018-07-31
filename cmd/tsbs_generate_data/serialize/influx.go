@@ -13,8 +13,6 @@ type InfluxSerializer struct{}
 //
 // For example:
 // foo,tag0=bar baz=-1.0 100\n
-//
-// TODO(rw): Speed up this function. The bulk of time is spent in strconv.
 func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf := scratchBufPool.Get().([]byte)
 	buf = append(buf, p.measurementName...)

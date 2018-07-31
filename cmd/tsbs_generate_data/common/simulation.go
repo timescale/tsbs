@@ -23,8 +23,3 @@ type SimulatedMeasurement interface {
 	Tick(time.Duration)
 	ToPoint(*serialize.Point)
 }
-
-// MakeUsablePoint allocates a new Point ready for use by a Simulator.
-func MakeUsablePoint() *serialize.Point {
-	return serialize.NewPoint()
-}

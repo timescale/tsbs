@@ -16,7 +16,6 @@ type CassandraSerializer struct{}
 //
 // Which the loader will decode into a statement that looks like this:
 // INSERT INTO series_double(series_id,timestamp_ns,value) VALUES('cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production#usage_guest_nice#2016-01-01', 1451606400000000000, 38.2431182911542820)
-
 func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	seriesIDPrefix := make([]byte, 0, 256)
 	seriesIDPrefix = append(seriesIDPrefix, p.measurementName...)
