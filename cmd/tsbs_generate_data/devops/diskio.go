@@ -13,44 +13,39 @@ var (
 	DiskIOByteString = []byte("diskio") // heap optimization
 	SerialByteString = []byte("serial")
 
-	DiskIOFields = []LabeledDistributionMaker{
-		{[]byte("reads"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("writes"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(common.ND(100, 1), 0) }},
-		{[]byte("write_bytes"), func() common.Distribution { return common.MWD(common.ND(100, 1), 0) }},
-		{[]byte("read_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("write_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("io_time"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+	// Reuse NormalDistributions as arguments to other distributions. This is
+	// safe to do because the higher-level distribution advances the ND and
+	// immediately uses its value and saves the state
+	opsND   = common.ND(50, 1)
+	bytesND = common.ND(100, 1)
+	timeND  = common.ND(5, 1)
+
+	DiskIOFields = []labeledDistributionMaker{
+		{[]byte("reads"), func() common.Distribution { return common.MWD(opsND, 0) }},
+		{[]byte("writes"), func() common.Distribution { return common.MWD(opsND, 0) }},
+		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
+		{[]byte("write_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
+		{[]byte("read_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
+		{[]byte("write_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
+		{[]byte("io_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
 	}
 )
 
 type DiskIOMeasurement struct {
-	timestamp time.Time
-
-	serial        []byte
-	distributions []common.Distribution
+	*subsystemMeasurement
+	serial []byte
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
-	distributions := make([]common.Distribution, len(DiskIOFields))
+	sub := newSubsystemMeasurement(start, len(DiskIOFields))
 	for i := range DiskIOFields {
-		distributions[i] = DiskIOFields[i].DistributionMaker()
+		sub.distributions[i] = DiskIOFields[i].distributionMaker()
 	}
 
 	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
 	return &DiskIOMeasurement{
-		serial: serial,
-
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *DiskIOMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	for i := range m.distributions {
-		m.distributions[i].Advance()
+		subsystemMeasurement: sub,
+		serial:               serial,
 	}
 }
 
@@ -61,6 +56,6 @@ func (m *DiskIOMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendTag(SerialByteString, m.serial)
 
 	for i := range m.distributions {
-		p.AppendField(DiskIOFields[i].Label, int64(m.distributions[i].Get()))
+		p.AppendField(DiskIOFields[i].label, int64(m.distributions[i].Get()))
 	}
 }

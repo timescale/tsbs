@@ -11,43 +11,36 @@ import (
 var (
 	KernelByteString   = []byte("kernel") // heap optimization
 	BootTimeByteString = []byte("boot_time")
-	KernelFields       = []LabeledDistributionMaker{
-		{[]byte("interrupts"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("context_switches"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("processes_forked"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("disk_pages_in"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("disk_pages_out"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+
+	// Reuse NormalDistributions as arguments to other distributions. This is
+	// safe to do because the higher-level distribution advances the ND and
+	// immediately uses its value and saves the state
+	kernelND = common.ND(5, 1)
+
+	KernelFields = []labeledDistributionMaker{
+		{[]byte("interrupts"), func() common.Distribution { return common.MWD(kernelND, 0) }},
+		{[]byte("context_switches"), func() common.Distribution { return common.MWD(kernelND, 0) }},
+		{[]byte("processes_forked"), func() common.Distribution { return common.MWD(kernelND, 0) }},
+		{[]byte("disk_pages_in"), func() common.Distribution { return common.MWD(kernelND, 0) }},
+		{[]byte("disk_pages_out"), func() common.Distribution { return common.MWD(kernelND, 0) }},
 	}
 )
 
 type KernelMeasurement struct {
-	timestamp time.Time
-
-	bootTime      int64
-	uptime        time.Duration
-	distributions []common.Distribution
+	*subsystemMeasurement
+	bootTime int64
 }
 
 func NewKernelMeasurement(start time.Time) *KernelMeasurement {
-	distributions := make([]common.Distribution, len(KernelFields))
+	sub := newSubsystemMeasurement(start, len(KernelFields))
 	for i := range KernelFields {
-		distributions[i] = KernelFields[i].DistributionMaker()
+		sub.distributions[i] = KernelFields[i].distributionMaker()
 	}
 
 	bootTime := rand.Int63n(240)
 	return &KernelMeasurement{
-		bootTime: bootTime,
-
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *KernelMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	for i := range m.distributions {
-		m.distributions[i].Advance()
+		subsystemMeasurement: sub,
+		bootTime:             bootTime,
 	}
 }
 
@@ -57,6 +50,6 @@ func (m *KernelMeasurement) ToPoint(p *serialize.Point) {
 
 	p.AppendField(BootTimeByteString, m.bootTime)
 	for i := range m.distributions {
-		p.AppendField(KernelFields[i].Label, int64(m.distributions[i].Get()))
+		p.AppendField(KernelFields[i].label, int64(m.distributions[i].Get()))
 	}
 }

@@ -11,29 +11,31 @@ import (
 
 var (
 	CPUByteString = []byte("cpu") // heap optimization
-	CPUFieldKeys  = [][]byte{
-		[]byte("usage_user"),
-		[]byte("usage_system"),
-		[]byte("usage_idle"),
-		[]byte("usage_nice"),
-		[]byte("usage_iowait"),
-		[]byte("usage_irq"),
-		[]byte("usage_softirq"),
-		[]byte("usage_steal"),
-		[]byte("usage_guest"),
-		[]byte("usage_guest_nice"),
+	CPUFields     = []labeledDistributionMaker{
+		{[]byte("usage_user"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_system"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_idle"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_nice"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_iowait"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_irq"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_softirq"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_steal"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_guest"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
+		{[]byte("usage_guest_nice"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
 	}
 )
 
-var cpuND = &common.NormalDistribution{Mean: 0.0, StdDev: 1.0}
+// Reuse NormalDistributions as arguments to other distributions. This is
+// safe to do because the higher-level distribution advances the ND and
+// immediately uses its value and saves the state
+var cpuND = common.ND(0.0, 1.0)
 
 type CPUMeasurement struct {
-	timestamp     time.Time
-	distributions []common.Distribution
+	*subsystemMeasurement
 }
 
 func NewCPUMeasurement(start time.Time) *CPUMeasurement {
-	return newCPUMeasurementNumDistributions(start, len(CPUFieldKeys))
+	return newCPUMeasurementNumDistributions(start, len(CPUFields))
 }
 
 func newSingleCPUMeasurement(start time.Time) *CPUMeasurement {
@@ -41,26 +43,11 @@ func newSingleCPUMeasurement(start time.Time) *CPUMeasurement {
 }
 
 func newCPUMeasurementNumDistributions(start time.Time, numDistributions int) *CPUMeasurement {
-	distributions := make([]common.Distribution, numDistributions)
-	for i := range distributions {
-		distributions[i] = &common.ClampedRandomWalkDistribution{
-			State: rand.Float64() * 100.0,
-			Min:   0.0,
-			Max:   100.0,
-			Step:  cpuND,
-		}
+	sub := newSubsystemMeasurement(start, numDistributions)
+	for i := 0; i < numDistributions; i++ {
+		sub.distributions[i] = CPUFields[i].distributionMaker()
 	}
-	return &CPUMeasurement{
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *CPUMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-	for i := range m.distributions {
-		m.distributions[i].Advance()
-	}
+	return &CPUMeasurement{sub}
 }
 
 func (m *CPUMeasurement) ToPoint(p *serialize.Point) {
@@ -71,6 +58,6 @@ func (m *CPUMeasurement) ToPoint(p *serialize.Point) {
 		// Use ints for CPU metrics.
 		// The full float64 precision in the distributions list is bad for compression on some systems (e.g., ZFS).
 		// Anything above int precision is also not that common or useful for a devops CPU monitoring use case.
-		p.AppendField(CPUFieldKeys[i], math.Round(m.distributions[i].Get()))
+		p.AppendField(CPUFields[i].label, math.Round(m.distributions[i].Get()))
 	}
 }
