@@ -9,49 +9,44 @@ import (
 
 var (
 	PostgresqlByteString = []byte("postgresl") // heap optimization
-	PostgresqlFields     = []LabeledDistributionMaker{
-		{[]byte("numbackends"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("xact_commit"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("xact_rollback"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("blks_read"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("blks_hit"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("tup_returned"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("tup_fetched"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("tup_inserted"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("tup_updated"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("tup_deleted"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("conflicts"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("temp_files"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("temp_bytes"), func() common.Distribution { return common.CWD(common.ND(1024, 1), 0, 1024*1024*1024, 0) }},
-		{[]byte("deadlocks"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("blk_read_time"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
-		{[]byte("blk_write_time"), func() common.Distribution { return common.CWD(common.ND(5, 1), 0, 1000, 0) }},
+
+	// Reuse NormalDistributions as arguments to other distributions. This is
+	// safe to do because the higher-level distribution advances the ND and
+	// immediately uses its value and saves the state
+	pgND     = common.ND(5, 1)
+	pgHighND = common.ND(1024, 1)
+
+	PostgresqlFields = []labeledDistributionMaker{
+		{[]byte("numbackends"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("xact_commit"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("xact_rollback"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("blks_read"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("blks_hit"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("tup_returned"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("tup_fetched"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("tup_inserted"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("tup_updated"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("tup_deleted"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("conflicts"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("temp_files"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("temp_bytes"), func() common.Distribution { return common.CWD(pgHighND, 0, 1024*1024*1024, 0) }},
+		{[]byte("deadlocks"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("blk_read_time"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{[]byte("blk_write_time"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
 	}
 )
 
 type PostgresqlMeasurement struct {
-	timestamp     time.Time
-	distributions []common.Distribution
+	*subsystemMeasurement
 }
 
 func NewPostgresqlMeasurement(start time.Time) *PostgresqlMeasurement {
-	distributions := make([]common.Distribution, len(PostgresqlFields))
+	sub := newSubsystemMeasurement(start, len(PostgresqlFields))
 	for i := range PostgresqlFields {
-		distributions[i] = PostgresqlFields[i].DistributionMaker()
+		sub.distributions[i] = PostgresqlFields[i].distributionMaker()
 	}
 
-	return &PostgresqlMeasurement{
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *PostgresqlMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	for i := range m.distributions {
-		m.distributions[i].Advance()
-	}
+	return &PostgresqlMeasurement{sub}
 }
 
 func (m *PostgresqlMeasurement) ToPoint(p *serialize.Point) {
@@ -59,6 +54,6 @@ func (m *PostgresqlMeasurement) ToPoint(p *serialize.Point) {
 	p.SetTimestamp(&m.timestamp)
 
 	for i := range m.distributions {
-		p.AppendField(PostgresqlFields[i].Label, int64(m.distributions[i].Get()))
+		p.AppendField(PostgresqlFields[i].label, int64(m.distributions[i].Get()))
 	}
 }

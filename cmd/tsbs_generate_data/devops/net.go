@@ -15,46 +15,39 @@ var (
 		[]byte("interface"),
 	}
 
-	NetFields = []LabeledDistributionMaker{
-		{[]byte("bytes_sent"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("bytes_recv"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("packets_sent"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("packets_recv"), func() common.Distribution { return common.MWD(common.ND(50, 1), 0) }},
-		{[]byte("err_in"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("err_out"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("drop_in"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
-		{[]byte("drop_out"), func() common.Distribution { return common.MWD(common.ND(5, 1), 0) }},
+	// Reuse NormalDistributions as arguments to other distributions. This is
+	// safe to do because the higher-level distribution advances the ND and
+	// immediately uses its value and saves the state
+	highND = common.ND(50, 1)
+	lowND  = common.ND(5, 1)
+
+	NetFields = []labeledDistributionMaker{
+		{[]byte("bytes_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
+		{[]byte("bytes_recv"), func() common.Distribution { return common.MWD(highND, 0) }},
+		{[]byte("packets_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
+		{[]byte("packets_recv"), func() common.Distribution { return common.MWD(highND, 0) }},
+		{[]byte("err_in"), func() common.Distribution { return common.MWD(lowND, 0) }},
+		{[]byte("err_out"), func() common.Distribution { return common.MWD(lowND, 0) }},
+		{[]byte("drop_in"), func() common.Distribution { return common.MWD(lowND, 0) }},
+		{[]byte("drop_out"), func() common.Distribution { return common.MWD(lowND, 0) }},
 	}
 )
 
 type NetMeasurement struct {
-	timestamp time.Time
-
+	*subsystemMeasurement
 	interfaceName []byte
-	uptime        time.Duration
-	distributions []common.Distribution
 }
 
 func NewNetMeasurement(start time.Time) *NetMeasurement {
-	distributions := make([]common.Distribution, len(NetFields))
+	sub := newSubsystemMeasurement(start, len(NetFields))
 	for i := range NetFields {
-		distributions[i] = NetFields[i].DistributionMaker()
+		sub.distributions[i] = NetFields[i].distributionMaker()
 	}
 
 	interfaceName := []byte(fmt.Sprintf("eth%d", rand.Intn(4)))
 	return &NetMeasurement{
-		interfaceName: interfaceName,
-
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *NetMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	for i := range m.distributions {
-		m.distributions[i].Advance()
+		subsystemMeasurement: sub,
+		interfaceName:        interfaceName,
 	}
 }
 
@@ -65,6 +58,6 @@ func (m *NetMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendTag(NetTags[0], m.interfaceName)
 
 	for i := range m.distributions {
-		p.AppendField(RedisFields[i].Label, int64(m.distributions[i].Get()))
+		p.AppendField(RedisFields[i].label, int64(m.distributions[i].Get()))
 	}
 }

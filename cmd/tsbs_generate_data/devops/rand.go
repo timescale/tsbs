@@ -8,50 +8,32 @@ import (
 )
 
 var (
-	RandByteString      = []byte("rand")       // heap optimization
-	RandTotalByteString = []byte("rand-total") // heap optimization
-)
+	RandByteString = []byte("rand") // heap optimization
 
-var (
-	// Field keys for 'cpu' points.
-	RandFieldKeys = [][]byte{
-		[]byte("usage_user"),
-		[]byte("usage_system"),
-		[]byte("usage_idle"),
-		[]byte("usage_nice"),
-		[]byte("usage_iowait"),
-		[]byte("usage_irq"),
-		[]byte("usage_softirq"),
-		[]byte("usage_steal"),
-		[]byte("usage_guest"),
-		[]byte("usage_guest_nice"),
+	RandFields = []labeledDistributionMaker{
+		{[]byte("usage_user"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_system"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_idle"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_nice"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_iowait"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_irq"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_softirq"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_steal"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_guest"), func() common.Distribution { return common.UD(0.0, 100.0) }},
+		{[]byte("usage_guest_nice"), func() common.Distribution { return common.UD(0.0, 100.0) }},
 	}
 )
 
 type RandMeasurement struct {
-	timestamp     time.Time
-	distributions []common.Distribution
+	*subsystemMeasurement
 }
 
 func NewRandMeasurement(start time.Time) *RandMeasurement {
-	distributions := make([]common.Distribution, len(RandFieldKeys))
-	for i := range distributions {
-		distributions[i] = &common.UniformDistribution{
-			Low:  0.0,
-			High: 100.0,
-		}
+	sub := newSubsystemMeasurement(start, len(RandFields))
+	for i := range RandFields {
+		sub.distributions[i] = common.UD(0.0, 100.0)
 	}
-	return &RandMeasurement{
-		timestamp:     start,
-		distributions: distributions,
-	}
-}
-
-func (m *RandMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-	for i := range m.distributions {
-		m.distributions[i].Advance()
-	}
+	return &RandMeasurement{sub}
 }
 
 func (m *RandMeasurement) ToPoint(p *serialize.Point) {
@@ -59,6 +41,6 @@ func (m *RandMeasurement) ToPoint(p *serialize.Point) {
 	p.SetTimestamp(&m.timestamp)
 
 	for i := range m.distributions {
-		p.AppendField(RandFieldKeys[i], m.distributions[i].Get())
+		p.AppendField(RandFields[i].label, m.distributions[i].Get())
 	}
 }

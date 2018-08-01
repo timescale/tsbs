@@ -9,7 +9,10 @@ import (
 	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
-const OneTerabyte = 1 << 40
+const (
+	OneTerabyte = 1 << 40
+	inodeSize   = 4096
+)
 
 var (
 	DiskByteString        = []byte("disk") // heap optimization
@@ -33,29 +36,23 @@ var (
 )
 
 type DiskMeasurement struct {
-	timestamp time.Time
+	*subsystemMeasurement
 
-	path, fsType  []byte
-	uptime        time.Duration
-	freeBytesDist common.Distribution
+	path, fsType []byte
+	uptime       time.Duration
 }
 
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 	path := []byte(fmt.Sprintf("/dev/sda%d", rand.Intn(10)))
 	fsType := DiskFSTypeChoices[rand.Intn(len(DiskFSTypeChoices))]
+	sub := newSubsystemMeasurement(start, 1)
+	sub.distributions[0] = common.CWD(common.ND(50, 1), 0, OneTerabyte, OneTerabyte/2)
+
 	return &DiskMeasurement{
-		path:   path,
-		fsType: fsType,
-
-		timestamp:     start,
-		freeBytesDist: common.CWD(common.ND(50, 1), 0, OneTerabyte, OneTerabyte/2),
+		subsystemMeasurement: sub,
+		path:                 path,
+		fsType:               fsType,
 	}
-}
-
-func (m *DiskMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	m.freeBytesDist.Advance()
 }
 
 func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
@@ -66,16 +63,15 @@ func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendTag(DiskTags[1], m.fsType)
 
 	// the only thing that actually changes is the free byte count:
-	free := int64(m.freeBytesDist.Get())
+	free := int64(m.distributions[0].Get())
 
 	total := int64(OneTerabyte)
 	used := total - free
 	usedPercent := int64(100.0 * (float64(used) / float64(total)))
 
-	// inodes are 4096b in size:
-	inodesTotal := total / 4096
-	inodesFree := free / 4096
-	inodesUsed := used / 4096
+	inodesTotal := total / inodeSize
+	inodesFree := free / inodeSize
+	inodesUsed := used / inodeSize
 
 	p.AppendField(TotalByteString, total)
 	p.AppendField(FreeByteString, free)

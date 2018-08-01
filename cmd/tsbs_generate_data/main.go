@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
@@ -227,9 +228,16 @@ func getSerializer(sim common.Simulator, format string, out *bufio.Writer) seria
 			out.Write(key)
 		}
 		out.WriteString("\n")
-		for measurementName, fields := range sim.Fields() {
+		// sort the keys so the header is deterministic
+		keys := make([]string, 0)
+		fields := sim.Fields()
+		for k := range fields {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, measurementName := range keys {
 			out.WriteString(measurementName)
-			for _, field := range fields {
+			for _, field := range fields[measurementName] {
 				out.WriteString(",")
 				out.Write(field)
 

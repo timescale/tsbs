@@ -30,59 +30,29 @@ var (
 )
 
 type MemMeasurement struct {
-	// this doesn't change:
-	bytesTotal int64
-
-	// these change:
-	timestamp                                         time.Time
-	bytesUsedDist, bytesCachedDist, bytesBufferedDist common.Distribution
+	*subsystemMeasurement
+	bytesTotal int64 // this doesn't change
 }
 
 func NewMemMeasurement(start time.Time) *MemMeasurement {
+	sub := newSubsystemMeasurement(start, 3)
 	bytesTotal := MemoryMaxBytesChoices[rand.Intn(len(MemoryMaxBytesChoices))]
-	bytesUsedDist := &common.ClampedRandomWalkDistribution{
-		State: rand.Float64() * float64(bytesTotal),
-		Min:   0.0,
-		Max:   float64(bytesTotal),
-		Step: &common.NormalDistribution{
-			Mean:   0.0,
-			StdDev: float64(bytesTotal) / 64,
-		},
-	}
-	bytesCachedDist := &common.ClampedRandomWalkDistribution{
-		State: rand.Float64() * float64(bytesTotal),
-		Min:   0.0,
-		Max:   float64(bytesTotal),
-		Step: &common.NormalDistribution{
-			Mean:   0.0,
-			StdDev: float64(bytesTotal) / 64,
-		},
-	}
-	bytesBufferedDist := &common.ClampedRandomWalkDistribution{
-		State: rand.Float64() * float64(bytesTotal),
-		Min:   0.0,
-		Max:   float64(bytesTotal),
-		Step: &common.NormalDistribution{
-			Mean:   0.0,
-			StdDev: float64(bytesTotal) / 64,
-		},
-	}
+
+	// Reuse NormalDistributions as arguments to other distributions. This is
+	// safe to do because the higher-level distribution advances the ND and
+	// immediately uses its value and saves the state
+	nd := common.ND(0.0, float64(bytesTotal)/64)
+
+	// used bytes
+	sub.distributions[0] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
+	// cached bytes
+	sub.distributions[1] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
+	// buffered bytes
+	sub.distributions[2] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
 	return &MemMeasurement{
-		timestamp: start,
-
-		bytesTotal:        bytesTotal,
-		bytesUsedDist:     bytesUsedDist,
-		bytesCachedDist:   bytesCachedDist,
-		bytesBufferedDist: bytesBufferedDist,
+		subsystemMeasurement: sub,
+		bytesTotal:           bytesTotal,
 	}
-}
-
-func (m *MemMeasurement) Tick(d time.Duration) {
-	m.timestamp = m.timestamp.Add(d)
-
-	m.bytesUsedDist.Advance()
-	m.bytesCachedDist.Advance()
-	m.bytesBufferedDist.Advance()
 }
 
 func (m *MemMeasurement) ToPoint(p *serialize.Point) {
@@ -90,9 +60,9 @@ func (m *MemMeasurement) ToPoint(p *serialize.Point) {
 	p.SetTimestamp(&m.timestamp)
 
 	total := m.bytesTotal
-	used := m.bytesUsedDist.Get()
-	cached := m.bytesCachedDist.Get()
-	buffered := m.bytesBufferedDist.Get()
+	used := m.distributions[0].Get()
+	cached := m.distributions[1].Get()
+	buffered := m.distributions[2].Get()
 
 	p.AppendField(MemoryFieldKeys[0], total)
 	p.AppendField(MemoryFieldKeys[1], int(math.Floor(float64(total)-used)))
