@@ -32,22 +32,17 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 // We currently only support a 1-line:1-metric mapping for Cassandra. Implement
 // other functions here to support other formats.
 func singleMetricToInsertStatement(text string) string {
-	const numTags = 11 // TODO: make number of tags dynamic
-	var insertStatement = "INSERT INTO %s(series_id, timestamp_ns, value) VALUES('%s#%s#%s', %s, %s)"
-
+	insertStatement := "INSERT INTO %s(series_id, timestamp_ns, value) VALUES('%s#%s#%s', %s, %s)"
 	parts := strings.Split(text, ",")
-
-	// Each line must consist of a table name, all comma separated tags, the measurement type, a day bucket, a timestamp, and a value
-	if len(parts) != numTags+5 {
-		log.Fatalf("Format error: Invalid number of values on CSV line")
-	}
+	tagsBeginIndex := 1                  // list of tags begins after the table name
+	tagsEndIndex := (len(parts) - 1) - 4 // list of tags ends right before the last 4 parts of the line
 
 	table := parts[0]
-	tags := strings.Join(parts[1:numTags+1], ",") // offset: table
-	measurementName := parts[numTags+1]           // offset: table + numTags
-	dayBucket := parts[numTags+2]                 // offset: table + numTags + measurementName
-	timestampNS := parts[numTags+3]               // offset: table + numTags + numTags + measurementName + dayBucket
-	value := parts[numTags+4]                     // offset: table + numTags + timestamp + measurementName + dayBucket + timestampNS
+	tags := strings.Join(parts[tagsBeginIndex:tagsEndIndex+1], ",") // offset: table
+	measurementName := parts[tagsEndIndex+1]                        // offset: table + numTags
+	dayBucket := parts[tagsEndIndex+2]                              // offset: table + numTags + measurementName
+	timestampNS := parts[tagsEndIndex+3]                            // offset: table + numTags + numTags + measurementName + dayBucket
+	value := parts[tagsEndIndex+4]                                  // offset: table + numTags + timestamp + measurementName + dayBucket + timestampNS
 
 	return fmt.Sprintf(insertStatement, table, tags, measurementName, dayBucket, timestampNS, value)
 }
