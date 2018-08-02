@@ -2,6 +2,7 @@ package serialize
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -27,9 +28,12 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	}
 
 	tags := []flatbuffers.UOffsetT{}
-	for k, v := range tagsMap {
+	// In order to keep the ordering the same on deserialization, we need
+	// to go in reverse order since we are prepending rather than appending.
+	for i := len(p.tagKeys); i > 0; i-- {
+		k := string(p.tagKeys[i-1])
 		key := b.CreateString(k)
-		val := b.CreateString(v)
+		val := b.CreateString(tagsMap[k])
 		MongoTagStart(b)
 		MongoTagAddKey(b, key)
 		MongoTagAddValue(b, val)
@@ -42,12 +46,24 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	tagsArr := b.EndVector(len(tags))
 
 	fields := []flatbuffers.UOffsetT{}
-	for k, v := range fieldsMap {
+	// In order to keep the ordering the same on deserialization, we need
+	// to go in reverse order since we are prepending rather than appending.
+	for i := len(p.fieldKeys); i > 0; i-- {
+		k := string(p.fieldKeys[i-1])
 		key := b.CreateString(k)
-		val := v.(float64)
 		MongoReadingStart(b)
 		MongoReadingAddKey(b, key)
-		MongoReadingAddValue(b, val)
+		v := fieldsMap[k]
+		switch val := v.(type) {
+		case float64:
+			MongoReadingAddValue(b, val)
+		case int:
+			MongoReadingAddValue(b, float64(val))
+		case int64:
+			MongoReadingAddValue(b, float64(val))
+		default:
+			panic(fmt.Sprintf("cannot covert %T to float64", val))
+		}
 		fields = append(fields, MongoReadingEnd(b))
 	}
 	MongoPointStartFieldsVector(b, len(fields))

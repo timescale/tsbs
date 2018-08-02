@@ -14,7 +14,7 @@ func TestCassandraSerializerSerialize(t *testing.T) {
 		{
 			desc:       "a regular Point using int as value",
 			inputPoint: testPointInt,
-			output:     "series_bigint,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest_nice,2016-01-01,1451606400000000000,38\n",
+			output:     "series_bigint,cpu,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,usage_guest,2016-01-01,1451606400000000000,38\n",
 		},
 		{
 			desc:       "a Point with no tags",

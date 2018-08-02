@@ -130,7 +130,7 @@ func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) 
 		// Determine which document this event belongs too
 		ts := event.Timestamp()
 		dateKey := time.Unix(0, ts).UTC().Format(aggDateFmt)
-		docKey := fmt.Sprintf("day_%s_%s", tagsMap["hostname"], dateKey)
+		docKey := fmt.Sprintf("day_%s_%s_%s", tagsMap["hostname"], dateKey, string(event.MeasurementName()))
 
 		// Check that it has been created using a cached map, if not, add
 		// to creation queue
