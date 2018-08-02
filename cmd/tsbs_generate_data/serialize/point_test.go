@@ -6,42 +6,56 @@ import (
 	"time"
 )
 
-var testNow = time.Unix(1451606400, 0)
+var (
+	testNow         = time.Unix(1451606400, 0)
+	testMeasurement = []byte("cpu")
+	testTagKeys     = [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")}
+	testTagVals     = [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")}
+	testColFloat    = []byte("usage_guest_nice")
+	testColInt      = []byte("usage_guest")
+	testColInt64    = []byte("big_usage_guest")
+)
+
+const (
+	testFloat = float64(38.24311829)
+	testInt   = 38
+	testInt64 = int64(5000000000)
+)
 
 var testPointDefault = &Point{
-	measurementName: []byte("cpu"),
-	tagKeys:         [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")},
-	tagValues:       [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")},
+	measurementName: testMeasurement,
+	tagKeys:         testTagKeys,
+	tagValues:       testTagVals,
 	timestamp:       &testNow,
-	fieldKeys:       [][]byte{[]byte("usage_guest_nice")},
-	fieldValues:     []interface{}{float64(38.24311829)},
+	fieldKeys:       [][]byte{testColFloat},
+	fieldValues:     []interface{}{testFloat},
 }
 
 var testPointMultiField = &Point{
-	measurementName: []byte("cpu"),
-	tagKeys:         [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")},
-	tagValues:       [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")},
+	measurementName: testMeasurement,
+	tagKeys:         testTagKeys,
+	tagValues:       testTagVals,
 	timestamp:       &testNow,
-	fieldKeys:       [][]byte{[]byte("usage_guest"), []byte("usage_guest_nice")},
-	fieldValues:     []interface{}{38, float64(38.24311829)},
+	fieldKeys:       [][]byte{testColInt64, testColInt, testColFloat},
+	fieldValues:     []interface{}{testInt64, testInt, testFloat},
 }
 
 var testPointInt = &Point{
-	measurementName: []byte("cpu"),
-	tagKeys:         [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")},
-	tagValues:       [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")},
+	measurementName: testMeasurement,
+	tagKeys:         testTagKeys,
+	tagValues:       testTagVals,
 	timestamp:       &testNow,
-	fieldKeys:       [][]byte{[]byte("usage_guest_nice")},
-	fieldValues:     []interface{}{38},
+	fieldKeys:       [][]byte{testColInt},
+	fieldValues:     []interface{}{testInt},
 }
 
 var testPointNoTags = &Point{
-	measurementName: []byte("cpu"),
+	measurementName: testMeasurement,
 	tagKeys:         [][]byte{},
 	tagValues:       [][]byte{},
 	timestamp:       &testNow,
-	fieldKeys:       [][]byte{[]byte("usage_guest_nice")},
-	fieldValues:     []interface{}{float64(38.24311829)},
+	fieldKeys:       [][]byte{testColFloat},
+	fieldValues:     []interface{}{testFloat},
 }
 
 type serializeCase struct {
