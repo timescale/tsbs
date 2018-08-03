@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
 	"bitbucket.org/440-labs/tsbs/query"
 )
 
@@ -24,16 +25,19 @@ func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewCassandra()
 }
 
-func (d *Devops) getHostWhere(nHosts int) []string {
-	hostnames := d.GetRandomHosts(nHosts)
-
+func (d *Devops) getHostWhereWithHostnames(hostnames []string) []string {
 	tagSet := []string{}
 	for _, hostname := range hostnames {
-		tag := fmt.Sprintf("hostname=%s", hostname)
+		tag := "hostname=" + hostname
 		tagSet = append(tagSet, tag)
 	}
 
 	return tagSet
+}
+
+func (d *Devops) getHostWhere(nHosts int) []string {
+	hostnames := d.GetRandomHosts(nHosts)
+	return d.getHostWhereWithHostnames(hostnames)
 }
 
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu',
@@ -54,19 +58,10 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	tagSets = append(tagSets, tagSet)
 
 	humanLabel := fmt.Sprintf("Cassandra %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "max", metrics, interval, tagSets)
 	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-
-	q.AggregationType = []byte("max")
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(metrics, ","))
-
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
 	q.GroupByDuration = time.Minute
-
-	q.TagSets = tagSets
 }
 
 // GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
@@ -76,18 +71,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
+	interval.Start = d.Interval.Start
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (random end)"
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "max", []string{"usage_user"}, interval, nil)
 	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString()))
-
-	q.AggregationType = []byte("max")
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte("usage_user")
-
-	q.TimeStart = d.Interval.Start
-	q.TimeEnd = interval.End
 	q.GroupByDuration = time.Minute
 	q.OrderBy = []byte("timestamp_ns DESC")
 	q.Limit = 5
@@ -105,16 +94,9 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Cassandra", numMetrics)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "avg", metrics, interval, nil)
 	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-
-	q.AggregationType = []byte("avg")
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(metrics, ","))
-
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
 	q.GroupByDuration = time.Hour
 }
 
@@ -133,34 +115,19 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	tagSets = append(tagSets, tagSet)
 
 	humanLabel := devops.GetMaxAllLabel("Cassandra", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "max", devops.GetAllCPUMetrics(), interval, tagSets)
 	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
-
-	q.AggregationType = []byte("max")
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(devops.GetAllCPUMetrics(), ","))
-
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
 	q.GroupByDuration = time.Hour
-
 	q.TagSets = tagSets
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
 func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Cassandra last row per host"
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "", devops.GetAllCPUMetrics(), d.Interval, nil)
 	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString()))
-
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(devops.GetAllCPUMetrics(), ","))
-
-	q.TimeStart = d.Interval.Start
-	q.TimeEnd = d.Interval.End
-
 	q.ForEveryN = []byte("hostname,1")
 }
 
@@ -182,18 +149,24 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	}
 
 	humanLabel := devops.GetHighCPULabel("Cassandra", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, "", devops.GetAllCPUMetrics(), interval, tagSets)
+	q := qi.(*query.Cassandra)
+	q.GroupByDuration = time.Hour
+	q.WhereClause = []byte("usage_user,>,90.0")
+}
+
+func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval utils.TimeInterval, tagSets [][]string) {
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(fmt.Sprintf("%s: %s", humanLabel, interval.StartString()))
+	q.HumanDescription = []byte(humanDesc)
 
-	q.AggregationType = []byte("")
+	q.AggregationType = []byte(aggType)
 	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(devops.GetAllCPUMetrics(), ","))
+	q.FieldName = []byte(strings.Join(fields, ","))
 
 	q.TimeStart = interval.Start
 	q.TimeEnd = interval.End
-	q.GroupByDuration = time.Hour
-	q.WhereClause = []byte("usage_user,>,90.0")
 
 	q.TagSets = tagSets
 }

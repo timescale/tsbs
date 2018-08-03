@@ -98,19 +98,19 @@ func TestDevopsFillInQuery(t *testing.T) {
 	}
 
 	d.fillInQuery(q, humanLabel, humanDesc, influxql)
-	if string(q.HumanLabel) != humanLabel {
-		t.Errorf("filled query mislabeled: got %s want %s", string(q.HumanLabel), humanLabel)
+	if got := string(q.HumanLabel); got != humanLabel {
+		t.Errorf("filled query mislabeled: got %s want %s", got, humanLabel)
 	}
-	if string(q.HumanDescription) != humanDesc {
-		t.Errorf("filled query mis-described: got %s want %s", string(q.HumanDescription), humanDesc)
+	if got := string(q.HumanDescription); got != humanDesc {
+		t.Errorf("filled query mis-described: got %s want %s", got, humanDesc)
 	}
-	if string(q.Method) != "GET" {
-		t.Errorf("filled query has wrong method: got %s want GET", string(q.Method))
+	if got := string(q.Method); got != "GET" {
+		t.Errorf("filled query has wrong method: got %s want GET", got)
 	}
 	v := url.Values{}
 	v.Set("q", influxql)
 	encoded := v.Encode()
-	if string(q.Path) != "/query?"+encoded {
-		t.Errorf("filled query has wrong path: got %s want /query?%s", string(q.Path), encoded)
+	if got := string(q.Path); got != "/query?"+encoded {
+		t.Errorf("filled query has wrong path: got %s want /query?%s", got, encoded)
 	}
 }
