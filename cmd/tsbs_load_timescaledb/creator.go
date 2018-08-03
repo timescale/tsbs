@@ -115,7 +115,7 @@ func (d *dbCreator) CreateDB(dbName string) error {
 				indexes = append(indexes, d.getCreateIndexOnFieldCmds(hypertable, field, idxType)...)
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s)", hypertable, strings.Join(fieldDef, ",")))
+		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", hypertable, strings.Join(fieldDef, ",")))
 		if partitionIndex {
 			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
 		}
