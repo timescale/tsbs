@@ -1,7 +1,8 @@
 # Time Series Benchmark Suite (TSBS)
 This repo contains code for benchmarking several time series databases,
 including TimescaleDB, MongoDB, InfluxDB, and Cassandra.
-This code is a fork of work initially made public by InfluxDB at https://github.com/influxdata/influxdb-comparisons.
+This code is based on a fork of work initially made public by InfluxDB
+at https://github.com/influxdata/influxdb-comparisons.
 
 Current databases supported:
 
@@ -38,11 +39,11 @@ with readings in the dataset. Each unique set of tags identifies
 one host in the dataset and the number of different hosts generated is
 defined by the `scale-var` flag (see below).
 
-## What TSBS tests
+## What the TSBS tests
 
 TSBS is used to benchmark bulk load performance and
-query execution performance (but currently does not measure
-concurrent insert and query performance, a future priority).
+query execution performance. (It currently does not measure
+concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
 wherever possible to connect to each database (e.g., `mgo` for MongoDB).
@@ -175,7 +176,7 @@ flags. To find the flags for a particular database, use the `-help` flag
 Instead of calling these binaries directly, we also supply
 `scripts/load_<database>.sh` for convenience with many of the flags set
 to a reasonable default for some of the databases.
-So for loading into TimescaleDB, ensure thatTimescaleDB is running and
+So for loading into TimescaleDB, ensure that TimescaleDB is running and
 then use:
 ```bash
 # Will insert using 2 clients, batch sizes of 10k, from a file
