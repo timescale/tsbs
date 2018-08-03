@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const insertCSI = `INSERT INTO %s(time,tags_id,%s%s) VALUES %s`
+const insertCSI = `INSERT INTO %s(time,tags_id,%s%s,additional_tags) VALUES %s`
 
 type syncCSI struct {
 	m     map[string]int64
@@ -29,10 +29,24 @@ func newSyncCSI() *syncCSI {
 // therefore all workers need to know about the same map from hostname -> tags_id
 var globalSyncCSI = newSyncCSI()
 
+func subsystemTagsToJSON(tags []string) string {
+	json := "'{"
+	for i, t := range tags {
+		args := strings.Split(t, "=")
+		if i > 0 {
+			json += ","
+		}
+		json += fmt.Sprintf("\"%s\": \"%s\"", args[0], args[1])
+	}
+	json += "}'"
+	return json
+}
+
 func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
 	tagCols := tableCols["tags"]
 	cols := tagCols
 	values := make([]string, 0)
+	commonTagsLen := len(tagCols)
 	if useJSON {
 		cols = []string{"tagset"}
 		for _, row := range tagRows {
@@ -41,14 +55,14 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 				if i != 0 {
 					json += ","
 				}
-				json += fmt.Sprintf("\"%s\": \"%s\"", k, row[i])
+				json += fmt.Sprintf("\"%s\":\"%s\"", k, row[i])
 			}
 			json += "}')"
 			values = append(values, json)
 		}
 	} else {
 		for _, val := range tagRows {
-			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:10], "','")))
+			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','")))
 		}
 	}
 	tx := db.MustBegin()
@@ -92,8 +106,21 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	tagRows := make([][]string, 0, len(rows))
 	dataRows := make([]string, 0, len(rows))
 	ret := uint64(0)
+	commonTagsLen := len(tableCols["tags"])
 	for _, data := range rows {
-		tags := strings.Split(data.tags, ",")
+		// Split the tags into individual common tags and an extra bit leftover
+		// for non-common tags that need to be added separately. For each of
+		// the common tags, remove everything after = in the form <label>=<val>
+		// since we won't need it.
+		tags := strings.SplitN(data.tags, ",", commonTagsLen+1)
+		for i := 0; i < commonTagsLen; i++ {
+			tags[i] = strings.Split(tags[i], "=")[1]
+		}
+		json := "NULL"
+		if len(tags) > commonTagsLen {
+			json = subsystemTagsToJSON(strings.Split(tags[commonTagsLen], ","))
+		}
+
 		metrics := strings.Split(data.fields, ",")
 		ret += uint64(len(metrics) - 1) // 1 field is timestamp
 
@@ -110,13 +137,13 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		// therefore we put the %s returned by the Join inside of '' to solve the problem
 		var r string
 		if inTableTag {
-			r = fmt.Sprintf("('%s','[REPLACE_CSI]', '%s', '%s')", ts, tags[0], strings.Join(metrics[1:], "', '"))
+			r = fmt.Sprintf("('%s','[REPLACE_CSI]', '%s', '%s', %s)", ts, tags[0], strings.Join(metrics[1:], "', '"), json)
 		} else {
-			r = fmt.Sprintf("('%s', '[REPLACE_CSI]', '%s')", ts, strings.Join(metrics[1:], "', '"))
+			r = fmt.Sprintf("('%s', '[REPLACE_CSI]', '%s', %s)", ts, strings.Join(metrics[1:], "', '"), json)
 		}
 
 		dataRows = append(dataRows, r)
-		tagRows = append(tagRows, tags[:10])
+		tagRows = append(tagRows, tags)
 	}
 
 	// Check if any of these tags has yet to be inserted

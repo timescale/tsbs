@@ -19,8 +19,10 @@ func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
 	// Tag row first, prefixed with name 'tags'
 	buf := make([]byte, 0, 256)
 	buf = append(buf, []byte("tags")...)
-	for _, v := range p.tagValues {
+	for i, v := range p.tagValues {
 		buf = append(buf, ',')
+		buf = append(buf, p.tagKeys[i]...)
+		buf = append(buf, '=')
 		buf = append(buf, v...)
 	}
 	buf = append(buf, '\n')
@@ -35,9 +37,8 @@ func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
 	buf = append(buf, ',')
 	buf = append(buf, []byte(fmt.Sprintf("%d", p.timestamp.UTC().UnixNano()))...)
 
-	for i := 0; i < len(p.fieldKeys); i++ {
+	for _, v := range p.fieldValues {
 		buf = append(buf, ',')
-		v := p.fieldValues[i]
 		buf = fastFormatAppend(v, buf)
 	}
 	buf = append(buf, '\n')
