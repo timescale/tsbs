@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	MemoryByteString = []byte("mem") // heap optimization
+	labelMem = []byte("mem") // heap optimization
 
 	// Choices for modeling a host's memory capacity.
 	MemoryMaxBytesChoices = []int64{8 << 30, 12 << 30, 16 << 30}
@@ -56,7 +56,7 @@ func NewMemMeasurement(start time.Time) *MemMeasurement {
 }
 
 func (m *MemMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(MemoryByteString)
+	p.SetMeasurementName(labelMem)
 	p.SetTimestamp(&m.timestamp)
 
 	total := m.bytesTotal

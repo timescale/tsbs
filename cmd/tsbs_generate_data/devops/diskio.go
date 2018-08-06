@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	DiskIOByteString = []byte("diskio") // heap optimization
+	labelDiskIO      = []byte("diskio") // heap optimization
 	SerialByteString = []byte("serial")
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
@@ -37,11 +37,7 @@ type DiskIOMeasurement struct {
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
-	sub := newSubsystemMeasurement(start, len(DiskIOFields))
-	for i := range DiskIOFields {
-		sub.distributions[i] = DiskIOFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, DiskIOFields)
 	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
 	return &DiskIOMeasurement{
 		subsystemMeasurement: sub,
@@ -50,12 +46,6 @@ func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
 }
 
 func (m *DiskIOMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(DiskIOByteString)
-	p.SetTimestamp(&m.timestamp)
-
+	m.toPointAllInt64(p, labelDiskIO, DiskIOFields)
 	p.AppendTag(SerialByteString, m.serial)
-
-	for i := range m.distributions {
-		p.AppendField(DiskIOFields[i].label, int64(m.distributions[i].Get()))
-	}
 }

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	PostgresqlByteString = []byte("postgresl") // heap optimization
+	labelPostgresql = []byte("postgresl") // heap optimization
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -41,19 +41,10 @@ type PostgresqlMeasurement struct {
 }
 
 func NewPostgresqlMeasurement(start time.Time) *PostgresqlMeasurement {
-	sub := newSubsystemMeasurement(start, len(PostgresqlFields))
-	for i := range PostgresqlFields {
-		sub.distributions[i] = PostgresqlFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, PostgresqlFields)
 	return &PostgresqlMeasurement{sub}
 }
 
 func (m *PostgresqlMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(PostgresqlByteString)
-	p.SetTimestamp(&m.timestamp)
-
-	for i := range m.distributions {
-		p.AppendField(PostgresqlFields[i].label, int64(m.distributions[i].Get()))
-	}
+	m.toPointAllInt64(p, labelPostgresql, PostgresqlFields)
 }

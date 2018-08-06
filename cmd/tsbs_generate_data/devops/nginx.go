@@ -10,12 +10,9 @@ import (
 )
 
 var (
-	NginxByteString = []byte("nginx") // heap optimization
-
-	NginxTags = [][]byte{
-		[]byte("port"),
-		[]byte("server"),
-	}
+	labelNginx          = []byte("nginx") // heap optimization
+	labelNginxTagPort   = []byte("port")
+	labelNginxTagServer = []byte("server")
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -39,11 +36,7 @@ type NginxMeasurement struct {
 }
 
 func NewNginxMeasurement(start time.Time) *NginxMeasurement {
-	sub := newSubsystemMeasurement(start, len(NginxFields))
-	for i := range NginxFields {
-		sub.distributions[i] = NginxFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, NginxFields)
 	serverName := []byte(fmt.Sprintf("nginx_%d", rand.Intn(100000)))
 	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &NginxMeasurement{
@@ -54,13 +47,7 @@ func NewNginxMeasurement(start time.Time) *NginxMeasurement {
 }
 
 func (m *NginxMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(NginxByteString)
-	p.SetTimestamp(&m.timestamp)
-
-	p.AppendTag(NginxTags[0], m.port)
-	p.AppendTag(NginxTags[1], m.serverName)
-
-	for i := range m.distributions {
-		p.AppendField(NginxFields[i].label, int64(m.distributions[i].Get()))
-	}
+	m.toPointAllInt64(p, labelNginx, NginxFields)
+	p.AppendTag(labelNginxTagPort, m.port)
+	p.AppendTag(labelNginxTagServer, m.serverName)
 }

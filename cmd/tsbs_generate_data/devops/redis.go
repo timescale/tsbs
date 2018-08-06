@@ -10,16 +10,12 @@ import (
 )
 
 var (
-	RedisByteString = []byte("redis") // heap optimization
+	labelRedis            = []byte("redis") // heap optimization
+	labelRedisTagPort     = []byte("port")
+	labelRedisTagServer   = []byte("server")
+	labelRedisFieldUptime = []byte("uptime_in_seconds")
 
-	RedisUptime = []byte("uptime_in_seconds")
-
-	SixteenGB = float64(16 * 1024 * 1024 * 1024)
-
-	RedisTags = [][]byte{
-		[]byte("port"),
-		[]byte("server"),
-	}
+	sixteenGB = float64(16 * 1024 * 1024 * 1024)
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -38,10 +34,10 @@ var (
 		{[]byte("instantaneous_input_kbps"), func() common.Distribution { return common.WD(common.ND(1, 1), 0) }},
 		{[]byte("instantaneous_output_kbps"), func() common.Distribution { return common.WD(common.ND(1, 1), 0) }},
 		{[]byte("connected_clients"), func() common.Distribution { return common.CWD(redisHighND, 0, 10000, 0) }},
-		{[]byte("used_memory"), func() common.Distribution { return common.CWD(redisHighND, 0, SixteenGB, SixteenGB/2) }},
-		{[]byte("used_memory_rss"), func() common.Distribution { return common.CWD(redisHighND, 0, SixteenGB, SixteenGB/2) }},
-		{[]byte("used_memory_peak"), func() common.Distribution { return common.CWD(redisHighND, 0, SixteenGB, SixteenGB/2) }},
-		{[]byte("used_memory_lua"), func() common.Distribution { return common.CWD(redisHighND, 0, SixteenGB, SixteenGB/2) }},
+		{[]byte("used_memory"), func() common.Distribution { return common.CWD(redisHighND, 0, sixteenGB, sixteenGB/2) }},
+		{[]byte("used_memory_rss"), func() common.Distribution { return common.CWD(redisHighND, 0, sixteenGB, sixteenGB/2) }},
+		{[]byte("used_memory_peak"), func() common.Distribution { return common.CWD(redisHighND, 0, sixteenGB, sixteenGB/2) }},
+		{[]byte("used_memory_lua"), func() common.Distribution { return common.CWD(redisHighND, 0, sixteenGB, sixteenGB/2) }},
 		{[]byte("rdb_changes_since_last_save"), func() common.Distribution { return common.CWD(redisHighND, 0, 10000, 0) }},
 
 		{[]byte("sync_full"), func() common.Distribution { return common.CWD(redisLowND, 0, 1000, 0) }},
@@ -71,11 +67,7 @@ type RedisMeasurement struct {
 }
 
 func NewRedisMeasurement(start time.Time) *RedisMeasurement {
-	sub := newSubsystemMeasurement(start, len(RedisFields))
-	for i := range RedisFields {
-		sub.distributions[i] = RedisFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, RedisFields)
 	serverName := []byte(fmt.Sprintf("redis_%d", rand.Intn(100000)))
 	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &RedisMeasurement{
@@ -92,14 +84,8 @@ func (m *RedisMeasurement) Tick(d time.Duration) {
 }
 
 func (m *RedisMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(RedisByteString)
-	p.SetTimestamp(&m.timestamp)
-
-	p.AppendTag(RedisTags[0], m.port)
-	p.AppendTag(RedisTags[1], m.serverName)
-
-	p.AppendField(RedisUptime, int64(m.uptime.Seconds()))
-	for i := range m.distributions {
-		p.AppendField(RedisFields[i].label, int64(m.distributions[i].Get()))
-	}
+	p.AppendField(labelRedisFieldUptime, int64(m.uptime.Seconds()))
+	m.toPointAllInt64(p, labelRedis, RedisFields)
+	p.AppendTag(labelRedisTagPort, m.port)
+	p.AppendTag(labelRedisTagServer, m.serverName)
 }
