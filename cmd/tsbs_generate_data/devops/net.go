@@ -10,10 +10,8 @@ import (
 )
 
 var (
-	NetByteString = []byte("net") // heap optimization
-	NetTags       = [][]byte{
-		[]byte("interface"),
-	}
+	labelNet             = []byte("net") // heap optimization
+	labelNetTagInterface = []byte("interface")
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -39,11 +37,7 @@ type NetMeasurement struct {
 }
 
 func NewNetMeasurement(start time.Time) *NetMeasurement {
-	sub := newSubsystemMeasurement(start, len(NetFields))
-	for i := range NetFields {
-		sub.distributions[i] = NetFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, NetFields)
 	interfaceName := []byte(fmt.Sprintf("eth%d", rand.Intn(4)))
 	return &NetMeasurement{
 		subsystemMeasurement: sub,
@@ -52,12 +46,6 @@ func NewNetMeasurement(start time.Time) *NetMeasurement {
 }
 
 func (m *NetMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(NetByteString)
-	p.SetTimestamp(&m.timestamp)
-
-	p.AppendTag(NetTags[0], m.interfaceName)
-
-	for i := range m.distributions {
-		p.AppendField(RedisFields[i].label, int64(m.distributions[i].Get()))
-	}
+	m.toPointAllInt64(p, labelNet, NetFields)
+	p.AppendTag(labelNetTagInterface, m.interfaceName)
 }

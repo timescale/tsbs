@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	DiskByteString        = []byte("disk") // heap optimization
+	labelDisk             = []byte("disk") // heap optimization
 	TotalByteString       = []byte("total")
 	FreeByteString        = []byte("free")
 	UsedByteString        = []byte("used")
@@ -56,7 +56,7 @@ func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 }
 
 func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(DiskByteString)
+	p.SetMeasurementName(labelDisk)
 	p.SetTimestamp(&m.timestamp)
 
 	p.AppendTag(DiskTags[0], m.path)

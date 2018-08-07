@@ -292,7 +292,7 @@ actual query results so that you can compare across databases that the
 results are the same. Using the flag `-print-responses` will return
 the results.
 
-## Appendix I: Query types
+## Appendix I: Query types <a name="appendix-i-query-types"></a>
 
 ### Devops / cpu-only
 |Query type|Description|

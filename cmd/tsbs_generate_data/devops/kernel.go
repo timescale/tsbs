@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	KernelByteString   = []byte("kernel") // heap optimization
+	labelKernel        = []byte("kernel") // heap optimization
 	BootTimeByteString = []byte("boot_time")
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
@@ -32,11 +32,7 @@ type KernelMeasurement struct {
 }
 
 func NewKernelMeasurement(start time.Time) *KernelMeasurement {
-	sub := newSubsystemMeasurement(start, len(KernelFields))
-	for i := range KernelFields {
-		sub.distributions[i] = KernelFields[i].distributionMaker()
-	}
-
+	sub := newSubsystemMeasurementWithDistributionMakers(start, KernelFields)
 	bootTime := rand.Int63n(240)
 	return &KernelMeasurement{
 		subsystemMeasurement: sub,
@@ -45,11 +41,6 @@ func NewKernelMeasurement(start time.Time) *KernelMeasurement {
 }
 
 func (m *KernelMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(KernelByteString)
-	p.SetTimestamp(&m.timestamp)
-
 	p.AppendField(BootTimeByteString, m.bootTime)
-	for i := range m.distributions {
-		p.AppendField(KernelFields[i].label, int64(m.distributions[i].Get()))
-	}
+	m.toPointAllInt64(p, labelKernel, KernelFields)
 }

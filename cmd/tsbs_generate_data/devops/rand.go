@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	RandByteString = []byte("rand") // heap optimization
+	labelRand = []byte("rand") // heap optimization
 
 	RandFields = []labeledDistributionMaker{
 		{[]byte("usage_user"), func() common.Distribution { return common.UD(0.0, 100.0) }},
@@ -29,18 +29,10 @@ type RandMeasurement struct {
 }
 
 func NewRandMeasurement(start time.Time) *RandMeasurement {
-	sub := newSubsystemMeasurement(start, len(RandFields))
-	for i := range RandFields {
-		sub.distributions[i] = common.UD(0.0, 100.0)
-	}
+	sub := newSubsystemMeasurementWithDistributionMakers(start, RandFields)
 	return &RandMeasurement{sub}
 }
 
 func (m *RandMeasurement) ToPoint(p *serialize.Point) {
-	p.SetMeasurementName(RandByteString)
-	p.SetTimestamp(&m.timestamp)
-
-	for i := range m.distributions {
-		p.AppendField(RandFields[i].label, m.distributions[i].Get())
-	}
+	m.toPoint(p, labelRand, RandFields)
 }
