@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"bitbucket.org/440-labs/tsbs/load"
+	"github.com/timescale/tsbs/load"
 )
 
 func TestBatch(t *testing.T) {

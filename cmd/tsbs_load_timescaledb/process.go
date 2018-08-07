@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/timescale/tsbs/load"
 )
 
 const insertCSI = `INSERT INTO %s(time,tags_id,%s%s,additional_tags) VALUES %s`

@@ -12,8 +12,8 @@ import (
 	"log"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/gocql/gocql"
+	"github.com/timescale/tsbs/query"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
-	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/load"
 )
 
 type hostnameIndexer struct {

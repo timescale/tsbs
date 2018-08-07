@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/gocql/gocql"
+	"github.com/timescale/tsbs/load"
 )
 
 // Program option vars:

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/timescale/tsbs/query"
 )
 
 // Program option vars:

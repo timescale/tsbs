@@ -4,9 +4,9 @@ import (
 	"log"
 	"sync"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
-	"bitbucket.org/440-labs/tsbs/load"
 	"github.com/globalsign/mgo"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/load"
 )
 
 // naiveBenchmark allows you to run a benchmark using the naive, one document per

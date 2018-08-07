@@ -11,9 +11,9 @@ import (
 	"log"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/timescale/tsbs/query"
 )
 
 // Program option vars:
