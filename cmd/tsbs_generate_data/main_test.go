@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"testing"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/devops"
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 func TestValidateFormat(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
-	"bitbucket.org/440-labs/tsbs/query"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/timescale/tsbs/query"
 )
 
 const (

@@ -1,8 +1,8 @@
 package devops
 
 import (
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/utils"
-	"bitbucket.org/440-labs/tsbs/query"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/timescale/tsbs/query"
 )
 
 // GroupByOrderByLimit produces a filler for queries in the devops groupby-orderby-limit case.

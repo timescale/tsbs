@@ -7,9 +7,9 @@ import (
 	"io"
 	"log"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
-	"bitbucket.org/440-labs/tsbs/load"
 	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/load"
 )
 
 type decoder struct {

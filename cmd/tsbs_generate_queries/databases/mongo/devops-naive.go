@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"bitbucket.org/440-labs/tsbs/query"
 	"github.com/globalsign/mgo/bson"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/timescale/tsbs/query"
 )
 
 func init() {

@@ -10,7 +10,7 @@ import (
 	"log"
 	"strings"
 
-	"bitbucket.org/440-labs/tsbs/query"
+	"github.com/timescale/tsbs/query"
 )
 
 // Program option vars:

@@ -5,7 +5,7 @@ import (
 	"hash/fnv"
 	"strings"
 
-	"bitbucket.org/440-labs/tsbs/load"
+	"github.com/timescale/tsbs/load"
 )
 
 // hostnameIndexer is used to consistently send the same hostnames to the same worker

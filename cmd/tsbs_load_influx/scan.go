@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"strings"
 
-	"bitbucket.org/440-labs/tsbs/load"
+	"github.com/timescale/tsbs/load"
 )
 
 const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"

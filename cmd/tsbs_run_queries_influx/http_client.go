@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/query"
+	"github.com/timescale/tsbs/query"
 )
 
 var bytesSlash = []byte("/") // heap optimization

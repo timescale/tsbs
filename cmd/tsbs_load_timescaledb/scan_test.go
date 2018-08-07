@@ -7,7 +7,7 @@ import (
 	"log"
 	"testing"
 
-	"bitbucket.org/440-labs/tsbs/load"
+	"github.com/timescale/tsbs/load"
 )
 
 func TestHypertableArr(t *testing.T) {

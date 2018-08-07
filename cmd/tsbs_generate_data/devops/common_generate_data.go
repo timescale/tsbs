@@ -3,8 +3,8 @@ package devops
 import (
 	"time"
 
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/common"
-	"bitbucket.org/440-labs/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 type commonDevopsSimulator struct {
