@@ -42,7 +42,7 @@ func newSingleCPUMeasurement(start time.Time) *CPUMeasurement {
 }
 
 func newCPUMeasurementNumDistributions(start time.Time, numDistributions int) *CPUMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, CPUFields)
+	sub := newSubsystemMeasurementWithDistributionMakers(start, CPUFields[:numDistributions])
 	return &CPUMeasurement{sub}
 }
 
