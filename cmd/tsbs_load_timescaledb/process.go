@@ -31,7 +31,7 @@ func newSyncCSI() *syncCSI {
 var globalSyncCSI = newSyncCSI()
 
 func subsystemTagsToJSON(tags []string) string {
-	json := "'{"
+	json := "{"
 	for i, t := range tags {
 		args := strings.Split(t, "=")
 		if i > 0 {
@@ -39,7 +39,7 @@ func subsystemTagsToJSON(tags []string) string {
 		}
 		json += fmt.Sprintf("\"%s\": \"%s\"", args[0], args[1])
 	}
-	json += "}'"
+	json += "}"
 	return json
 }
 
