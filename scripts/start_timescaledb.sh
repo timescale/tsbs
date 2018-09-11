@@ -1,6 +1,8 @@
 #!/bin/bash
+
 PG_VER=${PG_VER:-10}
 MEM=${MEM:-`free -m | grep "Mem" | awk '{print $7}'`}
+
 let "SHARED=$MEM/4"
 let "CACHE=2*$MEM/3"
 let "WORK=($MEM-$SHARED)/30"

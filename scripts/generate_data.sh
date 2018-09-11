@@ -1,26 +1,66 @@
 #!/bin/bash
 
-binName=$(which tsbs_generate_data)
-dataDir=${dataDir:-/tmp}
+# Ensure generator is available
+EXE_FILE_NAME=${EXE_FILE_NAME:-$(which tsbs_generate_data)}
+if [[ -z "$EXE_FILE_NAME" ]]; then
+    echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
+    exit 1
+fi
 
-formats=${formats:-"timescaledb"}
-scaleVar=${scaleVar:-"4000"}
-seed=${seed:-"123"}
-tsStart=${tsStart:-"2016-01-01T00:00:00Z"}
-tsEnd=${tsEnd:-"2016-01-04T00:00:00Z"}
-useCase=${useCase:-"cpu-only"}
-logInterval=${logInterval:-"10s"}
+# Data folder
+BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 
-mkdir -p ${dataDir}
+# Space-separated list of target DB formats to generate
+FORMATS=${FORMATS:-"timescaledb"}
 
-pushd ${dataDir}
+# Number of hosts to generate data about
+SCALE=${SCALE:-"4000"}
 
-for format in ${formats}
-do
-    fname="data_${format}_${useCase}_${scaleVar}_${tsStart}_${tsEnd}_${logInterval}_${seed}.dat.gz"
-    echo "Generating $fname:"
-    if [ ! -f "$fname" ]; then
-        $binName -format $format -scale-var $scaleVar -seed $seed -timestamp-end $tsEnd -timestamp-start $tsStart -log-interval $logInterval -use-case $useCase | gzip > $fname
-        ln -s $fname ${format}-data.gz
+# Rand seed
+SEED=${SEED:-"123"}
+
+# Start and stop time for generated timeseries
+TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
+TS_END=${TS_END:-"2016-01-04T00:00:00Z"}
+
+# What set of data to generate: devops (multiple data), cpu-only (cpu-usage data)
+USE_CASE=${USE_CASE:-"cpu-only"}
+
+# Step to generate data
+LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
+
+# Ensure DATA DIR available
+mkdir -p ${BULK_DATA_DIR}
+chmod a+rwx ${BULK_DATA_DIR}
+
+pushd ${BULK_DATA_DIR}
+
+# Loop over all requested target formats and generate data
+for FORMAT in ${FORMATS}; do
+    DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}.dat.gz"
+    if [ -f "$DATA_FILE_NAME" ]; then
+        echo "WARNING: file $DATA_FILE_NAME already exists, skip generating new data"
+    else
+        echo "Generating $DATA_FILE_NAME:"
+        $EXE_FILE_NAME \
+            -format $FORMAT \
+            -scale-var $SCALE \
+            -seed $SEED \
+            -timestamp-start $TS_START \
+            -timestamp-end $TS_END \
+            -log-interval $LOG_INTERVAL \
+            -use-case $USE_CASE \
+        | gzip > $DATA_FILE_NAME
+
+        # Make short symlink for convenience
+        SYMLINK_NAME="${FORMAT}-data.gz"
+
+        rm $SYMLINK_NAME 2> /dev/null
+        ln -s $DATA_FILE_NAME $SYMLINK_NAME
+
+        # Make files accessible by everyone
+        chmod a+rw $DATA_FILE_NAME $SYMLINK_NAME
+
+        ls -lh $SYMLINK_NAME
     fi
 done
