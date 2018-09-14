@@ -12,7 +12,6 @@ DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
 DATABASE_USER=${DATABASE_USER:-postgres}
 
 # Load parameters - personal
-PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-10s}
 CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-1}
 HASH_WORKERS=${HASH_WORKERS:-false}
@@ -37,7 +36,7 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --user=${DATABASE_USER} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-                                --reporting-period=${PROGRESS_INTERVAL} \
+                                --reporting-period=${REPORTING_PERIOD} \
                                 --use-hypertable=${USE_HYPERTABLE} \
                                 --use-jsonb-tags=${JSON_TAGS} \
                                 --in-table-partition-tag=${IN_TABLE_PARTITION_TAG} \
