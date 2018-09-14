@@ -11,9 +11,6 @@ fi
 DATA_FILE_NAME=${DATA_FILE_NAME:-influx-data.gz}
 DATABASE_PORT=${DATABASE_PORT:-8086}
 
-# Load parameters - personal
-PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-20s}
-
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
 
@@ -30,5 +27,5 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --backoff=${BACKOFF_SECS} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-                                --reporting-period=${PROGRESS_INTERVAL} \
+                                --reporting-period=${REPORTING_PERIOD} \
                                 --urls=http://${DATABASE_HOST}:${DATABASE_PORT}
