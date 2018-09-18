@@ -133,8 +133,8 @@ func (d *dbCreator) CreateDB(dbName string) error {
 			dbBench.MustExec(idxDef)
 		}
 
+		dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 		if useHypertable {
-			dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 			dbBench.MustExec(
 				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
 					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))

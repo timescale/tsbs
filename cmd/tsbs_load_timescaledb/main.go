@@ -73,7 +73,7 @@ func init() {
 
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
-	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
+	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check speed against regular PostgreSQL.")
 	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc

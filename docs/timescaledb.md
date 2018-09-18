@@ -55,7 +55,7 @@ in the connection string will be overridden with the values from the flags
 #### `-use-hypertable` (type: `boolean`, default: `true`)
 
 Whether to actually use TimescaleDB's hypertable for storing data. Set to
-`false` to measure the insert/write performance of plain PostgreSQL.
+`false` to measure performance of plain PostgreSQL.
 
 #### `-user` (type: `string`, default: `postgres`)
 
