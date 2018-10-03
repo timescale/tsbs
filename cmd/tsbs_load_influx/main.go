@@ -8,14 +8,12 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
-	"fmt"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/load"
-	"github.com/valyala/fasthttp"
 )
 
 // Program option vars:
@@ -97,89 +95,4 @@ func main() {
 	}
 
 	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
-}
-
-type processor struct {
-	backingOffChan chan bool
-	backingOffDone chan struct{}
-	httpWriter     *HTTPWriter
-}
-
-func (p *processor) Init(numWorker int, _ bool) {
-	daemonURL := daemonURLs[numWorker%len(daemonURLs)]
-	p.backingOffChan = make(chan bool, 100)
-	p.backingOffDone = make(chan struct{})
-	cfg := HTTPWriterConfig{
-		DebugInfo:      fmt.Sprintf("worker #%d, dest url: %s", numWorker, daemonURL),
-		Host:           daemonURL,
-		Database:       loader.DatabaseName(),
-		BackingOffChan: p.backingOffChan,
-		BackingOffDone: p.backingOffDone,
-	}
-	p.httpWriter = NewHTTPWriter(cfg, consistency)
-	go processBackoffMessages(numWorker, p.backingOffChan, p.backingOffDone)
-}
-
-func (p *processor) Close(_ bool) {
-	close(p.backingOffChan)
-	<-p.backingOffDone
-}
-
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
-	batch := b.(*batch)
-
-	// Write the batch: try until backoff is not needed.
-	if doLoad {
-		var err error
-		for {
-			if useGzip {
-				compressedBatch := bufPool.Get().(*bytes.Buffer)
-				fasthttp.WriteGzip(compressedBatch, batch.buf.Bytes())
-				_, err = p.httpWriter.WriteLineProtocol(compressedBatch.Bytes(), true)
-				// Return the compressed batch buffer to the pool.
-				compressedBatch.Reset()
-				bufPool.Put(compressedBatch)
-			} else {
-				_, err = p.httpWriter.WriteLineProtocol(batch.buf.Bytes(), false)
-			}
-
-			if err == BackoffError {
-				p.backingOffChan <- true
-				time.Sleep(backoff)
-			} else {
-				p.backingOffChan <- false
-				break
-			}
-		}
-		if err != nil {
-			log.Fatalf("Error writing: %s\n", err.Error())
-		}
-	}
-	metricCnt := batch.metrics
-	rowCnt := batch.rows
-
-	// Return the batch buffer to the pool.
-	batch.buf.Reset()
-	bufPool.Put(batch.buf)
-	return metricCnt, rowCnt
-}
-
-func processBackoffMessages(workerID int, src chan bool, dst chan struct{}) {
-	var totalBackoffSecs float64
-	var start time.Time
-	last := false
-	for this := range src {
-		if this && !last {
-			start = time.Now()
-			last = true
-		} else if !this && last {
-			took := time.Now().Sub(start)
-			fmt.Printf("[worker %d] backoff took %.02fsec\n", workerID, took.Seconds())
-			totalBackoffSecs += took.Seconds()
-			last = false
-			start = time.Now()
-		}
-	}
-	fmt.Printf("[worker %d] backoffs took a total of %fsec of runtime\n", workerID, totalBackoffSecs)
-	dst <- struct{}{}
 }

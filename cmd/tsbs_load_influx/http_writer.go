@@ -11,15 +11,21 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+const (
+	httpClientName        = "tsbs_load_influx"
+	headerContentEncoding = "Content-Encoding"
+	headerGzip            = "gzip"
+)
+
 var (
-	BackoffError        error  = fmt.Errorf("backpressure is needed")
-	backoffMagicWords0  []byte = []byte("engine: cache maximum memory size exceeded")
-	backoffMagicWords1  []byte = []byte("write failed: hinted handoff queue not empty")
-	backoffMagicWords2a []byte = []byte("write failed: read message type: read tcp")
-	backoffMagicWords2b []byte = []byte("i/o timeout")
-	backoffMagicWords3  []byte = []byte("write failed: engine: cache-max-memory-size exceeded")
-	backoffMagicWords4  []byte = []byte("timeout")
-	backoffMagicWords5  []byte = []byte("write failed: can not exceed max connections of 500")
+	errBackoff          = fmt.Errorf("backpressure is needed")
+	backoffMagicWords0  = []byte("engine: cache maximum memory size exceeded")
+	backoffMagicWords1  = []byte("write failed: hinted handoff queue not empty")
+	backoffMagicWords2a = []byte("write failed: read message type: read tcp")
+	backoffMagicWords2b = []byte("i/o timeout")
+	backoffMagicWords3  = []byte("write failed: engine: cache-max-memory-size exceeded")
+	backoffMagicWords4  = []byte("timeout")
+	backoffMagicWords5  = []byte("write failed: can not exceed max connections of 500")
 )
 
 // HTTPWriterConfig is the configuration used to create an HTTPWriter.
@@ -29,9 +35,6 @@ type HTTPWriterConfig struct {
 
 	// Name of the target database into which points will be written.
 	Database string
-
-	BackingOffChan chan bool
-	BackingOffDone chan struct{}
 
 	// Debug label for more informative errors.
 	DebugInfo string
@@ -49,7 +52,7 @@ type HTTPWriter struct {
 func NewHTTPWriter(c HTTPWriterConfig, consistency string) *HTTPWriter {
 	return &HTTPWriter{
 		client: fasthttp.Client{
-			Name: "bulk_load_influx",
+			Name: httpClientName,
 		},
 
 		c:   c,
@@ -58,40 +61,47 @@ func NewHTTPWriter(c HTTPWriterConfig, consistency string) *HTTPWriter {
 }
 
 var (
-	post      = []byte("POST")
-	textPlain = []byte("text/plain")
+	methodPost = []byte("POST")
+	textPlain  = []byte("text/plain")
 )
 
-// WriteLineProtocol writes the given byte slice to the HTTP server described in the Writer's HTTPWriterConfig.
-// It returns the latency in nanoseconds and any error received while sending the data over HTTP,
-// or it returns a new error if the HTTP response isn't as expected.
-func (w *HTTPWriter) WriteLineProtocol(body []byte, isGzip bool) (int64, error) {
-	req := fasthttp.AcquireRequest()
+func (w *HTTPWriter) initializeReq(req *fasthttp.Request, body []byte, isGzip bool) {
 	req.Header.SetContentTypeBytes(textPlain)
-	req.Header.SetMethodBytes(post)
+	req.Header.SetMethodBytes(methodPost)
 	req.Header.SetRequestURIBytes(w.url)
 	if isGzip {
-		req.Header.Add("Content-Encoding", "gzip")
+		req.Header.Add(headerContentEncoding, headerGzip)
 	}
 	req.SetBody(body)
+}
 
-	resp := fasthttp.AcquireResponse()
+func (w *HTTPWriter) executeReq(req *fasthttp.Request, resp *fasthttp.Response) (int64, error) {
 	start := time.Now()
 	err := w.client.Do(req, resp)
 	lat := time.Since(start).Nanoseconds()
 	if err == nil {
 		sc := resp.StatusCode()
 		if sc == 500 && backpressurePred(resp.Body()) {
-			err = BackoffError
+			err = errBackoff
 		} else if sc != fasthttp.StatusNoContent {
 			err = fmt.Errorf("[DebugInfo: %s] Invalid write response (status %d): %s", w.c.DebugInfo, sc, resp.Body())
 		}
 	}
-
-	fasthttp.ReleaseResponse(resp)
-	fasthttp.ReleaseRequest(req)
-
 	return lat, err
+}
+
+// WriteLineProtocol writes the given byte slice to the HTTP server described in the Writer's HTTPWriterConfig.
+// It returns the latency in nanoseconds and any error received while sending the data over HTTP,
+// or it returns a new error if the HTTP response isn't as expected.
+func (w *HTTPWriter) WriteLineProtocol(body []byte, isGzip bool) (int64, error) {
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+	w.initializeReq(req, body, isGzip)
+
+	resp := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(resp)
+
+	return w.executeReq(req, resp)
 }
 
 func backpressurePred(body []byte) bool {
