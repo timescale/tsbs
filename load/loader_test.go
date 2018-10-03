@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func (p *testProcessor) Close(_ bool) {
 
 type testBenchmark struct {
 	processors []*testProcessor
-	offset     int
+	offset     int64
 }
 
 func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) PointDecoder { return nil }
@@ -39,8 +40,8 @@ func (b *testBenchmark) GetBatchFactory() BatchFactory { return nil }
 func (b *testBenchmark) GetPointIndexer(maxPartitions uint) PointIndexer { return &ConstantIndexer{} }
 
 func (b *testBenchmark) GetProcessor() Processor {
-	idx := b.offset
-	b.offset++
+	idx := atomic.AddInt64(&b.offset, 1)
+	idx--
 	return b.processors[idx]
 }
 
@@ -214,9 +215,12 @@ func TestSummary(t *testing.T) {
 
 func TestReport(t *testing.T) {
 	var b bytes.Buffer
-	counter := 0
+	counter := int64(0)
+	var m sync.Mutex
 	printFn = func(s string, args ...interface{}) (n int, err error) {
-		counter++
+		atomic.AddInt64(&counter, 1)
+		m.Lock()
+		defer m.Unlock()
 		return fmt.Fprintf(&b, s, args...)
 	}
 	br := &BenchmarkRunner{}
@@ -224,31 +228,35 @@ func TestReport(t *testing.T) {
 	go br.report(duration)
 
 	time.Sleep(25 * time.Millisecond)
-	if got := counter; counter != 1 {
+	if got := atomic.LoadInt64(&counter); got != 1 {
 		t.Errorf("TestReport: header count check incorrect: got %d want %d", got, 1)
 	}
 
 	time.Sleep(duration)
-	if got := counter; counter != 2 {
+	if got := atomic.LoadInt64(&counter); got != 2 {
 		t.Errorf("TestReport: counter check incorrect (1): got %d want %d", got, 2)
 	}
 
 	time.Sleep(duration)
-	if got := counter; counter != 3 {
+	if got := atomic.LoadInt64(&counter); got != 3 {
 		t.Errorf("TestReport: counter check incorrect (2): got %d want %d", got, 3)
 	}
+	m.Lock()
 	end := strings.TrimSpace(string(b.Bytes()))
+	m.Unlock()
 	if end[len(end)-1:len(end)] != "-" {
 		t.Errorf("TestReport: non-row report does not end in -")
 	}
 
 	// update row count so line is different
-	br.rowCnt = 1
+	atomic.StoreUint64(&br.rowCnt, 1)
 	time.Sleep(duration)
-	if got := counter; counter != 4 {
+	if got := atomic.LoadInt64(&counter); got != 4 {
 		t.Errorf("TestReport: counter check incorrect (1): got %d want %d", got, 4)
 	}
+	m.Lock()
 	end = strings.TrimSpace(string(b.Bytes()))
+	m.Unlock()
 	if end[len(end)-1:len(end)] == "-" {
 		t.Errorf("TestReport: row report ends in -")
 	}
