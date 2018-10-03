@@ -4,5 +4,12 @@ go:
   - 1.9.x
   - 1.10.x
 
+before_install:
+  - go get -t -v ./...
+
 script:
   - go test -v ./...
+  - ./.coverage_tests.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
