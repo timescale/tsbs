@@ -7,6 +7,39 @@ import (
 	"testing"
 )
 
+func TestDBCreatorInit(t *testing.T) {
+	buf := "\n\n\n"
+	cases := []struct {
+		desc    string
+		connStr string
+		want    string
+	}{
+		{
+			desc:    "no dbname replacement needed",
+			connStr: "host=localhost user=foo",
+			want:    "host=localhost user=foo",
+		},
+		{
+			desc:    "replace once",
+			connStr: "host=localhost dbname=test1 user=foo",
+			want:    "host=localhost  user=foo",
+		},
+		{
+			desc:    "replace more",
+			connStr: "dbname=test2 host=localhost dbname=test1 user=foo dbname=test3",
+			want:    "host=localhost  user=foo",
+		},
+	}
+	for _, c := range cases {
+		br := bufio.NewReader(bytes.NewBufferString(buf))
+		dbc := &dbCreator{br: br, connStr: c.connStr}
+		dbc.Init()
+		if got := dbc.connStr; got != c.want {
+			t.Errorf("%s: incorrect connstr: got %s want %s", c.desc, got, c.want)
+		}
+	}
+}
+
 func TestDBCreatorReadDataHeader(t *testing.T) {
 	cases := []struct {
 		desc         string

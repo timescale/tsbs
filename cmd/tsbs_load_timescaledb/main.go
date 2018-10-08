@@ -117,7 +117,7 @@ func (b *benchmark) GetProcessor() load.Processor {
 }
 
 func (b *benchmark) GetDBCreator() load.DBCreator {
-	return &dbCreator{}
+	return &dbCreator{br: loader.GetBufferedReader(), connStr: getConnectString()}
 }
 
 func main() {
