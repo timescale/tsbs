@@ -10,18 +10,18 @@ import (
 )
 
 type dbCreator struct {
+	br      *bufio.Reader
 	tags    string
 	cols    []string
 	connStr string
 }
 
 func (d *dbCreator) Init() {
-	br := loader.GetBufferedReader()
-	d.readDataHeader(br)
+	d.readDataHeader(d.br)
 
 	// Needed to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
-	d.connStr = re.ReplaceAllString(getConnectString(), "")
+	d.connStr = strings.TrimSpace(re.ReplaceAllString(d.connStr, ""))
 }
 
 func (d *dbCreator) readDataHeader(br *bufio.Reader) {

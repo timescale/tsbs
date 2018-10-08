@@ -10,6 +10,60 @@ import (
 	"github.com/timescale/tsbs/load"
 )
 
+func TestHostnameIndexer(t *testing.T) {
+	tagRows := make([]string, 1000, 1000)
+	for i := range tagRows {
+		tagRows[i] = fmt.Sprintf("host%d,foo", i)
+	}
+	p := &point{
+		hypertable: "foo",
+		row:        &insertData{fields: "0.0,1.0,2.0"},
+	}
+
+	// single partition check
+	indexer := &hostnameIndexer{1}
+	for _, r := range tagRows {
+		p.row.tags = r
+		idx := indexer.GetIndex(load.NewPoint(p))
+		if idx != 0 {
+			t.Errorf("did not get idx 0 for single partition")
+		}
+	}
+
+	// multiple partition check
+	cases := []uint{2, 10, 100}
+	for _, n := range cases {
+		parts := uint(n)
+		indexer = &hostnameIndexer{parts}
+		counts := make([]int, parts, parts)
+		verifier := make(map[string]int)
+		for _, r := range tagRows {
+			p.row.tags = r
+			idx := indexer.GetIndex(load.NewPoint(p))
+			// check that the partition is not out of bounds
+			if idx >= int(parts) {
+				t.Errorf("got too large a partition: got %d want %d", idx, parts)
+			}
+			counts[idx]++
+			verifier[r] = idx
+		}
+		// with 1000 items, very unlikely some partition is empty
+		for _, c := range counts {
+			if c == 0 {
+				t.Errorf("unlikely result of 0 results in a partition for %d partitions", parts)
+			}
+		}
+		// now rerun to verify same tag goes to same idx
+		for _, r := range tagRows {
+			p.row.tags = r
+			idx := indexer.GetIndex(load.NewPoint(p))
+			if idx != verifier[r] {
+				t.Errorf("indexer returned a different result on %d partitions: got %d want %d", parts, idx, verifier[r])
+			}
+		}
+	}
+}
+
 func TestHypertableArr(t *testing.T) {
 	f := &factory{}
 	ha := f.New().(*hypertableArr)
