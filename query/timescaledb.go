@@ -62,6 +62,7 @@ func (q *TimescaleDB) HumanDescriptionName() []byte {
 func (q *TimescaleDB) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.id = 0
 
 	q.Hypertable = q.Hypertable[:0]
 	q.SqlQuery = q.SqlQuery[:0]
