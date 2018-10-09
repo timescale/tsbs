@@ -77,6 +77,7 @@ func (q *Cassandra) HumanDescriptionName() []byte {
 func (q *Cassandra) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.id = 0
 
 	q.MeasurementName = q.MeasurementName[:0]
 	q.FieldName = q.FieldName[:0]

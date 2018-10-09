@@ -67,6 +67,7 @@ func (q *HTTP) HumanDescriptionName() []byte {
 func (q *HTTP) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.id = 0
 	q.Method = q.Method[:0]
 	q.Path = q.Path[:0]
 	q.Body = q.Body[:0]

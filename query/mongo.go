@@ -14,7 +14,7 @@ type Mongo struct {
 	HumanDescription []byte
 	CollectionName   []byte
 	BsonDoc          []bson.M
-	ID               uint64
+	id               uint64
 }
 
 // MongoPool is a sync.Pool of Mongo Query types
@@ -36,12 +36,12 @@ func NewMongo() *Mongo {
 
 // GetID returns the ID of this Query
 func (q *Mongo) GetID() uint64 {
-	return q.ID
+	return q.id
 }
 
 // SetID sets the ID for this Query
 func (q *Mongo) SetID(id uint64) {
-	q.ID = id
+	q.id = id
 }
 
 // String produces a debug-ready description of a Query.
@@ -63,6 +63,7 @@ func (q *Mongo) HumanDescriptionName() []byte {
 func (q *Mongo) Release() {
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
+	q.id = 0
 	q.CollectionName = q.CollectionName[:0]
 	q.BsonDoc = nil
 
