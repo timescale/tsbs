@@ -28,25 +28,249 @@ func (p *testProcessor) Close(_ bool) {
 	p.closed = true
 }
 
+type testCreator struct {
+	exists    bool
+	errRemove bool
+	errCreate bool
+
+	initCalled   bool
+	createCalled bool
+	removeCalled bool
+	postCalled   bool
+	closedCalled bool
+}
+
+func (c *testCreator) Init() {
+	c.initCalled = true
+}
+func (c *testCreator) DBExists(dbName string) bool {
+	return c.exists
+}
+func (c *testCreator) CreateDB(dbName string) error {
+	c.createCalled = true
+	if c.errCreate {
+		return fmt.Errorf("create error")
+	}
+	return nil
+}
+func (c *testCreator) RemoveOldDB(dbName string) error {
+	c.removeCalled = true
+	if c.errRemove {
+		return fmt.Errorf("remove error")
+	}
+	return nil
+}
+
+type testCreatorPost struct {
+	testCreator
+}
+
+func (c *testCreatorPost) PostCreateDB(dbName string) error {
+	c.postCalled = true
+	return nil
+}
+
+type testCreatorClose struct {
+	testCreator
+}
+
+func (c *testCreatorClose) Close() {
+	c.closedCalled = true
+}
+
 type testBenchmark struct {
 	processors []*testProcessor
 	offset     int64
 }
 
-func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) PointDecoder { return nil }
-
-func (b *testBenchmark) GetBatchFactory() BatchFactory { return nil }
-
+func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) PointDecoder    { return nil }
+func (b *testBenchmark) GetBatchFactory() BatchFactory                   { return nil }
 func (b *testBenchmark) GetPointIndexer(maxPartitions uint) PointIndexer { return &ConstantIndexer{} }
-
 func (b *testBenchmark) GetProcessor() Processor {
 	idx := atomic.AddInt64(&b.offset, 1)
 	idx--
 	return b.processors[idx]
 }
-
 func (b *testBenchmark) GetDBCreator() DBCreator {
 	return nil
+}
+
+func TestGetBufferedReader(t *testing.T) {
+	r := &BenchmarkRunner{}
+	br := r.br
+	if br != nil {
+		t.Errorf("initial buffered reader is non-nil")
+	}
+	// TODO Filename not yet supported
+	r.filename = "foo"
+	br = r.GetBufferedReader()
+	if br != nil {
+		t.Errorf("filename returned a non-nil buffered reader")
+	}
+	// Should give a non-nil bufio.Reader now
+	r.filename = ""
+	br = r.GetBufferedReader()
+	if br == nil {
+		t.Errorf("non-filename returned a nil buffered reader")
+	}
+	// Test that it returns same bufio.Reader as before
+	old := br
+	br = r.GetBufferedReader()
+	if br != old {
+		t.Errorf("different buffered reader returned after previously set")
+	}
+}
+
+func TestUseDBCreator(t *testing.T) {
+	cases := []struct {
+		desc         string
+		doLoad       bool
+		exists       bool
+		abortOnExist bool
+		doCreate     bool
+		doPost       bool
+		doClose      bool
+
+		shouldPanic bool
+		errRemove   bool
+		errCreate   bool
+	}{
+		{
+			desc:   "doLoad is false",
+			doLoad: false,
+		},
+		{
+			desc:         "doLoad is true, nothing else",
+			doLoad:       true,
+			exists:       false,
+			abortOnExist: false,
+			doCreate:     false,
+		},
+		{
+			desc:     "doLoad, doCreate = true",
+			doLoad:   true,
+			doCreate: true,
+		},
+		{
+			desc:     "doLoad, doCreate, exists = true",
+			doLoad:   true,
+			doCreate: true,
+			exists:   true,
+		},
+		{
+			desc:     "post create = true",
+			doLoad:   true,
+			exists:   false,
+			doCreate: true,
+			doPost:   true,
+		},
+		{
+			desc:    "close = true",
+			doLoad:  true,
+			exists:  false,
+			doClose: true,
+		},
+		{
+			desc:         "exists, doAbortOnExist = true, should panic",
+			doLoad:       true,
+			exists:       true,
+			abortOnExist: true,
+			shouldPanic:  true,
+		},
+		{
+			desc:        "removeDB errs, should panic",
+			doLoad:      true,
+			doCreate:    true,
+			exists:      true,
+			errRemove:   true,
+			shouldPanic: true,
+		},
+
+		{
+			desc:        "createDB errs, should panic",
+			doLoad:      true,
+			doCreate:    true,
+			exists:      true,
+			errCreate:   true,
+			shouldPanic: true,
+		},
+	}
+	testPanic := func(r *BenchmarkRunner, dbc DBCreator, desc string) {
+		defer func() {
+			if re := recover(); re == nil {
+				t.Errorf("%s: did not panic when should", desc)
+			}
+		}()
+		_ = r.useDBCreator(dbc)
+	}
+	for _, c := range cases {
+		r := &BenchmarkRunner{
+			doLoad:         c.doLoad,
+			doCreateDB:     c.doCreate,
+			doAbortOnExist: c.abortOnExist,
+		}
+		core := testCreator{
+			exists:    c.exists,
+			errCreate: c.errCreate,
+			errRemove: c.errRemove,
+		}
+
+		// Decide whether to decorate the core DBCreator
+		var dbc DBCreator
+		if c.doPost {
+			dbc = &testCreatorPost{core}
+		} else if c.doClose {
+			dbc = &testCreatorClose{core}
+		} else {
+			dbc = &core
+		}
+
+		if c.shouldPanic {
+			testPanic(r, dbc, c.desc)
+			continue
+		}
+
+		deferFn := r.useDBCreator(dbc)
+		deferFn()
+
+		// Recover the core if decorated
+		if c.doPost {
+			core = dbc.(*testCreatorPost).testCreator
+		} else if c.doClose {
+			core = dbc.(*testCreatorClose).testCreator
+		}
+		if c.doLoad {
+			if !core.initCalled {
+				t.Errorf("%s: doLoad is true but Init not called", c.desc)
+			}
+			if c.doCreate {
+				if !core.createCalled {
+					t.Errorf("%s: doCreate is true but CreateDB not called", c.desc)
+				}
+				if c.exists {
+					if !core.removeCalled {
+						t.Errorf("%s: exists is true but RemoveDB not called", c.desc)
+					}
+				} else if core.removeCalled {
+					t.Errorf("%s: exists is false but RemoveDB was called", c.desc)
+				}
+			} else if core.createCalled {
+				t.Errorf("%s: doCreate is false but CreateDB was called", c.desc)
+			}
+			if c.doPost && !core.postCalled {
+				t.Errorf("%s: doPost is true but PostCreateDB not called", c.desc)
+			} else if !c.doPost && core.postCalled {
+				t.Errorf("%s: doPost is false but PostCreateDB was called", c.desc)
+			}
+		} else if core.initCalled {
+			t.Errorf("%s: doLoad is false but Init not called", c.desc)
+		}
+
+		// Test closing function is set or not set
+		if c.doClose != core.closedCalled {
+			t.Errorf("%s: close condition not equal: got %v want %v", c.desc, core.closedCalled, c.doClose)
+		}
+	}
 }
 
 func TestCreateChannelsAndPartitions(t *testing.T) {
