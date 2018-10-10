@@ -17,6 +17,7 @@ const (
 	shouldBackoffParam = "shouldErr"
 	shouldInvalidParam = "shouldInvalid"
 	httpServerPort     = ":8080"
+	httpDelay          = 50 * time.Millisecond
 )
 
 var (
@@ -50,8 +51,9 @@ func runHTTPServer(c chan struct{}) {
 	})
 
 	go s.ListenAndServe()
+	time.Sleep(httpDelay) // give time for server to start
 	c <- struct{}{}
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(httpDelay) // sleep to not grab my own msg
 	<-c
 	s.Shutdown(context.Background())
 	c <- struct{}{}
@@ -65,9 +67,9 @@ func launchHTTPServer() chan struct{} {
 }
 
 func shutdownHTTPServer(c chan struct{}) {
-	c <- struct{}{} // tell server to shutdown
-	time.Sleep(50 * time.Millisecond)
-	<-c // wait for clean shutdown
+	c <- struct{}{}       // tell server to shutdown
+	time.Sleep(httpDelay) // sleep to not grab my own msg
+	<-c                   // wait for clean shutdown
 }
 
 func testWriterMatchesConfig(w *HTTPWriter, conf HTTPWriterConfig, consistency string) error {

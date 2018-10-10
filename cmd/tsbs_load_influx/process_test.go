@@ -136,7 +136,7 @@ func TestProcessorProcessBatch(t *testing.T) {
 			}
 		} else {
 			fatal = func(format string, args ...interface{}) {
-				fmt.Printf("fatal called for case %v unexpectedly\n", c)
+				t.Errorf("fatal called for case %v unexpectedly\n", c)
 				fmt.Printf(format, args...)
 			}
 			ch = launchHTTPServer()
