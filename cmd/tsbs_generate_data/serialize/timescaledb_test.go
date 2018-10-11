@@ -30,3 +30,14 @@ func TestTimescaleDBSerializerSerialize(t *testing.T) {
 
 	testSerializer(t, cases, &TimescaleDBSerializer{})
 }
+
+func TestTimescaleDBSerializerSerializeErr(t *testing.T) {
+	p := testPointMultiField
+	s := &TimescaleDBSerializer{}
+	err := s.Serialize(p, &errWriter{})
+	if err == nil {
+		t.Errorf("no error returned when expected")
+	} else if err.Error() != errWriterAlwaysErr {
+		t.Errorf("unexpected writer error: %v", err)
+	}
+}

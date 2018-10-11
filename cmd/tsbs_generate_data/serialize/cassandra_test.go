@@ -25,11 +25,23 @@ func TestCassandraSerializerSerialize(t *testing.T) {
 	testSerializer(t, cases, &CassandraSerializer{})
 }
 
+func TestCassandraSerializerSerializeErr(t *testing.T) {
+	p := testPointMultiField
+	s := &CassandraSerializer{}
+	err := s.Serialize(p, &errWriter{})
+	if err == nil {
+		t.Errorf("no error returned when expected")
+	} else if err.Error() != errWriterAlwaysErr {
+		t.Errorf("unexpected writer error: %v", err)
+	}
+}
+
 func TestTypeNameForCassandra(t *testing.T) {
 	cases := []struct {
-		desc string
-		v    interface{}
-		want string
+		desc        string
+		v           interface{}
+		want        string
+		shouldPanic bool
 	}{
 		{
 			desc: "type int",
@@ -66,9 +78,27 @@ func TestTypeNameForCassandra(t *testing.T) {
 			v:    "test",
 			want: "blob",
 		},
+		{
+			desc:        "unknown type",
+			v:           []float64{},
+			shouldPanic: true,
+		},
+	}
+	testPanic := func(v interface{}) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("did not panic when should")
+			}
+		}()
+		_ = typeNameForCassandra(v)
 	}
 
 	for _, c := range cases {
+		if c.shouldPanic {
+			testPanic(c.v)
+			continue
+		}
+
 		if got := typeNameForCassandra(c.v); got != c.want {
 			t.Errorf("%s: incorrect type name: got %s want %s", c.desc, got, c.want)
 		}

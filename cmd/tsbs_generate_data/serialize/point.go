@@ -2,8 +2,8 @@ package serialize
 
 // Point wraps a single data point. It stores database-agnostic data
 import (
+	"bytes"
 	"io"
-	"sync"
 	"time"
 )
 
@@ -29,7 +29,7 @@ func NewPoint() *Point {
 		tagValues:       make([][]byte, 0),
 		fieldKeys:       make([][]byte, 0),
 		fieldValues:     make([]interface{}, 0),
-		timestamp:       &time.Time{},
+		timestamp:       nil,
 	}
 }
 
@@ -63,26 +63,47 @@ func (p *Point) FieldKeys() [][]byte {
 	return p.fieldKeys
 }
 
-// AppendTag adds a tag with a given key and value to this data point
-func (p *Point) AppendTag(key, value []byte) {
-	p.tagKeys = append(p.tagKeys, key)
-	p.tagValues = append(p.tagValues, value)
-}
-
 // AppendField adds a field with a given key and value to this data point
 func (p *Point) AppendField(key []byte, value interface{}) {
 	p.fieldKeys = append(p.fieldKeys, key)
 	p.fieldValues = append(p.fieldValues, value)
 }
 
+// GetFieldValue returns the corresponding value for a given field key or nil if it does not exist.
+// This will panic if the internal state has been altered to not have the same number of field keys as field values.
+func (p *Point) GetFieldValue(key []byte) interface{} {
+	if len(p.fieldKeys) != len(p.fieldValues) {
+		panic("field keys and field values are out of sync")
+	}
+	for i, v := range p.fieldKeys {
+		if bytes.Equal(v, key) {
+			return p.fieldValues[i]
+		}
+	}
+	return nil
+}
+
+// AppendTag adds a tag with a given key and value to this data point
+func (p *Point) AppendTag(key, value []byte) {
+	p.tagKeys = append(p.tagKeys, key)
+	p.tagValues = append(p.tagValues, value)
+}
+
+// GetTagValue returns the corresponding value for a given tag key or nil if it does not exist.
+// This will panic if the internal state has been altered to not have the same number of tag keys as tag values.
+func (p *Point) GetTagValue(key []byte) []byte {
+	if len(p.tagKeys) != len(p.tagValues) {
+		panic("tag keys and tag values are out of sync")
+	}
+	for i, v := range p.tagKeys {
+		if bytes.Equal(v, key) {
+			return p.tagValues[i]
+		}
+	}
+	return nil
+}
+
 // PointSerializer serializes a Point for writing
 type PointSerializer interface {
 	Serialize(p *Point, w io.Writer) error
-}
-
-// scratchBufPool helps reuse serialization scratch buffers.
-var scratchBufPool = &sync.Pool{
-	New: func() interface{} {
-		return make([]byte, 0, 1024)
-	},
 }
