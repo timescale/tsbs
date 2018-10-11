@@ -4,16 +4,22 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 )
+
+var fbBuilderPool = &sync.Pool{
+	New: func() interface{} {
+		return flatbuffers.NewBuilder(0)
+	},
+}
 
 // MongoSerializer writes a Point in a serialized form for MongoDB
 type MongoSerializer struct{}
 
 // Serialize writes Point data to the given Writer, using basic gob encoding
 func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
-	lenBuf := make([]byte, 8)
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
@@ -83,6 +89,7 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf := b.FinishedBytes()
 
 	// Write the metadata for the flatbuffer object:
+	lenBuf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(lenBuf, uint64(len(buf)))
 	_, err = w.Write(lenBuf)
 	if err != nil {

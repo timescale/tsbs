@@ -1,6 +1,8 @@
 package serialize
 
-import "io"
+import (
+	"io"
+)
 
 // InfluxSerializer writes a Point in a serialized form for MongoDB
 type InfluxSerializer struct{}
@@ -14,7 +16,7 @@ type InfluxSerializer struct{}
 // For example:
 // foo,tag0=bar baz=-1.0 100\n
 func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
-	buf := scratchBufPool.Get().([]byte)
+	buf := make([]byte, 0, 1024)
 	buf = append(buf, p.measurementName...)
 
 	for i := 0; i < len(p.tagKeys); i++ {
@@ -50,9 +52,6 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
 	buf = append(buf, '\n')
 	_, err = w.Write(buf)
-
-	buf = buf[:0]
-	scratchBufPool.Put(buf)
 
 	return err
 }

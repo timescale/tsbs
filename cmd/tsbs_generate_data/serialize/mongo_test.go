@@ -176,3 +176,42 @@ func deserializeMongo(r *bufio.Reader) *MongoPoint {
 
 	return item
 }
+
+func TestMongoSerializerTypePanic(t *testing.T) {
+	testPanic := func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("did not panic when should")
+			}
+		}()
+		p := &Point{
+			measurementName: testMeasurement,
+			timestamp:       &testNow,
+		}
+		p.AppendField([]byte("broken"), "a string?")
+		ps := &MongoSerializer{}
+		b := new(bytes.Buffer)
+
+		ps.Serialize(p, b)
+	}
+	testPanic()
+}
+
+func TestMongoSerializerSerializeErr(t *testing.T) {
+	p := testPointMultiField
+	s := &MongoSerializer{}
+	err := s.Serialize(p, &errWriter{})
+	if err == nil {
+		t.Errorf("no error returned when expected")
+	} else if err.Error() != errWriterAlwaysErr {
+		t.Errorf("unexpected writer error: %v", err)
+	}
+
+	// check second error condition works
+	err = s.Serialize(p, &errWriter{skipOne: true})
+	if err == nil {
+		t.Errorf("no error returned when expected")
+	} else if err.Error() != errWriterSometimesErr {
+		t.Errorf("unexpected writer error: %v", err)
+	}
+}
