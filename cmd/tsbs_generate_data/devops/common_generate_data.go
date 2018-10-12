@@ -30,6 +30,9 @@ func (s *commonDevopsSimulator) Finished() bool {
 }
 
 func (s *commonDevopsSimulator) Fields() map[string][][]byte {
+	if len(s.hosts) <= 0 {
+		panic("cannot get fields because no hosts added")
+	}
 	return s.fields(s.hosts[0].SimulatedMeasurements)
 }
 

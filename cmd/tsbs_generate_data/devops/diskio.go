@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	labelDiskIO      = []byte("diskio") // heap optimization
-	SerialByteString = []byte("serial")
+	labelDiskIO       = []byte("diskio") // heap optimization
+	labelDiskIOSerial = []byte("serial")
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -20,7 +20,7 @@ var (
 	bytesND = common.ND(100, 1)
 	timeND  = common.ND(5, 1)
 
-	DiskIOFields = []labeledDistributionMaker{
+	diskIOFields = []labeledDistributionMaker{
 		{[]byte("reads"), func() common.Distribution { return common.MWD(opsND, 0) }},
 		{[]byte("writes"), func() common.Distribution { return common.MWD(opsND, 0) }},
 		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
@@ -37,7 +37,7 @@ type DiskIOMeasurement struct {
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, DiskIOFields)
+	sub := newSubsystemMeasurementWithDistributionMakers(start, diskIOFields)
 	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
 	return &DiskIOMeasurement{
 		subsystemMeasurement: sub,
@@ -46,6 +46,6 @@ func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
 }
 
 func (m *DiskIOMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelDiskIO, DiskIOFields)
-	p.AppendTag(SerialByteString, m.serial)
+	m.toPointAllInt64(p, labelDiskIO, diskIOFields)
+	p.AppendTag(labelDiskIOSerial, m.serial)
 }
