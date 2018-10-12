@@ -1,7 +1,6 @@
 package devops
 
 import (
-	"math"
 	"math/rand"
 	"time"
 
@@ -12,11 +11,10 @@ import (
 var (
 	labelMem = []byte("mem") // heap optimization
 
-	// Choices for modeling a host's memory capacity.
-	MemoryMaxBytesChoices = []int64{8 << 30, 12 << 30, 16 << 30}
+	// memoryTotalChoices are the choices for modeling a host's total memory capacity.
+	memoryTotalChoices = []int64{8 << 30, 12 << 30, 16 << 30}
 
-	// Field keys for 'mem' points.
-	MemoryFieldKeys = [][]byte{
+	memoryFieldKeys = [][]byte{
 		[]byte("total"),
 		[]byte("available"),
 		[]byte("used"),
@@ -36,7 +34,7 @@ type MemMeasurement struct {
 
 func NewMemMeasurement(start time.Time) *MemMeasurement {
 	sub := newSubsystemMeasurement(start, 3)
-	bytesTotal := MemoryMaxBytesChoices[rand.Intn(len(MemoryMaxBytesChoices))]
+	bytesTotal := randomInt64SliceChoice(memoryTotalChoices)
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -60,17 +58,21 @@ func (m *MemMeasurement) ToPoint(p *serialize.Point) {
 	p.SetTimestamp(&m.timestamp)
 
 	total := m.bytesTotal
-	used := m.distributions[0].Get()
-	cached := m.distributions[1].Get()
-	buffered := m.distributions[2].Get()
+	used := int64(m.distributions[0].Get())
+	cached := int64(m.distributions[1].Get())
+	buffered := int64(m.distributions[2].Get())
+	available := total - int64(used)
 
-	p.AppendField(MemoryFieldKeys[0], total)
-	p.AppendField(MemoryFieldKeys[1], int(math.Floor(float64(total)-used)))
-	p.AppendField(MemoryFieldKeys[2], int(math.Floor(used)))
-	p.AppendField(MemoryFieldKeys[3], int(math.Floor(cached)))
-	p.AppendField(MemoryFieldKeys[4], int(math.Floor(buffered)))
-	p.AppendField(MemoryFieldKeys[5], int(math.Floor(used)))
-	p.AppendField(MemoryFieldKeys[6], 100.0*(used/float64(total)))
-	p.AppendField(MemoryFieldKeys[7], 100.0*(float64(total)-used)/float64(total))
-	p.AppendField(MemoryFieldKeys[8], 100.0*(float64(total)-buffered)/float64(total))
+	p.AppendField(memoryFieldKeys[0], total)
+	p.AppendField(memoryFieldKeys[1], available)
+	p.AppendField(memoryFieldKeys[2], used)
+	// TODO - This data model is broken since `free` is actually a different thing than available,
+	// but since there is no other distribution currently suitable to represent `free` I made this
+	// change from what it was before.
+	p.AppendField(memoryFieldKeys[3], available)
+	p.AppendField(memoryFieldKeys[4], cached)
+	p.AppendField(memoryFieldKeys[5], buffered)
+	p.AppendField(memoryFieldKeys[6], 100.0*(float64(used)/float64(total)))
+	p.AppendField(memoryFieldKeys[7], 100.0*(float64(available)/float64(total)))
+	p.AppendField(memoryFieldKeys[8], 100.0*(float64(buffered))/float64(total))
 }

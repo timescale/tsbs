@@ -8,15 +8,15 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
-func TestRedisMeasurementTick(t *testing.T) {
+func TestNginxMeasurementTick(t *testing.T) {
 	now := time.Now()
-	m := NewRedisMeasurement(now)
+	m := NewNginxMeasurement(now)
 	origName := string(m.serverName)
 	origPort := string(m.port)
 	duration := time.Second
 	oldVals := map[string]float64{}
-	fields := ldmToFieldLabels(redisFields)
-	for i, ldm := range redisFields {
+	fields := ldmToFieldLabels(nginxFields)
+	for i, ldm := range nginxFields {
 		oldVals[string(ldm.label)] = m.distributions[i].Get()
 	}
 
@@ -25,9 +25,6 @@ func TestRedisMeasurementTick(t *testing.T) {
 	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
-	}
-	if m.uptime != duration {
-		t.Errorf("uptime did not update correctly: got %v want %v", m.uptime, duration)
 	}
 	if got := string(m.serverName); got != origName {
 		t.Errorf("server name updated unexpectedly: got %s want %s", got, origName)
@@ -40,9 +37,6 @@ func TestRedisMeasurementTick(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if m.uptime != 2*time.Second {
-		t.Errorf("update did not update correctly (2nd tick): got %v want %v", m.uptime, 2*time.Second)
-	}
 	if got := string(m.serverName); got != origName {
 		t.Errorf("server name updated unexpectedly: got %s want %s", got, origName)
 	}
@@ -51,9 +45,9 @@ func TestRedisMeasurementTick(t *testing.T) {
 	}
 }
 
-func TestRedisMeasurementToPoint(t *testing.T) {
+func TestNginxMeasurementToPoint(t *testing.T) {
 	now := time.Now()
-	m := NewRedisMeasurement(now)
+	m := NewNginxMeasurement(now)
 	origName := string(m.serverName)
 	origPort := string(m.port)
 	duration := time.Second
@@ -61,23 +55,19 @@ func TestRedisMeasurementToPoint(t *testing.T) {
 
 	p := serialize.NewPoint()
 	m.ToPoint(p)
-	if got := string(p.MeasurementName()); got != string(labelRedis) {
-		t.Errorf("incorrect measurement name: got %s want %s", got, labelRedis)
+	if got := string(p.MeasurementName()); got != string(labelNginx) {
+		t.Errorf("incorrect measurement name: got %s want %s", got, labelNginx)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagServer)); got != origName {
+	if got := string(p.GetTagValue(labelNginxTagServer)); got != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagPort)); got != origPort {
+	if got := string(p.GetTagValue(labelNginxTagPort)); got != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 
-	if got := p.GetFieldValue(labelRedisFieldUptime).(int64); got != int64(duration.Seconds()) {
-		t.Errorf("incorrect duration for uptime: got %d want %d", got, int64(duration.Seconds()))
-	}
-
-	for _, ldm := range redisFields {
+	for _, ldm := range nginxFields {
 		if got := p.GetFieldValue(ldm.label); got == nil {
 			t.Errorf("field %s returned a nil value unexpectedly", ldm.label)
 		}

@@ -23,7 +23,7 @@ var (
 	redisLowND  = common.ND(5, 1)
 	redisHighND = common.ND(50, 1)
 
-	RedisFields = []labeledDistributionMaker{
+	redisFields = []labeledDistributionMaker{
 		{[]byte("total_connections_received"), func() common.Distribution { return common.MWD(redisLowND, 0) }},
 		{[]byte("expired_keys"), func() common.Distribution { return common.MWD(redisHighND, 0) }},
 		{[]byte("evicted_keys"), func() common.Distribution { return common.MWD(redisHighND, 0) }},
@@ -67,7 +67,7 @@ type RedisMeasurement struct {
 }
 
 func NewRedisMeasurement(start time.Time) *RedisMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, RedisFields)
+	sub := newSubsystemMeasurementWithDistributionMakers(start, redisFields)
 	serverName := []byte(fmt.Sprintf("redis_%d", rand.Intn(100000)))
 	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &RedisMeasurement{
@@ -85,7 +85,7 @@ func (m *RedisMeasurement) Tick(d time.Duration) {
 
 func (m *RedisMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendField(labelRedisFieldUptime, int64(m.uptime.Seconds()))
-	m.toPointAllInt64(p, labelRedis, RedisFields)
+	m.toPointAllInt64(p, labelRedis, redisFields)
 	p.AppendTag(labelRedisTagPort, m.port)
 	p.AppendTag(labelRedisTagServer, m.serverName)
 }

@@ -16,7 +16,7 @@ var (
 	pgND     = common.ND(5, 1)
 	pgHighND = common.ND(1024, 1)
 
-	PostgresqlFields = []labeledDistributionMaker{
+	postgresqlFields = []labeledDistributionMaker{
 		{[]byte("numbackends"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
 		{[]byte("xact_commit"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
 		{[]byte("xact_rollback"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
@@ -41,10 +41,10 @@ type PostgresqlMeasurement struct {
 }
 
 func NewPostgresqlMeasurement(start time.Time) *PostgresqlMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, PostgresqlFields)
+	sub := newSubsystemMeasurementWithDistributionMakers(start, postgresqlFields)
 	return &PostgresqlMeasurement{sub}
 }
 
 func (m *PostgresqlMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelPostgresql, PostgresqlFields)
+	m.toPointAllInt64(p, labelPostgresql, postgresqlFields)
 }

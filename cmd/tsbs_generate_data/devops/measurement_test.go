@@ -2,6 +2,7 @@ package devops
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -12,6 +13,30 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+func ldmToFieldLabels(ldm []labeledDistributionMaker) [][]byte {
+	ret := make([][]byte, 0)
+	for _, l := range ldm {
+		ret = append(ret, l.label)
+	}
+	return ret
+}
+
+// testDistributionsAreDifferent is used to check that the field values for a
+// measurement have changed after a call to Tick.
+func testDistributionsAreDifferent(oldVals map[string]float64, m *subsystemMeasurement, fields [][]byte) error {
+	for i, f := range fields {
+		k := string(f)
+		curr := m.distributions[i].Get()
+		if oldVals[k] == curr {
+			return fmt.Errorf("value for %s unexpectedly the same: got %f", k, curr)
+		}
+		oldVals[k] = curr
+	}
+	return nil
+}
+
+// monotonicDistribution simply increases the state by 1 every time Advance is
+// called. This is a useful distribution for easy testing.
 type monotonicDistribution struct {
 	state float64
 }

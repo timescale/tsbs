@@ -19,7 +19,7 @@ var (
 	highND = common.ND(50, 1)
 	lowND  = common.ND(5, 1)
 
-	NetFields = []labeledDistributionMaker{
+	netFields = []labeledDistributionMaker{
 		{[]byte("bytes_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
 		{[]byte("bytes_recv"), func() common.Distribution { return common.MWD(highND, 0) }},
 		{[]byte("packets_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
@@ -37,7 +37,7 @@ type NetMeasurement struct {
 }
 
 func NewNetMeasurement(start time.Time) *NetMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, NetFields)
+	sub := newSubsystemMeasurementWithDistributionMakers(start, netFields)
 	interfaceName := []byte(fmt.Sprintf("eth%d", rand.Intn(4)))
 	return &NetMeasurement{
 		subsystemMeasurement: sub,
@@ -46,6 +46,6 @@ func NewNetMeasurement(start time.Time) *NetMeasurement {
 }
 
 func (m *NetMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelNet, NetFields)
+	m.toPointAllInt64(p, labelNet, netFields)
 	p.AppendTag(labelNetTagInterface, m.interfaceName)
 }
