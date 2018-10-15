@@ -20,7 +20,6 @@ func (d *CPUOnlySimulator) Fields() map[string][][]byte {
 
 // Next advances a Point to the next state in the generator.
 func (d *CPUOnlySimulator) Next(p *serialize.Point) bool {
-	// switch to the next metric if needed
 	if d.hostIndex == uint64(len(d.hosts)) {
 		d.hostIndex = 0
 
@@ -35,27 +34,18 @@ func (d *CPUOnlySimulator) Next(p *serialize.Point) bool {
 }
 
 // CPUOnlySimulatorConfig is used to create a CPUOnlySimulator.
-type CPUOnlySimulatorConfig struct {
-	Start time.Time
-	End   time.Time
-
-	// InitHostCount is the number of hosts to start with in the first reporting period
-	InitHostCount uint64
-	// HostCount is the total number of hosts to have in the last reporting period
-	HostCount       uint64
-	HostConstructor func(i int, start time.Time) Host
-}
+type CPUOnlySimulatorConfig commonDevopsSimulatorConfig
 
 // ToSimulator produces a Simulator that conforms to the given SimulatorConfig over the specified interval
-func (d *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simulator {
-	hostInfos := make([]Host, d.HostCount)
+func (c *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simulator {
+	hostInfos := make([]Host, c.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
-		hostInfos[i] = d.HostConstructor(i, d.Start)
+		hostInfos[i] = c.HostConstructor(i, c.Start)
 	}
 
-	epochs := uint64(d.End.Sub(d.Start).Nanoseconds() / interval.Nanoseconds())
-	maxPoints := epochs * d.HostCount
-	dg := &CPUOnlySimulator{&commonDevopsSimulator{
+	epochs := calculateEpochs(commonDevopsSimulatorConfig(*c), interval)
+	maxPoints := epochs * c.HostCount
+	sim := &CPUOnlySimulator{&commonDevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
 
@@ -64,12 +54,12 @@ func (d *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simu
 
 		epoch:          0,
 		epochs:         epochs,
-		epochHosts:     d.InitHostCount,
-		initHosts:      d.InitHostCount,
-		timestampStart: d.Start,
-		timestampEnd:   d.End,
+		epochHosts:     c.InitHostCount,
+		initHosts:      c.InitHostCount,
+		timestampStart: c.Start,
+		timestampEnd:   c.End,
 		interval:       interval,
 	}}
 
-	return dg
+	return sim
 }

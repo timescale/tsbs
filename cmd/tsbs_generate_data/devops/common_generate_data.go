@@ -7,6 +7,23 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+type commonDevopsSimulatorConfig struct {
+	// Start is the beginning time for the Simulator
+	Start time.Time
+	// End is the ending time for the Simulator
+	End time.Time
+	// InitHostCount is the number of hosts to start with in the first reporting period
+	InitHostCount uint64
+	// HostCount is the total number of hosts to have in the last reporting period
+	HostCount uint64
+	// HostConstructor is the function used to create a new Host given an id number and start time
+	HostConstructor func(i int, start time.Time) Host
+}
+
+func calculateEpochs(c commonDevopsSimulatorConfig, interval time.Duration) uint64 {
+	return uint64(c.End.Sub(c.Start).Nanoseconds() / interval.Nanoseconds())
+}
+
 type commonDevopsSimulator struct {
 	madePoints uint64
 	maxPoints  uint64
