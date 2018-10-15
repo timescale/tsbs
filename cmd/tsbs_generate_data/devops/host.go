@@ -10,9 +10,10 @@ import (
 
 // Count of choices for auto-generated tag values:
 const (
-	MachineRackChoicesPerDatacenter = 100
-	MachineServiceChoices           = 20
-	MachineServiceVersionChoices    = 2
+	machineRackChoicesPerDatacenter = 100
+	machineServiceChoices           = 20
+	machineServiceVersionChoices    = 2
+	hostFmt                         = "host_%d"
 )
 
 type region struct {
@@ -183,24 +184,20 @@ func NewHostCPUSingle(i int, start time.Time) Host {
 func newHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []common.SimulatedMeasurement) Host {
 	sm := generator(start)
 
-	region := &regions[rand.Intn(len(regions))]
-	rackID := rand.Int63n(MachineRackChoicesPerDatacenter)
-	serviceID := rand.Int63n(MachineServiceChoices)
-	serviceVersionID := rand.Int63n(MachineServiceVersionChoices)
-	serviceEnvironment := randChoice(MachineServiceEnvironmentChoices)
+	region := randomRegionSliceChoice(regions)
 
 	h := Host{
 		// Tag Values that are static throughout the life of a Host:
-		Name:               []byte(fmt.Sprintf("host_%d", i)),
+		Name:               []byte(fmt.Sprintf(hostFmt, i)),
 		Region:             region.Name,
-		Datacenter:         randChoice(region.Datacenters),
-		Rack:               []byte(fmt.Sprintf("%d", rackID)),
-		Arch:               randChoice(MachineArchChoices),
-		OS:                 randChoice(MachineOSChoices),
-		Service:            []byte(fmt.Sprintf("%d", serviceID)),
-		ServiceVersion:     []byte(fmt.Sprintf("%d", serviceVersionID)),
-		ServiceEnvironment: serviceEnvironment,
-		Team:               randChoice(MachineTeamChoices),
+		Datacenter:         randomByteStringSliceChoice(region.Datacenters),
+		Rack:               getByteStringRandomInt(machineRackChoicesPerDatacenter),
+		Arch:               randomByteStringSliceChoice(MachineArchChoices),
+		OS:                 randomByteStringSliceChoice(MachineOSChoices),
+		Service:            getByteStringRandomInt(machineServiceChoices),
+		ServiceVersion:     getByteStringRandomInt(machineServiceVersionChoices),
+		ServiceEnvironment: randomByteStringSliceChoice(MachineServiceEnvironmentChoices),
+		Team:               randomByteStringSliceChoice(MachineTeamChoices),
 
 		SimulatedMeasurements: sm,
 	}
@@ -215,7 +212,10 @@ func (h *Host) TickAll(d time.Duration) {
 	}
 }
 
-func randChoice(choices [][]byte) []byte {
-	idx := rand.Int63n(int64(len(choices)))
-	return choices[idx]
+func getByteStringRandomInt(limit int64) []byte {
+	return []byte(fmt.Sprintf("%d", rand.Int63n(limit)))
+}
+
+func randomRegionSliceChoice(s []region) *region {
+	return &s[rand.Intn(len(s))]
 }
