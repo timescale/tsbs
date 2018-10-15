@@ -9,6 +9,72 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+const testLayout = "2006-01-02"
+
+func TestCalculateEpochs(t *testing.T) {
+	cases := []struct {
+		desc     string
+		start    string
+		end      string
+		interval time.Duration
+		want     uint64
+	}{
+		{
+			desc:     "start and end are equal",
+			start:    "2017-01-01",
+			end:      "2017-01-01",
+			interval: time.Second,
+			want:     0,
+		},
+		{
+			desc:     "start and end are under 1 interval apart",
+			start:    "2017-01-01",
+			end:      "2017-01-02",
+			interval: 36 * time.Hour,
+			want:     0,
+		},
+		{
+			desc:     "start and end are 1 interval apart",
+			start:    "2017-01-01",
+			end:      "2017-01-02",
+			interval: 24 * time.Hour,
+			want:     1,
+		},
+		{
+			desc:     "start and end are over 1 interval apart",
+			start:    "2017-01-01",
+			end:      "2017-01-02",
+			interval: 18 * time.Hour,
+			want:     1,
+		},
+		{
+			desc:     "start and end are 2 intervals apart",
+			start:    "2017-01-01",
+			end:      "2017-01-02",
+			interval: 12 * time.Hour,
+			want:     2,
+		},
+	}
+
+	for _, c := range cases {
+		start, err := time.Parse(testLayout, c.start)
+		if err != nil {
+			t.Fatalf("could not parse start: %s", c.start)
+		}
+		end, err := time.Parse(testLayout, c.end)
+		if err != nil {
+			t.Fatalf("could not parse end: %s", c.end)
+		}
+		conf := commonDevopsSimulatorConfig{
+			Start: start,
+			End:   end,
+		}
+		if got := calculateEpochs(conf, c.interval); got != c.want {
+			t.Errorf("%s: incorrect epochs: got %d want %d", c.desc, got, c.want)
+		}
+	}
+}
+
 func TestCommonDevopsSimulatorFinished(t *testing.T) {
 	cases := []struct {
 		desc       string
