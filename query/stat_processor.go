@@ -99,7 +99,10 @@ func (sp *statProcessor) process(workers uint) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			writeStatGroupMap(os.Stderr, statMapping)
+			err = writeStatGroupMap(os.Stderr, statMapping)
+			if err != nil {
+				log.Fatal(err)
+			}
 			_, err = fmt.Fprintf(os.Stderr, "\n")
 			if err != nil {
 				log.Fatal(err)
@@ -112,7 +115,10 @@ func (sp *statProcessor) process(workers uint) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	writeStatGroupMap(os.Stdout, statMapping)
+	err = writeStatGroupMap(os.Stdout, statMapping)
+	if err != nil {
+		log.Fatal(err)
+	}
 	sp.wg.Done()
 }
 
