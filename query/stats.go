@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"sort"
 	"sync"
@@ -145,13 +144,13 @@ func (s *statGroup) string() string {
 }
 
 func (s *statGroup) write(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "%s\n", s.string())
+	_, err := fmt.Fprintln(w, s.string())
 	return err
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
 // key that they are stored by
-func writeStatGroupMap(w io.Writer, statGroups map[string]*statGroup) {
+func writeStatGroupMap(w io.Writer, statGroups map[string]*statGroup) error {
 	maxKeyLength := 0
 	keys := make([]string, 0, len(statGroups))
 	for k := range statGroups {
@@ -163,19 +162,20 @@ func writeStatGroupMap(w io.Writer, statGroups map[string]*statGroup) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		v := statGroups[k]
-		paddedKey := fmt.Sprintf("%s", k)
+		paddedKey := k
 		for len(paddedKey) < maxKeyLength {
 			paddedKey += " "
 		}
 
 		_, err := fmt.Fprintf(w, "%s:\n", paddedKey)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		err = v.write(w)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
 }

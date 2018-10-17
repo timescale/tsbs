@@ -2,6 +2,7 @@ package query
 
 import (
 	"testing"
+	"time"
 )
 
 func TestStatProcessorSendStats(t *testing.T) {
@@ -32,6 +33,14 @@ func TestStatProcessorSendStats(t *testing.T) {
 	if r.isWarm {
 		t.Errorf("received stat is warm unexpectedly (2)")
 	}
+
+	// should not send anything
+	wantLen := len(sp.c)
+	sp.sendStats(nil)
+	time.Sleep(25 * time.Millisecond)
+	if got := len(sp.c); got != wantLen {
+		t.Errorf("empty stat array changed channel length: got %d want %d", got, wantLen)
+	}
 }
 
 func TestStatProcessorSendStatsWarm(t *testing.T) {
@@ -58,5 +67,13 @@ func TestStatProcessorSendStatsWarm(t *testing.T) {
 	}
 	if !r.isWarm {
 		t.Errorf("received stat is NOT warm unexpectedly (2)")
+	}
+
+	// should not send anything
+	wantLen := len(sp.c)
+	sp.sendStatsWarm(nil)
+	time.Sleep(25 * time.Millisecond)
+	if got := len(sp.c); got != wantLen {
+		t.Errorf("empty stat array changed channel length: got %d want %d", got, wantLen)
 	}
 }
