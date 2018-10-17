@@ -134,6 +134,31 @@ func TestSendOrQueueBatch(t *testing.T) {
 	}
 }
 
+func TestNewPoint(t *testing.T) {
+	// simple equality types
+	temp := []interface{}{64, 5.5, true, uint(5), "test string"}
+	for _, x := range temp {
+		p := NewPoint(x)
+		if p.Data != x {
+			t.Errorf("NewPoint did not have right data: got %v want %d", p.Data, x)
+		}
+	}
+
+	// with a byte arr
+	byteArr := []byte("test")
+	p := NewPoint(byteArr)
+	if !bytes.Equal(p.Data.([]byte), byteArr) {
+		t.Errorf("NewPoint did not have right byte arr: got %v want %v", p.Data, byteArr)
+	}
+
+	// with a struct
+	batch := &testBatch{id: 101, len: 500}
+	p = NewPoint(batch)
+	if got := p.Data.(*testBatch); got.id != 101 || got.len != 500 {
+		t.Errorf("NewPoint did not have right struct: got %v want %v", got, batch)
+	}
+}
+
 type testDecoder struct {
 	called uint64
 }
@@ -178,10 +203,11 @@ func TestScanWithIndexer(t *testing.T) {
 	data := []byte{0x00, 0x01, 0x02}
 
 	cases := []struct {
-		desc      string
-		batchSize uint
-		limit     uint64
-		wantCalls uint64
+		desc        string
+		batchSize   uint
+		limit       uint64
+		wantCalls   uint64
+		shouldPanic bool
 	}{
 		{
 			desc:      "scan w/ zero limit",
@@ -208,14 +234,32 @@ func TestScanWithIndexer(t *testing.T) {
 			limit:     4,
 			wantCalls: uint64(len(data)),
 		},
+		{
+			desc:        "batchSize = 0 is panic",
+			batchSize:   0,
+			limit:       0,
+			shouldPanic: true,
+		},
 	}
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader(data))
 		channels := []*duplexChannel{newDuplexChannel(1)}
 		decoder := &testDecoder{0}
 		indexer := &ConstantIndexer{}
-		go _boringWorker(channels[0])
-		read := scanWithIndexer(channels, c.batchSize, c.limit, br, decoder, &testFactory{}, indexer)
-		_checkScan(t, c.desc, decoder.called, read, c.wantCalls)
+		if c.shouldPanic {
+			func() {
+				defer func() {
+					if re := recover(); re == nil {
+						t.Errorf("%s: did not panic when should", c.desc)
+					}
+				}()
+				scanWithIndexer(channels, c.batchSize, c.limit, br, decoder, &testFactory{}, indexer)
+			}()
+			continue
+		} else {
+			go _boringWorker(channels[0])
+			read := scanWithIndexer(channels, c.batchSize, c.limit, br, decoder, &testFactory{}, indexer)
+			_checkScan(t, c.desc, decoder.called, read, c.wantCalls)
+		}
 	}
 }
