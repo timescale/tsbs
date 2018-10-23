@@ -15,6 +15,8 @@ const (
 	labelAllQueries  = "all queries"
 	labelColdQueries = "cold queries"
 	labelWarmQueries = "warm queries"
+
+	defaultReadSize  = 4 << 20 // 4 MB
 )
 
 // BenchmarkRunner contains the common components for running a query benchmarking
@@ -30,6 +32,9 @@ type BenchmarkRunner struct {
 	memProfile     string
 	printResponses bool
 	debug          int
+	fileName       string
+
+	br            *bufio.Reader
 }
 
 // NewBenchmarkRunner creates a new instance of BenchmarkRunner which is
@@ -49,6 +54,7 @@ func NewBenchmarkRunner() *BenchmarkRunner {
 	flag.BoolVar(&ret.sp.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.BoolVar(&ret.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	flag.IntVar(&ret.debug, "debug", 0, "Whether to print debug messages.")
+	flag.StringVar(&ret.fileName, "file", "", "File name to read queries from")
 
 	return ret
 }
@@ -84,6 +90,24 @@ type Processor interface {
 	ProcessQuery(q Query, isWarm bool) ([]*Stat, error)
 }
 
+// GetBufferedReader returns the buffered Reader that should be used by the loader
+func (b *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
+	if b.br == nil {
+		if len(b.fileName) > 0 {
+			// Read from specified file
+			file, err := os.Open(b.fileName)
+			if err != nil {
+				panic("cannot open file" + b.fileName)
+			}
+			b.br = bufio.NewReaderSize(file, defaultReadSize)
+		} else {
+			// Read from STDIN
+			b.br = bufio.NewReaderSize(os.Stdin, defaultReadSize)
+		}
+	}
+	return b.br
+}
+
 // Run does the bulk of the benchmark execution. It launches a gorountine to track
 // stats, creates workers to process queries, read in the input, execute the queries,
 // and then does cleanup.
@@ -107,9 +131,8 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, createFn ProcessorCreate) {
 	}
 
 	// Read in jobs, closing the job channel when done:
-	input := bufio.NewReaderSize(os.Stdin, 1<<20)
 	wallStart := time.Now()
-	b.scanner.setReader(input).scan(queryPool, b.c)
+	b.scanner.setReader(b.GetBufferedReader()).scan(queryPool, b.c)
 	close(b.c)
 
 	// Block for workers to finish sending requests, closing the stats

@@ -48,6 +48,7 @@ const (
 	errInvalidFormatFmt = "invalid format specifier: %v (valid choices: %v)"
 
 	inputBufSize = 4 << 20
+	defaultWriteSize  = 4 << 20 // 4 MB
 )
 
 // semi-constants
@@ -85,6 +86,7 @@ var (
 	interleavedGenerationGroups  uint
 
 	logInterval time.Duration
+	fileName    string
 )
 
 func parseTimeFromString(s string) time.Time {
@@ -156,6 +158,8 @@ func init() {
 	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
 
 	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
+	flag.StringVar(&fileName, "file", "", "File name to write generated data to")
+
 	flag.Parse()
 
 	postFlagParse(pfv)
@@ -174,13 +178,30 @@ func main() {
 	}
 
 	rand.Seed(seed)
-	out := bufio.NewWriterSize(os.Stdout, inputBufSize)
+
+	// Prepare output file/STDOUT
+	var out  *bufio.Writer
+	var file io.Writer
+	var err  error
+	if len(fileName) > 0 {
+		// Write output to file
+		file, err = os.Create(fileName)
+		if err != nil {
+			panic("cannot open file " + fileName)
+		}
+	} else {
+		// Write output to STDOUT
+		file = os.Stdout
+	}
+	// Set up output buffering:
+	out = bufio.NewWriterSize(file, defaultWriteSize)
 	defer func() {
 		err := out.Flush()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 	}()
+
 
 	cfg := getConfig(useCase)
 	sim := cfg.ToSimulator(logInterval)

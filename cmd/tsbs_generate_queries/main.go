@@ -19,6 +19,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"io"
 )
 
 var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
@@ -41,12 +42,17 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 }
 
+const(
+	defaultWriteSize  = 4 << 20 // 4 MB
+)
+
 // Program option vars:
 var (
 	generator utils.DevopsGenerator
 	filler    utils.QueryFiller
 
 	queryCount int
+	fileName   string
 
 	seed  int64
 	debug int
@@ -116,6 +122,8 @@ func init() {
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
+	flag.StringVar(&fileName, "file", "", "File name to write generated queries to")
+
 	flag.Parse()
 
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
@@ -159,9 +167,28 @@ func main() {
 	// Set up bookkeeping:
 	stats := make(map[string]int64)
 
+	// Prepare output file/STDOUT
+	var out  *bufio.Writer
+	var file io.Writer
+	var err  error
+	if len(fileName) > 0 {
+		// Write output to file
+		file, err = os.Create(fileName)
+		if err != nil {
+			panic("cannot open file " + fileName)
+		}
+	} else {
+		// Write output to STDOUT
+		file = os.Stdout
+	}
 	// Set up output buffering:
-	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
+	out = bufio.NewWriterSize(file, defaultWriteSize)
+	defer func() {
+		err := out.Flush()
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+	}()
 
 	// Create request instances, serializing them to stdout and collecting
 	// counts for each kind. If applicable, only prints queries that
