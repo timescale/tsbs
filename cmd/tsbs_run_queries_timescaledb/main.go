@@ -1,8 +1,8 @@
-// tsbs_run_queries_timescaledb speed tests TimescaleDB using requests from stdin.
+// tsbs_run_queries_timescaledb speed tests TimescaleDB using requests from stdin or file
 //
-// It reads encoded Query objects from stdin, and makes concurrent requests
-// to the provided PostgreSQL/TimescaleDB endpoint. This program has no knowledge of the
-// internals of the endpoint.
+// It reads encoded Query objects from stdin or file, and makes concurrent requests
+// to the provided PostgreSQL/TimescaleDB endpoint.
+// This program has no knowledge of the internals of the endpoint.
 package main
 
 import (

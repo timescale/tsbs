@@ -41,12 +41,17 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 }
 
+const defaultWriteSize  = 4 << 20 // 4 MB
+
 // Program option vars:
 var (
+	fatal     = log.Fatalf
+
 	generator utils.DevopsGenerator
 	filler    utils.QueryFiller
 
 	queryCount int
+	fileName   string
 
 	seed  int64
 	debug int
@@ -75,6 +80,22 @@ func getGenerator(format string, start, end time.Time, scale int) utils.DevopsGe
 	}
 
 	panic(fmt.Sprintf("no devops generator specified for format '%s'", format))
+}
+
+// GetBufferedWriter returns the buffered Writer that should be used for generated output
+func GetBufferedWriter(fileName string) *bufio.Writer {
+	// Prepare output file/STDOUT
+	if len(fileName) > 0 {
+		// Write output to file
+		file, err := os.Create(fileName)
+		if err != nil {
+			fatal("cannot open file for write %s: %v", fileName, err)
+		}
+		return bufio.NewWriterSize(file, defaultWriteSize)
+	}
+
+	// Write output to STDOUT
+	return bufio.NewWriterSize(os.Stdout, defaultWriteSize)
 }
 
 // Parse args:
@@ -116,18 +137,20 @@ func init() {
 	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
+	flag.StringVar(&fileName, "file", "", "File name to write generated queries to")
+
 	flag.Parse()
 
 	if !(interleavedGenerationGroupID < interleavedGenerationGroups) {
-		log.Fatal("incorrect interleaved groups configuration")
+		fatal("incorrect interleaved groups configuration")
 	}
 
 	if _, ok := useCaseMatrix[useCase]; !ok {
-		log.Fatalf("invalid use case specifier: '%s'", useCase)
+		fatal("invalid use case specifier: '%s'", useCase)
 	}
 
 	if _, ok := useCaseMatrix[useCase][queryType]; !ok {
-		log.Fatalf("invalid query type specifier: '%s'", queryType)
+		fatal("invalid query type specifier: '%s'", queryType)
 	}
 
 	// the default seed is the current timestamp:
@@ -140,12 +163,12 @@ func init() {
 	var err error
 	timestampStart, err := time.Parse(time.RFC3339, timestampStartStr)
 	if err != nil {
-		log.Fatal(err)
+		fatal(err.Error())
 	}
 	timestampStart = timestampStart.UTC()
 	timestampEnd, err := time.Parse(time.RFC3339, timestampEndStr)
 	if err != nil {
-		log.Fatal(err)
+		fatal(err.Error())
 	}
 	timestampEnd = timestampEnd.UTC()
 
@@ -159,9 +182,14 @@ func main() {
 	// Set up bookkeeping:
 	stats := make(map[string]int64)
 
-	// Set up output buffering:
-	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
+	// Get output writer
+	out := GetBufferedWriter(fileName)
+	defer func() {
+		err := out.Flush()
+		if err != nil {
+			fatal(err.Error())
+		}
+	}()
 
 	// Create request instances, serializing them to stdout and collecting
 	// counts for each kind. If applicable, only prints queries that
@@ -176,24 +204,24 @@ func main() {
 		if currentInterleavedGroup == interleavedGenerationGroupID {
 			err := enc.Encode(q)
 			if err != nil {
-				log.Fatal("encoder ", err)
+				fatal("encoder %v", err)
 			}
 			stats[string(q.HumanLabelName())]++
 
 			if debug == 1 {
 				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanLabelName())
 				if err != nil {
-					log.Fatal(err)
+					fatal(err.Error())
 				}
 			} else if debug == 2 {
 				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.HumanDescriptionName())
 				if err != nil {
-					log.Fatal(err)
+					fatal(err.Error())
 				}
 			} else if debug >= 3 {
 				_, err := fmt.Fprintf(os.Stderr, "%s\n", q.String())
 				if err != nil {
-					log.Fatal(err)
+					fatal(err.Error())
 				}
 			}
 		}
@@ -214,7 +242,7 @@ func main() {
 	for _, k := range keys {
 		_, err := fmt.Fprintf(os.Stderr, "%s: %d points\n", k, stats[k])
 		if err != nil {
-			log.Fatal(err)
+			fatal(err.Error())
 		}
 	}
 }
