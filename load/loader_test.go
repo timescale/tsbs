@@ -101,24 +101,50 @@ func TestGetBufferedReader(t *testing.T) {
 	if br != nil {
 		t.Errorf("initial buffered reader is non-nil")
 	}
-	// TODO Filename not yet supported
-	r.filename = "foo"
+
+	oldFatal := fatal
+	fatalCalled := false
+	fatal = func(format string, args ...interface{}) {
+		fatalCalled = true
+	}
+
+	// Should give a nil bufio.Reader
+	fatalCalled = false
+	r.fileName = "foo"
 	br = r.GetBufferedReader()
 	if br != nil {
-		t.Errorf("filename returned a non-nil buffered reader")
+		t.Errorf("filename returned not nil buffered reader for unexistent file")
 	}
-	// Should give a non-nil bufio.Reader now
-	r.filename = ""
+
+	if !fatalCalled {
+		t.Errorf("fatal not called when it should have been")
+	}
+
+	// Should give a non-nil bufio.Reader
+	fatalCalled = false
+	r.fileName = "/dev/null"
 	br = r.GetBufferedReader()
 	if br == nil {
-		t.Errorf("non-filename returned a nil buffered reader")
+		t.Errorf("filename returned nil buffered reader for /dev/null")
 	}
+
+	// Should give a non-nil bufio.Reader
+	fatalCalled = false
+	r.fileName = ""
+	br = r.GetBufferedReader()
+	if br == nil {
+		t.Errorf("STDOUT returned a nil buffered reader")
+	}
+
 	// Test that it returns same bufio.Reader as before
+	fatalCalled = false
 	old := br
 	br = r.GetBufferedReader()
 	if br != old {
 		t.Errorf("different buffered reader returned after previously set")
 	}
+
+	fatal = oldFatal
 }
 
 func TestUseDBCreator(t *testing.T) {

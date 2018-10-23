@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"log"
 )
 
 const (
@@ -25,7 +26,10 @@ const (
 )
 
 // change for more useful testing
-var printFn = fmt.Printf
+var (
+	printFn = fmt.Printf
+	fatal = log.Fatalf
+)
 
 // Benchmark is an interface that represents the skeleton of a program
 // needed to run an insert or load benchmark.
@@ -53,7 +57,7 @@ type BenchmarkRunner struct {
 	doCreateDB      bool
 	doAbortOnExist  bool
 	reportingPeriod time.Duration
-	filename        string // TODO implement file reading
+	fileName        string
 
 	// non-flag fields
 	br        *bufio.Reader
@@ -81,6 +85,7 @@ func GetBenchmarkRunnerWithBatchSize(batchSize uint) *BenchmarkRunner {
 	flag.BoolVar(&loader.doCreateDB, "do-create-db", true, "Whether to create the database. Disable on all but one client if running on a multi client setup.")
 	flag.BoolVar(&loader.doAbortOnExist, "do-abort-on-exist", false, "Whether to abort if a database with the given name already exists.")
 	flag.DurationVar(&loader.reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
+	flag.StringVar(&loader.fileName, "file", "", "File name to read data from")
 
 	return loader
 }
@@ -120,9 +125,16 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 // GetBufferedReader returns the buffered Reader that should be used by the loader
 func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 	if l.br == nil {
-		if len(l.filename) > 0 {
-			l.br = nil // TODO - Support reading from files
+		if len(l.fileName) > 0 {
+			// Read from specified file
+			file, err := os.Open(l.fileName)
+			if err != nil {
+				fatal("cannot open file for read %s: %v", l.fileName, err)
+				return nil
+			}
+			l.br = bufio.NewReaderSize(file, defaultReadSize)
 		} else {
+			// Read from STDIN
 			l.br = bufio.NewReaderSize(os.Stdin, defaultReadSize)
 		}
 	}

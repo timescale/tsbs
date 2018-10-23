@@ -47,7 +47,7 @@ const (
 	errInvalidGroupsFmt = "incorrect interleaved groups configuration: id %d >= total groups %d"
 	errInvalidFormatFmt = "invalid format specifier: %v (valid choices: %v)"
 
-	inputBufSize = 4 << 20
+	defaultWriteSize  = 4 << 20 // 4 MB
 )
 
 // semi-constants
@@ -85,6 +85,7 @@ var (
 	interleavedGenerationGroups  uint
 
 	logInterval time.Duration
+	fileName    string
 )
 
 func parseTimeFromString(s string) time.Time {
@@ -134,6 +135,22 @@ func postFlagParse(flags parseableFlagVars) {
 	timestampEnd = parseTimeFromString(flags.timestampEndStr)
 }
 
+// GetBufferedWriter returns the buffered Writer that should be used for generated output
+func GetBufferedWriter(fileName string) *bufio.Writer {
+	// Prepare output file/STDOUT
+	if len(fileName) > 0 {
+		// Write output to file
+		file, err := os.Create(fileName)
+		if err != nil {
+			fatal("cannot open file for write %s: %v", fileName, err)
+		}
+		return bufio.NewWriterSize(file, defaultWriteSize)
+	}
+
+	// Write output to STDOUT
+	return bufio.NewWriterSize(os.Stdout, defaultWriteSize)
+}
+
 // Parse args:
 func init() {
 	pfv := parseableFlagVars{}
@@ -156,6 +173,8 @@ func init() {
 	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
 
 	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
+	flag.StringVar(&fileName, "file", "", "File name to write generated data to")
+
 	flag.Parse()
 
 	postFlagParse(pfv)
@@ -174,11 +193,13 @@ func main() {
 	}
 
 	rand.Seed(seed)
-	out := bufio.NewWriterSize(os.Stdout, inputBufSize)
+
+	// Get output writer
+	out := GetBufferedWriter(fileName)
 	defer func() {
 		err := out.Flush()
 		if err != nil {
-			log.Fatal(err.Error())
+			fatal(err.Error())
 		}
 	}()
 
