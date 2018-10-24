@@ -80,6 +80,7 @@ for QUERY_TYPE in ${QUERY_TYPES}; do
                 -use-case $USE_CASE \
                 -timescale-use-json=$USE_JSON \
                 -timescale-use-tags=$USE_TAGS \
+                -clickhouse-use-tags=$USE_TAGS \
             | gzip  > $DATA_FILE_NAME
 
             # Make short symlink for convenience
