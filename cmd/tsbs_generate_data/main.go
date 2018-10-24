@@ -2,9 +2,10 @@
 //
 // Supported formats:
 // Cassandra CSV format
+// ClickHouse pseudo-CSV format (the same as for TimescaleDB)
 // InfluxDB bulk load format
 // MongoDB BSON format
-// TimescaleDB pseudo-CSV format
+// TimescaleDB pseudo-CSV format (the same as for ClickHouse)
 
 // Supported use cases:
 // devops: scale is the number of hosts to simulate, with log messages
@@ -34,6 +35,7 @@ import (
 const (
 	// Output data format choices (alphabetical order)
 	formatCassandra   = "cassandra"
+	formatClickhouse  = "clickhouse"
 	formatInflux      = "influx"
 	formatMongo       = "mongo"
 	formatTimescaleDB = "timescaledb"
@@ -52,7 +54,13 @@ const (
 
 // semi-constants
 var (
-	formatChoices = []string{formatCassandra, formatInflux, formatMongo, formatTimescaleDB}
+	formatChoices = []string{
+		formatCassandra,
+		formatClickhouse,
+		formatInflux,
+		formatMongo,
+		formatTimescaleDB,
+	}
 	// allows for testing
 	fatal = log.Fatalf
 )
@@ -290,6 +298,8 @@ func getSerializer(sim common.Simulator, format string, out *bufio.Writer) seria
 		return &serialize.InfluxSerializer{}
 	case formatMongo:
 		return &serialize.MongoSerializer{}
+	case formatClickhouse:
+		fallthrough
 	case formatTimescaleDB:
 		out.WriteString("tags")
 		for _, key := range devops.MachineTagKeys {
