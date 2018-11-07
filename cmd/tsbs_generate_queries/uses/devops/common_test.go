@@ -140,7 +140,7 @@ func TestGetRandomHosts(t *testing.T) {
 			scale:       1,
 			nHosts:      5,
 			shouldFatal: true,
-			wantFatal:   "number of hosts (5) larger than --scale-var (1)",
+			wantFatal:   "number of hosts (5) larger than total hosts. See --scale (1)",
 		},
 	}
 
@@ -151,7 +151,7 @@ func TestGetRandomHosts(t *testing.T) {
 			fatal = func(format string, args ...interface{}) {
 				errMsg = fmt.Sprintf(format, args...)
 			}
-			hosts := getRandomHosts(c.scale, c.nHosts)
+			hosts := getRandomHosts(c.nHosts, c.scale)
 			if hosts != nil {
 				t.Errorf("%s: fatal'd but with non-nil return: %v", c.desc, hosts)
 			}
@@ -159,7 +159,7 @@ func TestGetRandomHosts(t *testing.T) {
 				t.Errorf("%s: incorrect fatal msg:\ngot\n%s\nwant\n%s", c.desc, errMsg, c.wantFatal)
 			}
 		} else {
-			hosts := getRandomHosts(c.scale, c.nHosts)
+			hosts := getRandomHosts(c.nHosts, c.scale)
 			if got := strings.Join(hosts, ","); got != c.want {
 				t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
 			}
@@ -237,7 +237,7 @@ func TestGetRandomSubsetPerm(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ret := getRandomSubsetPerm(c.scale, c.nItems)
+		ret := getRandomSubsetPerm(c.nItems, c.scale)
 		if len(ret) != c.nItems {
 			t.Errorf("return list not long enough: got %d want %d (scale %d)", len(ret), c.nItems, c.scale)
 		}
@@ -257,7 +257,7 @@ func TestGetRandomSubsetPermError(t *testing.T) {
 	fatal = func(format string, args ...interface{}) {
 		errMsg = fmt.Sprintf(format, args...)
 	}
-	ret := getRandomSubsetPerm(10, 11)
+	ret := getRandomSubsetPerm(11, 10)
 	if ret != nil {
 		t.Errorf("return was non-nil: %v", ret)
 	}
