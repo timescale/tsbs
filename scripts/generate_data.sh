@@ -29,6 +29,9 @@ USE_CASE=${USE_CASE:-"cpu-only"}
 # Step to generate data
 LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
 
+# Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
+MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
+
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
@@ -44,12 +47,13 @@ for FORMAT in ${FORMATS}; do
         echo "Generating $DATA_FILE_NAME:"
         $EXE_FILE_NAME \
             -format $FORMAT \
+            -use-case $USE_CASE \
             -scale-var $SCALE \
-            -seed $SEED \
             -timestamp-start $TS_START \
             -timestamp-end $TS_END \
+            -seed $SEED \
             -log-interval $LOG_INTERVAL \
-            -use-case $USE_CASE \
+            -max-data-points $MAX_DATA_POINTS \
         | gzip > $DATA_FILE_NAME
 
         # Make short symlink for convenience

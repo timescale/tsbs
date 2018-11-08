@@ -8,7 +8,7 @@ import (
 
 // SimulatorConfig is an interface to create a Simulator from a time.Duration
 type SimulatorConfig interface {
-	ToSimulator(time.Duration) Simulator
+	NewSimulator(time.Duration, uint64) Simulator
 }
 
 // Simulator simulates a use case.

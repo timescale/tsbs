@@ -38,8 +38,8 @@ func (d *DevopsSimulator) Next(p *serialize.Point) bool {
 // DevopsSimulatorConfig is used to create a DevopsSimulator.
 type DevopsSimulatorConfig commonDevopsSimulatorConfig
 
-// ToSimulator produces a Simulator that conforms to the given SimulatorConfig over the specified interval
-func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) common.Simulator {
+// NewSimulator produces a Simulator that conforms to the given SimulatorConfig over the specified interval
+func (d *DevopsSimulatorConfig) NewSimulator(interval time.Duration, limit uint64) common.Simulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
 		hostInfos[i] = d.HostConstructor(i, d.Start)
@@ -47,6 +47,10 @@ func (d *DevopsSimulatorConfig) ToSimulator(interval time.Duration) common.Simul
 
 	epochs := calculateEpochs(commonDevopsSimulatorConfig(*d), interval)
 	maxPoints := epochs * d.HostCount * uint64(len(hostInfos[0].SimulatedMeasurements))
+	if limit > 0 && limit < maxPoints {
+		// Set specified points number limit
+		maxPoints = limit
+	}
 	dg := &DevopsSimulator{
 		commonDevopsSimulator: &commonDevopsSimulator{
 			madePoints: 0,

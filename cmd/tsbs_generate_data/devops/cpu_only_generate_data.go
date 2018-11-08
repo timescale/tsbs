@@ -20,6 +20,7 @@ func (d *CPUOnlySimulator) Fields() map[string][][]byte {
 
 // Next advances a Point to the next state in the generator.
 func (d *CPUOnlySimulator) Next(p *serialize.Point) bool {
+	// Switch to the next metric if needed
 	if d.hostIndex == uint64(len(d.hosts)) {
 		d.hostIndex = 0
 
@@ -36,8 +37,8 @@ func (d *CPUOnlySimulator) Next(p *serialize.Point) bool {
 // CPUOnlySimulatorConfig is used to create a CPUOnlySimulator.
 type CPUOnlySimulatorConfig commonDevopsSimulatorConfig
 
-// ToSimulator produces a Simulator that conforms to the given SimulatorConfig over the specified interval
-func (c *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simulator {
+// NewSimulator produces a Simulator that conforms to the given SimulatorConfig over the specified interval
+func (c *CPUOnlySimulatorConfig) NewSimulator(interval time.Duration, limit uint64) common.Simulator {
 	hostInfos := make([]Host, c.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
 		hostInfos[i] = c.HostConstructor(i, c.Start)
@@ -45,6 +46,10 @@ func (c *CPUOnlySimulatorConfig) ToSimulator(interval time.Duration) common.Simu
 
 	epochs := calculateEpochs(commonDevopsSimulatorConfig(*c), interval)
 	maxPoints := epochs * c.HostCount
+	if limit > 0 && limit < maxPoints {
+		// Set specified points number limit
+		maxPoints = limit
+	}
 	sim := &CPUOnlySimulator{&commonDevopsSimulator{
 		madePoints: 0,
 		maxPoints:  maxPoints,
