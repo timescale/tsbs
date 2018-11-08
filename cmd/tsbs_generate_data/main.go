@@ -47,7 +47,7 @@ const (
 	errInvalidGroupsFmt = "incorrect interleaved groups configuration: id %d >= total groups %d"
 	errInvalidFormatFmt = "invalid format specifier: %v (valid choices: %v)"
 
-	defaultWriteSize  = 4 << 20 // 4 MB
+	defaultWriteSize = 4 << 20 // 4 MB
 )
 
 // semi-constants
@@ -89,10 +89,11 @@ var (
 	fileName      string
 )
 
+// parseTimeFromString parses string-represented time of the format 2006-01-02T15:04:05Z07:00
 func parseTimeFromString(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		fatal("%v", err)
+		fatal("can not parse time from string '%s': %v", s, err)
 		return time.Time{}
 	}
 	return t.UTC()
@@ -107,6 +108,7 @@ func validateGroups(groupID, totalGroups uint) (bool, error) {
 	return true, nil
 }
 
+// validateFormat checks whether format is valid (i.e., one of formatChoices)
 func validateFormat(format string) bool {
 	for _, s := range formatChoices {
 		if s == format {
@@ -116,6 +118,7 @@ func validateFormat(format string) bool {
 	return false
 }
 
+// postFlagParse assigns parseable flags
 func postFlagParse(flags parseableFlagVars) {
 	if flags.initScaleVar == 0 {
 		initScaleVar = scaleVar
@@ -155,6 +158,7 @@ func GetBufferedWriter(fileName string) *bufio.Writer {
 // Parse args:
 func init() {
 	pfv := parseableFlagVars{}
+
 	flag.StringVar(&format, "format", "", fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
 	flag.StringVar(&useCase, "use-case", "", "Use case to model. (choices: devops, cpu-only)")
@@ -169,8 +173,11 @@ func init() {
 
 	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
 
-	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0, "Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
-	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1, "The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
+	flag.UintVar(&interleavedGenerationGroupID, "interleaved-generation-group-id", 0,
+		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
+	flag.UintVar(&interleavedGenerationGroups, "interleaved-generation-groups", 1,
+		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
+
 	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
 
 	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
@@ -184,7 +191,7 @@ func init() {
 
 func main() {
 	if ok, err := validateGroups(interleavedGenerationGroupID, interleavedGenerationGroups); !ok {
-		fatal(err.Error())
+		fatal("incorrect interleaved groups specification: %v", err)
 	}
 	if ok := validateFormat(format); !ok {
 		fatal("invalid format specifier: %v (valid choices: %v)", format, formatChoices)
@@ -226,7 +233,7 @@ func runSimulator(sim common.Simulator, serializer serialize.PointSerializer, ou
 		if currGroup == groupID {
 			err := serializer.Serialize(point, out)
 			if err != nil {
-				fatal("%v", err)
+				fatal("can not serialize point: %s", err)
 				return
 			}
 		}
