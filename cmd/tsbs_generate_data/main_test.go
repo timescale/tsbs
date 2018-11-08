@@ -351,7 +351,7 @@ func TestGetConfig(t *testing.T) {
 
 func TestGetSerializer(t *testing.T) {
 	cfg := getConfig(useCaseCPUOnly)
-	sim := cfg.ToSimulator(logInterval)
+	sim := cfg.NewSimulator(logInterval, 0)
 	buf := bytes.NewBuffer(make([]byte, 1024))
 	out := bufio.NewWriter(buf)
 	defer out.Flush()

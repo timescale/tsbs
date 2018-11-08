@@ -19,7 +19,7 @@ var (
 )
 
 func TestCPUOnlySimulatorFields(t *testing.T) {
-	s := testCPUOnlyConf.ToSimulator(time.Second).(*CPUOnlySimulator)
+	s := testCPUOnlyConf.NewSimulator(time.Second, 0).(*CPUOnlySimulator)
 	fields := s.Fields()
 	if got := len(fields); got != 1 {
 		t.Errorf("fields length does not equal 1: got %d", got)
@@ -45,7 +45,7 @@ func TestCPUOnlySimulatorFields(t *testing.T) {
 }
 
 func TestCPUOnlySimulatorNext(t *testing.T) {
-	s := testCPUOnlyConf.ToSimulator(time.Second).(*CPUOnlySimulator)
+	s := testCPUOnlyConf.NewSimulator(time.Second, 0).(*CPUOnlySimulator)
 	// There are two epochs for the test configuration, and a difference of 90
 	// from init to final, so each epoch should add 45 devices to be written.
 	writtenIdx := []int{10, 55, 100}
@@ -77,7 +77,7 @@ func TestCPUOnlySimulatorNext(t *testing.T) {
 	runFn(3)
 }
 
-func TestCPUOnlySimulatorConfigToSimulator(t *testing.T) {
+func TestCPUOnlySimulatorConfigNewSimulator(t *testing.T) {
 	duration := time.Second
 	start := time.Now()
 	end := start.Add(10 * time.Second)
@@ -90,7 +90,7 @@ func TestCPUOnlySimulatorConfigToSimulator(t *testing.T) {
 		HostCount:       numHosts,
 		HostConstructor: NewHostCPUOnly,
 	}
-	sim := conf.ToSimulator(duration).(*CPUOnlySimulator)
+	sim := conf.NewSimulator(duration, 0).(*CPUOnlySimulator)
 	if got := sim.madePoints; got != 0 {
 		t.Errorf("incorrect initial points: got %d want %d", got, 0)
 	}

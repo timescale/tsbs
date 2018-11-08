@@ -84,8 +84,9 @@ var (
 	interleavedGenerationGroupID uint
 	interleavedGenerationGroups  uint
 
-	logInterval time.Duration
-	fileName    string
+	logInterval   time.Duration
+	maxDataPoints uint64
+	fileName      string
 )
 
 func parseTimeFromString(s string) time.Time {
@@ -173,6 +174,7 @@ func init() {
 	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
 
 	flag.DurationVar(&logInterval, "log-interval", 10*time.Second, "Duration between host data points")
+	flag.Uint64Var(&maxDataPoints, "max-data-points", 0, "Limit the number of data points to generate, 0 = no limit")
 	flag.StringVar(&fileName, "file", "", "File name to write generated data to")
 
 	flag.Parse()
@@ -204,7 +206,7 @@ func main() {
 	}()
 
 	cfg := getConfig(useCase)
-	sim := cfg.ToSimulator(logInterval)
+	sim := cfg.NewSimulator(logInterval, maxDataPoints)
 	serializer := getSerializer(sim, format, out)
 
 	runSimulator(sim, serializer, out, interleavedGenerationGroupID, interleavedGenerationGroups)
