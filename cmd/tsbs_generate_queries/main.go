@@ -41,11 +41,11 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 }
 
-const defaultWriteSize  = 4 << 20 // 4 MB
+const defaultWriteSize = 4 << 20 // 4 MB
 
 // Program option vars:
 var (
-	fatal     = log.Fatalf
+	fatal = log.Fatalf
 
 	generator utils.DevopsGenerator
 	filler    utils.QueryFiller

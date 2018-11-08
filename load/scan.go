@@ -42,9 +42,8 @@ type Batch interface {
 	Append(*Point)
 }
 
-// Point acts a 'holder' for the internal representation of a point in a given
-// load client. Instead of using interface{} as a return type, we get compile safety
-// by using Point
+// Point acts as a 'holder' for the internal representation of a point in a given load client.
+// Instead of using interface{} as a return type, we get compile safety by using Point
 type Point struct {
 	Data interface{}
 }
@@ -54,8 +53,8 @@ func NewPoint(data interface{}) *Point {
 	return &Point{Data: data}
 }
 
-// PointIndexer determines the index of the Batch (and subsequently the channel) that a particular
-// point belongs to
+// PointIndexer determines the index of the Batch (and subsequently the channel)
+// that a particular point belongs to
 type PointIndexer interface {
 	// GetIndex returns a partition for the given Point
 	GetIndex(*Point) int
@@ -66,7 +65,9 @@ type PointIndexer interface {
 type ConstantIndexer struct{}
 
 // GetIndex returns a constant index (0) regardless of Point
-func (i *ConstantIndexer) GetIndex(_ *Point) int { return 0 }
+func (i *ConstantIndexer) GetIndex(_ *Point) int {
+	return 0
+}
 
 // BatchFactory returns a new empty batch for storing points.
 type BatchFactory interface {

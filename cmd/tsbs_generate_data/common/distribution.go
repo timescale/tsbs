@@ -21,7 +21,10 @@ type NormalDistribution struct {
 
 // ND creates a new normal distribution with the given mean/stddev
 func ND(mean, stddev float64) *NormalDistribution {
-	return &NormalDistribution{Mean: mean, StdDev: stddev}
+	return &NormalDistribution{
+		Mean:   mean,
+		StdDev: stddev,
+	}
 }
 
 // Advance advances this distribution. Since the distribution is
@@ -45,7 +48,10 @@ type UniformDistribution struct {
 
 // UD creates a new uniform distribution with the given range
 func UD(low, high float64) *UniformDistribution {
-	return &UniformDistribution{Low: low, High: high}
+	return &UniformDistribution{
+		Low:  low,
+		High: high,
+	}
 }
 
 // Advance advances this distribution. Since the distribution is
@@ -72,7 +78,10 @@ type RandomWalkDistribution struct {
 
 // WD creates a new RandomWalkDistribution based on a given distribution and starting state
 func WD(step Distribution, state float64) *RandomWalkDistribution {
-	return &RandomWalkDistribution{Step: step, State: state}
+	return &RandomWalkDistribution{
+		Step:  step,
+		State: state,
+	}
 }
 
 // Advance computes the next value of this distribution and stores it.
@@ -147,7 +156,10 @@ func (d *MonotonicRandomWalkDistribution) Get() float64 {
 
 // MWD creates a new MonotonicRandomWalkDistribution with a given distribution and initial state
 func MWD(step Distribution, state float64) *MonotonicRandomWalkDistribution {
-	return &MonotonicRandomWalkDistribution{Step: step, State: state}
+	return &MonotonicRandomWalkDistribution{
+		Step:  step,
+		State: state,
+	}
 }
 
 // ConstantDistribution is a stateful distribution that always returns the same value

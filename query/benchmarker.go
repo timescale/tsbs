@@ -16,7 +16,7 @@ const (
 	labelColdQueries = "cold queries"
 	labelWarmQueries = "warm queries"
 
-	defaultReadSize  = 4 << 20 // 4 MB
+	defaultReadSize = 4 << 20 // 4 MB
 )
 
 // BenchmarkRunner contains the common components for running a query benchmarking
@@ -34,7 +34,7 @@ type BenchmarkRunner struct {
 	debug          int
 	fileName       string
 
-	br            *bufio.Reader
+	br *bufio.Reader
 }
 
 // NewBenchmarkRunner creates a new instance of BenchmarkRunner which is

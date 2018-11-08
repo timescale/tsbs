@@ -7,7 +7,8 @@ import (
 
 // TimeInterval represents an interval of time.
 type TimeInterval struct {
-	Start, End time.Time
+	Start time.Time
+	End   time.Time
 }
 
 // NewTimeInterval constructs a TimeInterval.

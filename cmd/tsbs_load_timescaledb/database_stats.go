@@ -15,9 +15,9 @@ const ReplicationStatsTable = "pg_stat_replication"
 
 type ReplicationStats struct {
 	ReplicaName string `db:"application_name"`
-	ReplayLag string `db:"replay_lag"`
-	WriteLag string `db:"write_lag"`
-	FlushLag string `db:"flush_lag"`
+	ReplayLag   string `db:"replay_lag"`
+	WriteLag    string `db:"write_lag"`
+	FlushLag    string `db:"flush_lag"`
 }
 
 func (rs ReplicationStats) ToSlice() []string {
@@ -29,10 +29,10 @@ func (rs ReplicationStats) ToSlice() []string {
 */
 func getReplicationStats(db *sqlx.DB) []ReplicationStats {
 	replicationStats := []ReplicationStats{}
-	db.Select(&replicationStats, fmt.Sprintf("SELECT EXTRACT(EPOCH FROM replay_lag) as replay_lag, " +
-						"EXTRACT(EPOCH FROM write_lag) as write_lag, " +
-						"EXTRACT(EPOCH FROM flush_lag) as flush_lag, " +
-						"application_name FROM %s;", ReplicationStatsTable))
+	db.Select(&replicationStats, fmt.Sprintf("SELECT EXTRACT(EPOCH FROM replay_lag) as replay_lag, "+
+		"EXTRACT(EPOCH FROM write_lag) as write_lag, "+
+		"EXTRACT(EPOCH FROM flush_lag) as flush_lag, "+
+		"application_name FROM %s;", ReplicationStatsTable))
 	return replicationStats
 }
 

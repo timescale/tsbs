@@ -4,22 +4,22 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
-	"log"
 )
 
 const (
-	// DefaultBatchSize is the default size of batches to be inserted
+	// defaultBatchSize - default size of batches to be inserted
 	defaultBatchSize = 10000
 	defaultReadSize  = 4 << 20 // 4 MB
 
-	// WorkerPerQueue is the value to have each worker have its own queue of batches
+	// WorkerPerQueue is the value for assigning each worker its own queue of batches
 	WorkerPerQueue = 0
-	// SingleQueue is the value to have only a single shared queue of work for all workers
+	// SingleQueue is the value for using a single shared queue across all workers
 	SingleQueue = 1
 
 	errDBExistsFmt = "database \"%s\" exists: aborting."
@@ -28,7 +28,7 @@ const (
 // change for more useful testing
 var (
 	printFn = fmt.Printf
-	fatal = log.Fatalf
+	fatal   = log.Fatalf
 )
 
 // Benchmark is an interface that represents the skeleton of a program
@@ -36,19 +36,24 @@ var (
 type Benchmark interface {
 	// GetPointDecoder returns the PointDecoder to use for this Benchmark
 	GetPointDecoder(br *bufio.Reader) PointDecoder
+
 	// GetBatchFactory returns the BatchFactory to use for this Benchmark
 	GetBatchFactory() BatchFactory
+
 	// GetPointIndexer returns the PointIndexer to use for this Benchmark
 	GetPointIndexer(maxPartitions uint) PointIndexer
+
 	// GetProcessor returns the Processor to use for this Benchmark
 	GetProcessor() Processor
 
+	// GetDBCreator returns the DBCreator to use for this Benchmark
 	GetDBCreator() DBCreator
 }
 
 // BenchmarkRunner is responsible for initializing and storing common
 // flags across all database systems and ultimately running a supplied Benchmark
 type BenchmarkRunner struct {
+	// flag fields
 	dbName          string
 	batchSize       uint
 	workers         uint
@@ -68,16 +73,16 @@ type BenchmarkRunner struct {
 var loader = &BenchmarkRunner{}
 
 // GetBenchmarkRunner returns the singleton BenchmarkRunner for use in a benchmark program
-// with a batch size of 10000
+// with a default batch size
 func GetBenchmarkRunner() *BenchmarkRunner {
 	return GetBenchmarkRunnerWithBatchSize(defaultBatchSize)
 }
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
-// with a non-default batch size.
+// with specified batch size.
 func GetBenchmarkRunnerWithBatchSize(batchSize uint) *BenchmarkRunner {
+	// fill flag fields of BenchmarkRunner struct
 	flag.StringVar(&loader.dbName, "db-name", "benchmark", "Name of database")
-
 	flag.UintVar(&loader.batchSize, "batch-size", batchSize, "Number of items to batch together in a single insert")
 	flag.UintVar(&loader.workers, "workers", 1, "Number of parallel clients inserting")
 	flag.Uint64Var(&loader.limit, "limit", 0, "Number of items to insert (0 = all of them).")
@@ -99,23 +104,32 @@ func (l *BenchmarkRunner) DatabaseName() string {
 // and uses those to run the load benchmark
 func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 	l.br = l.GetBufferedReader()
+
+	// Create required DB
 	cleanupFn := l.useDBCreator(b.GetDBCreator())
 	defer cleanupFn()
 
 	channels := l.createChannels(workQueues)
 
+	// Launch all worker processes in background
 	var wg sync.WaitGroup
 	for i := 0; i < int(l.workers); i++ {
 		wg.Add(1)
 		go l.work(b, &wg, channels[i%len(channels)], i)
 	}
 
+	// Start scan process - actual data read process
 	start := time.Now()
 	l.scan(b, channels)
 
+	// After scan process completed (no more data to come) - begin shutdown process
+
+	// Close all communication channels to/from workers
 	for _, c := range channels {
 		c.close()
 	}
+
+	// Wait for all workers to finish
 	wg.Wait()
 	end := time.Now()
 
