@@ -28,7 +28,7 @@ func TestProcessorHandler(t *testing.T) {
 	p1 := &testProcessor{}
 	p2 := &testProcessor{}
 	b := NewBenchmarkRunner()
-	b.c = make(chan Query, 2)
+	b.ch = make(chan Query, 2)
 
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
@@ -37,9 +37,9 @@ func TestProcessorHandler(t *testing.T) {
 	go b.processorHandler(&wg, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
-		b.c <- q
+		b.ch <- q
 	}
-	close(b.c)
+	close(b.ch)
 	wg.Wait()
 
 	if p1.wNum != p1Num {

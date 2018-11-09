@@ -46,7 +46,7 @@ func init() {
 	flag.Parse()
 
 	if showExplain {
-		runner.ResetLimit(1)
+		runner.SetLimit(1)
 	}
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
