@@ -48,7 +48,7 @@ for FORMAT in ${FORMATS}; do
         $EXE_FILE_NAME \
             -format $FORMAT \
             -use-case $USE_CASE \
-            -scale-var $SCALE \
+            -scale $SCALE \
             -timestamp-start $TS_START \
             -timestamp-end $TS_END \
             -seed $SEED \

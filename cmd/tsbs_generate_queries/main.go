@@ -115,14 +115,18 @@ func init() {
 		}
 	}
 
-	var useCase, queryType, format, timestampStartStr, timestampEndStr string
-	var scaleVar int
+	var format string
+	var useCase string
+	var queryType string
+	var scale int
+	var timestampStartStr string
+	var timestampEndStr string
 
 	flag.StringVar(&format, "format", "", "Format to emit. (Choices are in the use case matrix.)")
 	flag.StringVar(&useCase, "use-case", "", "Use case to model. (Choices are in the use case matrix.)")
 	flag.StringVar(&queryType, "query-type", "", "Query type. (Choices are in the use case matrix.)")
 
-	flag.IntVar(&scaleVar, "scale-var", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
+	flag.IntVar(&scale, "scale", 1, "Scaling variable (must be the equal to the scalevar used for data generation).")
 	flag.IntVar(&queryCount, "queries", 1000, "Number of queries to generate.")
 
 	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
@@ -173,7 +177,7 @@ func init() {
 	timestampEnd = timestampEnd.UTC()
 
 	// Make the query generator:
-	generator = getGenerator(format, timestampStart, timestampEnd, scaleVar)
+	generator = getGenerator(format, timestampStart, timestampEnd, scale)
 	filler = useCaseMatrix[useCase][queryType](generator)
 }
 
