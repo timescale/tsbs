@@ -44,9 +44,9 @@ Result:
 NUM_WORKERS=8 BULK_DATA_DIR=/tmp DATABASE_HOST=localhost BATCH_SIZE=10000 ./load_timescaledb.sh | tee load_timescaledb_8_10000.out
 
 # Queries
-cat /tmp/queries/timescaledb-single-groupby-5-1-1-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-1-queries.out
+cat /tmp/queries/timescaledb-single-groupby-5-1-1-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -max-queries 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-1-queries.out
 
-cat /tmp/queries/timescaledb-single-groupby-5-1-12-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -limit 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-12-queries.out
+cat /tmp/queries/timescaledb-single-groupby-5-1-12-queries.gz | gunzip | tsbs_run_queries_timescaledb -workers 8 -max-queries 1000 -postgres "host=localhost user=postgres sslmode=disable" | tee query_timescaledb_timescaledb-single-groupby-5-1-12-queries.out
 '''
 import argparse
 import os
@@ -69,7 +69,7 @@ def get_load_str(load_dir, label, batch_size, workers, hostname):
 
 def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
     '''Writes a script line corresponding to executing a query on a database'''
-    limit_arg = '--limit={}'.format(limit) if limit is not None else ''
+    limit_arg = '--max-queries={}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
     benchmarker = label if label != 'postgres' else 'timescaledb'
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         action='store_true', help='Whether to only generate commands for inserts')
     parser.add_argument('-l', dest='load_file_dir', default=default_load_dir,
         type=str, help='Path to directory where data to insert is stored')
-    parser.add_argument('-n', dest='limit', default=1000, type=int,
+    parser.add_argument('-n', dest='max-queries', default=1000, type=int,
         help='Max number of queries to run')
     parser.add_argument('-o', dest='query_file_dir', default=default_query_dir,
         type=str, help='Path to directory where queries to execute are stored')
