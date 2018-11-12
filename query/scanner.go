@@ -20,32 +20,38 @@ func newScanner(limit *uint64) *scanner {
 }
 
 // setReader sets the source, an io.Reader, that the scanner reads/decodes from
-func (qs *scanner) setReader(r io.Reader) *scanner {
-	qs.r = r
-	return qs
+func (s *scanner) setReader(r io.Reader) *scanner {
+	s.r = r
+	return s
 }
 
 // scan reads encoded Queries and places them into a channel
-func (qs *scanner) scan(pool *sync.Pool, c chan Query) {
-	dec := gob.NewDecoder(qs.r)
+func (s *scanner) scan(pool *sync.Pool, c chan Query) {
+	decoder := gob.NewDecoder(s.r)
 
 	n := uint64(0)
 	for {
-		if *qs.limit > 0 && n >= *qs.limit {
+		if *s.limit > 0 && n >= *s.limit {
+			// request queries limit reached, time to quit
 			break
 		}
 
 		q := pool.Get().(Query)
-		err := dec.Decode(q)
+		err := decoder.Decode(q)
 		if err == io.EOF {
+			// EOF, all done
 			break
 		}
 		if err != nil {
+			// Can't read, time to quit
 			log.Fatal(err)
 		}
 
+		// We have a query, send it to the runner
 		q.SetID(n)
 		c <- q
+
+		// Queries counter
 		n++
 	}
 }

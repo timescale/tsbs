@@ -92,18 +92,18 @@ func TestValidateFormat(t *testing.T) {
 }
 
 func TestPostFlagsParse(t *testing.T) {
-	scaleVar = 100
+	scale = 100
 	timestampStart = time.Time{}
 	timestampEnd = time.Time{}
 	boringPFV := parseableFlagVars{
-		initScaleVar:      1,
+		initialScale:      1,
 		seed:              123,
 		timestampStartStr: correctTimeStr,
 		timestampEndStr:   correctTimeStr,
 	}
 	postFlagParse(boringPFV)
-	if initScaleVar != boringPFV.initScaleVar {
-		t.Errorf("specified initScaleVar not set correctly: got %d", initScaleVar)
+	if initialScale != boringPFV.initialScale {
+		t.Errorf("specified initScaleVar not set correctly: got %d", initialScale)
 	}
 	if seed != boringPFV.seed {
 		t.Errorf("specified seed not set correctly: got %d", seed)
@@ -117,19 +117,19 @@ func TestPostFlagsParse(t *testing.T) {
 
 	// initScaleVar should set to the same as scaleVar
 	testPFV := parseableFlagVars{
-		initScaleVar:      0,
+		initialScale:      0,
 		seed:              boringPFV.seed,
 		timestampStartStr: boringPFV.timestampStartStr,
 		timestampEndStr:   boringPFV.timestampEndStr,
 	}
 	postFlagParse(testPFV)
-	if initScaleVar != scaleVar {
-		t.Errorf("initScaleVar = 0 not parsed correctly: got %d", initScaleVar)
+	if initialScale != scale {
+		t.Errorf("initScaleVar = 0 not parsed correctly: got %d", initialScale)
 	}
 
 	// seed should set to current time
 	testPFV = parseableFlagVars{
-		initScaleVar:      boringPFV.initScaleVar,
+		initialScale:      boringPFV.initialScale,
 		seed:              0,
 		timestampStartStr: boringPFV.timestampStartStr,
 		timestampEndStr:   boringPFV.timestampEndStr,
@@ -146,7 +146,7 @@ func TestPostFlagsParse(t *testing.T) {
 		fatalCalled = true
 	}
 	testPFV = parseableFlagVars{
-		initScaleVar:      boringPFV.initScaleVar,
+		initialScale:      boringPFV.initialScale,
 		seed:              boringPFV.seed,
 		timestampStartStr: incorrectTimeStr,
 		timestampEndStr:   boringPFV.timestampEndStr,
@@ -157,7 +157,7 @@ func TestPostFlagsParse(t *testing.T) {
 	}
 
 	testPFV = parseableFlagVars{
-		initScaleVar:      boringPFV.initScaleVar,
+		initialScale:      boringPFV.initialScale,
 		seed:              boringPFV.seed,
 		timestampStartStr: boringPFV.timestampStartStr,
 		timestampEndStr:   incorrectTimeStr,

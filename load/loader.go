@@ -159,22 +159,27 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 // user. The function returns a function that the caller should defer or run
 // when the benchmark is finished
 func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
-	// empty function to 'defer' from caller
-	fn := func() {}
+	// Empty function to 'defer' from caller
+	closeFn := func() {}
 
 	if l.doLoad {
 		// DBCreator should still be Init'd even if -do-create-db is false since
 		// it can initialize the connecting session
 		dbc.Init()
+
 		switch dbcc := dbc.(type) {
 		case DBCreatorCloser:
-			fn = dbcc.Close
+			closeFn = dbcc.Close
 		}
 
+		// Check whether required DB already exists
 		exists := dbc.DBExists(l.dbName)
 		if exists && l.doAbortOnExist {
 			panic(fmt.Sprintf(errDBExistsFmt, l.dbName))
 		}
+
+		// Create required DB if need be
+		// In case DB already exists - delete it
 		if l.doCreateDB {
 			if exists {
 				err := dbc.RemoveOldDB(l.dbName)
@@ -187,25 +192,36 @@ func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
 				panic(err)
 			}
 		}
+
 		switch dbcp := dbc.(type) {
 		case DBCreatorPost:
 			dbcp.PostCreateDB(l.dbName)
 		}
 	}
-	return fn
+	return closeFn
 }
 
+// createChannels create channels from which workers would receive tasks
+// Number of workers may be different from number of channels, thus we may have
+// multiple workers per channel
 func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
+	// Result - channels to be created
 	channels := []*duplexChannel{}
-	maxPartitions := workQueues
+
+	// How many work queues should be created?
+	workQueuesToCreate := workQueues
 	if workQueues == WorkerPerQueue {
-		maxPartitions = l.workers
+		workQueuesToCreate = l.workers
 	} else if workQueues > l.workers {
 		panic(fmt.Sprintf("cannot have more work queues (%d) than workers (%d)", workQueues, l.workers))
 	}
-	perQueue := int(math.Ceil(float64(l.workers) / float64(maxPartitions)))
-	for i := uint(0); i < maxPartitions; i++ {
-		channels = append(channels, newDuplexChannel(perQueue))
+
+	// How many workers would be served by each queue?
+	workersPerQueue := int(math.Ceil(float64(l.workers) / float64(workQueuesToCreate)))
+
+	// Create duplex communication channels
+	for i := uint(0); i < workQueuesToCreate; i++ {
+		channels = append(channels, newDuplexChannel(workersPerQueue))
 	}
 
 	return channels
@@ -214,26 +230,38 @@ func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
 // scan launches any needed reporting mechanism and proceeds to scan input data
 // to distribute to workers
 func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel) uint64 {
+	// Start background reporting process
+	// TODO why it is here? May be it could be moved one level up?
 	if l.reportingPeriod.Nanoseconds() > 0 {
 		go l.report(l.reportingPeriod)
 	}
+
+	// Scan incoming data
 	return scanWithIndexer(channels, l.batchSize, l.limit, l.br, b.GetPointDecoder(l.br), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
 }
 
 // work is the processing function for each worker in the loader
 func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int) {
+
+	// Prepare processor
 	proc := b.GetProcessor()
 	proc.Init(workerNum, l.doLoad)
+
+	// Process batches coming from duplexChannel.toWorker queue
+	// and send ACKs into duplexChannel.toScanner queue
 	for b := range c.toWorker {
 		metricCnt, rowCnt := proc.ProcessBatch(b, l.doLoad)
 		atomic.AddUint64(&l.metricCnt, metricCnt)
 		atomic.AddUint64(&l.rowCnt, rowCnt)
 		c.sendToScanner()
 	}
+
+	// Close proc if necessary
 	switch c := proc.(type) {
 	case ProcessorCloser:
 		c.Close(l.doLoad)
 	}
+
 	wg.Done()
 }
 

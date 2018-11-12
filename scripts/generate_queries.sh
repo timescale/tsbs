@@ -73,7 +73,7 @@ for QUERY_TYPE in ${QUERY_TYPES}; do
                 -format $FORMAT \
                 -queries $QUERIES \
                 -query-type $QUERY_TYPE \
-                -scale-var $SCALE \
+                -scale $SCALE \
                 -seed $SEED \
                 -timestamp-start $TS_START \
                 -timestamp-end $TS_END \
