@@ -103,7 +103,7 @@ func TestPostFlagsParse(t *testing.T) {
 	}
 	postFlagParse(boringPFV)
 	if initialScale != boringPFV.initialScale {
-		t.Errorf("specified initScaleVar not set correctly: got %d", initialScale)
+		t.Errorf("specified initScale not set correctly: got %d", initialScale)
 	}
 	if seed != boringPFV.seed {
 		t.Errorf("specified seed not set correctly: got %d", seed)
@@ -115,7 +115,7 @@ func TestPostFlagsParse(t *testing.T) {
 		t.Errorf("end time not parsed correctly: got %v", timestampEnd)
 	}
 
-	// initScaleVar should set to the same as scaleVar
+	// initScale should set to the same as scale
 	testPFV := parseableFlagVars{
 		initialScale:      0,
 		seed:              boringPFV.seed,
@@ -124,7 +124,7 @@ func TestPostFlagsParse(t *testing.T) {
 	}
 	postFlagParse(testPFV)
 	if initialScale != scale {
-		t.Errorf("initScaleVar = 0 not parsed correctly: got %d", initialScale)
+		t.Errorf("initScale = 0 not parsed correctly: got %d", initialScale)
 	}
 
 	// seed should set to current time

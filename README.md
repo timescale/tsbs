@@ -37,7 +37,7 @@ In addition to metric readings, 'tags' (including the location
 of the host, its operating system, etc) are generated for each host
 with readings in the dataset. Each unique set of tags identifies
 one host in the dataset and the number of different hosts generated is
-defined by the `scale-var` flag (see below).
+defined by the `scale` flag (see below).
 
 ## What the TSBS tests
 
@@ -106,7 +106,7 @@ datasets, if you chose to generate for multiple databases) that can
 be used to benchmark data loading of the database(s) chosen using
 the `tsbs_generate_data` tool:
 ```bash
-$ tsbs_generate_data -use-case="cpu-only" -seed=123 -scale-var=4000 \
+$ tsbs_generate_data -use-case="cpu-only" -seed=123 -scale=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:00Z" \
     -log-interval="10s" -format="timescaledb" \
@@ -141,7 +141,7 @@ helper script.
 
 For generating just one set of queries for a given type:
 ```bash
-$ tsbs_generate_queries -use-case="cpu-only" -seed=123 -scale-var=4000 \
+$ tsbs_generate_queries -use-case="cpu-only" -seed=123 -scale=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:01Z" \
     -queries=1000 -query-type="single-groupby-1-1-1" -format="timescaledb" \
@@ -150,7 +150,7 @@ $ tsbs_generate_queries -use-case="cpu-only" -seed=123 -scale-var=4000 \
 
 For generating sets of queries for multiple types:
 ```bash
-$ formats="timescaledb" scaleVar=4000 seed=123 \
+$ formats="timescaledb" scale=4000 seed=123 \
     tsStart="2016-01-01T00:00:00Z" \
     tsEnd="2016-01-04T00:00:01Z" \
     queries=1000 queryTypes="single-groupby-1-1-1 single-groupby-1-1-12 double-groupby-1" \
