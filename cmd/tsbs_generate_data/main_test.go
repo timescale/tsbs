@@ -203,6 +203,10 @@ func (s *testSimulator) Fields() map[string][][]byte {
 	return nil
 }
 
+func (s *testSimulator) TagKeys() [][]byte {
+	return nil
+}
+
 type testSerializer struct {
 	shouldError bool
 }
