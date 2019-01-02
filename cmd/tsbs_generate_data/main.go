@@ -61,6 +61,11 @@ var (
 		formatMongo,
 		formatTimescaleDB,
 	}
+	useCaseChoices = []string{
+		useCaseCPUOnly,
+		useCaseCPUSingle,
+		useCaseDevops,
+	}
 	// allows for testing
 	fatal = log.Fatalf
 )
@@ -130,6 +135,16 @@ func validateFormat(format string) bool {
 	return false
 }
 
+// validateUseCase checks whether use-case is valid (i.e., one of useCaseChoices)
+func validateUseCase(useCase string) bool {
+	for _, s := range useCaseChoices {
+		if s == useCase {
+			return true
+		}
+	}
+	return false
+}
+
 // postFlagParse assigns parseable flags
 func postFlagParse(flags parseableFlagVars) {
 	if flags.initialScale == 0 {
@@ -173,7 +188,7 @@ func init() {
 
 	flag.StringVar(&format, "format", "", fmt.Sprintf("Format to emit. (choices: %s)", strings.Join(formatChoices, ", ")))
 
-	flag.StringVar(&useCase, "use-case", "", "Use case to model. (choices: devops, cpu-only)")
+	flag.StringVar(&useCase, "use-case", "", fmt.Sprintf("Use case to model. (choices: %s)", strings.Join(useCaseChoices, ", ")))
 
 	flag.Uint64Var(&pfv.initialScale, "initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
 	flag.Uint64Var(&scale, "scale", 1, "Scaling value specific to the use case (e.g., devices in 'devops').")
@@ -206,7 +221,10 @@ func main() {
 		fatal("incorrect interleaved groups specification: %v", err)
 	}
 	if ok := validateFormat(format); !ok {
-		fatal("invalid format specifier: %v (valid choices: %v)", format, formatChoices)
+		fatal("invalid format specified: %v (valid choices: %v)", format, formatChoices)
+	}
+	if ok := validateUseCase(useCase); !ok {
+		fatal("invalid use-case specified: %v (valid choices: %v)", useCase, useCaseChoices)
 	}
 
 	if len(profileFile) > 0 {
