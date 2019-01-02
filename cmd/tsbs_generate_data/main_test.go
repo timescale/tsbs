@@ -91,6 +91,17 @@ func TestValidateFormat(t *testing.T) {
 	}
 }
 
+func TestValidateUseCase(t *testing.T) {
+	for _, f := range useCaseChoices {
+		if !validateUseCase(f) {
+			t.Errorf("use-case '%s' did not return true when it should", f)
+		}
+	}
+	if validateUseCase("incorrect use-case!") {
+		t.Errorf("validateUseCase returned true for invalid use-case")
+	}
+}
+
 func TestPostFlagsParse(t *testing.T) {
 	scale = 100
 	timestampStart = time.Time{}
