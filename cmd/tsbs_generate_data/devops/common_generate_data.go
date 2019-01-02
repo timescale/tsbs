@@ -53,6 +53,10 @@ func (s *commonDevopsSimulator) Fields() map[string][][]byte {
 	return s.fields(s.hosts[0].SimulatedMeasurements)
 }
 
+func (s *commonDevopsSimulator) TagKeys() [][]byte {
+	return MachineTagKeys
+}
+
 func (s *commonDevopsSimulator) fields(measurements []common.SimulatedMeasurement) map[string][][]byte {
 	data := make(map[string][][]byte)
 	for _, sm := range measurements {

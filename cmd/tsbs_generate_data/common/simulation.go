@@ -16,6 +16,7 @@ type Simulator interface {
 	Finished() bool
 	Next(*serialize.Point) bool
 	Fields() map[string][][]byte
+	TagKeys() [][]byte
 }
 
 // SimulatedMeasurement simulates one measurement (e.g. Redis for DevOps).
