@@ -110,23 +110,23 @@ func (d *dbCreator) CreateDB(dbName string) error {
 				extraCols = 1
 			}
 
-			fieldDef = append(fieldDef, fmt.Sprintf("%s %s", field, fieldType))
+			fieldDef = append(fieldDef, fmt.Sprintf("\"%s\" %s", field, fieldType))
 			if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
 				indexes = append(indexes, d.getCreateIndexOnFieldCmds(hypertable, field, idxType)...)
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", hypertable, strings.Join(fieldDef, ",")))
+		dbBench.MustExec(fmt.Sprintf("CREATE TABLE \"%s\" (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", hypertable, strings.Join(fieldDef, ",")))
 		if partitionIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON \"%s\" (\"tags_id\", \"time\" DESC)", hypertable))
 		}
 
 		// Only allow one or the other, it's probably never right to have both.
 		// Experimentation suggests (so far) that for 100k devices it is better to
 		// use --time-partition-index for reduced index lock contention.
 		if timePartitionIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON \"%s\" (\"time\" DESC, \"tags_id\")", hypertable))
 		} else if timeIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
+			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON \"%s\" (\"time\" DESC)", hypertable))
 		}
 
 		for _, idxDef := range indexes {
@@ -153,14 +153,14 @@ func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string)
 
 		indexDef := ""
 		if idx == timeValueIdx {
-			indexDef = fmt.Sprintf("(time DESC, %s)", field)
+			indexDef = fmt.Sprintf("(\"time\" DESC, \"%s\")", field)
 		} else if idx == valueTimeIdx {
-			indexDef = fmt.Sprintf("(%s, time DESC)", field)
+			indexDef = fmt.Sprintf("(\"%s\", \"time\" DESC)", field)
 		} else {
 			fatal("Unknown index type %v", idx)
 		}
 
-		ret = append(ret, fmt.Sprintf("CREATE INDEX ON %s %s", hypertable, indexDef))
+		ret = append(ret, fmt.Sprintf("CREATE INDEX ON \"%s\" %s", hypertable, indexDef))
 	}
 	return ret
 }

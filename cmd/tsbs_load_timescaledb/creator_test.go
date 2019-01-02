@@ -125,8 +125,8 @@ func TestDBCreatorReadDataHeader(t *testing.T) {
 func TestDBCreatorGetCreateIndexOnFieldSQL(t *testing.T) {
 	hypertable := "htable"
 	field := "foo"
-	valueTime := "CREATE INDEX ON htable (foo, time DESC)"
-	timeValue := "CREATE INDEX ON htable (time DESC, foo)"
+	valueTime := "CREATE INDEX ON \"htable\" (\"foo\", \"time\" DESC)"
+	timeValue := "CREATE INDEX ON \"htable\" (\"time\" DESC, \"foo\")"
 	cases := []struct {
 		desc        string
 		idxType     string
