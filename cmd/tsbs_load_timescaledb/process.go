@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -91,7 +92,16 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 			if err != nil {
 				panic(err)
 			}
-			ret[fmt.Sprintf("%v", resVals[1])] = resVals[0].(int64)
+
+			var key string
+			if useJSON {
+				decodedTagset := map[string]string{}
+				json.Unmarshal(resVals[1].([]byte), &decodedTagset)
+				key = decodedTagset[tagCols[0]]
+			} else {
+				key = fmt.Sprintf("%v", resVals[1])
+			}
+			ret[key] = resVals[0].(int64)
 		}
 		res.Close()
 		return ret
