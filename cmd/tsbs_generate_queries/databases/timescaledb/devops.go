@@ -9,16 +9,20 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+const oneMinute = 60
+const oneHour = oneMinute * 60
+
 // Devops produces TimescaleDB-specific queries for all the devops query types.
 type Devops struct {
 	*devops.Core
-	UseJSON bool
-	UseTags bool
+	UseJSON       bool
+	UseTags       bool
+	UseTimeBucket bool
 }
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale), false, false}
+	return &Devops{devops.NewCore(start, end, scale), false, false, true}
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB
@@ -56,6 +60,14 @@ func (d *Devops) getHostWhereString(nhosts int) string {
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
+func (d *Devops) getTimeBucket(seconds int) string {
+	if d.UseTimeBucket {
+		return fmt.Sprintf("time_bucket('%d seconds', time)", seconds)
+	}
+
+	return fmt.Sprintf("to_timestamp(((extract(epoch from time)::int)/%d)*%d)", seconds, seconds)
+}
+
 func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
 	selectClauses := make([]string, len(metrics))
 	for i, m := range metrics {
@@ -81,11 +93,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
-	sql := fmt.Sprintf(`SELECT time_bucket('1 minute', time) AS minute,
+	sql := fmt.Sprintf(`SELECT %s AS minute
         %s
         FROM cpu
         WHERE %s AND time >= '%s' AND time < '%s'
         GROUP BY minute ORDER BY minute ASC`,
+		d.getTimeBucket(oneMinute),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
 		interval.Start.Format(goTimeFmt),
@@ -103,12 +116,13 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.RandWindow(time.Hour)
-	sql := fmt.Sprintf(`SELECT time_bucket('1 minute', time) AS minute, max(usage_user)
+	sql := fmt.Sprintf(`SELECT %s AS minute, max(usage_user)
         FROM cpu
         WHERE time < '%s'
         GROUP BY minute
         ORDER BY minute DESC
         LIMIT 5`,
+		d.getTimeBucket(oneMinute),
 		interval.End.Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
@@ -147,7 +161,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	sql := fmt.Sprintf(`
         WITH cpu_avg AS (
-          SELECT time_bucket('1 hour', time) as hour, tags_id,
+          SELECT %s as hour, tags_id,
           %s
           FROM cpu
           WHERE time >= '%s' AND time < '%s'
@@ -157,6 +171,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
         FROM cpu_avg
         %s
         ORDER BY hour, %s`,
+		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
 		hostnameField, strings.Join(meanClauses, ", "),
@@ -178,11 +193,12 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
-	sql := fmt.Sprintf(`SELECT time_bucket('1 hour', time) AS hour,
+	sql := fmt.Sprintf(`SELECT %s AS hour,
         %s
         FROM cpu
         WHERE %s AND time >= '%s' AND time < '%s'
         GROUP BY hour ORDER BY hour`,
+		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
 		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))

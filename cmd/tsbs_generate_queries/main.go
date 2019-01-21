@@ -57,8 +57,9 @@ var (
 	seed  int64
 	debug int
 
-	timescaleUseJSON bool
-	timescaleUseTags bool
+	timescaleUseJSON       bool
+	timescaleUseTags       bool
+	timescaleUseTimeBucket bool
 
 	clickhouseUseTags bool
 
@@ -83,6 +84,7 @@ func getGenerator(format string, start, end time.Time, scale int) utils.DevopsGe
 		tgen := timescaledb.NewDevops(start, end, scale)
 		tgen.UseJSON = timescaleUseJSON
 		tgen.UseTags = timescaleUseTags
+		tgen.UseTimeBucket = timescaleUseTimeBucket
 		return tgen
 	}
 
@@ -138,6 +140,7 @@ func init() {
 
 	flag.BoolVar(&timescaleUseJSON, "timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
 	flag.BoolVar(&timescaleUseTags, "timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
+	flag.BoolVar(&timescaleUseTimeBucket, "timescale-use-time-bucket", true, "TimescaleDB only: Use time bucket. Set to false to test on native PostgreSQL")
 
 	flag.BoolVar(&clickhouseUseTags, "clickhouse-use-tags", true, "ClickHouse only: Use separate tags table when querying")
 
