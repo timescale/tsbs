@@ -2,7 +2,7 @@
 
 # Ensure generator is available
 EXE_FILE_NAME=${EXE_FILE_NAME:-$(which tsbs_generate_queries)}
-if [[ -z "$EXE_FILE_NAME" ]]; then
+if [[ -z "${EXE_FILE_NAME}" ]]; then
     echo "tsbs_generate_queries not available. It is not specified explicitly and not found in \$PATH"
     exit 1
 fi
@@ -60,39 +60,47 @@ mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
 
 pushd ${BULK_DATA_DIR}
+set -eo pipefail
 
 # Loop over all requested queries types and generate data
 for QUERY_TYPE in ${QUERY_TYPES}; do
     for FORMAT in ${FORMATS}; do
         DATA_FILE_NAME="queries_${FORMAT}_${QUERY_TYPE}_${EXE_FILE_VERSION}_${QUERIES}_${SCALE}_${SEED}_${TS_START}_${TS_END}_${USE_CASE}.dat.gz"
-        if [ -f "$DATA_FILE_NAME" ]; then
-            echo "WARNING: file $DATA_FILE_NAME already exists, skip generating new data"
+        if [ -f "${DATA_FILE_NAME}" ]; then
+            echo "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
         else
-            echo "Generating $DATA_FILE_NAME:"
-            $EXE_FILE_NAME \
-                -format $FORMAT \
-                -queries $QUERIES \
-                -query-type $QUERY_TYPE \
-                -scale $SCALE \
-                -seed $SEED \
-                -timestamp-start $TS_START \
-                -timestamp-end $TS_END \
-                -use-case $USE_CASE \
-                -timescale-use-json=$USE_JSON \
-                -timescale-use-tags=$USE_TAGS \
-                -clickhouse-use-tags=$USE_TAGS \
-            | gzip  > $DATA_FILE_NAME
+            cleanup() {
+                rm -f ${DATA_FILE_NAME}
+                exit 1
+            }
+            trap cleanup EXIT
 
+            echo "Generating ${DATA_FILE_NAME}:"
+            ${EXE_FILE_NAME} \
+                -format ${FORMAT} \
+                -queries ${QUERIES} \
+                -query-type ${QUERY_TYPE} \
+                -scale ${SCALE} \
+                -seed ${SEED} \
+                -timestamp-start ${TS_START} \
+                -timestamp-end ${TS_END} \
+                -use-case ${USE_CASE} \
+                -timescale-use-json=${USE_JSON} \
+                -timescale-use-tags=${USE_TAGS} \
+                -clickhouse-use-tags=${USE_TAGS} \
+            | gzip  > ${DATA_FILE_NAME}
+
+            trap - EXIT
             # Make short symlink for convenience
             SYMLINK_NAME="${FORMAT}-queries.gz"
 
-            rm $SYMLINK_NAME 2> /dev/null
-            ln -s $DATA_FILE_NAME $SYMLINK_NAME
+            rm -f ${SYMLINK_NAME} 2> /dev/null
+            ln -s ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
             # Make files accessible by everyone
-            chmod a+rw $DATA_FILE_NAME $SYMLINK_NAME
+            chmod a+r ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
-            ls -lh $SYMLINK_NAME
+            ls -lh ${SYMLINK_NAME}
         fi
     done
 done
