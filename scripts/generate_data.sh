@@ -2,7 +2,7 @@
 
 # Ensure generator is available
 EXE_FILE_NAME=${EXE_FILE_NAME:-$(which tsbs_generate_data)}
-if [[ -z "$EXE_FILE_NAME" ]]; then
+if [[ -z "${EXE_FILE_NAME}" ]]; then
     echo "tsbs_generate_data not available. It is not specified explicitly and not found in \$PATH"
     exit 1
 fi
@@ -37,34 +37,42 @@ mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
 
 pushd ${BULK_DATA_DIR}
+set -eo pipefail
 
 # Loop over all requested target formats and generate data
 for FORMAT in ${FORMATS}; do
     DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}.dat.gz"
-    if [ -f "$DATA_FILE_NAME" ]; then
-        echo "WARNING: file $DATA_FILE_NAME already exists, skip generating new data"
+    if [ -f "${DATA_FILE_NAME}" ]; then
+        echo "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
     else
-        echo "Generating $DATA_FILE_NAME:"
-        $EXE_FILE_NAME \
-            -format $FORMAT \
-            -use-case $USE_CASE \
-            -scale $SCALE \
-            -timestamp-start $TS_START \
-            -timestamp-end $TS_END \
-            -seed $SEED \
-            -log-interval $LOG_INTERVAL \
-            -max-data-points $MAX_DATA_POINTS \
-        | gzip > $DATA_FILE_NAME
+        cleanup() {
+            rm -f ${DATA_FILE_NAME}
+            exit 1
+        }
+        trap cleanup EXIT
 
+        echo "Generating ${DATA_FILE_NAME}:"
+        ${EXE_FILE_NAME} \
+            -format ${FORMAT} \
+            -use-case ${USE_CASE} \
+            -scale ${SCALE} \
+            -timestamp-start ${TS_START} \
+            -timestamp-end ${TS_END} \
+            -seed ${SEED} \
+            -log-interval ${LOG_INTERVAL} \
+            -max-data-points ${MAX_DATA_POINTS} \
+        | gzip > ${DATA_FILE_NAME}
+
+        trap - EXIT
         # Make short symlink for convenience
         SYMLINK_NAME="${FORMAT}-data.gz"
 
-        rm $SYMLINK_NAME 2> /dev/null
-        ln -s $DATA_FILE_NAME $SYMLINK_NAME
+        rm -f ${SYMLINK_NAME} 2> /dev/null
+        ln -s ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
-        # Make files accessible by everyone
-        chmod a+rw $DATA_FILE_NAME $SYMLINK_NAME
+        # Make files readable by everyone
+        chmod a+r ${DATA_FILE_NAME} ${SYMLINK_NAME}
 
-        ls -lh $SYMLINK_NAME
+        ls -lh ${SYMLINK_NAME}
     fi
 done
