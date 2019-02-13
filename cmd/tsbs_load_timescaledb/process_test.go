@@ -32,7 +32,7 @@ func TestSubsystemTagsToJSON(t *testing.T) {
 
 	for _, c := range cases {
 		if got := subsystemTagsToJSON(c.tags); got != c.want {
-			t.Errorf("%s: incorrect ouput: got %s want %s", c.desc, got, c.want)
+			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
 		}
 	}
 }
