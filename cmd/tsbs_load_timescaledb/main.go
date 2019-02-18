@@ -55,10 +55,7 @@ type insertData struct {
 }
 
 // Global vars
-var (
-	loader    *load.BenchmarkRunner
-	tableCols map[string][]string
-)
+var loader *load.BenchmarkRunner
 
 // allows for testing
 var fatal = log.Fatalf
@@ -92,7 +89,6 @@ func init() {
 	flag.StringVar(&replicationStatsFile, "write-replication-stats", "", "File to output replication stats to")
 
 	flag.Parse()
-	tableCols = make(map[string][]string)
 }
 
 type benchmark struct{}

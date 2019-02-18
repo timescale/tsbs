@@ -56,7 +56,7 @@ type decoder struct {
 	scanner *bufio.Scanner
 }
 
-const tagsPrefix = "tags"
+const tagsPrefix = tagsKey
 
 func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	data := &insertData{}

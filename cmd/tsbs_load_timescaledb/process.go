@@ -12,7 +12,10 @@ import (
 	"github.com/timescale/tsbs/load"
 )
 
-const insertCSI = `INSERT INTO %s(time,tags_id,%s%s,additional_tags) VALUES %s`
+const (
+	insertCSI    = `INSERT INTO %s(time,tags_id,%s%s,additional_tags) VALUES %s`
+	numExtraCols = 2 // one for json, one for tags_id
+)
 
 type syncCSI struct {
 	m     map[string]int64
@@ -44,7 +47,7 @@ func subsystemTagsToJSON(tags []string) string {
 }
 
 func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
-	tagCols := tableCols["tags"]
+	tagCols := tableCols[tagsKey]
 	cols := tagCols
 	values := make([]string, 0)
 	commonTagsLen := len(tagCols)
@@ -96,16 +99,15 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 	return nil
 }
 
-func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
+// splitTagsAndMetrics takes an array of insertData (sharded by hypertable) and
+// divides the tags from data into appropriate slices that can then be used in
+// SQL queries to insert into their respective tables. Additionally, it also
+// returns the number of metrics (i.e., non-tag fields) for the data processed.
+func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]interface{}, uint64) {
 	tagRows := make([][]string, 0, len(rows))
 	dataRows := make([][]interface{}, 0, len(rows))
-	ret := uint64(0)
-	commonTagsLen := len(tableCols["tags"])
-
-	colLen := len(tableCols[hypertable]) + 2
-	if inTableTag {
-		colLen++
-	}
+	numMetrics := uint64(0)
+	commonTagsLen := len(tableCols[tagsKey])
 
 	for _, data := range rows {
 		// Split the tags into individual common tags and an extra bit leftover
@@ -116,23 +118,24 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		for i := 0; i < commonTagsLen; i++ {
 			tags[i] = strings.Split(tags[i], "=")[1]
 		}
-		var json interface{} = nil
+
+		var json interface{}
 		if len(tags) > commonTagsLen {
 			json = subsystemTagsToJSON(strings.Split(tags[commonTagsLen], ","))
 		}
 
 		metrics := strings.Split(data.fields, ",")
-		ret += uint64(len(metrics) - 1) // 1 field is timestamp
+		numMetrics += uint64(len(metrics) - 1) // 1 field is timestamp
 
 		timeInt, err := strconv.ParseInt(metrics[0], 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		ts := time.Unix(0, timeInt).Format("2006-01-02 15:04:05.999999 -0700")
+		ts := time.Unix(0, timeInt).Format(time.RFC3339)
 
 		// use nil at 2nd position as placeholder for tagKey
-		r := make([]interface{}, 0, colLen)
-		r = append(r, ts, nil, json)
+		r := make([]interface{}, 3, dataCols)
+		r[0], r[1], r[2] = ts, nil, json
 		if inTableTag {
 			r = append(r, tags[0])
 		}
@@ -141,8 +144,18 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		}
 
 		dataRows = append(dataRows, r)
-		tagRows = append(tagRows, tags)
+		tagRows = append(tagRows, tags[:commonTagsLen])
 	}
+
+	return tagRows, dataRows, numMetrics
+}
+
+func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
+	colLen := len(tableCols[hypertable]) + numExtraCols
+	if inTableTag {
+		colLen++
+	}
+	tagRows, dataRows, numMetrics := splitTagsAndMetrics(rows, colLen)
 
 	// Check if any of these tags has yet to be inserted
 	newTags := make([][]string, 0, len(rows))
@@ -173,14 +186,17 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	cols := make([]string, 0, colLen)
 	cols = append(cols, "time", "tags_id", "additional_tags")
 	if inTableTag {
-		cols = append(cols, tableCols["tags"][0])
+		cols = append(cols, tableCols[tagsKey][0])
 	}
 	cols = append(cols, tableCols[hypertable]...)
 	stmt, err := tx.Prepare(pq.CopyIn(hypertable, cols...))
+	if err != nil {
+		panic(err)
+	}
+
 	for _, r := range dataRows {
 		stmt.Exec(r...)
 	}
-
 	_, err = stmt.Exec()
 	if err != nil {
 		panic(err)
@@ -196,7 +212,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		panic(err)
 	}
 
-	return ret
+	return numMetrics
 }
 
 type processor struct {
