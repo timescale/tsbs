@@ -38,6 +38,7 @@ const (
 	formatClickhouse  = "clickhouse"
 	formatInflux      = "influx"
 	formatMongo       = "mongo"
+	formatSiriDB      = "siridb"
 	formatTimescaleDB = "timescaledb"
 
 	// Use case choices (make sure to update TestGetConfig if adding a new one)
@@ -59,6 +60,7 @@ var (
 		formatClickhouse,
 		formatInflux,
 		formatMongo,
+		formatSiriDB,
 		formatTimescaleDB,
 	}
 	useCaseChoices = []string{
@@ -316,6 +318,8 @@ func getSerializer(sim common.Simulator, format string, out *bufio.Writer) seria
 		return &serialize.InfluxSerializer{}
 	case formatMongo:
 		return &serialize.MongoSerializer{}
+	case formatSiriDB:
+		return &serialize.SiriDBSerializer{}
 	case formatClickhouse:
 		fallthrough
 	case formatTimescaleDB:
@@ -337,7 +341,6 @@ func getSerializer(sim common.Simulator, format string, out *bufio.Writer) seria
 			for _, field := range fields[measurementName] {
 				out.WriteString(",")
 				out.Write(field)
-
 			}
 			out.WriteString("\n")
 		}
