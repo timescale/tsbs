@@ -56,6 +56,7 @@ var (
 	createMetricsTable bool
 	forceTextFormat    bool
 	tagColumnTypes     []string
+	useCopy bool
 )
 
 type insertData struct {
@@ -104,7 +105,8 @@ func init() {
 	pflag.String("write-replication-stats", "", "File to output replication stats to")
 	pflag.Bool("create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
-	pflag.Bool("force-text-format", false, "Send/receive data in text format")
+	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
+	flag.BoolVar(&useCopy, "use-copy", true, "Perform inserts using COPY")
 
 	pflag.Parse()
 

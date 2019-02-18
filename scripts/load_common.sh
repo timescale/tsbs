@@ -16,6 +16,8 @@ NUM_WORKERS=${NUM_WORKERS:-$(grep -c ^processor /proc/cpuinfo 2> /dev/null || ec
 BACKOFF_SECS=${BACKOFF_SECS:-1s}
 REPORTING_PERIOD=${REPORTING_PERIOD:-10s}
 
+DO_CREATE_DB=${DO_CREATE_DB:-true}
+
 # Ensure data file is in place
 if [ ! -f ${DATA_FILE} ]; then
    echo "Cannot find data file ${DATA_FILE}"
