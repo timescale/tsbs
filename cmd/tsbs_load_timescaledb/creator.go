@@ -9,6 +9,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+const tagsKey = "tags"
+
+var tableCols = make(map[string][]string)
+
 type dbCreator struct {
 	br      *bufio.Reader
 	tags    string
@@ -77,16 +81,16 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	defer dbBench.Close()
 
 	parts := strings.Split(strings.TrimSpace(d.tags), ",")
-	if parts[0] != "tags" {
+	if parts[0] != tagsKey {
 		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", parts[0])
 	}
 	createTagsTable(dbBench, parts[1:])
-	tableCols["tags"] = parts[1:]
+	tableCols[tagsKey] = parts[1:]
 
 	for _, cols := range d.cols {
 		parts = strings.Split(strings.TrimSpace(cols), ",")
 		hypertable := parts[0]
-		partitioningField := tableCols["tags"][0]
+		partitioningField := tableCols[tagsKey][0]
 		tableCols[hypertable] = parts[1:]
 
 		psuedoCols := []string{}
