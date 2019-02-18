@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-	"reflect"
 )
 
 func TestSubsystemTagsToJSON(t *testing.T) {
@@ -250,6 +249,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 
 		inTableTag = oldInTableTag
 	}
+}
+
 func TestGenBatchInsertStmt(t *testing.T) {
 	cols := []string{"col1", "col2", "col3"}
 	stmt := genBatchInsertStmt("test", cols, 2)

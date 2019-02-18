@@ -56,7 +56,8 @@ var (
 	createMetricsTable bool
 	forceTextFormat    bool
 	tagColumnTypes     []string
-	useCopy bool
+	useCopy            bool
+	replicationFactor  int
 )
 
 type insertData struct {
@@ -107,6 +108,7 @@ func init() {
 
 	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
 	flag.BoolVar(&useCopy, "use-copy", true, "Perform inserts using COPY")
+	flag.IntVar(&replicationFactor, "replication-factor", 0, "To create distributed hypertable use use replication-factor >= 1")
 
 	pflag.Parse()
 

@@ -224,8 +224,8 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	if useHypertable {
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 		MustExec(dbBench,
-			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				tableName, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
+			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE, replication_factor => %d)",
+				tableName, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000, replicationFactor))
 	}
 }
 

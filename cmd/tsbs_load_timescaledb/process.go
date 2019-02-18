@@ -244,6 +244,16 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		if err != nil {
 			panic(err)
 		}
+
+		err = stmt.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return numMetrics
