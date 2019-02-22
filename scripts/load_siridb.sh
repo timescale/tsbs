@@ -17,7 +17,7 @@ optimize_interval = 9
 heartbeat_interval = 30
 default_db_path = /tmp/siridb/dbpath
 max_open_files = 512
-enable_shard_compression = 0
+enable_shard_compression = 1
 enable_pipe_support = 0
 buffer_sync_interval = 500
 EOT

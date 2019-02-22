@@ -66,6 +66,9 @@ A single host name or comma separated list of two host names for the SiriDB serv
 #### `-scale` (type: `uint64`, default: `8`)
 The scale is important for creating the right groups within SiriDB. It is the number of hosts for which data has been generated. So it should be the same as the scale (number of hosts) of the inserted data. This number is used to create a group for every host.
 
+#### `-query-limit` (type: `uint64`, default: `1000000`)
+The query limit changes the maximum points which can be returned by a select query. The default and recommended value is set to one million points. This value is chosen to prevent a single query for taking to much memory and ensures SiriDB can respond to almost any query in a reasonable amount of time. But in case of a large number of hosts it might be needed to increase the query-limit.
+
 #### `-write-timeout` (type: `int`, default: `10`)
 Length of the timeout for writes.
 

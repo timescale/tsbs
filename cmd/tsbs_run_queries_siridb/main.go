@@ -26,6 +26,7 @@ var (
 	dbPass       string
 	showExplain  bool
 	scale        uint64
+	queryLimit   uint64
 )
 
 // Global vars:
@@ -45,6 +46,7 @@ func init() {
 	flag.StringVar(&dbPass, "dbpass", "siri", "Password to enter SiriDB")
 	flag.StringVar(&hosts, "hosts", "localhost:9000", "Comma separated list of SiriDB hosts in a cluster.")
 	flag.Uint64Var(&scale, "scale", 8, "Scaling variable (Must be the equal to the scalevar used for data generation).")
+	flag.Uint64Var(&queryLimit, "query-limit", 1000000, "Changes the maximum points which can be returned by a select query.")
 	flag.IntVar(&writeTimeout, "write-timeout", 10, "Write timeout.")
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
 
@@ -78,6 +80,7 @@ func init() {
 
 func main() {
 	siridbConnector.Connect()
+	ChangeQueryLimit()
 	CreateGroups()
 
 	runner.Run(&query.SiriDBPool, newProcessor)
@@ -95,6 +98,22 @@ type processor struct {
 }
 
 func newProcessor() query.Processor { return &processor{} }
+
+// Changes the maximum points which can be returned by a select query. The default
+// and recommended value is set to one million points. This value is chosen to
+// prevent a single query for taking to much memory and ensures SiriDB can respond
+// to almost any query in a reasonable amount of time.
+func ChangeQueryLimit() {
+	qry := fmt.Sprintf("alter database set select_points_limit %d", queryLimit)
+
+	if siridbConnector.IsConnected() {
+		if _, err := siridbConnector.Query(qry, uint16(writeTimeout)); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Fatal("not even a single server is connected...")
+	}
+}
 
 // CreateGroups makes groups representing regular expression to enhance performance
 func CreateGroups() {
