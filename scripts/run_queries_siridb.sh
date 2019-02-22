@@ -13,6 +13,9 @@ fi
 # Scale necessary to create groups in siridb
 SCALE=${SCALE:-"8"}
 
+# Changes the maximum points which can be returned by a select query.
+QUERY_LIMIT=${QUERY_LIMIT:-"1000000"}
+
 # Queries folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_queries"}
 
@@ -57,6 +60,7 @@ function run_file()
             -max-queries $MAX_QUERIES \
             -workers $NUM_WORKERS \
             -scale $SCALE \
+            -query-limit $QUERY_LIMIT \
         | tee $OUT_FULL_FILE_NAME
 }
 
