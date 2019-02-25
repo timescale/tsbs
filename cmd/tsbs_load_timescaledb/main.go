@@ -47,6 +47,8 @@ var (
 
 	profileFile          string
 	replicationStatsFile string
+
+	createMetricsTable bool
 )
 
 type insertData struct {
@@ -87,6 +89,7 @@ func init() {
 
 	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")
 	flag.StringVar(&replicationStatsFile, "write-replication-stats", "", "File to output replication stats to")
+	flag.BoolVar(&createMetricsTable, "create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
 	flag.Parse()
 }
