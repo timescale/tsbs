@@ -92,8 +92,11 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	interval := d.Interval.RandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
+	if len(selectClauses) < 1 {
+		panic(fmt.Sprintf("invalid number of select clauses: got %d", len(selectClauses)))
+	}
 
-	sql := fmt.Sprintf(`SELECT %s AS minute
+	sql := fmt.Sprintf(`SELECT %s AS minute,
         %s
         FROM cpu
         WHERE %s AND time >= '%s' AND time < '%s'

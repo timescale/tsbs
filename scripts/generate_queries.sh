@@ -14,6 +14,7 @@ BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_queries"}
 # Form of data to generate
 USE_JSON=${USE_JSON:-false}
 USE_TAGS=${USE_TAGS:-true}
+USE_TIME_BUCKET=${USE_TIME_BUCKET:-true}
 
 # Space-separated list of target DB formats to generate
 FORMATS=${FORMATS:-"timescaledb"}
@@ -87,12 +88,13 @@ for QUERY_TYPE in ${QUERY_TYPES}; do
                 -use-case ${USE_CASE} \
                 -timescale-use-json=${USE_JSON} \
                 -timescale-use-tags=${USE_TAGS} \
+                -timescale-use-time-bucket=${USE_TIME_BUCKET} \
                 -clickhouse-use-tags=${USE_TAGS} \
             | gzip  > ${DATA_FILE_NAME}
 
             trap - EXIT
             # Make short symlink for convenience
-            SYMLINK_NAME="${FORMAT}-queries.gz"
+            SYMLINK_NAME="${FORMAT}-${QUERY_TYPE}-queries.gz"
 
             rm -f ${SYMLINK_NAME} 2> /dev/null
             ln -s ${DATA_FILE_NAME} ${SYMLINK_NAME}
