@@ -9,8 +9,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
-const oneMinute = 60
-const oneHour = oneMinute * 60
+const (
+	oneMinute = 60
+	oneHour   = oneMinute * 60
+
+	timeBucketFmt    = "time_bucket('%d seconds', time)"
+	nonTimeBucketFmt = "to_timestamp(((extract(epoch from time)::int)/%d)*%d)"
+)
 
 // Devops produces TimescaleDB-specific queries for all the devops query types.
 type Devops struct {
@@ -55,17 +60,16 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 }
 
 // getHostWhereString gets multiple random hostnames and creates a WHERE SQL statement for these hostnames.
-func (d *Devops) getHostWhereString(nhosts int) string {
-	hostnames := d.GetRandomHosts(nhosts)
+func (d *Devops) getHostWhereString(nHosts int) string {
+	hostnames := d.GetRandomHosts(nHosts)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
 func (d *Devops) getTimeBucket(seconds int) string {
 	if d.UseTimeBucket {
-		return fmt.Sprintf("time_bucket('%d seconds', time)", seconds)
+		return fmt.Sprintf(timeBucketFmt, seconds)
 	}
-
-	return fmt.Sprintf("to_timestamp(((extract(epoch from time)::int)/%d)*%d)", seconds, seconds)
+	return fmt.Sprintf(nonTimeBucketFmt, seconds, seconds)
 }
 
 func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
