@@ -1,6 +1,8 @@
 package timescaledb
 
 import (
+	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +68,52 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 		if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
 		}
+	}
+}
+
+func TestDevopsGetHostWhereString(t *testing.T) {
+	cases := []struct {
+		nHosts int
+		want   string
+	}{
+		{
+			nHosts: 1,
+			want:   "(hostname = 'host_5')",
+		},
+		{
+			nHosts: 2,
+			want:   "(hostname = 'host_5' OR hostname = 'host_9')",
+		},
+		{
+			nHosts: 5,
+			want:   "(hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_3' OR hostname = 'host_1' OR hostname = 'host_7')",
+		},
+	}
+
+	for _, c := range cases {
+		rand.Seed(123)
+		d := NewDevops(time.Now(), time.Now(), 10)
+
+		if got := d.getHostWhereString(c.nHosts); got != c.want {
+			t.Errorf("incorrect output for %d hosts: got %s want %s", c.nHosts, got, c.want)
+		}
+	}
+}
+
+func TestDevopsGetTimeBucket(t *testing.T) {
+	d := NewDevops(time.Now(), time.Now(), 10)
+	d.UseTimeBucket = false
+
+	seconds := 60
+	want := fmt.Sprintf(nonTimeBucketFmt, seconds, seconds)
+	if got := d.getTimeBucket(seconds); got != want {
+		t.Errorf("incorrect non time bucket format: got %s want %s", got, want)
+	}
+
+	d.UseTimeBucket = true
+	want = fmt.Sprintf(timeBucketFmt, seconds)
+	if got := d.getTimeBucket(seconds); got != want {
+		t.Errorf("incorrect time bucket format: got %s want %s", got, want)
 	}
 }
 
