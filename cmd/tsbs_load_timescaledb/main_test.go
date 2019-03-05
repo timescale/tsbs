@@ -9,7 +9,7 @@ func TestGetConnectString(t *testing.T) {
 	wantHost := "localhost"
 	wantDB := "benchmark"
 	wantUser := "postgres"
-	want := fmt.Sprintf("host=%s dbname=%s user=%s ssl=disable", wantHost, wantDB, wantUser)
+	want := fmt.Sprintf("host=%s dbname=%s user=%s ssl=disable port=5432", wantHost, wantDB, wantUser)
 	cases := []struct {
 		desc      string
 		pgConnect string
