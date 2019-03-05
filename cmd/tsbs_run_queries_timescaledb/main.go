@@ -23,6 +23,8 @@ var (
 	postgresConnect string
 	hostList        []string
 	user            string
+	pass            string
+	port            string
 	showExplain     bool
 )
 
@@ -40,6 +42,8 @@ func init() {
 		"String of additional PostgreSQL connection parameters, e.g., 'sslmode=disable'. Parameters for host and database will be ignored.")
 	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
+	flag.StringVar(&pass, "pass", "", "Password for the user connecting to PostgreSQL (leave blank if not password protected)")
+	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
 
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
 
@@ -72,6 +76,16 @@ func getConnectString(workerNumber int) string {
 
 	// Round robin the host/worker assignment by assigning a host based on workerNumber % totalNumberOfHosts
 	host := hostList[workerNumber%len(hostList)]
+	connectString = fmt.Sprintf("host=%s dbname=%s user=%s %s", host, runner.DatabaseName(), user, connectString)
+
+	// For optional parameters, ensure they exist then interpolate them into the connectString
+	if len(port) > 0 {
+		connectString = fmt.Sprintf("%s port=%s", connectString, port)
+	}
+	if len(pass) > 0 {
+		connectString = fmt.Sprintf("%s password=%s", connectString, pass)
+	}
+
 	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, runner.DatabaseName(), user, connectString)
 }
 

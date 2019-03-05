@@ -29,6 +29,8 @@ var (
 	postgresConnect string
 	host            string
 	user            string
+	pass            string
+	port            string
 
 	useHypertable bool
 	logBatches    bool
@@ -68,7 +70,9 @@ func init() {
 
 	flag.StringVar(&postgresConnect, "postgres", "sslmode=disable", "PostgreSQL connection string")
 	flag.StringVar(&host, "host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
+	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
+	flag.StringVar(&pass, "pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
 
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
@@ -149,8 +153,17 @@ func getConnectString() string {
 	// multi host configuration. Same for dbname= and user=. This sanitizes that.
 	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
 	connectString := strings.TrimSpace(re.ReplaceAllString(postgresConnect, ""))
+	connectString = fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
 
-	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
+	// For optional parameters, ensure they exist then interpolate them into the connectString
+	if len(port) > 0 {
+		connectString = fmt.Sprintf("%s port=%s", connectString, port)
+	}
+	if len(pass) > 0 {
+		connectString = fmt.Sprintf("%s password=%s", connectString, pass)
+	}
+
+	return connectString
 }
 
 func createTagsTable(db *sqlx.DB, tags []string) {
