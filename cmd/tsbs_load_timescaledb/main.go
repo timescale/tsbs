@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/timescale/tsbs/load"
 )
@@ -164,18 +163,4 @@ func getConnectString() string {
 	}
 
 	return connectString
-}
-
-func createTagsTable(db *sqlx.DB, tags []string) {
-	if useJSON {
-		db.MustExec("CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
-		db.MustExec("CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
-		db.MustExec("CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
-	} else {
-		cols := strings.Join(tags, " TEXT, ")
-		cols += " TEXT"
-		db.MustExec(fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
-		db.MustExec(fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
-		db.MustExec(fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
-	}
 }
