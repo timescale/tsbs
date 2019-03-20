@@ -18,6 +18,7 @@ type dbCreator struct {
 	tags    string
 	cols    []string
 	connStr string
+	connDB  string
 }
 
 func (d *dbCreator) Init() {
@@ -26,6 +27,10 @@ func (d *dbCreator) Init() {
 	// Needed to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
 	d.connStr = strings.TrimSpace(re.ReplaceAllString(d.connStr, ""))
+
+	if d.connDB != "" {
+		d.connStr = fmt.Sprintf("dbname=%s %s", d.connDB, d.connStr)
+	}
 }
 
 func (d *dbCreator) readDataHeader(br *bufio.Reader) {

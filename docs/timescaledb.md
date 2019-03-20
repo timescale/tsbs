@@ -61,6 +61,12 @@ Whether to actually use TimescaleDB's hypertable for storing data. Set to
 
 User to use to connect to the PostgreSQL server.
 
+#### `--admin-db-name` (type: `string`, default: value of `-user`)
+
+Database to connect to in order to create additional benchmark databases.
+By default this is the same as the `user` (i.e., `postgres` if neither is set),
+but sometimes a user does not have its own database.
+
 ### Tags related
 
 #### `-in-table-partition-tag` (type: `boolean`, default: `false`)

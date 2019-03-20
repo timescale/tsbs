@@ -30,6 +30,7 @@ var (
 	user            string
 	pass            string
 	port            string
+	connDB          string
 
 	useHypertable bool
 	logBatches    bool
@@ -72,6 +73,9 @@ func init() {
 	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
 	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
 	flag.StringVar(&pass, "pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
+	flag.StringVar(&connDB, "admin-db-name", user, "Database to connect to in order to create additional benchmark databases.\n"+
+		"By default this is the same as the `user` (i.e., `postgres` if neither is set),\n"+
+		"but sometimes a user does not have its own database.")
 
 	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
 
@@ -122,6 +126,7 @@ func (b *benchmark) GetDBCreator() load.DBCreator {
 	return &dbCreator{
 		br:      loader.GetBufferedReader(),
 		connStr: getConnectString(),
+		connDB:  connDB,
 	}
 }
 

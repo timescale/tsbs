@@ -12,6 +12,7 @@ func TestDBCreatorInit(t *testing.T) {
 	cases := []struct {
 		desc    string
 		connStr string
+		connDB  string
 		want    string
 	}{
 		{
@@ -29,10 +30,28 @@ func TestDBCreatorInit(t *testing.T) {
 			connStr: "dbname=test2 host=localhost dbname=test1 user=foo dbname=test3",
 			want:    "host=localhost  user=foo",
 		},
+		{
+			desc:    "add dbname by specifying a connDB",
+			connStr: "host=localhost user=foo",
+			connDB:  "bar",
+			want:    "dbname=bar host=localhost user=foo",
+		},
+		{
+			desc:    "override once dbname by specifying a connDB",
+			connStr: "host=localhost dbname=test1 user=foo",
+			connDB:  "bar",
+			want:    "dbname=bar host=localhost  user=foo",
+		},
+		{
+			desc:    "override all dbnames by specifying a connDB",
+			connStr: "dbname=test2 host=localhost dbname=test1 user=foo dbname=test3",
+			connDB:  "bar",
+			want:    "dbname=bar host=localhost  user=foo",
+		},
 	}
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewBufferString(buf))
-		dbc := &dbCreator{br: br, connStr: c.connStr}
+		dbc := &dbCreator{br: br, connStr: c.connStr, connDB: c.connDB}
 		dbc.Init()
 		if got := dbc.connStr; got != c.want {
 			t.Errorf("%s: incorrect connstr: got %s want %s", c.desc, got, c.want)
