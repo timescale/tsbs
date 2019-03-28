@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/timescale/tsbs/load"
 )
 
 const (
-	dbType       = "postgres"
 	timeValueIdx = "TIME-VALUE"
 	valueTimeIdx = "VALUE-TIME"
+	pgxDriver    = "pgx"
+	pqDriver     = "postgres"
 )
 
 // Program option vars:
@@ -31,6 +31,7 @@ var (
 	pass            string
 	port            string
 	connDB          string
+	driver          string // postgres or pgx
 
 	useHypertable bool
 	logBatches    bool
@@ -51,6 +52,7 @@ var (
 	replicationStatsFile string
 
 	createMetricsTable bool
+	forceTextFormat    bool
 )
 
 type insertData struct {
@@ -98,6 +100,8 @@ func init() {
 	flag.StringVar(&replicationStatsFile, "write-replication-stats", "", "File to output replication stats to")
 	flag.BoolVar(&createMetricsTable, "create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
+	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
+
 	flag.Parse()
 }
 
@@ -131,6 +135,11 @@ func (b *benchmark) GetDBCreator() load.DBCreator {
 }
 
 func main() {
+	if forceTextFormat {
+		driver = pqDriver
+	} else {
+		driver = pgxDriver
+	}
 	// If specified, generate a performance profile
 	if len(profileFile) > 0 {
 		go profileCPUAndMem(profileFile)
@@ -165,6 +174,11 @@ func getConnectString() string {
 	}
 	if len(pass) > 0 {
 		connectString = fmt.Sprintf("%s password=%s", connectString, pass)
+	}
+
+	if forceTextFormat {
+		// we assume we're using pq driver
+		connectString = fmt.Sprintf("%s disable_prepared_binary_result=yes binary_parameters=no", connectString)
 	}
 
 	return connectString

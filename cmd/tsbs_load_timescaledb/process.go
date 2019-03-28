@@ -1,14 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/stdlib"
 	"github.com/lib/pq"
 	"github.com/timescale/tsbs/load"
 )
@@ -47,7 +50,7 @@ func subsystemTagsToJSON(tags []string) string {
 	return json
 }
 
-func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]int64 {
+func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]int64 {
 	tagCols := tableCols[tagsKey]
 	cols := tagCols
 	values := make([]string, 0)
@@ -70,7 +73,7 @@ func insertTags(db *sqlx.DB, tagRows [][]string, returnResults bool) map[string]
 			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','")))
 		}
 	}
-	tx := db.MustBegin()
+	tx := MustBegin(db)
 	defer tx.Commit()
 
 	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
@@ -141,7 +144,7 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 		if err != nil {
 			panic(err)
 		}
-		ts := time.Unix(0, timeInt).Format(time.RFC3339)
+		ts := time.Unix(0, timeInt)
 
 		// use nil at 2nd position as placeholder for tagKey
 		r := make([]interface{}, 3, dataCols)
@@ -150,7 +153,11 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 			r = append(r, tags[0])
 		}
 		for _, v := range metrics[1:] {
-			r = append(r, v)
+			num, err := strconv.ParseFloat(v, 64)
+			if err != nil {
+				panic(err)
+			}
+			r = append(r, num)
 		}
 
 		dataRows = append(dataRows, r)
@@ -191,7 +198,6 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		dataRows[i][1] = p.csi.m[tagKey]
 	}
 	p.csi.mutex.RUnlock()
-	tx := p.db.MustBegin()
 
 	cols := make([]string, 0, colLen)
 	cols = append(cols, "time", "tags_id", "additional_tags")
@@ -199,44 +205,66 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		cols = append(cols, tableCols[tagsKey][0])
 	}
 	cols = append(cols, tableCols[hypertable]...)
-	stmt, err := tx.Prepare(pq.CopyIn(hypertable, cols...))
-	if err != nil {
-		panic(err)
-	}
 
-	for _, r := range dataRows {
-		stmt.Exec(r...)
-	}
-	_, err = stmt.Exec()
-	if err != nil {
-		panic(err)
-	}
+	if forceTextFormat {
+		tx := MustBegin(p.db)
+		stmt, err := tx.Prepare(pq.CopyIn(hypertable, cols...))
+		if err != nil {
+			panic(err)
+		}
 
-	err = stmt.Close()
-	if err != nil {
-		panic(err)
-	}
+		for _, r := range dataRows {
+			stmt.Exec(r...)
+		}
+		_, err = stmt.Exec()
+		if err != nil {
+			panic(err)
+		}
 
-	err = tx.Commit()
-	if err != nil {
-		panic(err)
+		err = stmt.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		rows := pgx.CopyFromRows(dataRows)
+		inserted, err := p.pgxConn.CopyFrom(pgx.Identifier{hypertable}, cols, rows)
+		if err != nil {
+			panic(err)
+		}
+		if inserted != len(dataRows) {
+			fmt.Fprintf(os.Stderr, "Failed to insert all the data! Expected: %d, Got: %d", len(dataRows), inserted)
+			os.Exit(1)
+		}
 	}
 
 	return numMetrics
 }
 
 type processor struct {
-	db  *sqlx.DB
-	csi *syncCSI
+	db      *sql.DB
+	csi     *syncCSI
+	pgxConn *pgx.Conn
 }
 
 func (p *processor) Init(workerNum int, doLoad bool) {
 	if doLoad {
-		p.db = sqlx.MustConnect(dbType, getConnectString())
+		p.db = MustConnect(driver, getConnectString())
 		if hashWorkers {
 			p.csi = newSyncCSI()
 		} else {
 			p.csi = globalSyncCSI
+		}
+		if !forceTextFormat {
+			conn, err := stdlib.AcquireConn(p.db)
+			if err != nil {
+				panic(err)
+			}
+			p.pgxConn = conn
 		}
 	}
 }
@@ -244,6 +272,12 @@ func (p *processor) Init(workerNum int, doLoad bool) {
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
 		p.db.Close()
+	}
+	if p.pgxConn != nil {
+		err := stdlib.ReleaseConn(p.db, p.pgxConn)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 

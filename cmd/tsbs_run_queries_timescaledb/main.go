@@ -6,6 +6,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,10 +14,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/timescale/tsbs/query"
 )
+
+const pgxDriver = "pgx" // default driver
+const pqDriver = "postgres"
 
 // Program option vars:
 var (
@@ -26,11 +31,13 @@ var (
 	pass            string
 	port            string
 	showExplain     bool
+	forceTextFormat bool
 )
 
 // Global vars:
 var (
 	runner *query.BenchmarkRunner
+	driver string
 )
 
 // Parse args:
@@ -46,11 +53,18 @@ func init() {
 	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
 
 	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
+	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
 
 	flag.Parse()
 
 	if showExplain {
 		runner.SetLimit(1)
+	}
+
+	if forceTextFormat {
+		driver = pqDriver
+	} else {
+		driver = pgxDriver
 	}
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
@@ -85,26 +99,20 @@ func getConnectString(workerNumber int) string {
 	if len(pass) > 0 {
 		connectString = fmt.Sprintf("%s password=%s", connectString, pass)
 	}
+	if forceTextFormat {
+		connectString = fmt.Sprintf("%s disable_prepared_binary_result=yes binary_parameters=no", connectString)
+	}
 
-	return fmt.Sprintf("host=%s dbname=%s user=%s %s", host, runner.DatabaseName(), user, connectString)
+	return connectString
 }
 
 // prettyPrintResponse prints a Query and its response in JSON format with two
 // keys: 'query' which has a value of the SQL used to generate the second key
 // 'results' which is an array of each row in the return set.
-func prettyPrintResponse(rows *sqlx.Rows, q *query.TimescaleDB) {
+func prettyPrintResponse(rows *sql.Rows, q *query.TimescaleDB) {
 	resp := make(map[string]interface{})
 	resp["query"] = string(q.SqlQuery)
-
-	results := []map[string]interface{}{}
-	for rows.Next() {
-		r := make(map[string]interface{})
-		if err := rows.MapScan(r); err != nil {
-			panic(err)
-		}
-		results = append(results, r)
-		resp["results"] = results
-	}
+	resp["results"] = mapRows(rows)
 
 	line, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
@@ -114,6 +122,29 @@ func prettyPrintResponse(rows *sqlx.Rows, q *query.TimescaleDB) {
 	fmt.Println(string(line) + "\n")
 }
 
+func mapRows(r *sql.Rows) []map[string]interface{} {
+	rows := []map[string]interface{}{}
+	cols, _ := r.Columns()
+	for r.Next() {
+		row := make(map[string]interface{})
+		values := make([]interface{}, len(cols))
+		for i := range values {
+			values[i] = new(interface{})
+		}
+
+		err := r.Scan(values...)
+		if err != nil {
+			panic(errors.Wrap(err, "error while reading values"))
+		}
+
+		for i, column := range cols {
+			row[column] = *values[i].(*interface{})
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
 type queryExecutorOptions struct {
 	showExplain   bool
 	debug         bool
@@ -121,14 +152,18 @@ type queryExecutorOptions struct {
 }
 
 type processor struct {
-	db   *sqlx.DB
+	db   *sql.DB
 	opts *queryExecutorOptions
 }
 
 func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
-	p.db = sqlx.MustConnect("postgres", getConnectString(workerNumber))
+	db, err := sql.Open(driver, getConnectString(workerNumber))
+	if err != nil {
+		panic(err)
+	}
+	p.db = db
 	p.opts = &queryExecutorOptions{
 		showExplain:   showExplain,
 		debug:         runner.DebugLevel() > 0,
@@ -148,7 +183,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	if showExplain {
 		qry = "EXPLAIN ANALYZE " + qry
 	}
-	rows, err := p.db.Queryx(qry)
+	rows, err := p.db.Query(qry)
 	if err != nil {
 		return nil, err
 	}
