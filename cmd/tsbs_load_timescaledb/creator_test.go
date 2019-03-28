@@ -52,7 +52,7 @@ func TestDBCreatorInit(t *testing.T) {
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewBufferString(buf))
 		dbc := &dbCreator{br: br, connStr: c.connStr, connDB: c.connDB}
-		dbc.Init()
+		dbc.initConnectString()
 		if got := dbc.connStr; got != c.want {
 			t.Errorf("%s: incorrect connstr: got %s want %s", c.desc, got, c.want)
 		}

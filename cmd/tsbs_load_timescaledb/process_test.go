@@ -89,8 +89,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, nil, "1", "5", "42"},
-				[]interface{}{toTS("200"), nil, nil, "1", "5", "45"},
+				[]interface{}{toTS("100"), nil, nil, 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, nil, 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -99,8 +99,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", "1", "5", "42"},
-				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", "1", "5", "45"},
+				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -110,8 +110,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, nil, "foo", "1", "5", "42"},
-				[]interface{}{toTS("200"), nil, nil, "foofoo", "1", "5", "45"},
+				[]interface{}{toTS("100"), nil, nil, "foo", 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, nil, "foofoo", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -121,8 +121,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", "foo", "1", "5", "42"},
-				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", "foofoo", "1", "5", "45"},
+				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", "foo", 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", "foofoo", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -179,9 +179,15 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 				if got := len(row); got != len(c.wantData[i]) {
 					t.Errorf("%s: data output not same len for row %d: got %d want %d", c.desc, i, got, len(c.wantTags[i]))
 				} else {
-					for j, tag := range row {
+					for j, metric := range row {
 						want := c.wantData[i][j]
-						if got := tag; got != want {
+						var got interface{}
+						if j == 0 {
+							got = metric.(time.Time).Format(time.RFC3339)
+						} else {
+							got = metric
+						}
+						if got != want {
 							t.Errorf("%s: data incorrect at %d, %d: got %v want %v", c.desc, i, j, got, want)
 						}
 					}

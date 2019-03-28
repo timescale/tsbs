@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	_ "github.com/jackc/pgx/stdlib"
 )
 
 const tagsKey = "tags"
@@ -23,7 +24,9 @@ type dbCreator struct {
 
 func (d *dbCreator) Init() {
 	d.readDataHeader(d.br)
-
+	d.initConnectString()
+}
+func (d *dbCreator) initConnectString() {
 	// Needed to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
 	d.connStr = strings.TrimSpace(re.ReplaceAllString(d.connStr, ""))
@@ -62,24 +65,60 @@ func (d *dbCreator) readDataHeader(br *bufio.Reader) {
 	}
 }
 
+// MustConnect connects or exits on errors
+func MustConnect(dbType, connStr string) *sql.DB {
+	db, err := sql.Open(dbType, connStr)
+	if err != nil {
+		panic(err)
+	}
+	return db
+}
+
+// MustExec executes query or exits on error
+func MustExec(db *sql.DB, query string, args ...interface{}) sql.Result {
+	r, err := db.Exec(query, args...)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// MustQuery executes query or exits on error
+func MustQuery(db *sql.DB, query string, args ...interface{}) *sql.Rows {
+	r, err := db.Query(query, args...)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// MustBegin starts transaction or exits on error
+func MustBegin(db *sql.DB) *sql.Tx {
+	tx, err := db.Begin()
+	if err != nil {
+		panic(err)
+	}
+	return tx
+}
+
 func (d *dbCreator) DBExists(dbName string) bool {
-	db := sqlx.MustConnect(dbType, d.connStr)
+	db := MustConnect(driver, d.connStr)
 	defer db.Close()
-	r, _ := db.Queryx("SELECT 1 from pg_database WHERE datname = $1", dbName)
+	r := MustQuery(db, "SELECT 1 from pg_database WHERE datname = $1", dbName)
 	defer r.Close()
 	return r.Next()
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	db := sqlx.MustConnect(dbType, d.connStr)
+	db := MustConnect(driver, d.connStr)
 	defer db.Close()
-	db.MustExec("DROP DATABASE IF EXISTS " + dbName)
+	MustExec(db, "DROP DATABASE IF EXISTS "+dbName)
 	return nil
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	db := sqlx.MustConnect(dbType, d.connStr)
-	db.MustExec("CREATE DATABASE " + dbName)
+	db := MustConnect(driver, d.connStr)
+	MustExec(db, "CREATE DATABASE "+dbName)
 	db.Close()
 	return nil
 }
@@ -89,7 +128,7 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 		return nil
 	}
 
-	dbBench := sqlx.MustConnect(dbType, getConnectString())
+	dbBench := MustConnect(driver, getConnectString())
 	defer dbBench.Close()
 
 	parts := strings.Split(strings.TrimSpace(d.tags), ",")
@@ -131,28 +170,28 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 				indexes = append(indexes, d.getCreateIndexOnFieldCmds(hypertable, field, idxType)...)
 			}
 		}
-		dbBench.MustExec(fmt.Sprintf("DROP TABLE IF EXISTS %s", hypertable))
-		dbBench.MustExec(fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", hypertable, strings.Join(fieldDef, ",")))
+		MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", hypertable))
+		MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", hypertable, strings.Join(fieldDef, ",")))
 		if partitionIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
+			MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", hypertable))
 		}
 
 		// Only allow one or the other, it's probably never right to have both.
 		// Experimentation suggests (so far) that for 100k devices it is better to
 		// use --time-partition-index for reduced index lock contention.
 		if timePartitionIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
+			MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", hypertable))
 		} else if timeIndex {
-			dbBench.MustExec(fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
+			MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", hypertable))
 		}
 
 		for _, idxDef := range indexes {
-			dbBench.MustExec(idxDef)
+			MustExec(dbBench, idxDef)
 		}
 
 		if useHypertable {
-			dbBench.MustExec("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-			dbBench.MustExec(
+			MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+			MustExec(dbBench,
 				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
 					hypertable, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
 		}
@@ -160,18 +199,18 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	return nil
 }
 
-func createTagsTable(db *sqlx.DB, tags []string) {
-	db.MustExec("DROP TABLE IF EXISTS tags")
+func createTagsTable(db *sql.DB, tags []string) {
+	MustExec(db, "DROP TABLE IF EXISTS tags")
 	if useJSON {
-		db.MustExec("CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
-		db.MustExec("CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
-		db.MustExec("CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
+		MustExec(db, "CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
+		MustExec(db, "CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
+		MustExec(db, "CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
 	} else {
 		cols := strings.Join(tags, " TEXT, ")
 		cols += " TEXT"
-		db.MustExec(fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
-		db.MustExec(fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
-		db.MustExec(fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
+		MustExec(db, fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
+		MustExec(db, fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
+		MustExec(db, fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
 	}
 }
 
