@@ -21,6 +21,8 @@ const (
 const (
 	defaultTimeStart = "2016-01-01T00:00:00Z"
 	defaultTimeEnd   = "2016-01-02T00:00:00Z"
+
+	errUnknownFormatFmt = "unknown format: '%s'"
 )
 
 var formats = []string{
@@ -30,10 +32,6 @@ var formats = []string{
 	FormatMongo,
 	FormatSiriDB,
 	FormatTimescaleDB,
-}
-
-func ValidFormats() []string {
-	return append([]string{}, formats...)
 }
 
 func isIn(s string, arr []string) bool {
@@ -80,4 +78,17 @@ func getBufferedWriter(filename string, fallback io.Writer) (*bufio.Writer, erro
 	}
 
 	return bufio.NewWriterSize(fallback, defaultWriteSize), nil
+}
+
+// validateGroups checks validity of combination groupID and totalGroups
+func validateGroups(groupID, totalGroupsNum uint) error {
+	if totalGroupsNum == 0 {
+		// Need at least one group
+		return fmt.Errorf(errTotalGroupsZero)
+	}
+	if groupID >= totalGroupsNum {
+		// Need reasonable groupID
+		return fmt.Errorf(errInvalidGroupsFmt, groupID, totalGroupsNum)
+	}
+	return nil
 }

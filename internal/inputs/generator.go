@@ -39,13 +39,13 @@ type BaseConfig struct {
 	TimeStart string
 	TimeEnd   string
 
-	Seed    int64
-	Verbose bool
-	File    string
+	Seed  int64
+	Debug int
+	File  string
 }
 
 func (c *BaseConfig) AddToFlagSet(fs *flag.FlagSet) {
-	fs.StringVar(&c.Format, "format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(ValidFormats(), ", ")))
+	fs.StringVar(&c.Format, "format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(formats, ", ")))
 	fs.StringVar(&c.Use, "use-case", "", fmt.Sprintf("Use case to generate."))
 	fs.StringVar(&c.File, "file", "", "Write the output to this path")
 
@@ -55,7 +55,7 @@ func (c *BaseConfig) AddToFlagSet(fs *flag.FlagSet) {
 	fs.Uint64Var(&c.Scale, "scale", 1, "Scaling value specific to use case (e.g., devices in 'devops').")
 	fs.Int64Var(&c.Seed, "seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 
-	fs.BoolVar(&c.Verbose, "verbose", false, "Show verbose output")
+	fs.IntVar(&c.Debug, "debug", 0, "Control level of debug output")
 }
 
 func (c *BaseConfig) Validate() error {

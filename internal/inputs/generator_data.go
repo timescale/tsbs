@@ -28,19 +28,6 @@ const (
 
 const defaultLogInterval = 10 * time.Second
 
-// validateGroups checks validity of combination groupID and totalGroups
-func validateGroups(groupID, totalGroupsNum uint) error {
-	if totalGroupsNum == 0 {
-		// Need at least one group
-		return fmt.Errorf(errTotalGroupsZero)
-	}
-	if groupID >= totalGroupsNum {
-		// Need reasonable groupID
-		return fmt.Errorf(errInvalidGroupsFmt, groupID, totalGroupsNum)
-	}
-	return nil
-}
-
 // DataGeneratorConfig is the GeneratorConfig that should be used with a
 // DataGenerator. It includes all the fields from a BaseConfig, as well as some
 // options that are specific to generating the data for database write operations,
@@ -53,6 +40,7 @@ type DataGeneratorConfig struct {
 	InterleavedNumGroups uint
 }
 
+// Validate checks that the values of the DataGeneratorConfig are reasonable.
 func (c *DataGeneratorConfig) Validate() error {
 	err := c.BaseConfig.Validate()
 	if err != nil {
@@ -263,7 +251,7 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 
 		ret = &serialize.TimescaleDBSerializer{}
 	default:
-		err = fmt.Errorf("unknown format: '%s'", format)
+		err = fmt.Errorf(errUnknownFormatFmt, format)
 	}
 
 	return ret, err
