@@ -170,6 +170,9 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 
 		currGroupID = (currGroupID + 1) % dgc.InterleavedNumGroups
 	}
+	if s, ok := serializer.(serialize.PointSerializerCloser); ok {
+		return s.Close(g.bufOut)
+	}
 	return nil
 }
 
@@ -223,6 +226,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 		ret = &serialize.MongoSerializer{}
 	case FormatSiriDB:
 		ret = &serialize.SiriDBSerializer{}
+	case FormatAkumuli:
+		ret = &serialize.AkumuliSerializer{}
 	case FormatClickhouse:
 		fallthrough
 	case FormatTimescaleDB:

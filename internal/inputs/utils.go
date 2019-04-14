@@ -16,6 +16,7 @@ const (
 	FormatMongo       = "mongo"
 	FormatSiriDB      = "siridb"
 	FormatTimescaleDB = "timescaledb"
+	FormatAkumuli     = "akumuli"
 )
 
 const (
@@ -32,6 +33,7 @@ var formats = []string{
 	FormatMongo,
 	FormatSiriDB,
 	FormatTimescaleDB,
+	FormatAkumuli,
 }
 
 func isIn(s string, arr []string) bool {

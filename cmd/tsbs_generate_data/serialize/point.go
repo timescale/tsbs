@@ -107,3 +107,9 @@ func (p *Point) GetTagValue(key []byte) []byte {
 type PointSerializer interface {
 	Serialize(p *Point, w io.Writer) error
 }
+
+// PointSerializerCloser is analogous to io.Closer and can be used to create
+// stateful serializers.
+type PointSerializerCloser interface {
+	Close(w io.Writer) error
+}
