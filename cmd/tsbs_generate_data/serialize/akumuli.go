@@ -3,6 +3,8 @@ package serialize
 import (
 	"fmt"
 	"io"
+
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // AkumuliSerializer writes a series of Point elements into RESP encoded
@@ -10,15 +12,35 @@ import (
 type AkumuliSerializer struct {
 	book       map[string]int
 	bookClosed bool
-	deffered   []Point
+	deferred   []*Point
 	index      int
+	first      bool
 }
 
 func (s *AkumuliSerializer) pushDeferred(w io.Writer) (err error) {
-	buf := make([]byte, 0, 1024)
-	buf = append(buf, "<<Deferred>>\n"...)
-	_, err = w.Write(buf)
+	fmt.Println("pushDeferred start")
+	for _, point := range s.deferred {
+		err = s.Serialize(point, w)
+		if err != nil {
+			return err
+		}
+	}
+	fmt.Println("pushDeferred stop")
 	return err
+}
+
+// Deep-copy pont
+func (s *AkumuliSerializer) deferPoint(p *Point) {
+	newp := serialize.NewPoint()
+	newp.SetTimestamp(p.timestamp)
+	newp.SetMeasurementName(p.measurementName)
+	for index, key := range p.TagKeys {
+		newp.AppendTag(key, p.tagValues[index])
+	}
+	for index, key := range p.fieldKeys {
+		newp.AppendField(key, p.fieldValues[index])
+	}
+	s.deferred = append(s.deferred, newp)
 }
 
 // Serialize writes Point data to the given writer, conforming to the
@@ -27,10 +49,18 @@ func (s *AkumuliSerializer) pushDeferred(w io.Writer) (err error) {
 func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	if s.book == nil {
 		s.book = make(map[string]int)
-		s.deffered = make([]Point, 0)
+		s.deferred = make([]*Point, 0)
+		s.bookClosed = false
+	}
+	if !s.first {
+		s.first = true
+		fmt.Println(p.timestamp.UTC().UnixNano())
 	}
 
 	buf := make([]byte, 0, 1024)
+	// Add cue
+	const HeaderLength = 12
+	buf = append(buf, "AAAAAAAAFFFF+"...)
 
 	// Series name
 	for i := 0; i < len(p.fieldKeys); i++ {
@@ -51,43 +81,50 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		buf = append(buf, p.tagValues[i]...)
 	}
 
-	series := string(buf)
+	series := string(buf[HeaderLength:])
+	fmt.Println("-----series:", series)
 	if !s.bookClosed {
 		// Save point for later
 		if id, ok := s.book[series]; ok {
-			s.pushDeferred(w)
+			s.deferPoint(p)
 			s.bookClosed = true
+			s.pushDeferred(w)
 			buf = make([]byte, 0, 1024)
-			buf = append(buf, fmt.Sprintf(":%d", id)...)
+			buf = append(buf, fmt.Sprintf("AAAAAAAAFFFF:%d", id)...)
 		} else {
 			// Shortcut
 			s.index++
 			tmp := make([]byte, 0, 1024)
-			tmp = append(tmp, "*2\n"...)
-			tmp = append(tmp, buf...)
+			tmp = append(tmp, "AAAAAAAAFFFF*2\n"...)
+			tmp = append(tmp, buf[HeaderLength:]...)
 			tmp = append(tmp, '\n')
 			tmp = append(tmp, fmt.Sprintf(":%d\n", s.index)...)
 			_, err := w.Write(tmp)
 			s.book[series] = s.index
+			s.deferPoint(p)
 			return err
 		}
 	} else {
 		// Replace the series name with the value from the book
 		if id, ok := s.book[series]; ok {
-			buf = buf[:0]
+			buf = buf[:HeaderLength]
 			buf = append(buf, fmt.Sprintf(":%d", id)...)
+			fmt.Println("--------in book", id)
+		} else {
+			fmt.Println("--------off book", series)
 		}
 	}
 
 	buf = append(buf, '\n')
 
 	// Timestamp
-	buf = append(buf, '+')
+	buf = append(buf, ':')
 	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
 	buf = append(buf, '\n')
 
 	// Values
-	for i := 0; i < len(p.fieldKeys); i++ {
+	buf = append(buf, fmt.Sprintf("*%d\n", len(p.fieldValues))...)
+	for i := 0; i < len(p.fieldValues); i++ {
 		v := p.fieldValues[i]
 		switch v.(type) {
 		case int, int64:
