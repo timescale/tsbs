@@ -170,9 +170,6 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 
 		currGroupID = (currGroupID + 1) % dgc.InterleavedNumGroups
 	}
-	if s, ok := serializer.(serialize.PointSerializerCloser); ok {
-		return s.Close(g.bufOut)
-	}
 	return nil
 }
 
