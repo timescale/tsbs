@@ -3,8 +3,7 @@ package serialize
 import (
 	"fmt"
 	"io"
-
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"unsafe"
 )
 
 // AkumuliSerializer writes a series of Point elements into RESP encoded
@@ -12,35 +11,8 @@ import (
 type AkumuliSerializer struct {
 	book       map[string]int
 	bookClosed bool
-	deferred   []*Point
+	deferred   []byte
 	index      int
-	first      bool
-}
-
-func (s *AkumuliSerializer) pushDeferred(w io.Writer) (err error) {
-	fmt.Println("pushDeferred start")
-	for _, point := range s.deferred {
-		err = s.Serialize(point, w)
-		if err != nil {
-			return err
-		}
-	}
-	fmt.Println("pushDeferred stop")
-	return err
-}
-
-// Deep-copy pont
-func (s *AkumuliSerializer) deferPoint(p *Point) {
-	newp := serialize.NewPoint()
-	newp.SetTimestamp(p.timestamp)
-	newp.SetMeasurementName(p.measurementName)
-	for index, key := range p.TagKeys {
-		newp.AppendTag(key, p.tagValues[index])
-	}
-	for index, key := range p.fieldKeys {
-		newp.AppendField(key, p.fieldValues[index])
-	}
-	s.deferred = append(s.deferred, newp)
 }
 
 // Serialize writes Point data to the given writer, conforming to the
@@ -49,18 +21,16 @@ func (s *AkumuliSerializer) deferPoint(p *Point) {
 func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	if s.book == nil {
 		s.book = make(map[string]int)
-		s.deferred = make([]*Point, 0)
+		s.deferred = make([]byte, 0, 4096)
 		s.bookClosed = false
 	}
-	if !s.first {
-		s.first = true
-		fmt.Println(p.timestamp.UTC().UnixNano())
-	}
+
+	deferPoint := false
 
 	buf := make([]byte, 0, 1024)
 	// Add cue
-	const HeaderLength = 12
-	buf = append(buf, "AAAAAAAAFFFF+"...)
+	const HeaderLength = 6
+	buf = append(buf, "AAAAFF+"...)
 
 	// Series name
 	for i := 0; i < len(p.fieldKeys); i++ {
@@ -82,36 +52,51 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	}
 
 	series := string(buf[HeaderLength:])
-	fmt.Println("-----series:", series)
 	if !s.bookClosed {
 		// Save point for later
 		if id, ok := s.book[series]; ok {
-			s.deferPoint(p)
 			s.bookClosed = true
-			s.pushDeferred(w)
-			buf = make([]byte, 0, 1024)
-			buf = append(buf, fmt.Sprintf("AAAAAAAAFFFF:%d", id)...)
+			_, err = w.Write(s.deferred)
+			if err != nil {
+				return err
+			}
+			buf = buf[:HeaderLength]
+			buf = append(buf, fmt.Sprintf(":%d", id)...)
+			pid := (*[4]byte)(unsafe.Pointer(&id))
+			copy(buf[:4], pid[:])
 		} else {
 			// Shortcut
 			s.index++
 			tmp := make([]byte, 0, 1024)
-			tmp = append(tmp, "AAAAAAAAFFFF*2\n"...)
+			tmp = append(tmp, "AAAAFF*2\n"...)
 			tmp = append(tmp, buf[HeaderLength:]...)
 			tmp = append(tmp, '\n')
 			tmp = append(tmp, fmt.Sprintf(":%d\n", s.index)...)
-			_, err := w.Write(tmp)
 			s.book[series] = s.index
-			s.deferPoint(p)
-			return err
+			// Update cue
+			tmplen := (uint16)(len(tmp))
+			plen := (*[2]byte)(unsafe.Pointer(&tmplen))
+			copy(tmp[4:HeaderLength], plen[:])
+			pid := (*[4]byte)(unsafe.Pointer(&s.index))
+			copy(tmp[:4], pid[:])
+			copy(buf[:4], pid[:])
+			_, err = w.Write(tmp)
+			if err != nil {
+				return err
+			}
+			deferPoint = true
+			buf = buf[:HeaderLength]
+			buf = append(buf, fmt.Sprintf(":%d", s.index)...)
 		}
 	} else {
 		// Replace the series name with the value from the book
 		if id, ok := s.book[series]; ok {
 			buf = buf[:HeaderLength]
 			buf = append(buf, fmt.Sprintf(":%d", id)...)
-			fmt.Println("--------in book", id)
+			pid := (*[4]byte)(unsafe.Pointer(&id))
+			copy(buf[:4], pid[:])
 		} else {
-			fmt.Println("--------off book", series)
+			panic("Unexpected series name")
 		}
 	}
 
@@ -136,14 +121,16 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		buf = append(buf, '\n')
 	}
 
-	_, err = w.Write(buf)
+	// Update cue
+	buflen := (uint16)(len(buf))
+	plen := (*[2]byte)(unsafe.Pointer(&buflen))
+	copy(buf[4:HeaderLength], plen[:])
+	if deferPoint {
+		s.deferred = append(s.deferred, buf...)
+		err = nil
+	} else {
+		_, err = w.Write(buf)
+	}
 
-	return err
-}
-
-func (s *AkumuliSerializer) Close(w io.Writer) (err error) {
-	buf := make([]byte, 0, 1024)
-	buf = append(buf, '%')
-	_, err = w.Write(buf)
 	return err
 }
