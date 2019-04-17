@@ -1,18 +1,18 @@
 package serialize
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
-	"unsafe"
 )
 
 // AkumuliSerializer writes a series of Point elements into RESP encoded
 // buffer.
 type AkumuliSerializer struct {
-	book       map[string]int
+	book       map[string]uint32
 	bookClosed bool
 	deferred   []byte
-	index      int
+	index      uint32
 }
 
 // Serialize writes Point data to the given writer, conforming to the
@@ -20,7 +20,7 @@ type AkumuliSerializer struct {
 //
 func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	if s.book == nil {
-		s.book = make(map[string]int)
+		s.book = make(map[string]uint32)
 		s.deferred = make([]byte, 0, 4096)
 		s.bookClosed = false
 	}
@@ -62,8 +62,7 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			}
 			buf = buf[:HeaderLength]
 			buf = append(buf, fmt.Sprintf(":%d", id)...)
-			pid := (*[4]byte)(unsafe.Pointer(&id))
-			copy(buf[:4], pid[:])
+			binary.LittleEndian.PutUint32(buf[:4], id)
 		} else {
 			// Shortcut
 			s.index++
@@ -74,12 +73,9 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			tmp = append(tmp, fmt.Sprintf(":%d\n", s.index)...)
 			s.book[series] = s.index
 			// Update cue
-			tmplen := (uint16)(len(tmp))
-			plen := (*[2]byte)(unsafe.Pointer(&tmplen))
-			copy(tmp[4:HeaderLength], plen[:])
-			pid := (*[4]byte)(unsafe.Pointer(&s.index))
-			copy(tmp[:4], pid[:])
-			copy(buf[:4], pid[:])
+			binary.LittleEndian.PutUint16(tmp[4:HeaderLength], (uint16)(len(tmp)))
+			binary.LittleEndian.PutUint32(tmp[:4], s.index)
+			binary.LittleEndian.PutUint32(buf[:4], s.index)
 			_, err = w.Write(tmp)
 			if err != nil {
 				return err
@@ -93,8 +89,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		if id, ok := s.book[series]; ok {
 			buf = buf[:HeaderLength]
 			buf = append(buf, fmt.Sprintf(":%d", id)...)
-			pid := (*[4]byte)(unsafe.Pointer(&id))
-			copy(buf[:4], pid[:])
+			binary.LittleEndian.PutUint16(buf[4:HeaderLength], (uint16)(len(buf)))
+			binary.LittleEndian.PutUint32(buf[:4], id)
 		} else {
 			panic("Unexpected series name")
 		}
@@ -122,9 +118,7 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	}
 
 	// Update cue
-	buflen := (uint16)(len(buf))
-	plen := (*[2]byte)(unsafe.Pointer(&buflen))
-	copy(buf[4:HeaderLength], plen[:])
+	binary.LittleEndian.PutUint16(buf[4:HeaderLength], (uint16)(len(buf)))
 	if deferPoint {
 		s.deferred = append(s.deferred, buf...)
 		err = nil
