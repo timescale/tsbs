@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -10,33 +11,40 @@ func TestSubsystemTagsToJSON(t *testing.T) {
 	cases := []struct {
 		desc string
 		tags []string
-		want string
+		want map[string]interface{}
 	}{
 		{
 			desc: "empty tag list",
 			tags: []string{},
-			want: "{}",
+			want: map[string]interface{}{},
 		},
 		{
 			desc: "only one tag (no commas needed)",
 			tags: []string{"foo=1"},
-			want: "{\"foo\": \"1\"}",
+			want: map[string]interface{}{"foo": "1"},
 		},
 		{
 			desc: "two tags (need comma)",
 			tags: []string{"foo=1", "bar=baz"},
-			want: "{\"foo\": \"1\",\"bar\": \"baz\"}",
+			want: map[string]interface{}{"foo": "1", "bar": "baz"},
 		},
 		{
 			desc: "three tags",
 			tags: []string{"foo=1", "bar=baz", "test=true"},
-			want: "{\"foo\": \"1\",\"bar\": \"baz\",\"test\": \"true\"}",
+			want: map[string]interface{}{"foo": "1", "bar": "baz", "test": "true"},
 		},
 	}
 
 	for _, c := range cases {
-		if got := subsystemTagsToJSON(c.tags); got != c.want {
-			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
+		res := subsystemTagsToJSON(c.tags)
+		if got := len(res); got != len(c.want) {
+			t.Errorf("%s: incorrect result length: got %d want %d", c.desc, got, len(c.want))
+		} else {
+			for k, v := range c.want {
+				if got := res[k]; got != v {
+					t.Errorf("%s: incorrect value for %s: got %s want %s", c.desc, k, got, v)
+				}
+			}
 		}
 	}
 }
@@ -99,8 +107,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", 1.0, 5.0, 45.0},
+				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -121,8 +129,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, "{\"tag3\": \"baz\"}", "foo", 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, "{\"tag3\": \"BAZ\"}", "foofoo", 1.0, 5.0, 45.0},
+				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, "foo", 1.0, 5.0, 42.0},
+				[]interface{}{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, "foofoo", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -184,6 +192,11 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 						var got interface{}
 						if j == 0 {
 							got = metric.(time.Time).Format(time.RFC3339)
+						} else if j == 2 {
+							if !reflect.DeepEqual(metric, want) {
+								t.Errorf("%s: incorrect additional tags: got %v want %v", c.desc, metric, want)
+							}
+							continue
 						} else {
 							got = metric
 						}

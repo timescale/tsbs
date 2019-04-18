@@ -37,16 +37,12 @@ func newSyncCSI() *syncCSI {
 // therefore all workers need to know about the same map from hostname -> tags_id
 var globalSyncCSI = newSyncCSI()
 
-func subsystemTagsToJSON(tags []string) string {
-	json := "{"
-	for i, t := range tags {
+func subsystemTagsToJSON(tags []string) map[string]interface{} {
+	json := map[string]interface{}{}
+	for _, t := range tags {
 		args := strings.Split(t, "=")
-		if i > 0 {
-			json += ","
-		}
-		json += fmt.Sprintf("\"%s\": \"%s\"", args[0], args[1])
+		json[args[0]] = args[1]
 	}
-	json += "}"
 	return json
 }
 
