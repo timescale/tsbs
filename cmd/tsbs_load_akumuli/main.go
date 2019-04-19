@@ -21,8 +21,9 @@ var (
 
 // Global vars
 var (
-	loader  *load.BenchmarkRunner
-	bufPool sync.Pool
+	loader             *load.BenchmarkRunner
+	bufPool            sync.Pool
+	connectionPoolSize uint
 )
 
 // allows for testing
@@ -33,6 +34,7 @@ func init() {
 	loader = load.GetBenchmarkRunner()
 
 	flag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli RESP endpoint IP address.")
+	flag.UintVar(&connectionPoolSize, "ncon", 1, "Number of connections to use.")
 	flag.Parse()
 }
 
@@ -51,7 +53,7 @@ func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
-	return &processor{endpoint: endpoint}
+	return &processor{endpoint: endpoint, ncon: connectionPoolSize}
 }
 
 func (b *benchmark) GetDBCreator() load.DBCreator {
@@ -64,6 +66,5 @@ func main() {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
 		},
 	}
-
 	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
 }

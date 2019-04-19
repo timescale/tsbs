@@ -11,11 +11,12 @@ import (
 type processor struct {
 	endpoint string
 	pool     *tsdbConnPool
+	ncon     uint
 }
 
 func (p *processor) Init(numWorker int, _ bool) {
 	fmt.Println("processor - NumWroker:", numWorker)
-	p.pool = createTsdbPool(uint32(numWorker), p.endpoint, time.Second*10, time.Second*10)
+	p.pool = createTsdbPool(uint32(p.ncon), p.endpoint, time.Second*10, time.Second*10)
 }
 
 func (p *processor) Close(_ bool) {
@@ -26,6 +27,7 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch)
 	if doLoad {
 		head := batch.buf.Bytes()
+		fmt.Println("processor - ProcessBatch:", len(head))
 		for len(head) != 0 {
 			nbytes := binary.LittleEndian.Uint16(head[4:6])
 			shardid := binary.LittleEndian.Uint32(head[:4])
@@ -36,5 +38,5 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	}
 	batch.buf.Reset()
 	bufPool.Put(batch.buf)
-	return 0, batch.rows
+	return batch.rows, batch.rows
 }
