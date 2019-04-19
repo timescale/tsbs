@@ -31,7 +31,6 @@ var fatal = log.Fatalf
 // Parse args:
 func init() {
 	loader = load.GetBenchmarkRunner()
-	var endpoint string
 
 	flag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli RESP endpoint IP address.")
 	flag.Parse()
@@ -52,7 +51,7 @@ func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
-	return &processor{}
+	return &processor{endpoint: endpoint}
 }
 
 func (b *benchmark) GetDBCreator() load.DBCreator {

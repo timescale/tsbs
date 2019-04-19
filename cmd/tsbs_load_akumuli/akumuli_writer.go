@@ -122,7 +122,7 @@ type tsdbConnPool struct {
 	connectTimeout time.Duration
 }
 
-func createTsdbPool(size uint32, targetAddr string, connectTimeout, writeTimeout, watchTimeout time.Duration) *tsdbConnPool {
+func createTsdbPool(size uint32, targetAddr string, connectTimeout, writeTimeout time.Duration) *tsdbConnPool {
 	tsdb := new(tsdbConnPool)
 	tsdb.size = size
 	tsdb.pool = make([]*tsdbConn, size, size)
