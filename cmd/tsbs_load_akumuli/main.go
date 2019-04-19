@@ -40,7 +40,7 @@ func init() {
 type benchmark struct{}
 
 func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+	return &decoder{reader: br}
 }
 
 func (b *benchmark) GetBatchFactory() load.BatchFactory {
