@@ -15,13 +15,13 @@ QUERY_PORT=${QUERY_PORT:-8181}
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
 
-until curl http://${DATABASE_HOST}:${QUERY_PORT}/api/stats 2>/dev/null; do
-    echo "Waiting for akumulid"
-    sleep 1
-done
+#until curl http://${DATABASE_HOST}:${QUERY_PORT}/api/stats 2>/dev/null; do
+#    echo "Waiting for akumulid"
+#    sleep 1
+#done
 
 # Load new data
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
-                                --workers=${NUM_WORKERS} \
+                                --workers=1 \
                                 --batch-size=${BATCH_SIZE} \
                                 --endpoint=${DATABASE_HOST}:${INGESTION_PORT}

@@ -29,8 +29,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 
 	buf := make([]byte, 0, 1024)
 	// Add cue
-	const HeaderLength = 6
-	buf = append(buf, "AAAAFF+"...)
+	const HeaderLength = 8
+	buf = append(buf, "AAAAFFEE+"...)
 
 	// Series name
 	for i := 0; i < len(p.fieldKeys); i++ {
@@ -67,13 +67,14 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			// Shortcut
 			s.index++
 			tmp := make([]byte, 0, 1024)
-			tmp = append(tmp, "AAAAFF*2\n"...)
+			tmp = append(tmp, "AAAAFFEE*2\n"...)
 			tmp = append(tmp, buf[HeaderLength:]...)
 			tmp = append(tmp, '\n')
 			tmp = append(tmp, fmt.Sprintf(":%d\n", s.index)...)
 			s.book[series] = s.index
 			// Update cue
-			binary.LittleEndian.PutUint16(tmp[4:HeaderLength], (uint16)(len(tmp)))
+			binary.LittleEndian.PutUint16(tmp[4:6], uint16(len(tmp)))
+			binary.LittleEndian.PutUint16(tmp[6:HeaderLength], uint16(0))
 			binary.LittleEndian.PutUint32(tmp[:4], s.index)
 			binary.LittleEndian.PutUint32(buf[:4], s.index)
 			_, err = w.Write(tmp)
@@ -89,7 +90,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		if id, ok := s.book[series]; ok {
 			buf = buf[:HeaderLength]
 			buf = append(buf, fmt.Sprintf(":%d", id)...)
-			binary.LittleEndian.PutUint16(buf[4:HeaderLength], (uint16)(len(buf)))
+			binary.LittleEndian.PutUint16(buf[4:6], uint16(len(buf)))
+			binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(0))
 			binary.LittleEndian.PutUint32(buf[:4], id)
 		} else {
 			panic("Unexpected series name")
@@ -118,7 +120,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	}
 
 	// Update cue
-	binary.LittleEndian.PutUint16(buf[4:HeaderLength], (uint16)(len(buf)))
+	binary.LittleEndian.PutUint16(buf[4:6], uint16(len(buf)))
+	binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(len(p.fieldValues)))
 	if deferPoint {
 		s.deferred = append(s.deferred, buf...)
 		err = nil

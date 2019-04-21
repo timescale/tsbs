@@ -13,7 +13,7 @@ type tsdbConn struct {
 	connectTimeout time.Duration
 	connected      bool
 	writeChan      chan []byte
-	reconnectChan  chan int
+	closeChan      chan int
 	addr           string
 }
 
@@ -23,11 +23,13 @@ func createTsdb(addr string, connectTimeout, writeTimeout time.Duration) *tsdbCo
 	conn.writeTimeout = writeTimeout
 	conn.connectTimeout = connectTimeout
 	conn.writeChan = make(chan []byte, 100)
-	conn.reconnectChan = make(chan int, 10)
+	conn.closeChan = make(chan int, 10)
 	conn.connected = false
 	conn.addr = addr
-	conn.reconnectChan <- 0
-	go conn.reconnect()
+	err := conn.connect()
+	if err != nil {
+		log.Println("Error establishing connection", err)
+	}
 	return conn
 }
 
@@ -36,8 +38,11 @@ func (conn *tsdbConn) connect() error {
 	if err == nil {
 		conn.conn = c
 		conn.connected = true
+		go conn.run()
+		log.Println("Connection with", conn.addr, "successful")
 	} else {
 		conn.connected = false
+		log.Println("Can't establish connection with", conn.addr)
 	}
 	return err
 }
@@ -49,13 +54,14 @@ func (conn *tsdbConn) write(data []byte) error {
 	return err
 }
 
+func (conn *tsdbConn) Write(data []byte) {
+	conn.writeChan <- data
+}
+
 func (conn *tsdbConn) Close() {
-	conn.reconnectChan <- -1
 	conn.writeChan <- nil
-	if conn.connected {
-		conn.conn.Close()
-		conn.connected = false
-	}
+	// Wait for completion
+	_ = <-conn.closeChan
 }
 
 func (conn *tsdbConn) startReadAsync() {
@@ -66,51 +72,26 @@ func (conn *tsdbConn) startReadAsync() {
 		log.Println("Database returned error:", string(buffer))
 	}
 	conn.writeChan <- nil // To stop the goroutine
-	conn.conn.Close()
-	conn.connected = false
-	conn.reconnectChan <- 0
 }
 
 func (conn *tsdbConn) run() {
 	for {
 		buf := <-conn.writeChan
 		if buf == nil {
+			conn.conn.Close()
+			conn.connected = false
+			conn.closeChan <- 0
 			break
 		}
 		err := conn.write(buf)
 		if err != nil {
 			log.Println("TSDB write error:", err)
-			break
-		}
-	}
-}
-
-func (conn *tsdbConn) reconnect() {
-	for {
-		ix := <-conn.reconnectChan
-		if ix < 0 {
-			log.Println("Reconnection job stopping")
-			break
-		}
-		if conn.connected {
 			conn.conn.Close()
 			conn.connected = false
-			time.Sleep(conn.connectTimeout)
-		}
-		err := conn.connect()
-		if err != nil {
-			log.Println("TSDB connection error", err)
-			conn.reconnectChan <- (ix + 1)
-		} else {
-			log.Println("Connection attempt successful")
-			go conn.run()
-			go conn.startReadAsync()
+			conn.closeChan <- 0
+			break
 		}
 	}
-}
-
-func (conn *tsdbConn) Write(data []byte) {
-	conn.writeChan <- data
 }
 
 // TSDB connection pool with affinity
@@ -132,12 +113,15 @@ func createTsdbPool(size uint32, targetAddr string, connectTimeout, writeTimeout
 	// Init pool
 	for i := uint32(0); i < size; i++ {
 		tsdb.pool[i] = createTsdb(tsdb.targetAddr, tsdb.connectTimeout, tsdb.writeTimeout)
+		if tsdb.pool[i].connected == false {
+			panic("Connection error")
+		}
 	}
 	return tsdb
 }
 
 func (tsdb *tsdbConnPool) Write(shardid uint32, buf []byte) {
-	tsdb.pool[shardid%tsdb.size].conn.Write(buf)
+	tsdb.pool[shardid%tsdb.size].Write(buf)
 }
 
 func (tsdb *tsdbConnPool) Close() {

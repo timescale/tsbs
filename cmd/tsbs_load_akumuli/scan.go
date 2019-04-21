@@ -39,6 +39,7 @@ func (b *batch) Len() int {
 func (b *batch) Append(item *load.Point) {
 	payload := item.Data.([]byte)
 	b.buf.Write(payload)
+	b.rows++
 }
 
 type factory struct{}
