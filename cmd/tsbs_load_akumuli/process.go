@@ -28,7 +28,6 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	var nmetrics uint64 = 0
 	if doLoad {
 		head := batch.buf.Bytes()
-		fmt.Println("processor - ProcessBatch:", len(head))
 		for len(head) != 0 {
 			nbytes := binary.LittleEndian.Uint16(head[4:6])
 			nfields := binary.LittleEndian.Uint16(head[6:8])
