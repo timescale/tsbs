@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
+	"fmt"
 	"log"
 	"sync"
 
@@ -48,12 +49,13 @@ func (b *benchmark) GetBatchFactory() load.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(n uint) load.PointIndexer {
+	fmt.Println("pointIndexer:", n)
+	return &pointIndexer{nchan: n}
 }
 
 func (b *benchmark) GetProcessor() load.Processor {
-	return &processor{endpoint: endpoint, ncon: connectionPoolSize}
+	return &processor{endpoint: endpoint}
 }
 
 func (b *benchmark) GetDBCreator() load.DBCreator {
@@ -66,5 +68,5 @@ func main() {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
 		},
 	}
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{}, load.WorkerPerQueue)
 }

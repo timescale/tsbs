@@ -22,7 +22,7 @@ done
 
 # Load new data
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
-                                --workers=1 \
+                                --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-				--ncon=${NUM_WORKERS} \
+                                --ncon=${NUM_WORKERS} \
                                 --endpoint=${DATABASE_HOST}:${INGESTION_PORT}

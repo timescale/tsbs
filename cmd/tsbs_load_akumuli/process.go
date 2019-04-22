@@ -3,24 +3,35 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"time"
+	"log"
+	"net"
 
 	"github.com/timescale/tsbs/load"
 )
 
 type processor struct {
 	endpoint string
-	pool     *tsdbConnPool
-	ncon     uint
+	conn     net.Conn
+	worker   int
 }
 
 func (p *processor) Init(numWorker int, _ bool) {
-	fmt.Println("processor - ix worker:", numWorker, "num connections:", p.ncon)
-	p.pool = createTsdbPool(uint32(p.ncon), p.endpoint, time.Second*10, time.Second*10)
+	fmt.Println("processor - ix worker:", numWorker)
+	p.worker = numWorker
+	c, err := net.Dial("tcp", p.endpoint)
+	if err == nil {
+		p.conn = c
+		log.Println("Connection with", p.endpoint, "successful")
+	} else {
+		log.Println("Can't establish connection with", p.endpoint)
+		panic("Connection error")
+	}
 }
 
-func (p *processor) Close(_ bool) {
-	p.pool.Close()
+func (p *processor) Close(doLoad bool) {
+	if doLoad {
+		p.conn.Close()
+	}
 }
 
 func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
@@ -31,13 +42,10 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 		for len(head) != 0 {
 			nbytes := binary.LittleEndian.Uint16(head[4:6])
 			nfields := binary.LittleEndian.Uint16(head[6:8])
-			shardid := binary.LittleEndian.Uint32(head[:4])
 			payload := head[8:nbytes]
-			msg := make([]byte, len(payload), len(payload))
-			copy(msg, payload)
-			p.pool.Write(shardid, msg)
-			head = head[nbytes:]
+			p.conn.Write(payload)
 			nmetrics += uint64(nfields)
+			head = head[nbytes:]
 		}
 	}
 	batch.buf.Reset()
