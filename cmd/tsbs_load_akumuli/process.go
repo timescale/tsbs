@@ -25,7 +25,7 @@ func (p *processor) Close(_ bool) {
 
 func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch)
-	var nmetrics uint64 = 0
+	var nmetrics uint64
 	if doLoad {
 		head := batch.buf.Bytes()
 		for len(head) != 0 {
@@ -33,7 +33,9 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 			nfields := binary.LittleEndian.Uint16(head[6:8])
 			shardid := binary.LittleEndian.Uint32(head[:4])
 			payload := head[8:nbytes]
-			p.pool.Write(shardid, payload)
+			msg := make([]byte, len(payload), len(payload))
+			copy(msg, payload)
+			p.pool.Write(shardid, msg)
 			head = head[nbytes:]
 			nmetrics += uint64(nfields)
 		}

@@ -27,6 +27,16 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	return load.NewPoint(body)
 }
 
+type pointIndexer struct {
+	nchan uint
+}
+
+func (i *pointIndexer) GetIndex(p *load.Point) int {
+	hdr := p.Data.([]byte)
+	id := binary.LittleEndian.Uint32(hdr[0:4])
+	return int(id % uint32(i.nchan))
+}
+
 type batch struct {
 	buf  *bytes.Buffer
 	rows uint64
