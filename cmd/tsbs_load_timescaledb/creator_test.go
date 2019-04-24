@@ -204,3 +204,76 @@ func TestDBCreatorGetCreateIndexOnFieldSQL(t *testing.T) {
 		}
 	}
 }
+
+func TestDBCreatorGetFieldAndIndexDefinitions(t *testing.T) {
+	cases := []struct {
+		desc            string
+		columns         []string
+		fieldIndexCount int
+		inTableTag      bool
+		wantFieldDefs   []string
+		wantIndexDefs   []string
+	}{
+		{
+			desc:            "all field indexes",
+			columns:         []string{"cpu", "usage_user", "usage_system", "usage_idle", "usage_nice"},
+			fieldIndexCount: -1,
+			inTableTag:      false,
+			wantFieldDefs:   []string{"usage_user DOUBLE PRECISION", "usage_system DOUBLE PRECISION", "usage_idle DOUBLE PRECISION", "usage_nice DOUBLE PRECISION"},
+			wantIndexDefs:   []string{"CREATE INDEX ON cpu (usage_user, time DESC)", "CREATE INDEX ON cpu (usage_system, time DESC)", "CREATE INDEX ON cpu (usage_idle, time DESC)", "CREATE INDEX ON cpu (usage_nice, time DESC)"},
+		},
+		{
+			desc:            "no field indexes",
+			columns:         []string{"cpu", "usage_user", "usage_system", "usage_idle", "usage_nice"},
+			fieldIndexCount: 0,
+			inTableTag:      false,
+			wantFieldDefs:   []string{"usage_user DOUBLE PRECISION", "usage_system DOUBLE PRECISION", "usage_idle DOUBLE PRECISION", "usage_nice DOUBLE PRECISION"},
+			wantIndexDefs:   []string{},
+		},
+		{
+			desc:            "no field indexes, in table tag",
+			columns:         []string{"cpu", "usage_user", "usage_system", "usage_idle", "usage_nice"},
+			fieldIndexCount: 0,
+			inTableTag:      true,
+			wantFieldDefs:   []string{"hostname TEXT", "usage_user DOUBLE PRECISION", "usage_system DOUBLE PRECISION", "usage_idle DOUBLE PRECISION", "usage_nice DOUBLE PRECISION"},
+			wantIndexDefs:   []string{},
+		},
+		{
+			desc:            "one field index",
+			columns:         []string{"cpu", "usage_user", "usage_system", "usage_idle", "usage_nice"},
+			fieldIndexCount: 1,
+			inTableTag:      false,
+			wantFieldDefs:   []string{"usage_user DOUBLE PRECISION", "usage_system DOUBLE PRECISION", "usage_idle DOUBLE PRECISION", "usage_nice DOUBLE PRECISION"},
+			wantIndexDefs:   []string{"CREATE INDEX ON cpu (usage_user, time DESC)"},
+		},
+		{
+			desc:            "two field indexes",
+			columns:         []string{"cpu", "usage_user", "usage_system", "usage_idle", "usage_nice"},
+			fieldIndexCount: 2,
+			inTableTag:      false,
+			wantFieldDefs:   []string{"usage_user DOUBLE PRECISION", "usage_system DOUBLE PRECISION", "usage_idle DOUBLE PRECISION", "usage_nice DOUBLE PRECISION"},
+			wantIndexDefs:   []string{"CREATE INDEX ON cpu (usage_user, time DESC)", "CREATE INDEX ON cpu (usage_system, time DESC)"},
+		},
+	}
+
+	for _, c := range cases {
+		// Set the global in-table-tag flag based on the test case
+		inTableTag = c.inTableTag
+		// Initialize global cache
+		tableCols[tagsKey] = []string{}
+		tableCols[tagsKey] = append(tableCols[tagsKey], "hostname")
+		dbc := &dbCreator{}
+		fieldIndexCount = c.fieldIndexCount
+		fieldDefs, indexDefs := dbc.getFieldAndIndexDefinitions(c.columns)
+		for i, fieldDef := range fieldDefs {
+			if fieldDef != c.wantFieldDefs[i] {
+				t.Errorf("%s: incorrect fieldDef at idx %d: got %s want %s", c.desc, i, fieldDef, c.wantFieldDefs[i])
+			}
+		}
+		for i, indexDef := range indexDefs {
+			if indexDef != c.wantIndexDefs[i] {
+				t.Errorf("%s: incorrect indexDef at idx %d: got %s want %s", c.desc, i, indexDef, c.wantIndexDefs[i])
+			}
+		}
+	}
+}
