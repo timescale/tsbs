@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
-	"fmt"
 	"log"
 	"sync"
 
@@ -50,7 +49,6 @@ func (b *benchmark) GetBatchFactory() load.BatchFactory {
 }
 
 func (b *benchmark) GetPointIndexer(n uint) load.PointIndexer {
-	fmt.Println("pointIndexer:", n)
 	return &pointIndexer{nchan: n}
 }
 

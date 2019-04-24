@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 
@@ -16,7 +15,6 @@ type processor struct {
 }
 
 func (p *processor) Init(numWorker int, _ bool) {
-	fmt.Println("processor - ix worker:", numWorker)
 	p.worker = numWorker
 	c, err := net.Dial("tcp", p.endpoint)
 	if err == nil {

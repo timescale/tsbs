@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
@@ -178,6 +179,8 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Dev
 	scale := int(c.Scale) // TODO: make all the Devops constructors use a uint64
 
 	switch c.Format {
+	case FormatAkumuli:
+		ret = akumuli.NewDevops(g.tsStart, g.tsEnd, scale)
 	case FormatCassandra:
 		ret = cassandra.NewDevops(g.tsStart, g.tsEnd, scale)
 	case FormatClickhouse:
