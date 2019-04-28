@@ -2,9 +2,8 @@ package akumuli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"html/template"
-	"strings"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -26,6 +25,32 @@ func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewHTTP()
 }
 
+type tsdbQueryRange struct {
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
+}
+
+type tsdbGroupAggStmt struct {
+	Name string   `json:"metric"`
+	Func []string `json:"func"`
+	Step string   `json:"step"`
+}
+
+type tsdbGroupAggregateQuery struct {
+	GroupAggregate tsdbGroupAggStmt    `json:"group-aggregate"`
+	TimeRange      tsdbQueryRange      `json:"range"`
+	Where          map[string][]string `json:"where"`
+	Output         map[string]string   `json:"output"`
+}
+
+type tsdbSelectQuery struct {
+	Select    string                       `json:"select"`
+	TimeRange tsdbQueryRange               `json:"range"`
+	Where     map[string][]string          `json:"where"`
+	Output    map[string]string            `json:"output"`
+	Filter    map[string]map[string]string `json:"filter"`
+}
+
 // GroupByTime selects the MAX for a single metric under 'cpu',
 // per minute for nhosts hosts,
 // e.g. in pseudo-SQL:
@@ -42,60 +67,38 @@ func (d *Devops) GenerateEmptyQuery() query.Query {
 // Resultsets:
 // single-groupby-1-1-12
 // single-groupby-1-1-1
-// single-groupby-1-8-1
 // single-groupby-5-1-12
 // single-groupby-5-1-1
-// single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	hostnames := d.GetRandomHosts(nhosts)
-	combinedHostnameClause := "\"" + strings.Join(hostnames, "\",\"") + "\""
 
 	if len(metrics) != 1 {
-		return
+		panic("Not supported")
 	}
 
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
-	const tmplString = `
-	{
-		"group-aggregate": {
-			"metric": "cpu.{{.MetricName}}",
-			"func": [ "max" ],
-			"step": "1m"
-		},
-		"range": {
-			"from": {{.StartTimestamp}},
-			"to": {{.EndTimestamp}}
-		},
-		"where": {
-			"hostname": [ {{.CombinedHostnameClause}} ]
-		},
-		"output": {
-			"format": "csv"
-		}
-	}
-	`
+	var query tsdbGroupAggregateQuery
+	query.GroupAggregate.Func = append(query.GroupAggregate.Func, "max")
+	query.GroupAggregate.Step = "1m"
+	query.GroupAggregate.Name = "cpu." + metrics[0]
 
-	tmpl := template.Must(template.New("tmpl").Parse(tmplString))
+	query.Where = make(map[string][]string)
+	query.Where["hostname"] = hostnames
+	query.TimeRange.From = startTimestamp
+	query.TimeRange.To = endTimestamp
+	query.Output = make(map[string]string)
+	query.Output["format"] = "csv"
+
 	bodyWriter := new(bytes.Buffer)
-
-	arg := struct {
-		StartTimestamp, EndTimestamp int64
-		CombinedHostnameClause       string
-		MetricName                   string
-	}{
-		startTimestamp,
-		endTimestamp,
-		combinedHostnameClause,
-		metrics[0], // TODO: loop
-	}
-	err := tmpl.Execute(bodyWriter, arg)
+	body, err := json.Marshal(query)
 	if err != nil {
-		panic("logic error")
+		panic(err)
 	}
+	bodyWriter.Write(body)
 
 	humanLabel := fmt.Sprintf("Akumuli max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -116,55 +119,78 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 // high-cpu-all
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.HighCPUDuration)
-
-	var hostWhereClause string
-	if nHosts == 0 {
-		hostWhereClause = ""
-	} else {
-		hostnames := d.GetRandomHosts(nHosts)
-		combinedHostnameClause := "\"" + strings.Join(hostnames, "\",\"") + "\""
-		hostWhereClause = fmt.Sprintf(`
-		"where": {
-			"hostname": [ %s ]
-		},`,
-			combinedHostnameClause)
-	}
+	hostnames := d.GetRandomHosts(nHosts)
 
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
-	const tmplString = `
-	{
-		"select": "cpu.usage_user",
-		"range": {
-			"from": {{.StartTimestamp}},
-			"to": {{.EndTimestamp}}
-		},
-		"filter": {
-			"cpu": { "gt": 90.0 }
-		},
-		"output": {
-			"format": "csv"
-		}
-		{{.WhereClause}}
-	}
-	`
+	var query tsdbSelectQuery
+	query.Select = "cpu.usage_user"
 
-	tmpl := template.Must(template.New("tmpl").Parse(tmplString))
+	query.Where = make(map[string][]string)
+	query.Where["hostname"] = hostnames
+	query.TimeRange.From = startTimestamp
+	query.TimeRange.To = endTimestamp
+	query.Output = make(map[string]string)
+	query.Output["format"] = "csv"
+	query.Filter = make(map[string]map[string]string)
+	query.Filter["cpu"] = make(map[string]string)
+	query.Filter["cpu"]["gt"] = "90.0"
+
 	bodyWriter := new(bytes.Buffer)
-
-	arg := struct {
-		StartTimestamp, EndTimestamp int64
-		WhereClause                  string
-	}{
-		startTimestamp,
-		endTimestamp,
-		hostWhereClause,
-	}
-	err := tmpl.Execute(bodyWriter, arg)
+	body, err := json.Marshal(query)
 	if err != nil {
-		panic("logic error")
+		panic(err)
 	}
+	bodyWriter.Write(body)
+
+	humanLabel := fmt.Sprintf("Akumuli high CPU, rand %4d hosts, rand %s", nHosts, interval)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+}
+
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in pseudo-SQL:
+//
+// SELECT MAX(metric1), ..., MAX(metricN)
+// FROM cpu
+// WHERE
+// 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// 		AND time >= '$HOUR_START'
+// 		AND time < '$HOUR_END'
+// GROUP BY hour
+// ORDER BY hour
+//
+// Resultsets:
+// cpu-max-all-1
+// cpu-max-all-8
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
+	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	metrics := devops.GetAllCPUMetrics()
+	hostnames := d.GetRandomHosts(nHosts)
+
+	startTimestamp := interval.StartUnixNano()
+	endTimestamp := interval.EndUnixNano()
+
+	var query tsdbSelectQuery
+	query.Select = "cpu.usage_user"
+
+	query.Where = make(map[string][]string)
+	query.Where["hostname"] = hostnames
+	query.TimeRange.From = startTimestamp
+	query.TimeRange.To = endTimestamp
+	query.Output = make(map[string]string)
+	query.Output["format"] = "csv"
+	query.Filter = make(map[string]map[string]string)
+	query.Filter["cpu"] = make(map[string]string)
+	query.Filter["cpu"]["gt"] = "90.0"
+
+	bodyWriter := new(bytes.Buffer)
+	body, err := json.Marshal(query)
+	if err != nil {
+		panic(err)
+	}
+	bodyWriter.Write(body)
 
 	humanLabel := fmt.Sprintf("Akumuli high CPU, rand %4d hosts, rand %s", nHosts, interval)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
