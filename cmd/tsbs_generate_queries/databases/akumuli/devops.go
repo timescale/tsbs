@@ -31,7 +31,7 @@ type tsdbQueryRange struct {
 }
 
 type tsdbGroupAggStmt struct {
-	Name string   `json:"metric"`
+	Name []string `json:"metric"`
 	Func []string `json:"func"`
 	Step string   `json:"step"`
 }
@@ -41,6 +41,7 @@ type tsdbGroupAggregateQuery struct {
 	TimeRange      tsdbQueryRange      `json:"range"`
 	Where          map[string][]string `json:"where"`
 	Output         map[string]string   `json:"output"`
+	OrderBy        string              `json:"order-by"`
 }
 
 type tsdbSelectQuery struct {
@@ -49,6 +50,11 @@ type tsdbSelectQuery struct {
 	Where     map[string][]string          `json:"where"`
 	Output    map[string]string            `json:"output"`
 	Filter    map[string]map[string]string `json:"filter"`
+}
+
+type tsdbAggregateAllQuery struct {
+	Metrics map[string]string `json:"aggregate"`
+	Output  map[string]string `json:"output"`
 }
 
 // GroupByTime selects the MAX for a single metric under 'cpu',
@@ -67,24 +73,22 @@ type tsdbSelectQuery struct {
 // Resultsets:
 // single-groupby-1-1-12
 // single-groupby-1-1-1
+// single-groupby-1-8-1
 // single-groupby-5-1-12
 // single-groupby-5-1-1
+// single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.RandWindow(timeRange)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	hostnames := d.GetRandomHosts(nhosts)
-
-	if len(metrics) != 1 {
-		panic("Not supported")
-	}
-
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
 	var query tsdbGroupAggregateQuery
 	query.GroupAggregate.Func = append(query.GroupAggregate.Func, "max")
 	query.GroupAggregate.Step = "1m"
-	query.GroupAggregate.Name = "cpu." + metrics[0]
+	for _, name := range devops.GetCPUMetricsSlice(numMetrics) {
+		query.GroupAggregate.Name = append(query.GroupAggregate.Name, "cpu."+name)
+	}
 
 	query.Where = make(map[string][]string)
 	query.Where["hostname"] = hostnames
@@ -92,6 +96,7 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 	query.TimeRange.To = endTimestamp
 	query.Output = make(map[string]string)
 	query.Output["format"] = "csv"
+	query.OrderBy = "time"
 
 	bodyWriter := new(bytes.Buffer)
 	body, err := json.Marshal(query)
@@ -119,16 +124,19 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 // high-cpu-all
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.HighCPUDuration)
-	hostnames := d.GetRandomHosts(nHosts)
+	var hostnames []string
 
+	if nHosts > 0 {
+		hostnames = d.GetRandomHosts(nHosts)
+	}
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
-
 	var query tsdbSelectQuery
 	query.Select = "cpu.usage_user"
-
 	query.Where = make(map[string][]string)
-	query.Where["hostname"] = hostnames
+	if nHosts > 0 {
+		query.Where["hostname"] = hostnames
+	}
 	query.TimeRange.From = startTimestamp
 	query.TimeRange.To = endTimestamp
 	query.Output = make(map[string]string)
@@ -144,8 +152,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	}
 	bodyWriter.Write(body)
 
-	humanLabel := fmt.Sprintf("Akumuli high CPU, rand %4d hosts, rand %s", nHosts, interval)
-	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	humanLabel := devops.GetHighCPULabel("Akumuli", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval)
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
@@ -166,14 +174,16 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 // cpu-max-all-8
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.RandWindow(devops.MaxAllDuration)
-	metrics := devops.GetAllCPUMetrics()
 	hostnames := d.GetRandomHosts(nHosts)
-
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
-	var query tsdbSelectQuery
-	query.Select = "cpu.usage_user"
+	var query tsdbGroupAggregateQuery
+	query.GroupAggregate.Func = append(query.GroupAggregate.Func, "max")
+	query.GroupAggregate.Step = "1h"
+	for _, name := range devops.GetAllCPUMetrics() {
+		query.GroupAggregate.Name = append(query.GroupAggregate.Name, "cpu."+name)
+	}
 
 	query.Where = make(map[string][]string)
 	query.Where["hostname"] = hostnames
@@ -181,9 +191,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	query.TimeRange.To = endTimestamp
 	query.Output = make(map[string]string)
 	query.Output["format"] = "csv"
-	query.Filter = make(map[string]map[string]string)
-	query.Filter["cpu"] = make(map[string]string)
-	query.Filter["cpu"]["gt"] = "90.0"
+	query.OrderBy = "time"
 
 	bodyWriter := new(bytes.Buffer)
 	body, err := json.Marshal(query)
@@ -192,9 +200,32 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	}
 	bodyWriter.Write(body)
 
-	humanLabel := fmt.Sprintf("Akumuli high CPU, rand %4d hosts, rand %s", nHosts, interval)
+	humanLabel := devops.GetMaxAllLabel("Akumuli", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+}
+
+// LastPointPerHost finds the last row for every host in the dataset
+func (d *Devops) LastPointPerHost(qi query.Query) {
+
+	var query tsdbAggregateAllQuery
+	query.Metrics = make(map[string]string)
+	for _, name := range devops.GetAllCPUMetrics() {
+		query.Metrics["cpu."+name] = "last"
+	}
+	query.Output = make(map[string]string)
+	query.Output["format"] = "csv"
+
+	bodyWriter := new(bytes.Buffer)
+	body, err := json.Marshal(query)
+	if err != nil {
+		panic(err)
+	}
+	bodyWriter.Write(body)
+
+	humanLabel := "Akumuli last row per host"
+	humanDesc := humanLabel + ": cpu"
+	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), 0, 0)
 }
 
 func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, body string, begin, end int64) {
