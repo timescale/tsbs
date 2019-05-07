@@ -96,6 +96,14 @@ func TestTimeIntervalStartAndEndFuncs(t *testing.T) {
 	if got := ti.EndUnixNano(); got != endUTC.UnixNano() {
 		t.Errorf("incorrect end unix nano: got %v want %v", got, endUTC.UnixNano())
 	}
+	if got := ti.StartUnixMillis(); got != startUTC.UnixNano()/int64(time.Millisecond) {
+		t.Errorf("incorrect start unix millis: got %v want %v",
+			got, startUTC.UnixNano()/int64(time.Millisecond))
+	}
+	if got := ti.EndUnixMillis(); got != endUTC.UnixNano()/int64(time.Millisecond) {
+		t.Errorf("incorrect end unix millis: got %v want %v",
+			got, endUTC.UnixNano()/int64(time.Millisecond))
+	}
 
 	if got := ti.StartString(); got != startUTC.Format(time.RFC3339) {
 		t.Errorf("incorrect start string: got %s want %s", got, startUTC.Format(time.RFC3339))

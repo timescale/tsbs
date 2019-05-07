@@ -443,6 +443,7 @@ func TestGetSerializer(t *testing.T) {
 	checkType(FormatMongo, &serialize.MongoSerializer{})
 	checkType(FormatSiriDB, &serialize.SiriDBSerializer{})
 	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
+	checkType(FormatCrateDB, &serialize.CrateDBSerializer{})
 
 	_, err = g.getSerializer(sim, "bogus format")
 	if err == nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"io"
 	"math/rand"
 	"os"
@@ -194,6 +195,8 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Que
 		}
 	case FormatSiriDB:
 		ret = siridb.NewDevops(g.tsStart, g.tsEnd, scale)
+	case FormatCrateDB:
+		ret = cratedb.NewDevops(g.tsStart, g.tsEnd, scale)
 	case FormatTimescaleDB:
 		temp := timescaledb.NewDevops(g.tsStart, g.tsEnd, scale)
 		temp.UseJSON = c.TimescaleUseJSON

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"io"
 	"io/ioutil"
 	"os"
@@ -238,6 +239,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	checkType(FormatInflux, influx.NewDevops(tsStart, tsEnd, scale))
 	checkType(FormatSiriDB, siridb.NewDevops(tsStart, tsEnd, scale))
 	checkType(FormatMongo, mongo.NewDevops(tsStart, tsEnd, scale))
+	checkType(FormatCrateDB, cratedb.NewDevops(tsStart, tsEnd, scale))
 	c.MongoUseNaive = true
 	checkType(FormatMongo, mongo.NewNaiveDevops(tsStart, tsEnd, scale))
 

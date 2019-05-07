@@ -223,36 +223,42 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 		ret = &serialize.MongoSerializer{}
 	case FormatSiriDB:
 		ret = &serialize.SiriDBSerializer{}
+	case FormatCrateDB:
+		g.writeHeader(sim)
+		ret = &serialize.CrateDBSerializer{}
 	case FormatClickhouse:
 		fallthrough
 	case FormatTimescaleDB:
-		g.bufOut.WriteString("tags")
-		for _, key := range sim.TagKeys() {
-			g.bufOut.WriteString(",")
-			g.bufOut.Write(key)
-		}
-		g.bufOut.WriteString("\n")
-		// sort the keys so the header is deterministic
-		keys := make([]string, 0)
-		fields := sim.Fields()
-		for k := range fields {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, measurementName := range keys {
-			g.bufOut.WriteString(measurementName)
-			for _, field := range fields[measurementName] {
-				g.bufOut.WriteString(",")
-				g.bufOut.Write(field)
-			}
-			g.bufOut.WriteString("\n")
-		}
-		g.bufOut.WriteString("\n")
-
+		g.writeHeader(sim)
 		ret = &serialize.TimescaleDBSerializer{}
 	default:
 		err = fmt.Errorf(errUnknownFormatFmt, format)
 	}
 
 	return ret, err
+}
+
+func (g *DataGenerator) writeHeader(sim common.Simulator) {
+	g.bufOut.WriteString("tags")
+	for _, key := range sim.TagKeys() {
+		g.bufOut.WriteString(",")
+		g.bufOut.Write(key)
+	}
+	g.bufOut.WriteString("\n")
+	// sort the keys so the header is deterministic
+	keys := make([]string, 0)
+	fields := sim.Fields()
+	for k := range fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, measurementName := range keys {
+		g.bufOut.WriteString(measurementName)
+		for _, field := range fields[measurementName] {
+			g.bufOut.WriteString(",")
+			g.bufOut.Write(field)
+		}
+		g.bufOut.WriteString("\n")
+	}
+	g.bufOut.WriteString("\n")
 }
