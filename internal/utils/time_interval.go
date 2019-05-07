@@ -113,6 +113,11 @@ func (ti *TimeInterval) StartUnixNano() int64 {
 	return ti.start.UnixNano()
 }
 
+// StartUnixMillis returns the start time as milliseconds.
+func (ti *TimeInterval) StartUnixMillis() int64 {
+	return ti.start.UTC().UnixNano() / int64(time.Millisecond)
+}
+
 // StartString formats the start  of the TimeInterval according to RFC3339.
 func (ti *TimeInterval) StartString() string {
 	return ti.start.Format(time.RFC3339)
@@ -126,6 +131,11 @@ func (ti *TimeInterval) End() time.Time {
 // EndUnixNano returns the end time as nanoseconds.
 func (ti *TimeInterval) EndUnixNano() int64 {
 	return ti.end.UnixNano()
+}
+
+// EndUnixMillis returns the end time as milliseconds.
+func (ti *TimeInterval) EndUnixMillis() int64 {
+	return ti.end.UTC().UnixNano() / int64(time.Millisecond)
 }
 
 // EndString formats the end of the TimeInterval according to RFC3339.
