@@ -44,6 +44,15 @@ type tsdbGroupAggregateQuery struct {
 	OrderBy        string              `json:"order-by"`
 }
 
+type tsdbGroupByTagGroupAggregateQuery struct {
+	GroupAggregate tsdbGroupAggStmt    `json:"group-aggregate"`
+	TimeRange      tsdbQueryRange      `json:"range"`
+	Where          map[string][]string `json:"where"`
+	Output         map[string]string   `json:"output"`
+	OrderBy        string              `json:"order-by"`
+	GroupBy        []string            `json:"group-by-tag"`
+}
+
 type tsdbSelectQuery struct {
 	Select    string                       `json:"select"`
 	TimeRange tsdbQueryRange               `json:"range"`
@@ -226,6 +235,50 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Akumuli last row per host"
 	humanDesc := humanLabel + ": cpu"
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), 0, 0)
+}
+
+// GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
+// e.g. in pseudo-SQL:
+//
+// SELECT AVG(metric1), ..., AVG(metricN)
+// FROM cpu
+// WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour, hostname ORDER BY hour, hostname
+//
+// Resultsets:
+// double-groupby-1
+// double-groupby-5
+// double-groupby-all
+func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
+	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	startTimestamp := interval.StartUnixNano()
+	endTimestamp := interval.EndUnixNano()
+
+	var query tsdbGroupByTagGroupAggregateQuery
+	query.GroupAggregate.Func = append(query.GroupAggregate.Func, "mean")
+	query.GroupAggregate.Step = "1h"
+	query.GroupBy = append(query.GroupBy, "hostname")
+	for _, name := range metrics {
+		query.GroupAggregate.Name = append(query.GroupAggregate.Name, "cpu."+name)
+	}
+
+	query.TimeRange.From = startTimestamp
+	query.TimeRange.To = endTimestamp
+	query.Output = make(map[string]string)
+	query.Output["format"] = "csv"
+	query.OrderBy = "time"
+
+	bodyWriter := new(bytes.Buffer)
+	body, err := json.Marshal(query)
+	if err != nil {
+		panic(err)
+	}
+	bodyWriter.Write(body)
+
+	humanLabel := devops.GetDoubleGroupByLabel("Akumuli", numMetrics)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
 func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, body string, begin, end int64) {
