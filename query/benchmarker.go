@@ -33,7 +33,7 @@ type BenchmarkRunner struct {
 
 	// non-flag fields
 	br      *bufio.Reader
-	sp      *statProcessor
+	sp      statProcessor
 	scanner *scanner
 	ch      chan Query
 }
@@ -43,20 +43,22 @@ type BenchmarkRunner struct {
 func NewBenchmarkRunner() *BenchmarkRunner {
 	runner := &BenchmarkRunner{}
 	runner.scanner = newScanner(&runner.limit)
-	runner.sp = &statProcessor{
+	spArgs := &statProcessorArgs{
 		limit: &runner.limit,
 	}
+
 	flag.StringVar(&runner.dbName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.Uint64Var(&runner.sp.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
+	flag.Uint64Var(&spArgs.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	flag.Uint64Var(&runner.limit, "max-queries", 0, "Limit the number of queries to send, 0 = no limit")
-	flag.Uint64Var(&runner.sp.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
+	flag.Uint64Var(&spArgs.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	flag.StringVar(&runner.memProfile, "memprofile", "", "Write a memory profile to this file.")
 	flag.UintVar(&runner.workers, "workers", 1, "Number of concurrent requests to make.")
-	flag.BoolVar(&runner.sp.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
+	flag.BoolVar(&spArgs.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	flag.BoolVar(&runner.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	flag.IntVar(&runner.debug, "debug", 0, "Whether to print debug messages.")
 	flag.StringVar(&runner.fileName, "file", "", "File name to read queries from")
 
+	runner.sp = newStatProcessor(spArgs)
 	return runner
 }
 
@@ -117,7 +119,9 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	if b.workers == 0 {
 		panic("must have at least one worker")
 	}
-	if b.sp.burnIn > b.limit {
+
+	spArgs := b.sp.getArgs()
+	if spArgs.burnIn > b.limit {
 		panic("burn-in is larger than limit")
 	}
 	b.ch = make(chan Query, b.workers)
@@ -164,23 +168,23 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, queryPool *sync.Pool, processor Processor, workerNum int) {
 	processor.Init(workerNum)
 	for query := range b.ch {
-		//processor.ProcessQuery(b.sp, query)
 		stats, err := processor.ProcessQuery(query, false)
 		if err != nil {
 			panic(err)
 		}
-		b.sp.sendStats(stats)
+		b.sp.send(stats)
 
 		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
 		// then we immediately run it a second time and report that as the 'warm' stat.
 		// This guarantees that the warm stat will reflect optimal cache performance.
-		if b.sp.prewarmQueries {
+		spArgs := b.sp.getArgs()
+		if spArgs.prewarmQueries {
 			// Warm run
 			stats, err = processor.ProcessQuery(query, true)
 			if err != nil {
 				panic(err)
 			}
-			b.sp.sendStatsWarm(stats)
+			b.sp.sendWarm(stats)
 		}
 		queryPool.Put(query)
 	}
