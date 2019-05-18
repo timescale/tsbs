@@ -12,6 +12,7 @@ Current databases supported:
 + Cassandra [(supplemental docs)](docs/cassandra.md)
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
++ Akumuli [(supplemental docs)](docs/akumuli.md)
 
 ## Overview
 

@@ -7,15 +7,13 @@ package main
 
 import (
 	"flag"
-	"log"
-	"strings"
 
 	"github.com/timescale/tsbs/query"
 )
 
 // Program option vars:
 var (
-	daemonUrls []string
+	endpoint string
 )
 
 // Global vars:
@@ -26,16 +24,10 @@ var (
 // Parse args:
 func init() {
 	runner = query.NewBenchmarkRunner()
-	var csvDaemonUrls string
 
-	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8181", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
+	flag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli API endpoint IP address.")
 
 	flag.Parse()
-
-	daemonUrls = strings.Split(csvDaemonUrls, ",")
-	if len(daemonUrls) == 0 {
-		log.Fatal("missing 'urls' flag")
-	}
 }
 
 func main() {
@@ -54,7 +46,7 @@ func (p *processor) Init(workerNumber int) {
 		Debug:          runner.DebugLevel(),
 		PrintResponses: runner.DoPrintResponses(),
 	}
-	url := daemonUrls[workerNumber%len(daemonUrls)]
+	url := endpoint
 	p.w = NewHTTPClient(url)
 }
 

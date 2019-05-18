@@ -21,9 +21,8 @@ var (
 
 // Global vars
 var (
-	loader             *load.BenchmarkRunner
-	bufPool            sync.Pool
-	connectionPoolSize uint
+	loader  *load.BenchmarkRunner
+	bufPool sync.Pool
 )
 
 // allows for testing
@@ -33,8 +32,7 @@ var fatal = log.Fatalf
 func init() {
 	loader = load.GetBenchmarkRunner()
 
-	flag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli RESP endpoint IP address.")
-	flag.UintVar(&connectionPoolSize, "ncon", 1, "Number of connections to use.")
+	flag.StringVar(&endpoint, "endpoint", "http://localhost:8282", "Akumuli RESP endpoint IP address.")
 	flag.Parse()
 }
 
