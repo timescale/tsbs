@@ -37,6 +37,26 @@ func TestNewCoreEndBeforeStart(t *testing.T) {
 	}
 }
 
+func TestCoreGetRandomHosts(t *testing.T) {
+	s := time.Now()
+	e := time.Now()
+
+	n := 5
+	scale := 10
+
+	c := NewCore(s, e, scale)
+
+	rand.Seed(100) // Resetting seed to get a deterministic output.
+	coreHosts := strings.Join(c.GetRandomHosts(n), ",")
+
+	rand.Seed(100) // Resetting seed to get a deterministic output.
+	randomHosts := strings.Join(getRandomHosts(n, scale), ",")
+
+	if coreHosts != randomHosts {
+		t.Errorf("incorrect output:\ngot\n%s\nwant\n%s", coreHosts, randomHosts)
+	}
+}
+
 func TestGetCPUMetricsSlice(t *testing.T) {
 	cases := []struct {
 		desc        string
@@ -97,6 +117,24 @@ func TestGetCPUMetricsSlice(t *testing.T) {
 				t.Errorf("%s: incorrect output:\ngot\n%s\nwant\n%s", c.desc, got, c.want)
 			}
 		}
+	}
+}
+
+func TestGetAllCPUMetrics(t *testing.T) {
+	result := strings.Join(GetAllCPUMetrics(), ",")
+	want := strings.Join(cpuMetrics, ",")
+
+	if result != want {
+		t.Errorf("incorrect output:\ngot\n%s\nwant\n%s", result, want)
+	}
+}
+
+func TestGetCPUMetricsLen(t *testing.T) {
+	result := GetCPUMetricsLen()
+	want := len(cpuMetrics)
+
+	if result != want {
+		t.Errorf("incorrect output: got %d want %d", result, want)
 	}
 }
 
