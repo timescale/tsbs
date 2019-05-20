@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -38,7 +39,7 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 	// It is important to populate these even if they end up being empty,
 	// so that we get correct results for empty 'time buckets'.
 	tis := bucketTimeIntervals(q.TimeStart, q.TimeEnd, q.GroupByDuration)
-	bucketedSeries := map[TimeInterval][]Series{}
+	bucketedSeries := map[*utils.TimeInterval][]Series{}
 	for _, ti := range tis {
 		bucketedSeries[ti] = []Series{}
 	}
@@ -59,7 +60,7 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 
 		// check each group-by interval to see if it applies:
 		for _, ti := range tis {
-			if !s.MatchesTimeInterval(&ti) {
+			if !s.MatchesTimeInterval(ti) {
 				continue
 			}
 			bucketedSeries[ti] = append(bucketedSeries[ti], s)
@@ -67,12 +68,12 @@ func (q *HLQuery) ToQueryPlanWithServerAggregation(csi *ClientSideIndex) (qp *Qu
 	}
 
 	// For each group-by time bucket, convert its series into CQLQueries:
-	cqlBuckets := make(map[TimeInterval][]CQLQuery, len(bucketedSeries))
+	cqlBuckets := make(map[*utils.TimeInterval][]CQLQuery, len(bucketedSeries))
 	for ti, seriesSlice := range bucketedSeries {
 		cqlQueries := make([]CQLQuery, len(seriesSlice))
 		for i, ser := range seriesSlice {
-			start := ti.Start
-			end := ti.End
+			start := ti.Start()
+			end := ti.End()
 
 			// the following two special cases ensure equivalency with rounded time boundaries as seen in influxdb:
 			// https://docs.influxdata.com/influxdb/v0.13/query_language/data_exploration/#rounded-group-by-time-boundaries
@@ -106,7 +107,10 @@ func (csi *ClientSideIndex) getSeriesChoicesForFieldsAndMeasurement(fields []str
 //
 // It executes at most one CQLQuery per series.
 func (q *HLQuery) ToQueryPlanWithoutServerAggregation(csi *ClientSideIndex) (qp *QueryPlanWithoutServerAggregation, err error) {
-	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	hlQueryInterval, err := utils.NewTimeInterval(q.TimeStart, q.TimeEnd)
+	if err != nil {
+		return nil, err
+	}
 	fields := strings.Split(string(q.FieldName), ",")
 	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 	orderBy := string(q.OrderBy)
@@ -152,7 +156,7 @@ outer:
 		if !s.MatchesTagSets(q.TagSets) {
 			continue
 		}
-		if !s.MatchesTimeInterval(&hlQueryInterval) {
+		if !s.MatchesTimeInterval(hlQueryInterval) {
 			continue
 		}
 
@@ -172,7 +176,10 @@ outer:
 // ToQueryPlanNoAggregation combines an HLQuery with a
 // ClientSideIndex to make a QueryPlanNoAggregation.
 func (q *HLQuery) ToQueryPlanNoAggregation(csi *ClientSideIndex) (*QueryPlanNoAggregation, error) {
-	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	hlQueryInterval, err := utils.NewTimeInterval(q.TimeStart, q.TimeEnd)
+	if err != nil {
+		return nil, err
+	}
 	fields := strings.Split(string(q.FieldName), ",")
 	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 
@@ -187,7 +194,7 @@ func (q *HLQuery) ToQueryPlanNoAggregation(csi *ClientSideIndex) (*QueryPlanNoAg
 			}
 		}
 
-		if !s.MatchesTimeInterval(&hlQueryInterval) {
+		if !s.MatchesTimeInterval(hlQueryInterval) {
 			continue
 		}
 
@@ -214,7 +221,10 @@ func (q *HLQuery) ToQueryPlanForEvery(csi *ClientSideIndex) (*QueryPlanForEvery,
 		panic("unparseable ForEveryN field: " + string(q.ForEveryN))
 	}
 
-	hlQueryInterval := NewTimeInterval(q.TimeStart, q.TimeEnd)
+	hlQueryInterval, err := utils.NewTimeInterval(q.TimeStart, q.TimeEnd)
+	if err != nil {
+		return nil, err
+	}
 	fields := strings.Split(string(q.FieldName), ",")
 	seriesChoices := csi.getSeriesChoicesForFieldsAndMeasurement(fields, string(q.MeasurementName))
 
@@ -230,7 +240,7 @@ func (q *HLQuery) ToQueryPlanForEvery(csi *ClientSideIndex) (*QueryPlanForEvery,
 			}
 		}
 
-		if !s.MatchesTimeInterval(&hlQueryInterval) {
+		if !s.MatchesTimeInterval(hlQueryInterval) {
 			continue
 		}
 
@@ -277,6 +287,6 @@ func NewCQLQuery(aggrLabel, tableName, rowName, orderBy string, timeStartNanos, 
 // CQLResult holds a result from a set of CQL aggregation queries.
 // Used for debug printing.
 type CQLResult struct {
-	TimeInterval
+	*utils.TimeInterval
 	Values []float64
 }

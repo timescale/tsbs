@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -50,7 +50,8 @@ func (d *Devops) getHostWhere(nHosts int) []string {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
+	interval := d.Interval.MustRandWindow(timeRange)
+
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	tagSet := d.getHostWhere(nHosts)
 
@@ -70,8 +71,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
-	interval.Start = d.Interval.Start
+	interval := d.Interval.MustRandWindow(time.Hour)
+
+	interval, err := utils.NewTimeInterval(d.Interval.Start(), interval.End())
+	if err != nil {
+		panic(err.Error())
+	}
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString())
@@ -90,7 +95,8 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
+
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Cassandra", numMetrics)
@@ -108,7 +114,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -140,7 +147,8 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
+
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -156,7 +164,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	q.WhereClause = []byte("usage_user,>,90.0")
 }
 
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval utils.TimeInterval, tagSets [][]string) {
+func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval *utils.TimeInterval, tagSets [][]string) {
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(humanDesc)
@@ -165,8 +173,8 @@ func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType stri
 	q.MeasurementName = []byte("cpu")
 	q.FieldName = []byte(strings.Join(fields, ","))
 
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
+	q.TimeStart = interval.Start()
+	q.TimeEnd = interval.End()
 
 	q.TagSets = tagSets
 }
