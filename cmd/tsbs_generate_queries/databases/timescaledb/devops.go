@@ -93,7 +93,7 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
+	interval := d.Interval.MustRandWindow(timeRange)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	if len(selectClauses) < 1 {
@@ -108,8 +108,8 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 		d.getTimeBucket(oneMinute),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
-		interval.Start.Format(goTimeFmt),
-		interval.End.Format(goTimeFmt))
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -122,7 +122,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
+	interval := d.Interval.MustRandWindow(time.Hour)
 	sql := fmt.Sprintf(`SELECT %s AS minute, max(usage_user)
         FROM cpu
         WHERE time < '%s'
@@ -130,7 +130,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
         ORDER BY minute DESC
         LIMIT 5`,
 		d.getTimeBucket(oneMinute),
-		interval.End.Format(goTimeFmt))
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.EndString())
@@ -146,7 +146,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 
 	selectClauses := make([]string, numMetrics)
 	meanClauses := make([]string, numMetrics)
@@ -180,7 +180,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
         ORDER BY hour, %s`,
 		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt),
 		hostnameField, strings.Join(meanClauses, ", "),
 		joinStr, hostnameField)
 	humanLabel := devops.GetDoubleGroupByLabel("TimescaleDB", numMetrics)
@@ -196,7 +197,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
@@ -208,7 +210,8 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := devops.GetMaxAllLabel("TimescaleDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -246,10 +249,10 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	sql := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' %s`,
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostWhereClause)
+		interval.Start().Format(goTimeFmt), interval.End().Format(goTimeFmt), hostWhereClause)
 
 	humanLabel := devops.GetHighCPULabel("TimescaleDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())

@@ -7,16 +7,18 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/internal/utils"
 )
 
 func TestNewCore(t *testing.T) {
 	s := time.Now()
 	e := time.Now()
 	c := NewCore(s, e, 10)
-	if got := c.Interval.Start.UnixNano(); got != s.UnixNano() {
+	if got := c.Interval.StartUnixNano(); got != s.UnixNano() {
 		t.Errorf("NewCore does not have right start time: got %d want %d", got, s.UnixNano())
 	}
-	if got := c.Interval.End.UnixNano(); got != e.UnixNano() {
+	if got := c.Interval.EndUnixNano(); got != e.UnixNano() {
 		t.Errorf("NewCore does not have right end time: got %d want %d", got, e.UnixNano())
 	}
 	if got := c.Scale; got != 10 {
@@ -32,7 +34,7 @@ func TestNewCoreEndBeforeStart(t *testing.T) {
 		errMsg = fmt.Sprintf(format, args...)
 	}
 	_ = NewCore(s, e, 10)
-	if errMsg != errBadTimeOrder {
+	if errMsg != utils.ErrEndBeforeStart {
 		t.Errorf("NewCore did not error correctly")
 	}
 }

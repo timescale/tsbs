@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	internalutils "github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -46,7 +47,7 @@ var fatal = log.Fatalf
 // Core is the common component of all generators for all systems
 type Core struct {
 	// Interval is the entire time range of the dataset
-	Interval utils.TimeInterval
+	Interval *internalutils.TimeInterval
 
 	// Scale is the cardinality of the dataset in terms of devices/hosts
 	Scale int
@@ -54,15 +55,13 @@ type Core struct {
 
 // NewCore returns a new Core for the given time range and cardinality
 func NewCore(start, end time.Time, scale int) *Core {
-	if !start.Before(end) {
-		fatal(errBadTimeOrder)
+	ti, err := internalutils.NewTimeInterval(start, end)
+	if err != nil {
+		fatal(err.Error())
 		return nil
 	}
 
-	return &Core{
-		utils.NewTimeInterval(start, end),
-		scale,
-	}
+	return &Core{Interval: ti, Scale: scale}
 }
 
 // GetRandomHosts returns a random set of nHosts from a given Core

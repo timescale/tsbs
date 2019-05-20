@@ -44,7 +44,7 @@ func (d *NaiveDevops) GenerateEmptyQuery() query.Query {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *NaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
+	interval := d.Interval.MustRandWindow(timeRange)
 	hostnames := d.GetRandomHosts(nHosts)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 
@@ -105,7 +105,7 @@ func (d *NaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRa
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *NaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	metrics := devops.GetCPUMetricsSlice(numMetrics)
 	bucketNano := time.Hour.Nanoseconds()
 

@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/timescale/tsbs/internal/utils"
 )
 
 // A ClientSideIndex wraps runtime data used to translate an HLQuery into
 // Cassandra CQL queries. After initialization, objects of this type are
 // read-only.
 type ClientSideIndex struct {
-	timeIntervalMapping map[TimeInterval]map[*Series]struct{}
+	timeIntervalMapping map[*utils.TimeInterval]map[*Series]struct{}
 	tagMapping          map[string]map[*Series]struct{}
 	nameMapping         map[[2]string][]Series
 
@@ -29,7 +30,7 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 	}
 
 	// build the "time interval -> series" index:
-	bm := map[TimeInterval]map[*Series]struct{}{}
+	bm := map[*utils.TimeInterval]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
 		if _, ok := bm[s.TimeInterval]; !ok {
@@ -44,7 +45,7 @@ func NewClientSideIndex(seriesCollection []Series) *ClientSideIndex {
 	tm := map[string]map[*Series]struct{}{}
 
 	for _, s := range seriesCollection {
-		for tag, _ := range s.Tags {
+		for tag := range s.Tags {
 			if _, ok := tm[tag]; !ok {
 				tm[tag] = map[*Series]struct{}{}
 			}
@@ -106,7 +107,7 @@ type Series struct {
 	Measurement  string              // e.g. "cpu"
 	Tags         map[string]struct{} // e.g. {"hostname": "host_3"}
 	Field        string              // e.g. "usage_idle"
-	TimeInterval TimeInterval        // (UTC) e.g. "2016-01-01"
+	TimeInterval *utils.TimeInterval // (UTC) e.g. "2016-01-01"
 }
 
 // NewSeries parses a new Series from the given Cassandra data.
@@ -152,12 +153,16 @@ func (s *Series) parse() {
 		log.Fatal("bad time bucket parse in pre-existing database series")
 	}
 	end := start.Add(BucketDuration)
-	s.TimeInterval = NewTimeInterval(start, end)
+	ti, err := utils.NewTimeInterval(start, end)
+	if err != nil {
+		log.Fatalf("could not create time interval: %v", err)
+	}
+	s.TimeInterval = ti
 }
 
 // MatchesTimeInterval determines whether this Series time overlaps with the
 // provided TimeInterval.
-func (s *Series) MatchesTimeInterval(ti *TimeInterval) bool {
+func (s *Series) MatchesTimeInterval(ti *utils.TimeInterval) bool {
 	return s.TimeInterval.Overlap(ti)
 }
 
