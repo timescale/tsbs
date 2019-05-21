@@ -10,6 +10,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // Devops produces Cassandra-specific queries for all the devops query types.
 type Devops struct {
 	*devops.Core
@@ -17,7 +24,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.Cassandra
@@ -36,7 +45,8 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) []string {
 }
 
 func (d *Devops) getHostWhere(nHosts int) []string {
-	hostnames := d.GetRandomHosts(nHosts)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -51,8 +61,8 @@ func (d *Devops) getHostWhere(nHosts int) []string {
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.MustRandWindow(timeRange)
-
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -96,8 +106,8 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
-
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Cassandra", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -156,7 +166,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		tagSets = append(tagSets, tagSet)
 	}
 
-	humanLabel := devops.GetHighCPULabel("Cassandra", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("Cassandra", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, "", devops.GetAllCPUMetrics(), interval, tagSets)
 	q := qi.(*query.Cassandra)

@@ -11,6 +11,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 func init() {
 	// needed for serializing the mongo query to gob
 	gob.Register([]interface{}{})
@@ -27,7 +34,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
@@ -102,9 +111,10 @@ func getTimeFilterDocs(interval *utils.TimeInterval) []interface{} {
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.MustRandWindow(timeRange)
-
-	hostnames := d.GetRandomHosts(nHosts)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 
@@ -171,7 +181,8 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
-	hostnames := d.GetRandomHosts(nHosts)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 	metrics := devops.GetAllCPUMetrics()
@@ -239,8 +250,8 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
-
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 
@@ -320,8 +331,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
-
-	hostnames := d.GetRandomHosts(nHosts)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 
 	pipelineQuery := []bson.M{}
@@ -360,7 +371,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		},
 	})
 
-	humanLabel := devops.GetHighCPULabel("Mongo", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("Mongo", nHosts)
+	panicIfErr(err)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery

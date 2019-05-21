@@ -2,7 +2,6 @@ package devops
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"reflect"
 	"time"
@@ -17,7 +16,6 @@ const (
 	errNHostsCannotNegative = "nHosts cannot be negative"
 	errNoMetrics            = "cannot get 0 metrics"
 	errTooManyMetrics       = "too many metrics asked for"
-	errBadTimeOrder         = "bad time order: start is after end"
 	errMoreItemsThanScale   = "cannot get random permutation with more items than scale"
 
 	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
@@ -41,9 +39,6 @@ const (
 	LabelHighCPU = "high-cpu"
 )
 
-// for ease of testing
-var fatal = log.Fatalf
-
 // Core is the common component of all generators for all systems
 type Core struct {
 	// Interval is the entire time range of the dataset
@@ -54,18 +49,17 @@ type Core struct {
 }
 
 // NewCore returns a new Core for the given time range and cardinality
-func NewCore(start, end time.Time, scale int) *Core {
+func NewCore(start, end time.Time, scale int) (*Core, error) {
 	ti, err := internalutils.NewTimeInterval(start, end)
 	if err != nil {
-		fatal(err.Error())
-		return nil
+		return nil, err
 	}
 
-	return &Core{Interval: ti, Scale: scale}
+	return &Core{Interval: ti, Scale: scale}, nil
 }
 
 // GetRandomHosts returns a random set of nHosts from a given Core
-func (d *Core) GetRandomHosts(nHosts int) []string {
+func (d *Core) GetRandomHosts(nHosts int) ([]string, error) {
 	return getRandomHosts(nHosts, d.Scale)
 }
 
@@ -84,16 +78,14 @@ var cpuMetrics = []string{
 }
 
 // GetCPUMetricsSlice returns a subset of metrics for the CPU
-func GetCPUMetricsSlice(numMetrics int) []string {
+func GetCPUMetricsSlice(numMetrics int) ([]string, error) {
 	if numMetrics <= 0 {
-		fatal(errNoMetrics)
-		return nil
+		return nil, fmt.Errorf(errNoMetrics)
 	}
 	if numMetrics > len(cpuMetrics) {
-		fatal(errTooManyMetrics)
-		return nil
+		return nil, fmt.Errorf(errTooManyMetrics)
 	}
-	return cpuMetrics[:numMetrics]
+	return cpuMetrics[:numMetrics], nil
 }
 
 // GetAllCPUMetrics returns all the metrics for CPU
@@ -142,17 +134,16 @@ func GetDoubleGroupByLabel(dbName string, numMetrics int) string {
 }
 
 // GetHighCPULabel returns the Query human-readable label for HighCPU queries
-func GetHighCPULabel(dbName string, nHosts int) string {
+func GetHighCPULabel(dbName string, nHosts int) (string, error) {
 	label := dbName + " CPU over threshold, "
 	if nHosts > 0 {
 		label += fmt.Sprintf("%d host(s)", nHosts)
 	} else if nHosts == 0 {
 		label += allHosts
 	} else {
-		fatal("nHosts cannot be negative")
-		return ""
+		return "", fmt.Errorf("nHosts cannot be negative")
 	}
-	return label
+	return label, nil
 }
 
 // GetMaxAllLabel returns the Query human-readable label for MaxAllCPU queries
@@ -163,24 +154,25 @@ func GetMaxAllLabel(dbName string, nHosts int) string {
 // getRandomHosts returns a subset of numHosts hostnames of a permutation of hostnames,
 // numbered from 0 to totalHosts.
 // Ex.: host_12, host_7, host_25 for numHosts=3 and totalHosts=30 (3 out of 30)
-func getRandomHosts(numHosts int, totalHosts int) []string {
+func getRandomHosts(numHosts int, totalHosts int) ([]string, error) {
 	if numHosts < 1 {
-		fatal("number of hosts cannot be < 1; got %d", numHosts)
-		return nil
+		return nil, fmt.Errorf("number of hosts cannot be < 1; got %d", numHosts)
 	}
 	if numHosts > totalHosts {
-		fatal("number of hosts (%d) larger than total hosts. See --scale (%d)", numHosts, totalHosts)
-		return nil
+		return nil, fmt.Errorf("number of hosts (%d) larger than total hosts. See --scale (%d)", numHosts, totalHosts)
 	}
 
-	randomNumbers := getRandomSubsetPerm(numHosts, totalHosts)
+	randomNumbers, err := getRandomSubsetPerm(numHosts, totalHosts)
+	if err != nil {
+		return nil, err
+	}
 
 	hostnames := []string{}
 	for _, n := range randomNumbers {
 		hostnames = append(hostnames, fmt.Sprintf("host_%d", n))
 	}
 
-	return hostnames
+	return hostnames, nil
 }
 
 // getRandomSubsetPerm returns a subset of numItems of a permutation of numbers from 0 to totalNumbers,
@@ -188,11 +180,10 @@ func getRandomHosts(numHosts int, totalHosts int) []string {
 // which used up a lot more memory and slowed down query generation significantly.
 // The subset of the permutation should have no duplicates and thus, can not be longer that original set
 // Ex.: 12, 7, 25 for numItems=3 and totalItems=30 (3 out of 30)
-func getRandomSubsetPerm(numItems int, totalItems int) []int {
+func getRandomSubsetPerm(numItems int, totalItems int) ([]int, error) {
 	if numItems > totalItems {
 		// Cannot make a subset longer than the original set
-		fatal(errMoreItemsThanScale)
-		return nil
+		return nil, fmt.Errorf(errMoreItemsThanScale)
 	}
 
 	seen := map[int]bool{}
@@ -208,7 +199,7 @@ func getRandomSubsetPerm(numItems int, totalItems int) []int {
 			}
 		}
 	}
-	return res
+	return res, nil
 }
 
 func panicUnimplementedQuery(dg utils.DevopsGenerator) {
