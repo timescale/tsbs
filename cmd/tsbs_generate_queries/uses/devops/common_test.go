@@ -14,8 +14,11 @@ import (
 func TestNewCore(t *testing.T) {
 	s := time.Now()
 	e := time.Now()
-	c := NewCore(s, e, 10)
-	if got := c.Interval.StartUnixNano(); got != s.UnixNano() {
+	c, err := NewCore(s, e, 10)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := c.Interval.Start().UnixNano(); got != s.UnixNano() {
 		t.Errorf("NewCore does not have right start time: got %d want %d", got, s.UnixNano())
 	}
 	if got := c.Interval.EndUnixNano(); got != e.UnixNano() {
@@ -28,14 +31,10 @@ func TestNewCore(t *testing.T) {
 
 func TestNewCoreEndBeforeStart(t *testing.T) {
 	e := time.Now()
-	s := time.Now()
-	errMsg := ""
-	fatal = func(format string, args ...interface{}) {
-		errMsg = fmt.Sprintf(format, args...)
-	}
-	_ = NewCore(s, e, 10)
-	if errMsg != utils.ErrEndBeforeStart {
-		t.Errorf("NewCore did not error correctly")
+	s := e.Add(time.Second)
+	_, err := NewCore(s, e, 10)
+	if got := err.Error(); got != utils.ErrEndBeforeStart {
+		t.Errorf("NewCore did not error correctly:\ngot\n%s\nwant\n%s", got, utils.ErrEndBeforeStart)
 	}
 }
 
@@ -46,13 +45,24 @@ func TestCoreGetRandomHosts(t *testing.T) {
 	n := 5
 	scale := 10
 
-	c := NewCore(s, e, scale)
+	c, err := NewCore(s, e, scale)
+	if err != nil {
+		t.Fatalf("unexpected error for NewCore: %v", err)
+	}
 
 	rand.Seed(100) // Resetting seed to get a deterministic output.
-	coreHosts := strings.Join(c.GetRandomHosts(n), ",")
+	hosts, err := c.GetRandomHosts(n)
+	if err != nil {
+		t.Fatalf("unexpected error for GetRandomHosts: %v", err)
+	}
+	coreHosts := strings.Join(hosts, ",")
 
 	rand.Seed(100) // Resetting seed to get a deterministic output.
-	randomHosts := strings.Join(getRandomHosts(n, scale), ",")
+	hosts, err = getRandomHosts(n, scale)
+	if err != nil {
+		t.Fatalf("unexpected error for getRandomHosts: %v", err)
+	}
+	randomHosts := strings.Join(hosts, ",")
 
 	if coreHosts != randomHosts {
 		t.Errorf("incorrect output:\ngot\n%s\nwant\n%s", coreHosts, randomHosts)
@@ -61,11 +71,11 @@ func TestCoreGetRandomHosts(t *testing.T) {
 
 func TestGetCPUMetricsSlice(t *testing.T) {
 	cases := []struct {
-		desc        string
-		nMetrics    int
-		want        string
-		shouldFatal bool
-		wantFatal   string
+		desc      string
+		nMetrics  int
+		want      string
+		shouldErr bool
+		errMsg    string
 	}{
 		{
 			desc:     "get 1 metric",
@@ -78,40 +88,39 @@ func TestGetCPUMetricsSlice(t *testing.T) {
 			want:     strings.Join(cpuMetrics[:5], ","),
 		},
 		{
-			desc:        "0 metrics should error",
-			nMetrics:    0,
-			shouldFatal: true,
-			wantFatal:   errNoMetrics,
+			desc:      "0 metrics should error",
+			nMetrics:  0,
+			shouldErr: true,
+			errMsg:    errNoMetrics,
 		},
 		{
-			desc:        "-1 metrics should error",
-			nMetrics:    -1,
-			shouldFatal: true,
-			wantFatal:   errNoMetrics,
+			desc:      "-1 metrics should error",
+			nMetrics:  -1,
+			shouldErr: true,
+			errMsg:    errNoMetrics,
 		},
 		{
-			desc:        "too many metrics should error",
-			nMetrics:    100,
-			shouldFatal: true,
-			wantFatal:   errTooManyMetrics,
+			desc:      "too many metrics should error",
+			nMetrics:  100,
+			shouldErr: true,
+			errMsg:    errTooManyMetrics,
 		},
 	}
 
 	for _, c := range cases {
-		if c.shouldFatal {
-			errMsg := ""
-			fatal = func(format string, args ...interface{}) {
-				errMsg = fmt.Sprintf(format, args...)
-			}
-			metrics := GetCPUMetricsSlice(c.nMetrics)
+		if c.shouldErr {
+			metrics, err := GetCPUMetricsSlice(c.nMetrics)
 			if metrics != nil {
-				t.Errorf("%s: fatal'd but with non-nil return: %v", c.desc, metrics)
+				t.Errorf("%s: errored but with non-nil return: %v", c.desc, metrics)
 			}
-			if errMsg != c.wantFatal {
-				t.Errorf("%s: incorrect output:\ngot\n%s\nwant\n%s", c.desc, errMsg, c.wantFatal)
+			if got := err.Error(); got != c.errMsg {
+				t.Errorf("%s: incorrect error:\ngot\n%s\nwant\n%s", c.desc, got, c.errMsg)
 			}
 		} else {
-			metrics := GetCPUMetricsSlice(c.nMetrics)
+			metrics, err := GetCPUMetricsSlice(c.nMetrics)
+			if err != nil {
+				t.Fatalf("%s: unexpected error: got %v", c.desc, err)
+			}
 			if len(metrics) != c.nMetrics {
 				t.Errorf("%s: incorrect len returned: got %d want %d", c.desc, len(metrics), c.nMetrics)
 			}
@@ -142,26 +151,26 @@ func TestGetCPUMetricsLen(t *testing.T) {
 
 func TestGetRandomHosts(t *testing.T) {
 	cases := []struct {
-		desc        string
-		scale       int
-		nHosts      int
-		want        string
-		shouldFatal bool
-		wantFatal   string
+		desc      string
+		scale     int
+		nHosts    int
+		want      string
+		shouldErr bool
+		errMsg    string
 	}{
 		{
-			desc:        "-1 host out of 100",
-			scale:       100,
-			nHosts:      -1,
-			shouldFatal: true,
-			wantFatal:   "number of hosts cannot be < 1; got -1",
+			desc:      "-1 host out of 100",
+			scale:     100,
+			nHosts:    -1,
+			shouldErr: true,
+			errMsg:    "number of hosts cannot be < 1; got -1",
 		},
 		{
-			desc:        "0 host out of 100",
-			scale:       100,
-			nHosts:      0,
-			shouldFatal: true,
-			wantFatal:   "number of hosts cannot be < 1; got 0",
+			desc:      "0 host out of 100",
+			scale:     100,
+			nHosts:    0,
+			shouldErr: true,
+			errMsg:    "number of hosts cannot be < 1; got 0",
 		},
 		{
 			desc:   "1 host out of 100",
@@ -176,31 +185,29 @@ func TestGetRandomHosts(t *testing.T) {
 			want:   "host_83,host_68,host_80,host_60,host_62",
 		},
 		{
-			desc:        "5 host out of 1",
-			scale:       1,
-			nHosts:      5,
-			shouldFatal: true,
-			wantFatal:   "number of hosts (5) larger than total hosts. See --scale (1)",
+			desc:      "5 host out of 1",
+			scale:     1,
+			nHosts:    5,
+			shouldErr: true,
+			errMsg:    "number of hosts (5) larger than total hosts. See --scale (1)",
 		},
 	}
 
 	for _, c := range cases {
 		rand.Seed(100) // always reset the random number generator
-		if c.shouldFatal {
-			errMsg := ""
-			fatal = func(format string, args ...interface{}) {
-				errMsg = fmt.Sprintf(format, args...)
-			}
-			hosts := getRandomHosts(c.nHosts, c.scale)
+		if c.shouldErr {
+			hosts, err := getRandomHosts(c.nHosts, c.scale)
 			if hosts != nil {
-				t.Errorf("%s: fatal'd but with non-nil return: %v", c.desc, hosts)
+				t.Errorf("%s: errored but with non-nil return: %v", c.desc, hosts)
 			}
-			if errMsg != c.wantFatal {
-				t.Errorf("%s: incorrect fatal msg:\ngot\n%s\nwant\n%s", c.desc, errMsg, c.wantFatal)
+			if got := err.Error(); got != c.errMsg {
+				t.Errorf("%s: incorrect error:\ngot\n%s\nwant\n%s", c.desc, got, c.errMsg)
 			}
 		} else {
-			hosts := getRandomHosts(c.nHosts, c.scale)
-			if got := strings.Join(hosts, ","); got != c.want {
+			hosts, err := getRandomHosts(c.nHosts, c.scale)
+			if err != nil {
+				t.Fatalf("%s: unexpected error: got %v", c.desc, err)
+			} else if got := strings.Join(hosts, ","); got != c.want {
 				t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
 			}
 		}
@@ -217,15 +224,15 @@ func TestGetDoubleGroupByLabel(t *testing.T) {
 
 func TestGetHighCPULabel(t *testing.T) {
 	cases := []struct {
-		desc        string
-		nHosts      int
-		want        string
-		shouldFatal bool
+		desc      string
+		nHosts    int
+		want      string
+		shouldErr bool
 	}{
 		{
-			desc:        "nHosts < 0",
-			nHosts:      -1,
-			shouldFatal: true,
+			desc:      "nHosts < 0",
+			nHosts:    -1,
+			shouldErr: true,
 		},
 		{
 			desc:   "nHosts = 0",
@@ -239,17 +246,16 @@ func TestGetHighCPULabel(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if c.shouldFatal {
-			errMsg := ""
-			fatal = func(format string, args ...interface{}) {
-				errMsg = fmt.Sprintf(format, args...)
-			}
-			_ = GetHighCPULabel("Foo", c.nHosts)
-			if errMsg != errNHostsCannotNegative {
-				t.Errorf("%s: incorrect error: got %s want %s", c.desc, errMsg, errNHostsCannotNegative)
+		if c.shouldErr {
+			_, err := GetHighCPULabel("Foo", c.nHosts)
+			if got := err.Error(); got != errNHostsCannotNegative {
+				t.Errorf("%s: incorrect error: got %s want %s", c.desc, got, errNHostsCannotNegative)
 			}
 		} else {
-			if got := GetHighCPULabel("Foo", c.nHosts); got != c.want {
+			got, err := GetHighCPULabel("Foo", c.nHosts)
+			if err != nil {
+				t.Fatalf("%s: unexpected error: got %v", c.desc, err)
+			} else if got != c.want {
 				t.Errorf("%s: incorrect output:\ngot\n%s\nwant\n%s", c.desc, got, c.want)
 			}
 		}
@@ -277,7 +283,10 @@ func TestGetRandomSubsetPerm(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ret := getRandomSubsetPerm(c.nItems, c.scale)
+		ret, err := getRandomSubsetPerm(c.nItems, c.scale)
+		if err != nil {
+			t.Fatalf("unexpected error: got %v", err)
+		}
 		if len(ret) != c.nItems {
 			t.Errorf("return list not long enough: got %d want %d (scale %d)", len(ret), c.nItems, c.scale)
 		}
@@ -293,15 +302,11 @@ func TestGetRandomSubsetPerm(t *testing.T) {
 }
 
 func TestGetRandomSubsetPermError(t *testing.T) {
-	errMsg := ""
-	fatal = func(format string, args ...interface{}) {
-		errMsg = fmt.Sprintf(format, args...)
-	}
-	ret := getRandomSubsetPerm(11, 10)
+	ret, err := getRandomSubsetPerm(11, 10)
 	if ret != nil {
 		t.Errorf("return was non-nil: %v", ret)
 	}
-	if errMsg != errMoreItemsThanScale {
-		t.Errorf("incorrect output: got %s", errMsg)
+	if got := err.Error(); got != errMoreItemsThanScale {
+		t.Errorf("incorrect output:\ngot\n%s\nwant\n%s", got, errMoreItemsThanScale)
 	}
 }

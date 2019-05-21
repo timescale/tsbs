@@ -9,6 +9,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // Devops produces ClickHouse-specific queries for all the devops query types.
 type Devops struct {
 	*devops.Core
@@ -17,10 +24,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{
-		devops.NewCore(start, end, scale),
-		false,
-	}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core, false}
 }
 
 // GenerateEmptyQuery returns an empty query.ClickHouse
@@ -58,7 +64,8 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 
 // getHostWhereString gets multiple random hostnames and create WHERE SQL statement for these hostnames.
 func (d *Devops) getHostWhereString(nhosts int) string {
-	hostnames := d.GetRandomHosts(nhosts)
+	hostnames, err := d.GetRandomHosts(nhosts)
+	panicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -128,7 +135,8 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 // double-groupby-5
 // double-groupby-all
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 
 	selectClauses := make([]string, numMetrics)
@@ -239,7 +247,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		interval.End().Format(clickhouseTimeStringFormat),
 		hostWhereClause)
 
-	humanLabel := devops.GetHighCPULabel("ClickHouse", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("ClickHouse", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
@@ -308,8 +317,8 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.MustRandWindow(timeRange)
-
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
 	sql := fmt.Sprintf(`
