@@ -7,13 +7,13 @@ import (
 
 // HighCPU produces a QueryFiller for the devops high-cpu cases
 type HighCPU struct {
-	core  utils.DevopsGenerator
+	core  utils.QueryGenerator
 	hosts int
 }
 
 // NewHighCPU produces a new function that produces a new HighCPU
 func NewHighCPU(hosts int) utils.QueryFillerMaker {
-	return func(core utils.DevopsGenerator) utils.QueryFiller {
+	return func(core utils.QueryGenerator) utils.QueryFiller {
 		return &HighCPU{
 			core:  core,
 			hosts: hosts,

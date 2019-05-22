@@ -2,8 +2,11 @@ package utils
 
 import "github.com/timescale/tsbs/query"
 
-// DevopsGenerator is query generator for a database type that handles the Devops use case
-type DevopsGenerator interface {
+// QueryGenerator is an interface that a database-specific implementation of a
+// use case implements to set basic configuration that can then be used by
+// a specific QueryFiller, ultimately yielding a query.Query with information
+// to be run.
+type QueryGenerator interface {
 	GenerateEmptyQuery() query.Query
 }
 
@@ -13,5 +16,5 @@ type QueryFiller interface {
 	Fill(query.Query) query.Query
 }
 
-// QueryFillerMaker is a function that takes a DevopsGenerator and returns a QueryFiller
-type QueryFillerMaker func(DevopsGenerator) QueryFiller
+// QueryFillerMaker is a function that takes a QueryGenerator and returns a QueryFiller
+type QueryFillerMaker func(QueryGenerator) QueryFiller

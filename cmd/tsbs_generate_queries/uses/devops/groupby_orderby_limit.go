@@ -7,11 +7,11 @@ import (
 
 // GroupByOrderByLimit produces a filler for queries in the devops groupby-orderby-limit case.
 type GroupByOrderByLimit struct {
-	core utils.DevopsGenerator
+	core utils.QueryGenerator
 }
 
 // NewGroupByOrderByLimit returns a new GroupByOrderByLimit for given paremeters
-func NewGroupByOrderByLimit(core utils.DevopsGenerator) utils.QueryFiller {
+func NewGroupByOrderByLimit(core utils.QueryGenerator) utils.QueryFiller {
 	return &GroupByOrderByLimit{core}
 }
 

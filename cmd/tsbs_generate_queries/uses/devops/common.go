@@ -202,6 +202,6 @@ func getRandomSubsetPerm(numItems int, totalItems int) ([]int, error) {
 	return res, nil
 }
 
-func panicUnimplementedQuery(dg utils.DevopsGenerator) {
+func panicUnimplementedQuery(dg utils.QueryGenerator) {
 	panic(fmt.Sprintf("database (%v) does not implement query", reflect.TypeOf(dg)))
 }

@@ -220,7 +220,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		tsStart: tsStart,
 		tsEnd:   tsEnd,
 	}
-	checkType := func(format string, want utils.DevopsGenerator) utils.DevopsGenerator {
+	checkType := func(format string, want utils.QueryGenerator) utils.QueryGenerator {
 		wantType := reflect.TypeOf(want)
 		c.Format = format
 		useGen, err := g.getUseCaseGenerator(c)
