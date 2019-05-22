@@ -9,7 +9,7 @@ import (
 
 // SingleGroupby contains info for filling in single groupby queries
 type SingleGroupby struct {
-	core    utils.DevopsGenerator
+	core    utils.QueryGenerator
 	metrics int
 	hosts   int
 	hours   int
@@ -17,7 +17,7 @@ type SingleGroupby struct {
 
 // NewSingleGroupby produces a new function that produces a new SingleGroupby
 func NewSingleGroupby(metrics, hosts, hours int) utils.QueryFillerMaker {
-	return func(core utils.DevopsGenerator) utils.QueryFiller {
+	return func(core utils.QueryGenerator) utils.QueryFiller {
 		return &SingleGroupby{
 			core:    core,
 			metrics: metrics,

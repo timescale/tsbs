@@ -7,13 +7,13 @@ import (
 
 // MaxAllCPU contains info for filling in a query.Query for "max all" queries
 type MaxAllCPU struct {
-	core  utils.DevopsGenerator
+	core  utils.QueryGenerator
 	hosts int
 }
 
 // NewMaxAllCPU produces a new function that produces a new AllMaxCPU
 func NewMaxAllCPU(hosts int) utils.QueryFillerMaker {
-	return func(core utils.DevopsGenerator) utils.QueryFiller {
+	return func(core utils.QueryGenerator) utils.QueryFiller {
 		return &MaxAllCPU{
 			core:  core,
 			hosts: hosts,

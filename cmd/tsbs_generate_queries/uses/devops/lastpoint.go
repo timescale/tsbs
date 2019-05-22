@@ -7,11 +7,11 @@ import (
 
 // LastPointPerHost returns QueryFiller for the devops lastpoint case
 type LastPointPerHost struct {
-	core utils.DevopsGenerator
+	core utils.QueryGenerator
 }
 
 // NewLastPointPerHost returns a new LastPointPerHost for given paremeters
-func NewLastPointPerHost(core utils.DevopsGenerator) utils.QueryFiller {
+func NewLastPointPerHost(core utils.QueryGenerator) utils.QueryFiller {
 	return &LastPointPerHost{core}
 }
 

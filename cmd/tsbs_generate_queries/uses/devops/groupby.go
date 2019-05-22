@@ -7,13 +7,13 @@ import (
 
 // Groupby produces a QueryFiller for the devops groupby case.
 type Groupby struct {
-	core       utils.DevopsGenerator
+	core       utils.QueryGenerator
 	numMetrics int
 }
 
 // NewGroupBy produces a function that produces a new Groupby for the given parameters
 func NewGroupBy(numMetrics int) utils.QueryFillerMaker {
-	return func(core utils.DevopsGenerator) utils.QueryFiller {
+	return func(core utils.QueryGenerator) utils.QueryFiller {
 		return &Groupby{
 			core:       core,
 			numMetrics: numMetrics,

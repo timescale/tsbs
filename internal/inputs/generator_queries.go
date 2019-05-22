@@ -173,8 +173,8 @@ func (g *QueryGenerator) init(config GeneratorConfig) error {
 	return nil
 }
 
-func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.DevopsGenerator, error) {
-	var ret utils.DevopsGenerator
+func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.QueryGenerator, error) {
+	var ret utils.QueryGenerator
 	scale := int(c.Scale) // TODO: make all the Devops constructors use a uint64
 
 	switch c.Format {
@@ -206,7 +206,7 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Dev
 	return ret, nil
 }
 
-func (g *QueryGenerator) runQueryGeneration(useGen utils.DevopsGenerator, filler utils.QueryFiller, c *QueryGeneratorConfig) error {
+func (g *QueryGenerator) runQueryGeneration(useGen utils.QueryGenerator, filler utils.QueryFiller, c *QueryGeneratorConfig) error {
 	stats := make(map[string]int64)
 	currentGroup := uint(0)
 	enc := gob.NewEncoder(g.bufOut)
