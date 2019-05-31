@@ -23,7 +23,7 @@ var (
 	redisLowND  = common.ND(5, 1)
 	redisHighND = common.ND(50, 1)
 
-	redisFields = []labeledDistributionMaker{
+	redisFields = []common.LabeledDistributionMaker{
 		{[]byte("total_connections_received"), func() common.Distribution { return common.MWD(redisLowND, 0) }},
 		{[]byte("expired_keys"), func() common.Distribution { return common.MWD(redisHighND, 0) }},
 		{[]byte("evicted_keys"), func() common.Distribution { return common.MWD(redisHighND, 0) }},
@@ -60,18 +60,18 @@ var (
 )
 
 type RedisMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 
 	port, serverName []byte
 	uptime           time.Duration
 }
 
 func NewRedisMeasurement(start time.Time) *RedisMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, redisFields)
+	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, redisFields)
 	serverName := []byte(fmt.Sprintf("redis_%d", rand.Intn(100000)))
 	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &RedisMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		port:                 port,
 		serverName:           serverName,
 		uptime:               time.Duration(0),
@@ -79,13 +79,13 @@ func NewRedisMeasurement(start time.Time) *RedisMeasurement {
 }
 
 func (m *RedisMeasurement) Tick(d time.Duration) {
-	m.subsystemMeasurement.Tick(d)
+	m.SubsystemMeasurement.Tick(d)
 	m.uptime += d
 }
 
 func (m *RedisMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendField(labelRedisFieldUptime, int64(m.uptime.Seconds()))
-	m.toPointAllInt64(p, labelRedis, redisFields)
+	m.ToPointAllInt64(p, labelRedis, redisFields)
 	p.AppendTag(labelRedisTagPort, m.port)
 	p.AppendTag(labelRedisTagServer, m.serverName)
 }

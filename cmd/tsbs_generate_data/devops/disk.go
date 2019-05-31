@@ -49,7 +49,7 @@ var (
 )
 
 type DiskMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 
 	path, fsType []byte
 	uptime       time.Duration
@@ -57,12 +57,12 @@ type DiskMeasurement struct {
 
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 	path := []byte(fmt.Sprintf(pathFmt, rand.Intn(10)))
-	fsType := randomByteStringSliceChoice(diskFSTypeChoices)
-	sub := newSubsystemMeasurement(start, 1)
-	sub.distributions[0] = common.CWD(common.ND(50, 1), 0, oneTerabyte, oneTerabyte/2)
+	fsType := common.RandomByteStringSliceChoice(diskFSTypeChoices)
+	sub := common.NewSubsystemMeasurement(start, 1)
+	sub.Distributions[0] = common.CWD(common.ND(50, 1), 0, oneTerabyte, oneTerabyte/2)
 
 	return &DiskMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		path:                 path,
 		fsType:               fsType,
 	}
@@ -70,13 +70,13 @@ func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 
 func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelDisk)
-	p.SetTimestamp(&m.timestamp)
+	p.SetTimestamp(&m.Timestamp)
 
 	p.AppendTag(labelDiskPath, m.path)
 	p.AppendTag(labelDiskFSType, m.fsType)
 
 	// the only thing that actually changes is the free byte count:
-	free := int64(m.distributions[0].Get())
+	free := int64(m.Distributions[0].Get())
 
 	total := int64(oneTerabyte)
 	used := total - free

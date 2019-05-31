@@ -10,7 +10,7 @@ import (
 
 var (
 	labelCPU  = []byte("cpu") // heap optimization
-	cpuFields = []labeledDistributionMaker{
+	cpuFields = []common.LabeledDistributionMaker{
 		{[]byte("usage_user"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
 		{[]byte("usage_system"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
 		{[]byte("usage_idle"), func() common.Distribution { return common.CWD(cpuND, 0.0, 100.0, rand.Float64()*100.0) }},
@@ -30,7 +30,7 @@ var (
 var cpuND = common.ND(0.0, 1.0)
 
 type CPUMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 }
 
 func NewCPUMeasurement(start time.Time) *CPUMeasurement {
@@ -42,10 +42,10 @@ func newSingleCPUMeasurement(start time.Time) *CPUMeasurement {
 }
 
 func newCPUMeasurementNumDistributions(start time.Time, numDistributions int) *CPUMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, cpuFields[:numDistributions])
+	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, cpuFields[:numDistributions])
 	return &CPUMeasurement{sub}
 }
 
 func (m *CPUMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelCPU, cpuFields)
+	m.ToPointAllInt64(p, labelCPU, cpuFields)
 }
