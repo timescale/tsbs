@@ -16,12 +16,12 @@ func TestNetMeasurementTick(t *testing.T) {
 	oldVals := map[string]float64{}
 	fields := ldmToFieldLabels(netFields)
 	for i, ldm := range netFields {
-		oldVals[string(ldm.label)] = m.distributions[i].Get()
+		oldVals[string(ldm.Label)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -29,7 +29,7 @@ func TestNetMeasurementTick(t *testing.T) {
 		t.Errorf("server name updated unexpectedly: got %s want %s", got, origName)
 	}
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -56,8 +56,8 @@ func TestNetMeasurementToPoint(t *testing.T) {
 	}
 
 	for _, ldm := range netFields {
-		if got := p.GetFieldValue(ldm.label); got == nil {
-			t.Errorf("field %s returned a nil value unexpectedly", ldm.label)
+		if got := p.GetFieldValue(ldm.Label); got == nil {
+			t.Errorf("field %s returned a nil value unexpectedly", ldm.Label)
 		}
 	}
 }

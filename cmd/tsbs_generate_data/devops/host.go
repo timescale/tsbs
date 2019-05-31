@@ -190,14 +190,14 @@ func newHostWithMeasurementGenerator(i int, start time.Time, generator func(time
 		// Tag Values that are static throughout the life of a Host:
 		Name:               []byte(fmt.Sprintf(hostFmt, i)),
 		Region:             region.Name,
-		Datacenter:         randomByteStringSliceChoice(region.Datacenters),
+		Datacenter:         common.RandomByteStringSliceChoice(region.Datacenters),
 		Rack:               getByteStringRandomInt(machineRackChoicesPerDatacenter),
-		Arch:               randomByteStringSliceChoice(MachineArchChoices),
-		OS:                 randomByteStringSliceChoice(MachineOSChoices),
+		Arch:               common.RandomByteStringSliceChoice(MachineArchChoices),
+		OS:                 common.RandomByteStringSliceChoice(MachineOSChoices),
 		Service:            getByteStringRandomInt(machineServiceChoices),
 		ServiceVersion:     getByteStringRandomInt(machineServiceVersionChoices),
-		ServiceEnvironment: randomByteStringSliceChoice(MachineServiceEnvironmentChoices),
-		Team:               randomByteStringSliceChoice(MachineTeamChoices),
+		ServiceEnvironment: common.RandomByteStringSliceChoice(MachineServiceEnvironmentChoices),
+		Team:               common.RandomByteStringSliceChoice(MachineTeamChoices),
 
 		SimulatedMeasurements: sm,
 	}

@@ -1,12 +1,22 @@
 package devops
 
 import (
+	"bytes"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
+
+func testIfInByteStringSlice(t *testing.T, arr [][]byte, choice []byte) {
+	for _, x := range arr {
+		if bytes.Equal(x, choice) {
+			return
+		}
+	}
+	t.Errorf("could not find choice in array: %s", choice)
+}
 
 func TestDiskMeasurementTick(t *testing.T) {
 	now := time.Now()
@@ -17,12 +27,12 @@ func TestDiskMeasurementTick(t *testing.T) {
 	oldVals := map[string]float64{}
 	fields := [][]byte{[]byte("free")}
 	for i, f := range fields {
-		oldVals[string(f)] = m.distributions[i].Get()
+		oldVals[string(f)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -34,7 +44,7 @@ func TestDiskMeasurementTick(t *testing.T) {
 	}
 
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -67,7 +77,7 @@ func TestDiskMeasurementToPoint(t *testing.T) {
 		t.Errorf("disk FS type is incorrect: got %s want %s", got, origFS)
 	}
 
-	free := int64(m.distributions[0].Get())
+	free := int64(m.Distributions[0].Get())
 	if got := p.GetFieldValue(labelDiskFree); got != free {
 		t.Errorf("free data out of sync with distribution: got %d want %d", got, free)
 	}

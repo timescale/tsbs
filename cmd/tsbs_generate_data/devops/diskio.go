@@ -20,7 +20,7 @@ var (
 	bytesND = common.ND(100, 1)
 	timeND  = common.ND(5, 1)
 
-	diskIOFields = []labeledDistributionMaker{
+	diskIOFields = []common.LabeledDistributionMaker{
 		{[]byte("reads"), func() common.Distribution { return common.MWD(opsND, 0) }},
 		{[]byte("writes"), func() common.Distribution { return common.MWD(opsND, 0) }},
 		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
@@ -32,20 +32,20 @@ var (
 )
 
 type DiskIOMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 	serial []byte
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, diskIOFields)
+	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, diskIOFields)
 	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
 	return &DiskIOMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		serial:               serial,
 	}
 }
 
 func (m *DiskIOMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelDiskIO, diskIOFields)
+	m.ToPointAllInt64(p, labelDiskIO, diskIOFields)
 	p.AppendTag(labelDiskIOSerial, m.serial)
 }

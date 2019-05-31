@@ -8,6 +8,15 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+func testIfInInt64Slice(t *testing.T, arr []int64, choice int64) {
+	for _, x := range arr {
+		if x == choice {
+			return
+		}
+	}
+	t.Errorf("could not find choice in array: %d", choice)
+}
+
 func TestMemMeasurementTick(t *testing.T) {
 	now := time.Now()
 	m := NewMemMeasurement(now)
@@ -17,12 +26,12 @@ func TestMemMeasurementTick(t *testing.T) {
 	testIfInInt64Slice(t, memoryTotalChoices, oldTotal)
 	fields := [][]byte{[]byte("used"), []byte("cached"), []byte("buffered")}
 	for i, f := range fields {
-		oldVals[string(f)] = m.distributions[i].Get()
+		oldVals[string(f)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -30,7 +39,7 @@ func TestMemMeasurementTick(t *testing.T) {
 		t.Errorf("total bytes unexpectedly changed: got %d want %d", got, oldTotal)
 	}
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -64,7 +73,7 @@ func TestMemMeasurementToPoint(t *testing.T) {
 	if used < 0 {
 		t.Errorf("used data semantics incorrect: %d is less than 0", used)
 	}
-	want := int64(m.distributions[0].Get())
+	want := int64(m.Distributions[0].Get())
 	if got := used; got != want {
 		t.Errorf("used data out of sync with distribution: got %d want %d", got, want)
 	}
@@ -73,7 +82,7 @@ func TestMemMeasurementToPoint(t *testing.T) {
 	if cached < 0 {
 		t.Errorf("cached data semantics incorrect: %d is less than 0", cached)
 	}
-	want = int64(m.distributions[1].Get())
+	want = int64(m.Distributions[1].Get())
 	if got := cached; got != want {
 		t.Errorf("cached data out of sync with distribution: got %d want %d", got, want)
 	}
@@ -82,7 +91,7 @@ func TestMemMeasurementToPoint(t *testing.T) {
 	if buffered < 0 {
 		t.Errorf("buffered data semantics incorrect: %d is less than 0", buffered)
 	}
-	want = int64(m.distributions[2].Get())
+	want = int64(m.Distributions[2].Get())
 	if got := buffered; got != want {
 		t.Errorf("buffered data out of sync with distribution: got %d want %d", got, want)
 	}

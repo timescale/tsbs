@@ -16,12 +16,12 @@ func TestKernelMeasurementTick(t *testing.T) {
 	oldVals := map[string]float64{}
 	fields := ldmToFieldLabels(kernelFields)
 	for i, ldm := range kernelFields {
-		oldVals[string(ldm.label)] = m.distributions[i].Get()
+		oldVals[string(ldm.Label)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -29,7 +29,7 @@ func TestKernelMeasurementTick(t *testing.T) {
 		t.Errorf("boot time changed unexpectedly: got %d", got)
 	}
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -56,8 +56,8 @@ func TestKernelMeasurementToPoint(t *testing.T) {
 	}
 
 	for _, ldm := range kernelFields {
-		if got := p.GetFieldValue(ldm.label); got == nil {
-			t.Errorf("field %s returned a nil value unexpectedly", ldm.label)
+		if got := p.GetFieldValue(ldm.Label); got == nil {
+			t.Errorf("field %s returned a nil value unexpectedly", ldm.Label)
 		}
 	}
 }

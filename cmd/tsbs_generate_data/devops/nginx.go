@@ -19,7 +19,7 @@ var (
 	// immediately uses its value and saves the state
 	nginxND = common.ND(5, 1)
 
-	nginxFields = []labeledDistributionMaker{
+	nginxFields = []common.LabeledDistributionMaker{
 		{[]byte("accepts"), func() common.Distribution { return common.MWD(nginxND, 0) }},
 		{[]byte("active"), func() common.Distribution { return common.CWD(nginxND, 0, 100, 0) }},
 		{[]byte("handled"), func() common.Distribution { return common.MWD(nginxND, 0) }},
@@ -31,23 +31,23 @@ var (
 )
 
 type NginxMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 	port, serverName []byte
 }
 
 func NewNginxMeasurement(start time.Time) *NginxMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, nginxFields)
+	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, nginxFields)
 	serverName := []byte(fmt.Sprintf("nginx_%d", rand.Intn(100000)))
 	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
 	return &NginxMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		port:                 port,
 		serverName:           serverName,
 	}
 }
 
 func (m *NginxMeasurement) ToPoint(p *serialize.Point) {
-	m.toPointAllInt64(p, labelNginx, nginxFields)
+	m.ToPointAllInt64(p, labelNginx, nginxFields)
 	p.AppendTag(labelNginxTagPort, m.port)
 	p.AppendTag(labelNginxTagServer, m.serverName)
 }
