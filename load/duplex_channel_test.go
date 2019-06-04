@@ -1,6 +1,8 @@
 package load
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestNewDuplexChannel(t *testing.T) {
 	cases := []struct {

@@ -87,13 +87,13 @@ func init() {
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
 	flag.BoolVar(&hashWorkers, "hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 
-	flag.IntVar(&numberPartitions, "partitions", 1, "Number of patitions")
+	flag.IntVar(&numberPartitions, "partitions", 1, "Number of partitions")
 	flag.DurationVar(&chunkTime, "chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
 	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
 	flag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
 	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
-	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma deliminated)")
+	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma delimited)")
 	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")

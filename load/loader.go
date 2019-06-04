@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/timescale/tsbs/load/insertstrategy"
 )
 
 const (
@@ -65,9 +68,11 @@ type BenchmarkRunner struct {
 	fileName        string
 
 	// non-flag fields
-	br        *bufio.Reader
-	metricCnt uint64
-	rowCnt    uint64
+	br             *bufio.Reader
+	metricCnt      uint64
+	rowCnt         uint64
+	initialRand    *rand.Rand
+	sleepRegulator insertstrategy.SleepRegulator
 }
 
 var loader = &BenchmarkRunner{}
@@ -92,6 +97,23 @@ func GetBenchmarkRunnerWithBatchSize(batchSize uint) *BenchmarkRunner {
 	flag.DurationVar(&loader.reportingPeriod, "reporting-period", 10*time.Second, "Period to report write stats")
 	flag.StringVar(&loader.fileName, "file", "", "File name to read data from")
 
+	// flags for insert strategy
+	var seed int64
+	flag.Int64Var(&seed, "seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
+	loader.initialRand = rand.New(rand.NewSource(seed))
+
+	var insertIntervals string
+	flag.StringVar(&insertIntervals, "insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
+	var err error
+	if insertIntervals == "" {
+		loader.sleepRegulator = insertstrategy.NoWait()
+	} else {
+		loader.sleepRegulator, err = insertstrategy.NewSleepRegulator(insertIntervals, int(loader.workers), loader.initialRand)
+		if err != nil {
+			panic(fmt.Sprintf("could not initialize BenchmarkRunner: %v", err))
+		}
+	}
+
 	return loader
 }
 
@@ -113,9 +135,11 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 
 	// Launch all worker processes in background
 	var wg sync.WaitGroup
+	numChannels := len(channels)
 	for i := 0; i < int(l.workers); i++ {
 		wg.Add(1)
-		go l.work(b, &wg, channels[i%len(channels)], i)
+
+		go l.work(b, &wg, channels[i%numChannels], i)
 	}
 
 	// Start scan process - actual data read process
@@ -209,9 +233,9 @@ func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
 	channels := []*duplexChannel{}
 
 	// How many work queues should be created?
-	workQueuesToCreate := workQueues
+	workQueuesToCreate := int(workQueues)
 	if workQueues == WorkerPerQueue {
-		workQueuesToCreate = l.workers
+		workQueuesToCreate = int(l.workers)
 	} else if workQueues > l.workers {
 		panic(fmt.Sprintf("cannot have more work queues (%d) than workers (%d)", workQueues, l.workers))
 	}
@@ -220,7 +244,7 @@ func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
 	workersPerQueue := int(math.Ceil(float64(l.workers) / float64(workQueuesToCreate)))
 
 	// Create duplex communication channels
-	for i := uint(0); i < workQueuesToCreate; i++ {
+	for i := 0; i < workQueuesToCreate; i++ {
 		channels = append(channels, newDuplexChannel(workersPerQueue))
 	}
 
@@ -250,10 +274,12 @@ func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel
 	// Process batches coming from duplexChannel.toWorker queue
 	// and send ACKs into duplexChannel.toScanner queue
 	for b := range c.toWorker {
+		startedWorkAt := time.Now()
 		metricCnt, rowCnt := proc.ProcessBatch(b, l.doLoad)
 		atomic.AddUint64(&l.metricCnt, metricCnt)
 		atomic.AddUint64(&l.rowCnt, rowCnt)
 		c.sendToScanner()
+		l.timeToSleep(workerNum, startedWorkAt)
 	}
 
 	// Close proc if necessary
@@ -263,6 +289,12 @@ func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel
 	}
 
 	wg.Done()
+}
+
+func (l *BenchmarkRunner) timeToSleep(workerNum int, startedWorkAt time.Time) {
+	if l.sleepRegulator != nil {
+		l.sleepRegulator.Sleep(workerNum, startedWorkAt)
+	}
 }
 
 // summary prints the summary of statistics from loading
