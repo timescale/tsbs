@@ -13,6 +13,7 @@ import (
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
@@ -393,6 +394,7 @@ func TestGetSimulatorConfig(t *testing.T) {
 	}
 
 	checkType(useCaseDevops, &devops.DevopsSimulatorConfig{})
+	checkType(useCaseIoT, &iot.SimulatorConfig{})
 	checkType(useCaseCPUOnly, &devops.CPUOnlySimulatorConfig{})
 	checkType(useCaseCPUSingle, &devops.CPUOnlySimulatorConfig{})
 
