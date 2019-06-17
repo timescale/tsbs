@@ -24,5 +24,4 @@ done
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
-                                --ncon=${NUM_WORKERS} \
                                 --endpoint=${DATABASE_HOST}:${INGESTION_PORT}
