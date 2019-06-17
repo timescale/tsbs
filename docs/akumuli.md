@@ -1,4 +1,4 @@
-# TSBS Supplemental Guide: InfluxDB
+# TSBS Supplemental Guide: Akumuli
 
 Akumuli is an open-source time-series database written in C++ with. 
 performance in mind. This guide explains how to use TSBS to generate
@@ -18,8 +18,6 @@ realclients that send data independently without actually parsing the messages.
 
 ## `tsbs_load_akumuli` Additional Flags
 
-### Database related
-
 #### `-endpoint` (type: `string`, default: `http://localhost:8282`)
 
 TCP endpoint to connect to for inserting data. Workers will create individual connections.
@@ -27,8 +25,6 @@ TCP endpoint to connect to for inserting data. Workers will create individual co
 ---
 
 ## `tsbs_run_queries_akumuli` Additional Flags
-
-### Database related
 
 #### `-endpoint` (type: `string`, default: `http://localhost:8181`)
 
