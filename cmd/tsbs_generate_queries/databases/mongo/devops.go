@@ -7,9 +7,16 @@ import (
 
 	"github.com/globalsign/mgo/bson"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
+
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
 
 func init() {
 	// needed for serializing the mongo query to gob
@@ -27,7 +34,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
@@ -35,7 +44,7 @@ func (d *Devops) GenerateEmptyQuery() query.Query {
 	return query.NewMongo()
 }
 
-func getTimeFilterPipeline(interval utils.TimeInterval) []bson.M {
+func getTimeFilterPipeline(interval *utils.TimeInterval) []bson.M {
 	return []bson.M{
 		{"$unwind": "$events"},
 		{
@@ -72,16 +81,16 @@ func getTimeFilterPipeline(interval utils.TimeInterval) []bson.M {
 
 const aggDateFmt = "20060102" // see Go docs for how we arrive at this time format
 
-func getTimeFilterDocs(interval utils.TimeInterval) []interface{} {
+func getTimeFilterDocs(interval *utils.TimeInterval) []interface{} {
 	docs := []interface{}{}
-	startDay := interval.Start.Format(aggDateFmt)
-	startHr := interval.Start.Hour()
+	startDay := interval.Start().Format(aggDateFmt)
+	startHr := interval.Start().Hour()
 	lenHrs := int(interval.Duration()/time.Hour) + 1
 	for i := 0; i < lenHrs; i++ {
 		hr := int(startHr) + i
 		if hr > 23 {
 			days := int64(hr / 24)
-			day := interval.Start.Add(time.Duration(days * 24 * 60 * 60 * 1e9))
+			day := interval.Start().Add(time.Duration(days * 24 * 60 * 60 * 1e9))
 			docs = append(docs, fmt.Sprintf("%s_%02d", day.Format(aggDateFmt), hr%24))
 		} else {
 			docs = append(docs, fmt.Sprintf("%s_%02d", startDay, hr))
@@ -101,9 +110,11 @@ func getTimeFilterDocs(interval utils.TimeInterval) []interface{} {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	hostnames := d.GetRandomHosts(nHosts)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(timeRange)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 
@@ -169,8 +180,9 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
-	hostnames := d.GetRandomHosts(nHosts)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 	metrics := devops.GetAllCPUMetrics()
@@ -237,8 +249,9 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 
@@ -317,8 +330,9 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
-	hostnames := d.GetRandomHosts(nHosts)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 
 	pipelineQuery := []bson.M{}
@@ -357,7 +371,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		},
 	})
 
-	humanLabel := devops.GetHighCPULabel("Mongo", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("Mongo", nHosts)
+	panicIfErr(err)
 	q := qi.(*query.Mongo)
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
@@ -448,8 +463,11 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
-	interval = utils.NewTimeInterval(d.Interval.Start, interval.End)
+	interval := d.Interval.MustRandWindow(time.Hour)
+	interval, err := utils.NewTimeInterval(d.Interval.Start(), interval.End())
+	if err != nil {
+		panic(err.Error())
+	}
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Minute.Nanoseconds()
 

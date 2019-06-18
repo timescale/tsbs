@@ -26,7 +26,9 @@ type NaiveDevops struct {
 
 // NewNaiveDevops makes an NaiveDevops object ready to generate Queries.
 func NewNaiveDevops(start, end time.Time, scale int) *NaiveDevops {
-	return &NaiveDevops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &NaiveDevops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo
@@ -44,9 +46,11 @@ func (d *NaiveDevops) GenerateEmptyQuery() query.Query {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *NaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	hostnames := d.GetRandomHosts(nHosts)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(timeRange)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 
 	bucketNano := time.Minute.Nanoseconds()
 	pipelineQuery := []bson.M{
@@ -105,8 +109,9 @@ func (d *NaiveDevops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRa
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *NaiveDevops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	bucketNano := time.Hour.Nanoseconds()
 
 	pipelineQuery := []bson.M{

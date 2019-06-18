@@ -6,9 +6,16 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
+
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
 
 // Devops produces Cassandra-specific queries for all the devops query types.
 type Devops struct {
@@ -17,7 +24,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.Cassandra
@@ -36,7 +45,8 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) []string {
 }
 
 func (d *Devops) getHostWhere(nHosts int) []string {
-	hostnames := d.GetRandomHosts(nHosts)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -50,8 +60,9 @@ func (d *Devops) getHostWhere(nHosts int) []string {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(timeRange)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -70,8 +81,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
-	interval.Start = d.Interval.Start
+	interval := d.Interval.MustRandWindow(time.Hour)
+
+	interval, err := utils.NewTimeInterval(d.Interval.Start(), interval.End())
+	if err != nil {
+		panic(err.Error())
+	}
 
 	humanLabel := "Cassandra max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, d.Interval.StartString())
@@ -90,8 +105,9 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Cassandra", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -108,7 +124,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -140,7 +157,8 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
+
 	tagSet := d.getHostWhere(nHosts)
 
 	tagSets := [][]string{}
@@ -148,7 +166,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		tagSets = append(tagSets, tagSet)
 	}
 
-	humanLabel := devops.GetHighCPULabel("Cassandra", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("Cassandra", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, "", devops.GetAllCPUMetrics(), interval, tagSets)
 	q := qi.(*query.Cassandra)
@@ -156,7 +175,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	q.WhereClause = []byte("usage_user,>,90.0")
 }
 
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval utils.TimeInterval, tagSets [][]string) {
+func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval *utils.TimeInterval, tagSets [][]string) {
 	q := qi.(*query.Cassandra)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(humanDesc)
@@ -165,8 +184,8 @@ func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType stri
 	q.MeasurementName = []byte("cpu")
 	q.FieldName = []byte(strings.Join(fields, ","))
 
-	q.TimeStart = interval.Start
-	q.TimeEnd = interval.End
+	q.TimeStart = interval.Start()
+	q.TimeEnd = interval.End()
 
 	q.TagSets = tagSets
 }

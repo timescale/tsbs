@@ -9,6 +9,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 const (
 	oneMinute = 60
 	oneHour   = oneMinute * 60
@@ -27,7 +34,12 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale), false, false, true}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{
+		Core:          core,
+		UseTimeBucket: true,
+	}
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB
@@ -61,7 +73,8 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 
 // getHostWhereString gets multiple random hostnames and creates a WHERE SQL statement for these hostnames.
 func (d *Devops) getHostWhereString(nHosts int) string {
-	hostnames := d.GetRandomHosts(nHosts)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -93,8 +106,9 @@ const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(timeRange)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	if len(selectClauses) < 1 {
 		panic(fmt.Sprintf("invalid number of select clauses: got %d", len(selectClauses)))
@@ -108,8 +122,8 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 		d.getTimeBucket(oneMinute),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
-		interval.Start.Format(goTimeFmt),
-		interval.End.Format(goTimeFmt))
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := fmt.Sprintf("TimescaleDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -122,7 +136,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // GROUP BY t ORDER BY t DESC
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
+	interval := d.Interval.MustRandWindow(time.Hour)
 	sql := fmt.Sprintf(`SELECT %s AS minute, max(usage_user)
         FROM cpu
         WHERE time < '%s'
@@ -130,7 +144,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
         ORDER BY minute DESC
         LIMIT 5`,
 		d.getTimeBucket(oneMinute),
-		interval.End.Format(goTimeFmt))
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.EndString())
@@ -145,8 +159,9 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 
 	selectClauses := make([]string, numMetrics)
 	meanClauses := make([]string, numMetrics)
@@ -180,7 +195,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
         ORDER BY hour, %s`,
 		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt),
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt),
 		hostnameField, strings.Join(meanClauses, ", "),
 		joinStr, hostnameField)
 	humanLabel := devops.GetDoubleGroupByLabel("TimescaleDB", numMetrics)
@@ -196,7 +212,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 
@@ -208,7 +225,8 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt))
+		interval.Start().Format(goTimeFmt),
+		interval.End().Format(goTimeFmt))
 
 	humanLabel := devops.GetMaxAllLabel("TimescaleDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -246,12 +264,13 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	sql := fmt.Sprintf(`SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' %s`,
-		interval.Start.Format(goTimeFmt), interval.End.Format(goTimeFmt), hostWhereClause)
+		interval.Start().Format(goTimeFmt), interval.End().Format(goTimeFmt), hostWhereClause)
 
-	humanLabel := devops.GetHighCPULabel("TimescaleDB", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("TimescaleDB", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }

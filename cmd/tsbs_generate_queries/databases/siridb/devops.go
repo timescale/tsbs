@@ -9,6 +9,13 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+// TODO: Remove the need for this by continuing to bubble up errors
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // Devops produces SiriDB-specific queries for all the devops query types.
 type Devops struct {
 	*devops.Core
@@ -16,7 +23,9 @@ type Devops struct {
 
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.SiriDB
@@ -34,7 +43,8 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 }
 
 func (d *Devops) getHostWhereString(nhosts int) string {
-	hostnames := d.GetRandomHosts(nhosts)
+	hostnames, err := d.GetRandomHosts(nhosts)
+	panicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -63,8 +73,9 @@ const goTimeFmt = "2006-01-02 15:04:05Z"
 //
 // select max(1m) from (`groupHost1` | ...) & (`groupMetric1` | ...) between 'time1' and 'time2'
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(timeRange)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	whereMetrics := d.getMetricWhereString(metrics)
 	whereHosts := d.getHostWhereString(nHosts)
 
@@ -84,8 +95,8 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 //
 // select max(1m) from `usage_user` between time - 5m and 'roundedTime' merge as 'max usage user of the last 5 aggregate readings' using max(1)
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
-	interval := d.Interval.RandWindow(time.Hour)
-	timeStr := interval.End.Format(goTimeFmt)
+	interval := d.Interval.MustRandWindow(time.Hour)
+	timeStr := interval.End().Format(goTimeFmt)
 
 	timestrRounded := timeStr[:len(timeStr)-4] + ":00Z"
 	where := fmt.Sprintf("between '%s' - 5m and '%s'", timeStr, timestrRounded)
@@ -101,8 +112,9 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 //
 // select mean(1h) from (`groupMetric1` | ...) between 'time1' and 'time2'
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
 	whereMetrics := d.getMetricWhereString(metrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("SiriDB", numMetrics)
@@ -120,7 +132,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 //
 // select max(1h) from (`groupHost1` | ...) & `cpu` between 'time1' and 'time2'
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
 
 	whereMetrics := "`cpu`"
 	whereHosts := d.getHostWhereString(nHosts)
@@ -159,9 +171,10 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	} else {
 		whereHosts = "& " + d.getHostWhereString(nHosts)
 	}
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
-	humanLabel := devops.GetHighCPULabel("SiriDB", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("SiriDB", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	siriql := fmt.Sprintf("select filter(> 90) from `usage_user` %s between '%s' and '%s'", whereHosts, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, siriql)

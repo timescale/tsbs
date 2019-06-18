@@ -90,7 +90,7 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 	// optionally, print reponses for query validation:
 	if opts.PrettyPrintResponses {
 		for _, r := range results {
-			fmt.Fprintf(os.Stderr, "ID %d: [%s, %s] -> %v\n", q.GetID(), r.TimeInterval.Start, r.TimeInterval.End, r.Values)
+			fmt.Fprintf(os.Stderr, "ID %d: [%s, %s] -> %v\n", q.GetID(), r.TimeInterval.Start(), r.TimeInterval.End(), r.Values)
 		}
 	}
 	return
