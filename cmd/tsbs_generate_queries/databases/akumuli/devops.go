@@ -15,9 +15,17 @@ type Devops struct {
 	*devops.Core
 }
 
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // NewDevops makes an Devops object ready to generate Queries.
 func NewDevops(start, end time.Time, scale int) *Devops {
-	return &Devops{devops.NewCore(start, end, scale)}
+	core, err := devops.NewCore(start, end, scale)
+	panicIfErr(err)
+	return &Devops{core}
 }
 
 // GenerateEmptyQuery returns an empty query.HTTP
@@ -87,15 +95,23 @@ type tsdbAggregateAllQuery struct {
 // single-groupby-5-1-1
 // single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange time.Duration) {
-	interval := d.Interval.RandWindow(timeRange)
-	hostnames := d.GetRandomHosts(nhosts)
+	interval, err := d.Interval.RandWindow(timeRange)
+	if err != nil {
+		panic(err)
+	}
+	hostnames, err := d.GetRandomHosts(nhosts)
+	if err != nil {
+		panic(err)
+	}
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
 	var query tsdbGroupAggregateQuery
 	query.GroupAggregate.Func = append(query.GroupAggregate.Func, "max")
 	query.GroupAggregate.Step = "1m"
-	for _, name := range devops.GetCPUMetricsSlice(numMetrics) {
+	metricSlice, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
+	for _, name := range metricSlice {
 		query.GroupAggregate.Name = append(query.GroupAggregate.Name, "cpu."+name)
 	}
 
@@ -132,11 +148,13 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 // high-cpu-1
 // high-cpu-all
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.HighCPUDuration)
+	interval, err := d.Interval.RandWindow(devops.HighCPUDuration)
+	panicIfErr(err)
 	var hostnames []string
 
 	if nHosts > 0 {
-		hostnames = d.GetRandomHosts(nHosts)
+		hostnames, err = d.GetRandomHosts(nHosts)
+		panicIfErr(err)
 	}
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
@@ -161,7 +179,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	}
 	bodyWriter.Write(body)
 
-	humanLabel := devops.GetHighCPULabel("Akumuli", nHosts)
+	humanLabel, err := devops.GetHighCPULabel("Akumuli", nHosts)
+	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval)
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
 }
@@ -182,8 +201,10 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 // cpu-max-all-1
 // cpu-max-all-8
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.RandWindow(devops.MaxAllDuration)
-	hostnames := d.GetRandomHosts(nHosts)
+	interval, err := d.Interval.RandWindow(devops.MaxAllDuration)
+	panicIfErr(err)
+	hostnames, err := d.GetRandomHosts(nHosts)
+	panicIfErr(err)
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
@@ -250,8 +271,10 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // double-groupby-5
 // double-groupby-all
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	metrics := devops.GetCPUMetricsSlice(numMetrics)
-	interval := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	panicIfErr(err)
+	interval, err := d.Interval.RandWindow(devops.DoubleGroupByDuration)
+	panicIfErr(err)
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 
