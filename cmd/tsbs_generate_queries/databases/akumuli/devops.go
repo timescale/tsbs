@@ -181,7 +181,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 
 	humanLabel, err := devops.GetHighCPULabel("Akumuli", nHosts)
 	panicIfErr(err)
-	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval)
+	humanDesc := fmt.Sprintf("%s: %s - %s", humanLabel, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
