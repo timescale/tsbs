@@ -192,8 +192,8 @@ func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.Sim
 			Start: g.tsStart,
 			End:   g.tsEnd,
 
-			InitGeneratorCount:   dgc.InitialScale,
-			GeneratorCount:       dgc.Scale,
+			InitGeneratorScale:   dgc.InitialScale,
+			GeneratorScale:       dgc.Scale,
 			GeneratorConstructor: iot.NewTruck,
 		}
 	case useCaseCPUOnly:
