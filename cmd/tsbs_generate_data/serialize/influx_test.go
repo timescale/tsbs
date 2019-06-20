@@ -25,6 +25,14 @@ func TestInfluxSerializerSerialize(t *testing.T) {
 			desc:       "a Point with no tags",
 			inputPoint: testPointNoTags,
 			output:     "cpu usage_guest_nice=38.24311829 1451606400000000000\n",
+		}, {
+			desc:       "a Point with a nil tag",
+			inputPoint: testPointWithNilTag,
+			output:     "cpu usage_guest_nice=38.24311829 1451606400000000000\n",
+		}, {
+			desc:       "a Point with a nil field",
+			inputPoint: testPointWithNilField,
+			output:     "cpu usage_guest_nice=38.24311829 1451606400000000000\n",
 		},
 	}
 

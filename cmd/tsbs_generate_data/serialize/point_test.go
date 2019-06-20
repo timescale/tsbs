@@ -77,6 +77,24 @@ var testPointNoTags = &Point{
 	fieldValues:     []interface{}{testFloat},
 }
 
+var testPointWithNilTag = &Point{
+	measurementName: testMeasurement,
+	tagKeys:         [][]byte{[]byte("hostname")},
+	tagValues:       [][]byte{nil},
+	timestamp:       &testNow,
+	fieldKeys:       [][]byte{testColFloat},
+	fieldValues:     []interface{}{testFloat},
+}
+
+var testPointWithNilField = &Point{
+	measurementName: testMeasurement,
+	tagKeys:         [][]byte{},
+	tagValues:       [][]byte{},
+	timestamp:       &testNow,
+	fieldKeys:       [][]byte{testColInt64, testColFloat},
+	fieldValues:     []interface{}{nil, testFloat},
+}
+
 type serializeCase struct {
 	desc       string
 	inputPoint *Point
