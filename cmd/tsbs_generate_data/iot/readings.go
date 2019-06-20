@@ -72,7 +72,8 @@ type ReadingsMeasurement struct {
 // ToPoint serializes ReadingsMeasurement to serialize.Point.
 func (m *ReadingsMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelReadings)
-	p.SetTimestamp(&m.Timestamp)
+	copy := m.Timestamp
+	p.SetTimestamp(&copy)
 
 	for i, d := range m.Distributions {
 		p.AppendField(readingsFields[i].Label, float64(d.Get()))

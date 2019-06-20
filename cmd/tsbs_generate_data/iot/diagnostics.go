@@ -46,7 +46,8 @@ type DiagnosticsMeasurement struct {
 // ToPoint serializes DiagnosticsMeasurement to serialize.Point.
 func (m *DiagnosticsMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelDiagnostics)
-	p.SetTimestamp(&m.Timestamp)
+	copy := m.Timestamp
+	p.SetTimestamp(&copy)
 
 	p.AppendField(diagnosticsFields[0].Label, float64(m.Distributions[0].Get()))
 	p.AppendField(diagnosticsFields[1].Label, float64(m.Distributions[1].Get()))
