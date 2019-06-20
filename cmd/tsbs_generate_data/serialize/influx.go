@@ -20,6 +20,9 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf = append(buf, p.measurementName...)
 
 	for i := 0; i < len(p.tagKeys); i++ {
+		if p.tagValues[i] == nil {
+			continue
+		}
 		buf = append(buf, ',')
 		buf = append(buf, p.tagKeys[i]...)
 		buf = append(buf, '=')
@@ -30,7 +33,16 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		buf = append(buf, ' ')
 	}
 
+	firstFieldFormatted := false
 	for i := 0; i < len(p.fieldKeys); i++ {
+		if p.fieldValues[i] == nil {
+			continue
+		}
+		// don't append a comma before the first field
+		if firstFieldFormatted {
+			buf = append(buf, ',')
+		}
+		firstFieldFormatted = true
 		buf = append(buf, p.fieldKeys[i]...)
 		buf = append(buf, '=')
 
@@ -42,10 +54,11 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		case int, int64:
 			buf = append(buf, 'i')
 		}
+	}
 
-		if i+1 < len(p.fieldKeys) {
-			buf = append(buf, ',')
-		}
+	// first field wasn't formatted, because all the fields were nil, InfluxDB will reject the insert
+	if !firstFieldFormatted {
+		return nil
 	}
 
 	buf = append(buf, ' ')
