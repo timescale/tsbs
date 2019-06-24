@@ -143,6 +143,45 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			},
 			shouldPanic: true,
 		},
+		{
+			desc: "empty tag value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=,tag2=bar",
+					fields: "100,1,5,42",
+				},
+			},
+			wantTags: [][]string{{"", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, nil, 1.0, 5.0, 42.0},
+			},
+		},
+		{
+			desc: "empty extra tag value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=foo,tag2=bar,tag3=",
+					fields: "100,1,5,42",
+				},
+			},
+			wantTags: [][]string{{"foo", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": ""}, 1.0, 5.0, 42.0},
+			},
+		},
+		{
+			desc: "empty field value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=foo,tag2=bar",
+					fields: "100,,5,42",
+				},
+			},
+			wantTags: [][]string{{"foo", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, nil, nil, 5.0, 42.0},
+			},
+		},
 	}
 
 	for _, c := range cases {
