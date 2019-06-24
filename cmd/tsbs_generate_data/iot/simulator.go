@@ -21,10 +21,19 @@ type SimulatorConfig common.BaseSimulatorConfig
 func (sc *SimulatorConfig) NewSimulator(interval time.Duration, limit uint64) common.Simulator {
 	s := (*common.BaseSimulatorConfig)(sc).NewSimulator(interval, limit)
 
+	maxFieldCount := 0
+
+	for _, fields := range s.Fields() {
+		if len(fields) > maxFieldCount {
+			maxFieldCount = len(fields)
+		}
+	}
+
 	return &Simulator{
 		base:            s,
 		batchSize:       defaultBatchSize,
 		configGenerator: newBatchConfig,
+		maxFieldCount:   maxFieldCount,
 	}
 }
 
@@ -36,6 +45,8 @@ type Simulator struct {
 	base            common.Simulator
 	batchSize       uint
 	configGenerator func(outOfOrderBatchCount, outOfOrderEntryCount, fieldCount, tagCount int) *batchConfig
+	// maxFieldCount is the maximum amount of fields an entry can have
+	maxFieldCount int
 
 	// Mutable state.
 	currBatch         []*serialize.Point
@@ -123,7 +134,7 @@ func (s *Simulator) simulateNextBatch() bool {
 		return false
 	}
 
-	bc := s.configGenerator(len(s.outOfOrderBatches), len(s.outOfOrderEntries), len(s.Fields()), len(s.TagKeys()))
+	bc := s.configGenerator(len(s.outOfOrderBatches), len(s.outOfOrderEntries), s.maxFieldCount, len(s.TagKeys()))
 
 	if bc.InsertPrevious {
 		if len(s.outOfOrderBatches) == 0 {
@@ -176,8 +187,8 @@ func (s *Simulator) generateBatch(bc *batchConfig) []*serialize.Point {
 
 		if index, ok := bc.ZeroFields[i]; ok {
 			keys := entry.FieldKeys()
-			if len(keys) < index {
-				panic("trying to zero a field value with a non-existant index")
+			if index >= len(keys) {
+				index = index % len(keys)
 			}
 			entry.ClearFieldValue(keys[index])
 		}
