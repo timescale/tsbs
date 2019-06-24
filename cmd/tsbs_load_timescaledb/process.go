@@ -62,11 +62,16 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 				json += fmt.Sprintf("\"%s\":\"%s\"", k, row[i])
 			}
 			json += "}')"
+			// Replacing empty tags with NULLs.
+			json = strings.ReplaceAll(json, `:""`, `:NULL`)
 			values = append(values, json)
 		}
 	} else {
 		for _, val := range tagRows {
-			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','")))
+			row := fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','"))
+			// Replacing empty tags with NULLs.
+			row = strings.ReplaceAll(row, "''", "NULL")
+			values = append(values, row)
 		}
 	}
 	tx := MustBegin(db)
@@ -149,10 +154,16 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 			r = append(r, tags[0])
 		}
 		for _, v := range metrics[1:] {
+			if v == "" {
+				r = append(r, nil)
+				continue
+			}
+
 			num, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				panic(err)
 			}
+
 			r = append(r, num)
 		}
 
