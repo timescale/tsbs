@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
+	"github.com/timescale/tsbs/internal/usecase"
 )
 
 const (
@@ -20,13 +21,6 @@ type model struct {
 }
 
 var (
-	fleetChoices = [][]byte{
-		[]byte("East"),
-		[]byte("West"),
-		[]byte("North"),
-		[]byte("South"),
-	}
-
 	driverChoices = [][]byte{
 		[]byte("Derek"),
 		[]byte("Rodney"),
@@ -109,7 +103,7 @@ func newTruckWithMeasurementGenerator(i int, start time.Time, generator func(tim
 	h := Truck{
 		tags: []common.Tag{
 			{Key: []byte("name"), Value: []byte(fmt.Sprintf(truckNameFmt, i))},
-			{Key: []byte("fleet"), Value: common.RandomByteStringSliceChoice(fleetChoices)},
+			{Key: []byte("fleet"), Value: common.RandomByteStringSliceChoice(usecase.FleetChoices)},
 			{Key: []byte("driver"), Value: common.RandomByteStringSliceChoice(driverChoices)},
 			{Key: []byte("model"), Value: m.Name},
 			{Key: []byte("device_version"), Value: common.RandomByteStringSliceChoice(deviceVersionChoices)},

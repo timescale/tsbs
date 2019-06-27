@@ -2,7 +2,6 @@ package influx
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -19,19 +18,8 @@ func panicIfErr(err error) {
 
 // Devops produces Influx-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.HTTP
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewHTTP()
 }
 
 func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
@@ -164,15 +152,4 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	influxql := fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
-}
-
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, influxql string) {
-	v := url.Values{}
-	v.Set("q", influxql)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
 }

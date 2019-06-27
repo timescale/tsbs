@@ -9,6 +9,10 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+const (
+	errMoreItemsThanScale = "cannot get random permutation with more items than scale"
+)
+
 // TODO: Remove the need for this by continuing to bubble up errors
 func panicIfErr(err error) {
 	if err != nil {
@@ -26,25 +30,8 @@ const (
 
 // Devops produces TimescaleDB-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-	UseJSON       bool
-	UseTags       bool
-	UseTimeBucket bool
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{
-		Core:          core,
-		UseTimeBucket: true,
-	}
-}
-
-// GenerateEmptyQuery returns an empty query.TimescaleDB
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewTimescaleDB()
 }
 
 // getHostWhereWithHostnames creates WHERE SQL statement for multiple hostnames.
@@ -127,7 +114,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 
 	humanLabel := fmt.Sprintf("TimescaleDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }
 
 // GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
@@ -148,7 +135,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.EndString())
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }
 
 // GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
@@ -201,7 +188,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 		joinStr, hostnameField)
 	humanLabel := devops.GetDoubleGroupByLabel("TimescaleDB", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }
 
 // MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
@@ -230,7 +217,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 
 	humanLabel := devops.GetMaxAllLabel("TimescaleDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
@@ -246,7 +233,7 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 
 	humanLabel := "TimescaleDB last row per host"
 	humanDesc := humanLabel
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }
 
 // HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
@@ -272,14 +259,5 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	humanLabel, err := devops.GetHighCPULabel("TimescaleDB", nHosts)
 	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, sql)
-}
-
-// fill Query fills the query struct with data
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
-	q := qi.(*query.TimescaleDB)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.Hypertable = []byte("cpu")
-	q.SqlQuery = []byte(sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
 }

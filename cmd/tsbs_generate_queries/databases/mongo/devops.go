@@ -29,19 +29,8 @@ func init() {
 
 // Devops produces Mongo-specific queries for the devops use case.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.Mongo
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewMongo()
 }
 
 func getTimeFilterPipeline(interval *utils.TimeInterval) []bson.M {

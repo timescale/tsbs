@@ -1,6 +1,7 @@
 package devops
 
 import (
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/query"
 )
@@ -19,7 +20,7 @@ func NewLastPointPerHost(core utils.QueryGenerator) utils.QueryFiller {
 func (d *LastPointPerHost) Fill(q query.Query) query.Query {
 	fc, ok := d.core.(LastPointFiller)
 	if !ok {
-		panicUnimplementedQuery(d.core)
+		common.PanicUnimplementedQuery(d.core)
 	}
 	fc.LastPointPerHost(q)
 	return q

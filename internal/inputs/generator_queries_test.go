@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
@@ -105,6 +106,7 @@ func TestQueryGeneratorInit(t *testing.T) {
 				okQueryType: nil,
 			},
 		},
+		factories: make(map[string]interface{}),
 	}
 	// Test that empty config fails
 	err := g.init(nil)
@@ -208,22 +210,41 @@ func TestQueryGeneratorInit(t *testing.T) {
 }
 
 func TestGetUseCaseGenerator(t *testing.T) {
+	var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
+		"devops": {
+			devops.LabelLastpoint: devops.NewLastPointPerHost,
+		},
+	}
 	const scale = 10
 	tsStart, _ := ParseUTCTime(defaultTimeStart)
 	tsEnd, _ := ParseUTCTime(defaultTimeEnd)
 	c := &QueryGeneratorConfig{
 		BaseConfig: BaseConfig{
-			Scale: scale,
+			Scale:     scale,
+			TimeStart: defaultTimeStart,
+			TimeEnd:   defaultTimeEnd,
 		},
 	}
 	g := &QueryGenerator{
-		config:  c,
-		tsStart: tsStart,
-		tsEnd:   tsEnd,
+		config:        c,
+		tsStart:       tsStart,
+		tsEnd:         tsEnd,
+		factories:     make(map[string]interface{}),
+		useCaseMatrix: useCaseMatrix,
 	}
+
 	checkType := func(format string, want utils.QueryGenerator) utils.QueryGenerator {
 		wantType := reflect.TypeOf(want)
 		c.Format = format
+		c.Use = useCaseDevops
+		c.QueryType = "lastpoint"
+		c.InterleavedNumGroups = 1
+		err := g.init(c)
+
+		if err != nil {
+			t.Fatalf("Error initializing query generator: %s", err)
+		}
+
 		useGen, err := g.getUseCaseGenerator(c)
 		if err != nil {
 			t.Errorf("unexpected error with format '%s': %v", format, err)
@@ -235,47 +256,92 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		return useGen
 	}
 
-	checkType(FormatCassandra, cassandra.NewDevops(tsStart, tsEnd, scale))
-	checkType(FormatInflux, influx.NewDevops(tsStart, tsEnd, scale))
-	checkType(FormatSiriDB, siridb.NewDevops(tsStart, tsEnd, scale))
-	checkType(FormatMongo, mongo.NewDevops(tsStart, tsEnd, scale))
-	checkType(FormatCrateDB, cratedb.NewDevops(tsStart, tsEnd, scale))
-	c.MongoUseNaive = true
-	checkType(FormatMongo, mongo.NewNaiveDevops(tsStart, tsEnd, scale))
+	bc := cassandra.BaseGenerator{}
+	cass, err := bc.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating cassandra query generator")
+	}
+	checkType(FormatCassandra, cass)
 
-	useGen := checkType(FormatClickhouse, clickhouse.NewDevops(tsStart, tsEnd, scale))
-	if got := useGen.(*clickhouse.Devops).UseTags; got != c.ClickhouseUseTags {
-		t.Errorf("clickhouse UseTags not set correctly: got %v want %v", got, c.ClickhouseUseTags)
+	bcr := cratedb.BaseGenerator{}
+	crate, err := bcr.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Errorf("Error creating cratedb query generator")
+	}
+	checkType(FormatCrateDB, crate)
+
+	bi := influx.BaseGenerator{}
+	indb, err := bi.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating influx query generator")
+	}
+	checkType(FormatInflux, indb)
+
+	bs := siridb.BaseGenerator{}
+	siri, err := bs.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating siridb query generator")
+	}
+	checkType(FormatSiriDB, siri)
+
+	bm := mongo.BaseGenerator{}
+	mongodb, err := bm.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating mongodb query generator")
+	}
+	checkType(FormatMongo, mongodb)
+
+	bm.UseNaive = true
+	nmongo, err := bm.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating naive mongodb query generator")
+	}
+	g.config.MongoUseNaive = true
+	checkType(FormatMongo, nmongo)
+
+	bcc := clickhouse.BaseGenerator{}
+	clickh, err := bcc.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating clickhouse query generator")
+	}
+	checkType(FormatClickhouse, clickh)
+
+	bcc.UseTags = true
+	clickt, err := bcc.NewDevops(tsStart, tsEnd, scale)
+	checkType(FormatClickhouse, clickt)
+	if got := clickt.(*clickhouse.Devops).UseTags; got != bcc.UseTags {
+		t.Errorf("clickhous3 UseTags not set correctly: got %v want %v", got, bcc.UseTags)
 	}
 
-	c.ClickhouseUseTags = true
-	useGen = checkType(FormatClickhouse, clickhouse.NewDevops(tsStart, tsEnd, scale))
-	if got := useGen.(*clickhouse.Devops).UseTags; got != c.ClickhouseUseTags {
-		t.Errorf("clickhouse UseTags not set correctly: got %v want %v", got, c.ClickhouseUseTags)
-	}
+	bt := timescaledb.BaseGenerator{}
+	ts, err := bt.NewDevops(tsStart, tsEnd, scale)
 
-	useGen = checkType(FormatTimescaleDB, timescaledb.NewDevops(tsStart, tsEnd, scale))
-	if got := useGen.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
+	checkType(FormatTimescaleDB, ts)
+	if got := ts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
-	if got := useGen.(*timescaledb.Devops).UseJSON; got != c.TimescaleUseJSON {
+	if got := ts.(*timescaledb.Devops).UseJSON; got != c.TimescaleUseJSON {
 		t.Errorf("timescaledb UseJSON not set correctly: got %v want %v", got, c.TimescaleUseJSON)
 	}
-	if got := useGen.(*timescaledb.Devops).UseTimeBucket; got != c.TimescaleUseTimeBucket {
+	if got := ts.(*timescaledb.Devops).UseTimeBucket; got != c.TimescaleUseTimeBucket {
 		t.Errorf("timescaledb UseTimeBucket not set correctly: got %v want %v", got, c.TimescaleUseTimeBucket)
 	}
 
-	c.TimescaleUseJSON = true
-	c.TimescaleUseTags = true
-	c.TimescaleUseTimeBucket = true
-	useGen = checkType(FormatTimescaleDB, timescaledb.NewDevops(tsStart, tsEnd, scale))
-	if got := useGen.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
+	bt.UseJSON = true
+	bt.UseTags = true
+	bt.UseTimeBucket = true
+	tts, err := bt.NewDevops(tsStart, tsEnd, scale)
+	g.config.TimescaleUseJSON = true
+	g.config.TimescaleUseTags = true
+	g.config.TimescaleUseTimeBucket = true
+	checkType(FormatTimescaleDB, tts)
+	if got := tts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
-	if got := useGen.(*timescaledb.Devops).UseJSON; got != c.TimescaleUseJSON {
+	if got := tts.(*timescaledb.Devops).UseJSON; got != c.TimescaleUseJSON {
 		t.Errorf("timescaledb UseJSON not set correctly: got %v want %v", got, c.TimescaleUseJSON)
 	}
-	if got := useGen.(*timescaledb.Devops).UseTimeBucket; got != c.TimescaleUseTimeBucket {
+	if got := tts.(*timescaledb.Devops).UseTimeBucket; got != c.TimescaleUseTimeBucket {
 		t.Errorf("timescaledb UseTimeBucket not set correctly: got %v want %v", got, c.TimescaleUseTimeBucket)
 	}
 
@@ -351,10 +417,11 @@ func getTestConfigAndGenerator() (*QueryGeneratorConfig, *QueryGenerator) {
 				"single-groupby-1-1-1": devops.NewSingleGroupby(1, 1, 1),
 			},
 		},
-		config:   c,
-		tsStart:  tsStart,
-		tsEnd:    tsEnd,
-		DebugOut: os.Stderr,
+		config:    c,
+		tsStart:   tsStart,
+		tsEnd:     tsEnd,
+		DebugOut:  os.Stderr,
+		factories: make(map[string]interface{}),
 	}
 
 	return c, g
@@ -429,6 +496,11 @@ func TestQueryGeneratorRunQueryGeneration(t *testing.T) {
 	for _, c := range cases {
 		config, g := getTestConfigAndGenerator()
 		config.Debug = c.level
+		err := g.init(config)
+		if err != nil {
+			t.Fatalf("Error initializing query generator: %s", err)
+		}
+
 		var buf bytes.Buffer
 		g.bufOut = bufio.NewWriter(&buf)
 		var debug bytes.Buffer
@@ -472,6 +544,7 @@ func TestQueryGeneratorRunQueryGenerationErrors(t *testing.T) {
 	c, g := getTestConfigAndGenerator()
 	var buf bytes.Buffer
 	g.bufOut = bufio.NewWriter(&buf)
+	g.init(c)
 
 	useGen, err := g.getUseCaseGenerator(c)
 	if err != nil {
@@ -513,7 +586,9 @@ func TestQueryGeneratorRunQueryGenerationErrors(t *testing.T) {
 }
 
 func TestQueryGeneratorGenerate(t *testing.T) {
-	g := &QueryGenerator{}
+	g := &QueryGenerator{
+		factories: make(map[string]interface{}),
+	}
 
 	// Test that an invalid config fails
 	c := &QueryGeneratorConfig{}
