@@ -18,22 +18,11 @@ func panicIfErr(err error) {
 
 // Devops produces CrateDB-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
 }
 
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
 const hostnameField = "tags['hostname']"
-
-// GenerateEmptyQuery returns an empty query.CrateDB
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewCrateDB()
-}
 
 // getSelectAggClauses builds specified aggregate function clauses for
 // a set of column idents.
@@ -224,13 +213,4 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 		numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
-}
-
-// fill Query fills the query struct with data
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
-	q := qi.(*query.CrateDB)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.Table = []byte("cpu")
-	q.SqlQuery = []byte(sql)
 }

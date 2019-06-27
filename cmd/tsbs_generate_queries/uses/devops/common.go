@@ -3,11 +3,9 @@ package devops
 import (
 	"fmt"
 	"math/rand"
-	"reflect"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	internalutils "github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -17,6 +15,9 @@ const (
 	errNoMetrics            = "cannot get 0 metrics"
 	errTooManyMetrics       = "too many metrics asked for"
 	errMoreItemsThanScale   = "cannot get random permutation with more items than scale"
+
+	// TableName is the name of the table where the time series data is stored for devops use case.
+	TableName = "cpu"
 
 	// DoubleGroupByDuration is the how big the time range for DoubleGroupBy query is
 	DoubleGroupByDuration = 12 * time.Hour
@@ -41,21 +42,14 @@ const (
 
 // Core is the common component of all generators for all systems
 type Core struct {
-	// Interval is the entire time range of the dataset
-	Interval *internalutils.TimeInterval
-
-	// Scale is the cardinality of the dataset in terms of devices/hosts
-	Scale int
+	*common.Core
 }
 
 // NewCore returns a new Core for the given time range and cardinality
 func NewCore(start, end time.Time, scale int) (*Core, error) {
-	ti, err := internalutils.NewTimeInterval(start, end)
-	if err != nil {
-		return nil, err
-	}
+	c, err := common.NewCore(start, end, scale)
+	return &Core{Core: c}, err
 
-	return &Core{Interval: ti, Scale: scale}, nil
 }
 
 // GetRandomHosts returns a random set of nHosts from a given Core
@@ -200,8 +194,4 @@ func getRandomSubsetPerm(numItems int, totalItems int) ([]int, error) {
 		}
 	}
 	return res, nil
-}
-
-func panicUnimplementedQuery(dg utils.QueryGenerator) {
-	panic(fmt.Sprintf("database (%v) does not implement query", reflect.TypeOf(dg)))
 }

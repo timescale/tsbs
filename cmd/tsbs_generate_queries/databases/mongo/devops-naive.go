@@ -21,19 +21,8 @@ func init() {
 
 // NaiveDevops produces Mongo-specific queries for the devops use case.
 type NaiveDevops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewNaiveDevops makes an NaiveDevops object ready to generate Queries.
-func NewNaiveDevops(start, end time.Time, scale int) *NaiveDevops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &NaiveDevops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.Mongo
-func (d *NaiveDevops) GenerateEmptyQuery() query.Query {
-	return query.NewMongo()
 }
 
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu',

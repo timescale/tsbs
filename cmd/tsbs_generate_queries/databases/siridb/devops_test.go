@@ -33,7 +33,12 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dq.(*Devops)
 
 		if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -60,7 +65,12 @@ func TestDevopsGetMetricWhereWithMetrics(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dq.(*Devops)
 
 		if got := d.getMetricWhereString(c.metrics); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -315,7 +325,12 @@ func TestDevopsFillInQuery(t *testing.T) {
 	humanLabel := "this is my label"
 	humanDesc := "and now my description"
 	siriql := "select filter(> 90) from `usage_user` before '2017-01-01'"
-	d := NewDevops(time.Now(), time.Now(), 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 	qi := d.GenerateEmptyQuery()
 	q := qi.(*query.SiriDB)
 	if len(q.HumanLabel) != 0 {
@@ -355,7 +370,12 @@ func runTestCases(t *testing.T, testFunc func(*Devops, testCase) query.Query, s 
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(s, e, 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(s, e, 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			if c.fail {
 				func() {

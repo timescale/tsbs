@@ -1,6 +1,7 @@
 package devops
 
 import (
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/query"
 )
@@ -25,7 +26,7 @@ func NewHighCPU(hosts int) utils.QueryFillerMaker {
 func (d *HighCPU) Fill(q query.Query) query.Query {
 	fc, ok := d.core.(HighCPUFiller)
 	if !ok {
-		panicUnimplementedQuery(d.core)
+		common.PanicUnimplementedQuery(d.core)
 	}
 	fc.HighCPUForHosts(q, d.hosts)
 	return q

@@ -37,7 +37,12 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(time.Now(), time.Now(), 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
 				t.Errorf("incorrect output: got %s want %s", got, c.want)
@@ -71,7 +76,12 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(time.Now(), time.Now(), 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			if got := d.getHostWhereString(c.nHosts); got != c.want {
 				t.Errorf("incorrect output:\ngot\n%s\nwant\n%s", got, c.want)
@@ -110,7 +120,12 @@ func TestDevopsGetSelectClausesAggMetrics(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(time.Now(), time.Now(), 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			if got := strings.Join(d.getSelectClausesAggMetrics(c.agg, c.metrics), ","); got != c.want {
 				t.Errorf("incorrect output: got %s want %s", got, c.want)
@@ -134,7 +149,12 @@ func TestDevopsGroupByTime(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
 	e := s.Add(time.Hour)
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	metrics := 1
 	nHosts := 1
@@ -159,7 +179,12 @@ func TestDevopsGroupByOrderByLimit(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
 	e := s.Add(2 * time.Hour)
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
 	d.GroupByOrderByLimit(q)
@@ -266,7 +291,12 @@ func TestLastPointPerHost(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
 	e := s.Add(2 * time.Hour)
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
 	d.LastPointPerHost(q)
@@ -328,7 +358,12 @@ func TestDevopsFillInQuery(t *testing.T) {
 	humanLabel := "this is my label"
 	humanDesc := "and now my description"
 	influxql := "SELECT * from cpu where usage_user > 90.0 and time < '2017-01-01'"
-	d := NewDevops(time.Now(), time.Now(), 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 	qi := d.GenerateEmptyQuery()
 	q := qi.(*query.HTTP)
 	if len(q.HumanLabel) != 0 {
@@ -377,7 +412,12 @@ func runTestCases(t *testing.T, testFunc func(*Devops, testCase) query.Query, s 
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(s, e, 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(s, e, 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			if c.fail {
 				func() {

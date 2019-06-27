@@ -44,7 +44,12 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dg, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dg.(*Devops)
 		d.UseTags = c.useTags
 
 		if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
@@ -81,7 +86,12 @@ func TestDevopsGetSelectClausesAggMetrics(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dg, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dg.(*Devops)
 
 		if got := strings.Join(d.getSelectClausesAggMetrics(c.agg, c.metrics), ","); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -465,7 +475,12 @@ func runTestCases(t *testing.T, testFunc func(*Devops, testCase) query.Query, s 
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(s, e, 10)
+			b := BaseGenerator{}
+			dg, err := b.NewDevops(s, e, 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dg.(*Devops)
 			d.UseTags = c.devopsUseTags
 
 			if c.fail {

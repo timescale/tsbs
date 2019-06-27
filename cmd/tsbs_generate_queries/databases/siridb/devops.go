@@ -18,19 +18,8 @@ func panicIfErr(err error) {
 
 // Devops produces SiriDB-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.SiriDB
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewSiriDB()
 }
 
 func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
@@ -178,11 +167,4 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	siriql := fmt.Sprintf("select filter(> 90) from `usage_user` %s between '%s' and '%s'", whereHosts, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, siriql)
-}
-
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
-	q := qi.(*query.SiriDB)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.SqlQuery = []byte(sql)
 }
