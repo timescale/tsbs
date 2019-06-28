@@ -41,7 +41,7 @@ func TestNetMeasurementTick(t *testing.T) {
 func TestNetMeasurementToPoint(t *testing.T) {
 	now := time.Now()
 	m := NewNetMeasurement(now)
-	origName := string(m.interfaceName)
+	origName := m.interfaceName
 	duration := time.Second
 	m.Tick(duration)
 
@@ -51,7 +51,7 @@ func TestNetMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelNet)
 	}
 
-	if got := string(p.GetTagValue(labelNetTagInterface)); got != origName {
+	if got := p.GetTagValue(labelNetTagInterface); got.(string) != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 

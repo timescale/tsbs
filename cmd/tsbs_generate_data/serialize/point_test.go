@@ -11,7 +11,7 @@ var (
 	testNow         = time.Unix(1451606400, 0)
 	testMeasurement = []byte("cpu")
 	testTagKeys     = [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")}
-	testTagVals     = [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")}
+	testTagVals     = []interface{}{"host_0", "eu-west-1", "eu-west-1b"}
 	testColFloat    = []byte("usage_guest_nice")
 	testColInt      = []byte("usage_guest")
 	testColInt64    = []byte("big_usage_guest")
@@ -71,7 +71,7 @@ var testPointInt = &Point{
 var testPointNoTags = &Point{
 	measurementName: testMeasurement,
 	tagKeys:         [][]byte{},
-	tagValues:       [][]byte{},
+	tagValues:       []interface{}{},
 	timestamp:       &testNow,
 	fieldKeys:       [][]byte{testColFloat},
 	fieldValues:     []interface{}{testFloat},
@@ -143,8 +143,8 @@ func TestCopy(t *testing.T) {
 	now := time.Now()
 	p.timestamp = &now
 	p.measurementName = []byte("test")
-	p.AppendTag([]byte("tag_key"), []byte("tag_value"))
-	p.AppendField([]byte("field_key"), []byte("field_key"))
+	p.AppendTag([]byte("tag_key"), "tag_value")
+	p.AppendField([]byte("field_key"), []byte("field_value"))
 
 	newP := NewPoint()
 
@@ -162,8 +162,8 @@ func TestCopy(t *testing.T) {
 	if got := len(p.tagValues); got != len(p.tagValues) {
 		t.Errorf("did not copy tag values: got %d tag values, want %d tag values", got, len(p.tagValues))
 	}
-	if string(newP.tagValues[0]) != string(p.tagValues[0]) {
-		t.Errorf("did not copy correct tag value: got %s want %s", string(newP.tagValues[0]), string(p.tagValues[0]))
+	if newP.tagValues[0].(string) != p.tagValues[0].(string) {
+		t.Errorf("did not copy correct tag value: got %v want %v", newP.tagValues[0], p.tagValues[0])
 	}
 	if got := len(newP.fieldKeys); got != len(p.fieldKeys) {
 		t.Errorf("did not copy field keys: got %d field keys, want %d field keys", got, len(newP.fieldKeys))
@@ -289,7 +289,7 @@ func TestTags(t *testing.T) {
 	}
 
 	k := []byte("foo")
-	v := []byte("foo_value")
+	v := "foo_value"
 	p.AppendTag(k, v)
 	if got := len(p.TagKeys()); got != 1 {
 		t.Errorf("incorrect len: got %d want %d", got, 1)
@@ -300,11 +300,11 @@ func TestTags(t *testing.T) {
 	if got := string(p.tagKeys[0]); got != string(k) {
 		t.Errorf("incorrect first field key: got %s want %s", got, k)
 	}
-	if got := string(p.tagValues[0]); got != string(v) {
+	if got := p.tagValues[0]; got.(string) != v {
 		t.Errorf("incorrect first field val: got %s want %s", got, v)
 	}
 
-	if got := string(p.GetTagValue([]byte(k))); got != string(v) {
+	if got := p.GetTagValue([]byte(k)); got.(string) != v {
 		t.Errorf("incorrect value returned for key: got %s want %s", got, v)
 	}
 	if got := p.GetTagValue([]byte("bar")); got != nil {
@@ -313,8 +313,8 @@ func TestTags(t *testing.T) {
 
 	p.ClearTagValue([]byte(k))
 
-	if got := string(p.GetTagValue([]byte(k))); got != "" {
-		t.Errorf("incorrect value returned for key: got %s want empty tag value", got)
+	if got := p.GetTagValue([]byte(k)); got != nil {
+		t.Errorf("incorrect value returned for key: got %s want empty tag value (nil)", got)
 	}
 }
 

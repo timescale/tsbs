@@ -17,7 +17,7 @@ func TestMongoSerializerSerialize(t *testing.T) {
 		name        string
 		ts          int64
 		tagKeys     [][]byte
-		tagVals     [][]byte
+		tagVals     []interface{}
 		readingKeys [][]byte
 		readingVals []interface{}
 	}
@@ -69,7 +69,7 @@ func TestMongoSerializerSerialize(t *testing.T) {
 				name:        string(testMeasurement),
 				ts:          testNow.UnixNano(),
 				tagKeys:     [][]byte{},
-				tagVals:     [][]byte{},
+				tagVals:     []interface{}{},
 				readingKeys: testPointNoTags.fieldKeys,
 				readingVals: testPointNoTags.fieldValues,
 			},
@@ -104,7 +104,7 @@ func TestMongoSerializerSerialize(t *testing.T) {
 			if got := string(tag.Key()); got != want {
 				t.Errorf("%s: incorrect tag key %d: got %s want %s", c.desc, i, got, want)
 			}
-			want = string(c.want.tagVals[i])
+			want = c.want.tagVals[i].(string)
 			if got := string(tag.Value()); got != want {
 				t.Errorf("%s: incorrect tag val %d: got %s want %s", c.desc, i, got, want)
 			}

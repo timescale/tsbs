@@ -54,8 +54,8 @@ func TestRedisMeasurementTick(t *testing.T) {
 func TestRedisMeasurementToPoint(t *testing.T) {
 	now := time.Now()
 	m := NewRedisMeasurement(now)
-	origName := string(m.serverName)
-	origPort := string(m.port)
+	origName := m.serverName
+	origPort := m.port
 	duration := time.Second
 	m.Tick(duration)
 
@@ -65,11 +65,11 @@ func TestRedisMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelRedis)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagServer)); got != origName {
+	if got := p.GetTagValue(labelRedisTagServer); got.(string) != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagPort)); got != origPort {
+	if got := p.GetTagValue(labelRedisTagPort); got.(string) != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 

@@ -32,13 +32,13 @@ var (
 
 type NginxMeasurement struct {
 	*common.SubsystemMeasurement
-	port, serverName []byte
+	port, serverName string
 }
 
 func NewNginxMeasurement(start time.Time) *NginxMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, nginxFields)
-	serverName := []byte(fmt.Sprintf("nginx_%d", rand.Intn(100000)))
-	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
+	serverName := fmt.Sprintf("nginx_%d", rand.Intn(100000))
+	port := fmt.Sprintf("%d", rand.Intn(20000)+1024)
 	return &NginxMeasurement{
 		SubsystemMeasurement: sub,
 		port:                 port,

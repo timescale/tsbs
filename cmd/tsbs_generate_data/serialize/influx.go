@@ -19,46 +19,38 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf := make([]byte, 0, 1024)
 	buf = append(buf, p.measurementName...)
 
+	fakeTags := make([]int, 0)
 	for i := 0; i < len(p.tagKeys); i++ {
 		if p.tagValues[i] == nil {
 			continue
 		}
-		buf = append(buf, ',')
-		buf = append(buf, p.tagKeys[i]...)
-		buf = append(buf, '=')
-		buf = append(buf, p.tagValues[i]...)
+		switch v := p.tagValues[i].(type) {
+		case string:
+			buf = append(buf, ',')
+			buf = append(buf, p.tagKeys[i]...)
+			buf = append(buf, '=')
+			buf = append(buf, []byte(v)...)
+		default:
+			fakeTags = append(fakeTags, i)
+		}
 	}
 
-	if len(p.fieldKeys) > 0 {
+	if len(fakeTags) > 0 || len(p.fieldKeys) > 0 {
 		buf = append(buf, ' ')
 	}
-
-	firstFieldFormatted := false
-	for i := 0; i < len(p.fieldKeys); i++ {
-		if p.fieldValues[i] == nil {
-			continue
-		}
-		// don't append a comma before the first field
-		if firstFieldFormatted {
+	for i := 0; i < len(fakeTags); i++ {
+		tagIndex := fakeTags[i]
+		buf = appendField(buf, p.fieldKeys[tagIndex], p.fieldValues[tagIndex])
+		if i+1 < len(p.fieldKeys) || len(p.fieldKeys) > 0 {
 			buf = append(buf, ',')
-		}
-		firstFieldFormatted = true
-		buf = append(buf, p.fieldKeys[i]...)
-		buf = append(buf, '=')
-
-		v := p.fieldValues[i]
-		buf = fastFormatAppend(v, buf)
-
-		// Influx uses 'i' to indicate integers:
-		switch v.(type) {
-		case int, int64:
-			buf = append(buf, 'i')
 		}
 	}
 
-	// first field wasn't formatted, because all the fields were nil, InfluxDB will reject the insert
-	if !firstFieldFormatted {
-		return nil
+	for i := 0; i < len(p.fieldKeys); i++ {
+		buf = appendField(buf, p.fieldKeys[i], p.fieldValues[i])
+		if i+1 < len(p.fieldKeys) {
+			buf = append(buf, ',')
+		}
 	}
 
 	buf = append(buf, ' ')
@@ -67,4 +59,19 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	_, err = w.Write(buf)
 
 	return err
+}
+
+func appendField(buf, key []byte, v interface{}) []byte {
+	buf = append(buf, key...)
+	buf = append(buf, '=')
+
+	buf = fastFormatAppend(v, buf)
+
+	// Influx uses 'i' to indicate integers:
+	switch v.(type) {
+	case int, int64:
+		buf = append(buf, 'i')
+	}
+
+	return buf
 }

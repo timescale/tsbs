@@ -19,33 +19,36 @@ type CassandraSerializer struct{}
 func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	seriesIDPrefix := make([]byte, 0, 256)
 	seriesIDPrefix = append(seriesIDPrefix, p.measurementName...)
+	fakeTags := make([]int, 0)
 	for i := 0; i < len(p.tagKeys); i++ {
-		seriesIDPrefix = append(seriesIDPrefix, ',')
-		seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
-		seriesIDPrefix = append(seriesIDPrefix, '=')
-		seriesIDPrefix = append(seriesIDPrefix, p.tagValues[i]...)
+		switch t := p.tagValues[i].(type) {
+		case string:
+			seriesIDPrefix = append(seriesIDPrefix, ',')
+			seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
+			seriesIDPrefix = append(seriesIDPrefix, '=')
+			seriesIDPrefix = append(seriesIDPrefix, []byte(t)...)
+		default:
+			fakeTags = append(fakeTags, i)
+		}
 	}
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
 	timestampBucket := p.timestamp.UTC().Format("2006-01-02")
+	for i := 0; i < len(fakeTags); i++ {
+		tagIndex := fakeTags[i]
+		key := p.tagKeys[tagIndex]
+		value := p.tagValues[tagIndex]
+		buf := generateFieldBuf(timestampNanos, timestampBucket, seriesIDPrefix, key, value)
 
+		_, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+	}
 	for fieldID := 0; fieldID < len(p.fieldKeys); fieldID++ {
 		value := p.fieldValues[fieldID]
-		tableName := fmt.Sprintf("series_%s", typeNameForCassandra(value))
-
-		buf := make([]byte, 0, 256)
-		buf = append(buf, []byte(tableName)...)
-		buf = append(buf, []byte(",")...)
-		buf = append(buf, seriesIDPrefix...)
-		buf = append(buf, []byte(",")...)
-		buf = append(buf, p.fieldKeys[fieldID]...)
-		buf = append(buf, []byte(",")...)
-		buf = append(buf, []byte(timestampBucket)...)
-		buf = append(buf, []byte(",")...)
-		buf = append(buf, []byte(fmt.Sprintf("%d,", timestampNanos))...)
-		buf = fastFormatAppend(value, buf)
-
-		buf = append(buf, []byte("\n")...)
+		key := p.fieldKeys[fieldID]
+		buf := generateFieldBuf(timestampNanos, timestampBucket, seriesIDPrefix, key, value)
 
 		_, err := w.Write(buf)
 		if err != nil {
@@ -71,4 +74,23 @@ func typeNameForCassandra(v interface{}) string {
 	default:
 		panic(fmt.Sprintf("unknown field type for %#v", v))
 	}
+}
+
+func generateFieldBuf(tsNanos int64, tsBucket string, seriesIDPrefix, key []byte, value interface{}) []byte {
+	tableName := fmt.Sprintf("series_%s", typeNameForCassandra(value))
+
+	buf := make([]byte, 0, 256)
+	buf = append(buf, []byte(tableName)...)
+	buf = append(buf, []byte(",")...)
+	buf = append(buf, seriesIDPrefix...)
+	buf = append(buf, []byte(",")...)
+	buf = append(buf, key...)
+	buf = append(buf, []byte(",")...)
+	buf = append(buf, []byte(tsBucket)...)
+	buf = append(buf, []byte(",")...)
+	buf = append(buf, []byte(fmt.Sprintf("%d,", tsNanos))...)
+	buf = fastFormatAppend(value, buf)
+
+	buf = append(buf, []byte("\n")...)
+	return buf
 }

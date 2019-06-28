@@ -33,12 +33,12 @@ var (
 
 type NetMeasurement struct {
 	*common.SubsystemMeasurement
-	interfaceName []byte
+	interfaceName string
 }
 
 func NewNetMeasurement(start time.Time) *NetMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, netFields)
-	interfaceName := []byte(fmt.Sprintf("eth%d", rand.Intn(4)))
+	interfaceName := fmt.Sprintf("eth%d", rand.Intn(4))
 	return &NetMeasurement{
 		SubsystemMeasurement: sub,
 		interfaceName:        interfaceName,

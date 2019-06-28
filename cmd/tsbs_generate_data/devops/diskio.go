@@ -33,12 +33,12 @@ var (
 
 type DiskIOMeasurement struct {
 	*common.SubsystemMeasurement
-	serial []byte
+	serial string
 }
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, diskIOFields)
-	serial := []byte(fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000)))
+	serial := fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000))
 	return &DiskIOMeasurement{
 		SubsystemMeasurement: sub,
 		serial:               serial,

@@ -48,8 +48,8 @@ func TestNginxMeasurementTick(t *testing.T) {
 func TestNginxMeasurementToPoint(t *testing.T) {
 	now := time.Now()
 	m := NewNginxMeasurement(now)
-	origName := string(m.serverName)
-	origPort := string(m.port)
+	origName := m.serverName
+	origPort := m.port
 	duration := time.Second
 	m.Tick(duration)
 
@@ -59,11 +59,11 @@ func TestNginxMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelNginx)
 	}
 
-	if got := string(p.GetTagValue(labelNginxTagServer)); got != origName {
+	if got := p.GetTagValue(labelNginxTagServer); got.(string) != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := string(p.GetTagValue(labelNginxTagPort)); got != origPort {
+	if got := p.GetTagValue(labelNginxTagPort); got.(string) != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 
