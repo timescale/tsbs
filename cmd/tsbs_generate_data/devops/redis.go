@@ -62,14 +62,14 @@ var (
 type RedisMeasurement struct {
 	*common.SubsystemMeasurement
 
-	port, serverName []byte
+	port, serverName string
 	uptime           time.Duration
 }
 
 func NewRedisMeasurement(start time.Time) *RedisMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, redisFields)
-	serverName := []byte(fmt.Sprintf("redis_%d", rand.Intn(100000)))
-	port := []byte(fmt.Sprintf("%d", rand.Intn(20000)+1024))
+	serverName := fmt.Sprintf("redis_%d", rand.Intn(100000))
+	port := fmt.Sprintf("%d", rand.Intn(20000)+1024)
 	return &RedisMeasurement{
 		SubsystemMeasurement: sub,
 		port:                 port,

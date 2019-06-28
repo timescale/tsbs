@@ -28,10 +28,10 @@ var (
 	labelDiskPath   = []byte("path")
 	labelDiskFSType = []byte("fstype")
 
-	fsExt3            = []byte("ext3")
-	fsExt4            = []byte("ext4")
-	fsBtrfs           = []byte("btrfs")
-	diskFSTypeChoices = [][]byte{
+	fsExt3            = "ext3"
+	fsExt4            = "ext4"
+	fsBtrfs           = "btrfs"
+	diskFSTypeChoices = []string{
 		fsExt3,
 		fsExt4,
 		fsBtrfs,
@@ -51,13 +51,13 @@ var (
 type DiskMeasurement struct {
 	*common.SubsystemMeasurement
 
-	path, fsType []byte
+	path, fsType string
 	uptime       time.Duration
 }
 
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
-	path := []byte(fmt.Sprintf(pathFmt, rand.Intn(10)))
-	fsType := common.RandomByteStringSliceChoice(diskFSTypeChoices)
+	path := fmt.Sprintf(pathFmt, rand.Intn(10))
+	fsType := common.RandomStringSliceChoice(diskFSTypeChoices)
 	sub := common.NewSubsystemMeasurement(start, 1)
 	sub.Distributions[0] = common.CWD(common.ND(50, 1), 0, oneTerabyte, oneTerabyte/2)
 

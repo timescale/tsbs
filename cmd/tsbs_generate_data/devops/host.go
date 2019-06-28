@@ -17,101 +17,101 @@ const (
 )
 
 type region struct {
-	Name        []byte
-	Datacenters [][]byte
+	Name        string
+	Datacenters []string
 }
 
 var regions = []region{
 	{
-		[]byte("us-east-1"),
-		[][]byte{
-			[]byte("us-east-1a"),
-			[]byte("us-east-1b"),
-			[]byte("us-east-1c"),
-			[]byte("us-east-1e"),
+		"us-east-1",
+		[]string{
+			"us-east-1a",
+			"us-east-1b",
+			"us-east-1c",
+			"us-east-1e",
 		},
 	},
 	{
-		[]byte("us-west-1"),
-		[][]byte{
-			[]byte("us-west-1a"),
-			[]byte("us-west-1b"),
+		"us-west-1",
+		[]string{
+			"us-west-1a",
+			"us-west-1b",
 		},
 	},
 	{
-		[]byte("us-west-2"),
-		[][]byte{
-			[]byte("us-west-2a"),
-			[]byte("us-west-2b"),
-			[]byte("us-west-2c"),
+		"us-west-2",
+		[]string{
+			"us-west-2a",
+			"us-west-2b",
+			"us-west-2c",
 		},
 	},
 	{
-		[]byte("eu-west-1"),
-		[][]byte{
-			[]byte("eu-west-1a"),
-			[]byte("eu-west-1b"),
-			[]byte("eu-west-1c"),
+		"eu-west-1",
+		[]string{
+			"eu-west-1a",
+			"eu-west-1b",
+			"eu-west-1c",
 		},
 	},
 	{
-		[]byte("eu-central-1"),
-		[][]byte{
-			[]byte("eu-central-1a"),
-			[]byte("eu-central-1b"),
+		"eu-central-1",
+		[]string{
+			"eu-central-1a",
+			"eu-central-1b",
 		},
 	},
 	{
-		[]byte("ap-southeast-1"),
-		[][]byte{
-			[]byte("ap-southeast-1a"),
-			[]byte("ap-southeast-1b"),
+		"ap-southeast-1",
+		[]string{
+			"ap-southeast-1a",
+			"ap-southeast-1b",
 		},
 	},
 	{
-		[]byte("ap-southeast-2"),
-		[][]byte{
-			[]byte("ap-southeast-2a"),
-			[]byte("ap-southeast-2b"),
+		"ap-southeast-2",
+		[]string{
+			"ap-southeast-2a",
+			"ap-southeast-2b",
 		},
 	},
 	{
-		[]byte("ap-northeast-1"),
-		[][]byte{
-			[]byte("ap-northeast-1a"),
-			[]byte("ap-northeast-1c"),
+		"ap-northeast-1",
+		[]string{
+			"ap-northeast-1a",
+			"ap-northeast-1c",
 		},
 	},
 	{
-		[]byte("sa-east-1"),
-		[][]byte{
-			[]byte("sa-east-1a"),
-			[]byte("sa-east-1b"),
-			[]byte("sa-east-1c"),
+		"sa-east-1",
+		[]string{
+			"sa-east-1a",
+			"sa-east-1b",
+			"sa-east-1c",
 		},
 	},
 }
 
 var (
-	MachineTeamChoices = [][]byte{
-		[]byte("SF"),
-		[]byte("NYC"),
-		[]byte("LON"),
-		[]byte("CHI"),
+	MachineTeamChoices = []string{
+		"SF",
+		"NYC",
+		"LON",
+		"CHI",
 	}
-	MachineOSChoices = [][]byte{
-		[]byte("Ubuntu16.10"),
-		[]byte("Ubuntu16.04LTS"),
-		[]byte("Ubuntu15.10"),
+	MachineOSChoices = []string{
+		"Ubuntu16.10",
+		"Ubuntu16.04LTS",
+		"Ubuntu15.10",
 	}
-	MachineArchChoices = [][]byte{
-		[]byte("x64"),
-		[]byte("x86"),
+	MachineArchChoices = []string{
+		"x64",
+		"x86",
 	}
-	MachineServiceEnvironmentChoices = [][]byte{
-		[]byte("production"),
-		[]byte("staging"),
-		[]byte("test"),
+	MachineServiceEnvironmentChoices = []string{
+		"production",
+		"staging",
+		"test",
 	}
 
 	// MachineTagKeys fields common to all hosts:
@@ -134,8 +134,8 @@ type Host struct {
 	SimulatedMeasurements []common.SimulatedMeasurement
 
 	// These are all assigned once, at Host creation:
-	Name, Region, Datacenter, Rack, OS, Arch          []byte
-	Team, Service, ServiceVersion, ServiceEnvironment []byte
+	Name, Region, Datacenter, Rack, OS, Arch          string
+	Team, Service, ServiceVersion, ServiceEnvironment string
 }
 
 func newHostMeasurements(start time.Time) []common.SimulatedMeasurement {
@@ -188,16 +188,16 @@ func newHostWithMeasurementGenerator(i int, start time.Time, generator func(time
 
 	h := Host{
 		// Tag Values that are static throughout the life of a Host:
-		Name:               []byte(fmt.Sprintf(hostFmt, i)),
+		Name:               fmt.Sprintf(hostFmt, i),
 		Region:             region.Name,
-		Datacenter:         common.RandomByteStringSliceChoice(region.Datacenters),
-		Rack:               getByteStringRandomInt(machineRackChoicesPerDatacenter),
-		Arch:               common.RandomByteStringSliceChoice(MachineArchChoices),
-		OS:                 common.RandomByteStringSliceChoice(MachineOSChoices),
-		Service:            getByteStringRandomInt(machineServiceChoices),
-		ServiceVersion:     getByteStringRandomInt(machineServiceVersionChoices),
-		ServiceEnvironment: common.RandomByteStringSliceChoice(MachineServiceEnvironmentChoices),
-		Team:               common.RandomByteStringSliceChoice(MachineTeamChoices),
+		Datacenter:         common.RandomStringSliceChoice(region.Datacenters),
+		Rack:               getStringRandomInt(machineRackChoicesPerDatacenter),
+		Arch:               common.RandomStringSliceChoice(MachineArchChoices),
+		OS:                 common.RandomStringSliceChoice(MachineOSChoices),
+		Service:            getStringRandomInt(machineServiceChoices),
+		ServiceVersion:     getStringRandomInt(machineServiceVersionChoices),
+		ServiceEnvironment: common.RandomStringSliceChoice(MachineServiceEnvironmentChoices),
+		Team:               common.RandomStringSliceChoice(MachineTeamChoices),
 
 		SimulatedMeasurements: sm,
 	}
@@ -212,8 +212,8 @@ func (h *Host) TickAll(d time.Duration) {
 	}
 }
 
-func getByteStringRandomInt(limit int64) []byte {
-	return []byte(fmt.Sprintf("%d", rand.Int63n(limit)))
+func getStringRandomInt(limit int64) string {
+	return fmt.Sprintf("%d", rand.Int63n(limit))
 }
 
 func randomRegionSliceChoice(s []region) *region {

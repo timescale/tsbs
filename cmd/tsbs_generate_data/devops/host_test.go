@@ -1,7 +1,6 @@
 package devops
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"testing"
@@ -166,17 +165,17 @@ func testGenerator(s time.Time) []common.SimulatedMeasurement {
 	}
 }
 
-func findRegionDatacenters(name []byte) [][]byte {
+func findRegionDatacenters(name string) []string {
 	for _, r := range regions {
-		if bytes.Equal(r.Name, name) {
+		if r.Name == name {
 			return r.Datacenters
 		}
 	}
 	panic(fmt.Errorf("unknown region %s", name))
 }
 
-func testStringNumberIsValid(t *testing.T, limit int64, s []byte) {
-	n, err := strconv.ParseInt(string(s), 10, 0)
+func testStringNumberIsValid(t *testing.T, limit int64, s string) {
+	n, err := strconv.ParseInt(s, 10, 0)
 	if err != nil {
 		t.Errorf("string number conversion error: %v", err)
 	}
@@ -195,14 +194,14 @@ func TestNewHostWithMeasurementGenerator(t *testing.T) {
 			t.Errorf("incorrect host name format: got %s want %s", got, wantName)
 		}
 		dcs := findRegionDatacenters(h.Region)
-		testIfInByteStringSlice(t, dcs, h.Datacenter)
+		testIfInStringSlice(t, dcs, h.Datacenter)
 		testStringNumberIsValid(t, machineRackChoicesPerDatacenter, h.Rack)
-		testIfInByteStringSlice(t, MachineArchChoices, h.Arch)
-		testIfInByteStringSlice(t, MachineOSChoices, h.OS)
+		testIfInStringSlice(t, MachineArchChoices, h.Arch)
+		testIfInStringSlice(t, MachineOSChoices, h.OS)
 		testStringNumberIsValid(t, machineServiceChoices, h.Service)
 		testStringNumberIsValid(t, machineServiceVersionChoices, h.ServiceVersion)
-		testIfInByteStringSlice(t, MachineServiceEnvironmentChoices, h.ServiceEnvironment)
-		testIfInByteStringSlice(t, MachineTeamChoices, h.Team)
+		testIfInStringSlice(t, MachineServiceEnvironmentChoices, h.ServiceEnvironment)
+		testIfInStringSlice(t, MachineTeamChoices, h.Team)
 
 		if got := len(h.SimulatedMeasurements); got != 1 {
 			t.Errorf("simulated measurements incorrect len: got %d", got)
@@ -237,17 +236,17 @@ func TestHostTickAll(t *testing.T) {
 	}
 }
 
-func TestGetByteStringRandomInt(t *testing.T) {
+func TestGetStringRandomInt(t *testing.T) {
 	limit := int64(100)
 	for i := 0; i < 1000000; i++ {
-		s := getByteStringRandomInt(limit)
+		s := getStringRandomInt(limit)
 		testStringNumberIsValid(t, limit, s)
 	}
 }
 
 func testIfInRegionSlice(t *testing.T, arr []region, choice *region) {
 	for _, x := range arr {
-		if bytes.Equal(x.Name, choice.Name) {
+		if x.Name == choice.Name {
 			return
 		}
 	}

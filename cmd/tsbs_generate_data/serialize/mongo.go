@@ -24,25 +24,24 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
 
-	fieldsMap := make(map[string]interface{})
-	for i, val := range p.fieldKeys {
-		fieldsMap[string(val)] = p.fieldValues[i]
-	}
-	tagsMap := make(map[string]string)
-	for i, val := range p.tagKeys {
-		tagsMap[string(val)] = string(p.tagValues[i])
-	}
-
 	tags := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.tagKeys); i > 0; i-- {
 		k := string(p.tagKeys[i-1])
 		key := b.CreateString(k)
-		val := b.CreateString(tagsMap[k])
-		MongoTagStart(b)
-		MongoTagAddKey(b, key)
-		MongoTagAddValue(b, val)
+		switch v := p.tagValues[i-1].(type) {
+		case string:
+			val := b.CreateString(v)
+			MongoTagStart(b)
+			MongoTagAddKey(b, key)
+			MongoTagAddValue(b, val)
+		default:
+			MongoTagStart(b)
+			MongoTagAddKey(b, key)
+			prependValue(b, v)
+		}
+
 		tags = append(tags, MongoTagEnd(b))
 	}
 	MongoPointStartTagsVector(b, len(tags))
@@ -59,17 +58,7 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		key := b.CreateString(k)
 		MongoReadingStart(b)
 		MongoReadingAddKey(b, key)
-		v := fieldsMap[k]
-		switch val := v.(type) {
-		case float64:
-			MongoReadingAddValue(b, val)
-		case int:
-			MongoReadingAddValue(b, float64(val))
-		case int64:
-			MongoReadingAddValue(b, float64(val))
-		default:
-			panic(fmt.Sprintf("cannot covert %T to float64", val))
-		}
+		prependValue(b, p.fieldValues[i-1])
 		fields = append(fields, MongoReadingEnd(b))
 	}
 	MongoPointStartFieldsVector(b, len(fields))
@@ -107,4 +96,17 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	fbBuilderPool.Put(b)
 
 	return nil
+}
+
+func prependValue(b *flatbuffers.Builder, value interface{}) {
+	switch val := value.(type) {
+	case float64:
+		MongoReadingAddValue(b, val)
+	case int:
+		MongoReadingAddValue(b, float64(val))
+	case int64:
+		MongoReadingAddValue(b, float64(val))
+	default:
+		panic(fmt.Sprintf("cannot covert %T to float64", val))
+	}
 }

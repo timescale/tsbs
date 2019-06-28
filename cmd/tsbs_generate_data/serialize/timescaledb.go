@@ -23,7 +23,7 @@ func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
 		buf = append(buf, ',')
 		buf = append(buf, p.tagKeys[i]...)
 		buf = append(buf, '=')
-		buf = append(buf, v...)
+		buf = fastFormatAppend(v, buf)
 	}
 	buf = append(buf, '\n')
 	_, err := w.Write(buf)

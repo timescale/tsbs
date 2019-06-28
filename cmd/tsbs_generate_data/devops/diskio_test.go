@@ -51,7 +51,7 @@ func TestDiskIOMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelDiskIO)
 	}
 
-	if got := string(p.GetTagValue(labelDiskIOSerial)); got != origSerial {
+	if got := p.GetTagValue(labelDiskIOSerial); got.(string) != origSerial {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origSerial)
 	}
 

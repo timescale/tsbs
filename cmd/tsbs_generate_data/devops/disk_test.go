@@ -18,6 +18,15 @@ func testIfInByteStringSlice(t *testing.T, arr [][]byte, choice []byte) {
 	t.Errorf("could not find choice in array: %s", choice)
 }
 
+func testIfInStringSlice(t *testing.T, arr []string, choice string) {
+	for _, x := range arr {
+		if x == choice {
+			return
+		}
+	}
+	t.Errorf("could not find choice in array: %s", choice)
+}
+
 func TestDiskMeasurementTick(t *testing.T) {
 	now := time.Now()
 	m := NewDiskMeasurement(now)
@@ -59,9 +68,9 @@ func TestDiskMeasurementTick(t *testing.T) {
 func TestDiskMeasurementToPoint(t *testing.T) {
 	now := time.Now()
 	m := NewDiskMeasurement(now)
-	origPath := string(m.path)
-	origFS := string(m.fsType)
-	testIfInByteStringSlice(t, diskFSTypeChoices, m.fsType)
+	origPath := m.path
+	origFS := m.fsType
+	testIfInStringSlice(t, diskFSTypeChoices, m.fsType)
 	duration := time.Second
 	m.Tick(duration)
 
@@ -70,10 +79,10 @@ func TestDiskMeasurementToPoint(t *testing.T) {
 	if got := string(p.MeasurementName()); got != string(labelDisk) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelDisk)
 	}
-	if got := string(p.GetTagValue(labelDiskPath)); got != origPath {
+	if got := p.GetTagValue(labelDiskPath); got.(string) != origPath {
 		t.Errorf("disk path tag is incorrect: got %s want %s", got, origPath)
 	}
-	if got := string(p.GetTagValue(labelDiskFSType)); got != origFS {
+	if got := p.GetTagValue(labelDiskFSType); got.(string) != origFS {
 		t.Errorf("disk FS type is incorrect: got %s want %s", got, origFS)
 	}
 

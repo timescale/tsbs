@@ -2,7 +2,12 @@ package common
 
 import "math/rand"
 
-// RandomByteStringSliceChoice returns a random byte slice from the provided slice of byte slices.
+// RandomStringSliceChoice returns a random string  from the provided slice of string slices.
+func RandomStringSliceChoice(s []string) string {
+	return s[rand.Intn(len(s))]
+}
+
+// RandomByteStringSliceChoice returns a random byte string slice  from the provided slice of byte string slices.
 func RandomByteStringSliceChoice(s [][]byte) []byte {
 	return s[rand.Intn(len(s))]
 }
