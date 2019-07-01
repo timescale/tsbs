@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxFuel = 100.0
+	maxFuel = 1.0
 	maxLoad = 5000.0
 )
 
@@ -18,14 +18,14 @@ var (
 	labelFuelState   = []byte("fuel_state")
 	labelCurrentLoad = []byte("current_load")
 	labelStatus      = []byte("status")
-	fuelUD           = common.UD(-1, 0)
+	fuelUD           = common.UD(-0.001, 0)
 	loadND           = common.ND(0, 1)
 	statusND         = common.ND(0, 1)
 
 	diagnosticsFields = []common.LabeledDistributionMaker{
 		{
 			Label:             labelFuelState,
-			DistributionMaker: func() common.Distribution { return common.CWD(fuelUD, 0, maxFuel, maxFuel) },
+			DistributionMaker: func() common.Distribution { return &customFuelDistribution{common.CWD(fuelUD, 0, maxFuel, maxFuel)} },
 		},
 		{
 			Label:             labelCurrentLoad,
@@ -37,6 +37,19 @@ var (
 		},
 	}
 )
+
+type customFuelDistribution struct {
+	*common.ClampedRandomWalkDistribution
+}
+
+// Advance computes the next value of this distribution and stores it.
+// Its custom behavior is to refuel the truck once it gets to the min value.
+func (d *customFuelDistribution) Advance() {
+	d.ClampedRandomWalkDistribution.Advance()
+	if d.State == d.Min {
+		d.State = d.Max
+	}
+}
 
 // DiagnosticsMeasurement represents a diagnostics subset of measurements.
 type DiagnosticsMeasurement struct {
