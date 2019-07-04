@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"log"
 	"testing"
 )
@@ -276,4 +277,55 @@ func TestDBCreatorGetFieldAndIndexDefinitions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestExtractTagNamesAndTypes(t *testing.T) {
+	names, types := extractTagNamesAndTypes([]string{"tag1 type1", "tag2 type2"})
+	if names[0] != "tag1" || names[1] != "tag2" {
+		t.Errorf("expected tag names tag1 and tag2, got: %v", names)
+	}
+	if types[0] != "type1" || types[1] != "type2" {
+		t.Errorf("expected tag types type1 and type2, got: %v", types)
+
+	}
+}
+func TestGenerateTagsTableQuery(t *testing.T) {
+	testCases := []struct {
+		in  []string
+		inT []string
+		out string
+	}{
+		{
+			in:  []string{"tag1"},
+			inT: []string{"string"},
+			out: "CREATE TABLE tags(id SERIAL PRIMARY KEY, tag1 TEXT)",
+		}, {
+			in:  []string{"tag1", "tag2", "tag3", "tag4"},
+			inT: []string{"int32", "int64", "float32", "float64"},
+			out: "CREATE TABLE tags(id SERIAL PRIMARY KEY, tag1 INTEGER, tag2 BIGINT," +
+				" tag3 FLOAT, tag4 DOUBLE PRECISION)",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Generate tags table for: %s", tc.in), func(t *testing.T) {
+			res := generateTagsTableQuery(tc.in, tc.inT)
+			if res != tc.out {
+				t.Errorf("tags table not properly created\n expected: %s\n got: %s\n", tc.out, res)
+			}
+		})
+	}
+}
+
+func TestGenerateTagsTableQueryPanicOnWrongType(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("did not panic when should")
+		}
+	}()
+
+	generateTagsTableQuery([]string{"tag"}, []string{"uint32"})
+
+	t.Fatalf("test should have stopped at this point")
 }

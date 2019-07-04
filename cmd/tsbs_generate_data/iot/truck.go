@@ -14,48 +14,48 @@ const (
 )
 
 type model struct {
-	Name            []byte
-	LoadCapacity    []byte
-	FuelCapacity    []byte
-	FuelConsumption []byte
+	Name            string
+	LoadCapacity    float32
+	FuelCapacity    float32
+	FuelConsumption float32
 }
 
 var (
-	driverChoices = [][]byte{
-		[]byte("Derek"),
-		[]byte("Rodney"),
-		[]byte("Albert"),
-		[]byte("Andy"),
-		[]byte("Seth"),
-		[]byte("Trish"),
+	driverChoices = []string{
+		"Derek",
+		"Rodney",
+		"Albert",
+		"Andy",
+		"Seth",
+		"Trish",
 	}
 
 	modelChoices = []model{
 		{
-			Name:            []byte("F-150"),
-			LoadCapacity:    []byte("2000"),
-			FuelCapacity:    []byte("200"),
-			FuelConsumption: []byte("15"),
+			Name:            "F-150",
+			LoadCapacity:    2000,
+			FuelCapacity:    200,
+			FuelConsumption: 15,
 		},
 		{
-			Name:            []byte("G-2000"),
-			LoadCapacity:    []byte("5000"),
-			FuelCapacity:    []byte("300"),
-			FuelConsumption: []byte("19"),
+			Name:            "G-2000",
+			LoadCapacity:    5000,
+			FuelCapacity:    300,
+			FuelConsumption: 19,
 		},
 		{
-			Name:            []byte("H-2"),
-			LoadCapacity:    []byte("1500"),
-			FuelCapacity:    []byte("150"),
-			FuelConsumption: []byte("12"),
+			Name:            "H-2",
+			LoadCapacity:    1500,
+			FuelCapacity:    150,
+			FuelConsumption: 12,
 		},
 	}
 
-	deviceVersionChoices = [][]byte{
-		[]byte("v1.0"),
-		[]byte("v1.5"),
-		[]byte("v2.0"),
-		[]byte("v2.3"),
+	deviceVersionChoices = []string{
+		"v1.0",
+		"v1.5",
+		"v2.0",
+		"v2.3",
 	}
 )
 
@@ -102,11 +102,11 @@ func newTruckWithMeasurementGenerator(i int, start time.Time, generator func(tim
 
 	h := Truck{
 		tags: []common.Tag{
-			{Key: []byte("name"), Value: []byte(fmt.Sprintf(truckNameFmt, i))},
-			{Key: []byte("fleet"), Value: common.RandomByteStringSliceChoice(usecase.FleetChoices)},
-			{Key: []byte("driver"), Value: common.RandomByteStringSliceChoice(driverChoices)},
+			{Key: []byte("name"), Value: fmt.Sprintf(truckNameFmt, i)},
+			{Key: []byte("fleet"), Value: common.RandomStringSliceChoice(usecase.FleetChoices)},
+			{Key: []byte("driver"), Value: common.RandomStringSliceChoice(driverChoices)},
 			{Key: []byte("model"), Value: m.Name},
-			{Key: []byte("device_version"), Value: common.RandomByteStringSliceChoice(deviceVersionChoices)},
+			{Key: []byte("device_version"), Value: common.RandomStringSliceChoice(deviceVersionChoices)},
 			{Key: []byte("load_capacity"), Value: m.LoadCapacity},
 			{Key: []byte("fuel_capacity"), Value: m.FuelCapacity},
 			{Key: []byte("nominal_fuel_consumption"), Value: m.FuelConsumption},

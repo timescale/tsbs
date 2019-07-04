@@ -6,8 +6,9 @@ package main
 import (
 	"bufio"
 	"flag"
-	"github.com/timescale/tsbs/load"
 	"log"
+
+	"github.com/timescale/tsbs/load"
 )
 
 const (
@@ -37,8 +38,9 @@ type insertData struct {
 
 // Global vars
 var (
-	loader    *load.BenchmarkRunner
-	tableCols map[string][]string
+	loader         *load.BenchmarkRunner
+	tableCols      map[string][]string
+	tagColumnTypes []string
 )
 
 // allows for testing

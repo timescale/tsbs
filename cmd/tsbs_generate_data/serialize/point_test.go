@@ -80,7 +80,7 @@ var testPointNoTags = &Point{
 var testPointWithNilTag = &Point{
 	measurementName: testMeasurement,
 	tagKeys:         [][]byte{[]byte("hostname")},
-	tagValues:       [][]byte{nil},
+	tagValues:       []interface{}{nil},
 	timestamp:       &testNow,
 	fieldKeys:       [][]byte{testColFloat},
 	fieldValues:     []interface{}{testFloat},
@@ -89,7 +89,7 @@ var testPointWithNilTag = &Point{
 var testPointWithNilField = &Point{
 	measurementName: testMeasurement,
 	tagKeys:         [][]byte{},
-	tagValues:       [][]byte{},
+	tagValues:       []interface{}{},
 	timestamp:       &testNow,
 	fieldKeys:       [][]byte{testColInt64, testColFloat},
 	fieldValues:     []interface{}{nil, testFloat},

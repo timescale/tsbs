@@ -38,6 +38,9 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		tagIndex := fakeTags[i]
 		key := p.tagKeys[tagIndex]
 		value := p.tagValues[tagIndex]
+		if value == nil {
+			continue
+		}
 		buf := generateFieldBuf(timestampNanos, timestampBucket, seriesIDPrefix, key, value)
 
 		_, err := w.Write(buf)
@@ -48,6 +51,9 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	for fieldID := 0; fieldID < len(p.fieldKeys); fieldID++ {
 		value := p.fieldValues[fieldID]
 		key := p.fieldKeys[fieldID]
+		if value == nil {
+			continue
+		}
 		buf := generateFieldBuf(timestampNanos, timestampBucket, seriesIDPrefix, key, value)
 
 		_, err := w.Write(buf)

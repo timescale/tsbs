@@ -57,7 +57,7 @@ type Core struct {
 }
 
 // GetRandomFleet returns one of the fleet choices by random.
-func (c Core) GetRandomFleet() []byte {
+func (c Core) GetRandomFleet() string {
 	return usecase.FleetChoices[rand.Intn(len(usecase.FleetChoices))]
 }
 

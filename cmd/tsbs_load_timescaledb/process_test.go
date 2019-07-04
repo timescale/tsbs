@@ -250,3 +250,13 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 		inTableTag = oldInTableTag
 	}
 }
+
+func TestConvertValsToSQLBasedOnType(t *testing.T) {
+	inVals := []string{"1", "2", "3", "4", "5", ""}
+	inTypes := []string{"text", "int32", "int64", "float32", "float64", "int32"}
+	converted := convertValsToSQLBasedOnType(inVals, inTypes)
+	expected := []string{"'1'", "2", "3", "4", "5", "NULL"}
+	if reflect.DeepEqual(expected, converted) {
+		t.Errorf("error converting to sql values\nexpected: %v\ngot: %v", expected, converted)
+	}
+}

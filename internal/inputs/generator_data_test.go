@@ -169,7 +169,7 @@ func TestDataGeneratorInit(t *testing.T) {
 	}
 }
 
-const correctData = `tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
+const correctData = `tags,hostname string,region string,datacenter string,rack string,os string,arch string,team string,service string,service_version string,service_environment string
 cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
 
 tags,hostname=host_0,region=eu-central-1,datacenter=eu-central-1a,rack=6,os=Ubuntu15.10,arch=x86,team=SF,service=19,service_version=1,service_environment=test
@@ -239,6 +239,10 @@ func (s *testSimulator) Fields() map[string][][]byte {
 }
 
 func (s *testSimulator) TagKeys() [][]byte {
+	return nil
+}
+
+func (s *testSimulator) TagTypes() []reflect.Type {
 	return nil
 }
 

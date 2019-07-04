@@ -38,19 +38,33 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	if len(fakeTags) > 0 || len(p.fieldKeys) > 0 {
 		buf = append(buf, ' ')
 	}
+	firstFieldFormatted := false
 	for i := 0; i < len(fakeTags); i++ {
 		tagIndex := fakeTags[i]
-		buf = appendField(buf, p.fieldKeys[tagIndex], p.fieldValues[tagIndex])
-		if i+1 < len(p.fieldKeys) || len(p.fieldKeys) > 0 {
+		// don't append a comma before the first field
+		if firstFieldFormatted {
 			buf = append(buf, ',')
 		}
+		firstFieldFormatted = true
+		buf = appendField(buf, p.tagKeys[tagIndex], p.tagValues[tagIndex])
 	}
 
 	for i := 0; i < len(p.fieldKeys); i++ {
-		buf = appendField(buf, p.fieldKeys[i], p.fieldValues[i])
-		if i+1 < len(p.fieldKeys) {
+		value := p.fieldValues[i]
+		if value == nil {
+			continue
+		}
+		// don't append a comma before the first field
+		if firstFieldFormatted {
 			buf = append(buf, ',')
 		}
+		firstFieldFormatted = true
+		buf = appendField(buf, p.fieldKeys[i], value)
+	}
+
+	// first field wasn't formatted, because all the fields were nil, InfluxDB will reject the insert
+	if !firstFieldFormatted {
+		return nil
 	}
 
 	buf = append(buf, ' ')

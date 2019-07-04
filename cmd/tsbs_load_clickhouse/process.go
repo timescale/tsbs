@@ -47,7 +47,7 @@ func subsystemTagsToJSON(tags []string) string {
 }
 
 // insertTags fills tags table with values
-func insertTags(db *sqlx.DB, startId int, rows [][]string, returnResults bool) map[string]int64 {
+func insertTags(db *sqlx.DB, startID int, rows [][]string, returnResults bool) map[string]int64 {
 	// Map hostname to tags_id
 	ret := make(map[string]int64)
 
@@ -96,7 +96,7 @@ func insertTags(db *sqlx.DB, startId int, rows [][]string, returnResults bool) m
 	}
 	defer stmt.Close()
 
-	id := startId
+	id := startID
 	for _, row := range rows {
 		// id of the new tag
 		id++
@@ -110,7 +110,7 @@ func insertTags(db *sqlx.DB, startId int, rows [][]string, returnResults bool) m
 		variadicArgs[0] = id
 		// And all the rest of column values afterwards
 		for i, value := range row {
-			variadicArgs[i+1] = value
+			variadicArgs[i+1] = convertBasedOnType(tagColumnTypes[i], value)
 		}
 
 		// And now expand []interface{} with the same data as 'row' contains (plus 'id') in Exec(args ...interface{})
@@ -224,6 +224,10 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			r = append(r, tags[0]) // tags[0] = hostname
 		}
 		for _, v := range metrics[1:] {
+			if v == "" {
+				r = append(r, nil)
+				continue
+			}
 			f64, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				panic(err)
@@ -366,4 +370,41 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batches.cnt = 0
 
 	return metricCnt, uint64(rowCnt)
+}
+
+func convertBasedOnType(serializedType, value string) interface{} {
+	if value == "" {
+		return nil
+	}
+
+	switch serializedType {
+	case "string":
+		return value
+	case "float32":
+		f, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse '%s' to float32", value))
+		}
+		return float32(f)
+	case "float64":
+		f, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse '%s' to float64", value))
+		}
+		return f
+	case "int64":
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse '%s' to int64", value))
+		}
+		return i
+	case "int32":
+		i, err := strconv.ParseInt(value, 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse '%s' to int64", value))
+		}
+		return int32(i)
+	default:
+		panic(fmt.Sprintf("unrecognized type %s", serializedType))
+	}
 }

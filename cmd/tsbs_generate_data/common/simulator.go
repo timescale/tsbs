@@ -1,6 +1,7 @@
 package common
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
@@ -69,6 +70,7 @@ type Simulator interface {
 	Next(*serialize.Point) bool
 	Fields() map[string][][]byte
 	TagKeys() [][]byte
+	TagTypes() []reflect.Type
 }
 
 // BaseSimulator generates data similar to truck readings.
@@ -129,7 +131,7 @@ func (s *BaseSimulator) Next(p *serialize.Point) bool {
 	return ret
 }
 
-// Fields returns all the simulated mesurements for the device.
+// Fields returns all the simulated measurements for the device.
 func (s *BaseSimulator) Fields() map[string][][]byte {
 	if len(s.generators) <= 0 {
 		panic("cannot get fields because no Generators added")
@@ -155,6 +157,21 @@ func (s *BaseSimulator) TagKeys() [][]byte {
 	data := make([][]byte, len(tags))
 	for i, tag := range tags {
 		data[i] = tag.Key
+	}
+
+	return data
+}
+
+// TagTypes returns the type for each tag, extracted from the generated values
+func (s *BaseSimulator) TagTypes() []reflect.Type {
+	if len(s.generators) <= 0 {
+		panic("cannot get tag types because no Generators added")
+	}
+
+	tags := s.generators[0].Tags()
+	data := make([]reflect.Type, len(tags))
+	for i, tag := range tags {
+		data[i] = reflect.TypeOf(tag.Value)
 	}
 
 	return data
