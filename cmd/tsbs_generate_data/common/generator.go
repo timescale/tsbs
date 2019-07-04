@@ -14,5 +14,5 @@ type Generator interface {
 // Tag is a key-value pair of information which is used to tag a generator
 type Tag struct {
 	Key   []byte
-	Value []byte
+	Value interface{}
 }

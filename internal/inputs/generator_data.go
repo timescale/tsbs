@@ -250,9 +250,12 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 
 func (g *DataGenerator) writeHeader(sim common.Simulator) {
 	g.bufOut.WriteString("tags")
-	for _, key := range sim.TagKeys() {
+	types := sim.TagTypes()
+	for i, key := range sim.TagKeys() {
 		g.bufOut.WriteString(",")
 		g.bufOut.Write(key)
+		g.bufOut.WriteString(" ")
+		g.bufOut.WriteString(types[i].String())
 	}
 	g.bufOut.WriteString("\n")
 	// sort the keys so the header is deterministic

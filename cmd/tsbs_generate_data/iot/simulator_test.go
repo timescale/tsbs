@@ -3,6 +3,7 @@ package iot
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -45,6 +46,10 @@ func (m *mockBaseSimulator) Fields() map[string][][]byte {
 
 func (m *mockBaseSimulator) TagKeys() [][]byte {
 	return m.tagKeys
+}
+
+func (m *mockBaseSimulator) TagTypes() []reflect.Type {
+	return nil
 }
 
 func newMockBaseSimulator() *mockBaseSimulator {
@@ -492,4 +497,26 @@ func TestSimulatorNext(t *testing.T) {
 		})
 	}
 
+}
+
+func TestSimulatorTagTypes(t *testing.T) {
+	sc := &SimulatorConfig{
+		Start: time.Now(),
+		End:   time.Now(),
+
+		InitGeneratorScale:   1,
+		GeneratorScale:       1,
+		GeneratorConstructor: NewTruck,
+	}
+	s := sc.NewSimulator(time.Second, 1).(*Simulator)
+	p := serialize.NewPoint()
+	s.Next(p)
+	tagTypes := s.TagTypes()
+	for i, pointTagKey := range p.TagKeys() {
+		value := p.GetTagValue(pointTagKey)
+		tagType := reflect.TypeOf(value)
+		if tagType != tagTypes[i] {
+			t.Errorf("incorrect tag type. expected %v, got %v", tagTypes[i], tagType)
+		}
+	}
 }

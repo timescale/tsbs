@@ -2,6 +2,7 @@ package devops
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -293,6 +294,15 @@ func TestAdjustNumHostsForEpoch(t *testing.T) {
 				t.Errorf("%s: incorrect number of hosts in epoch %d: got %d want %d", c.desc, i, got, want)
 			}
 			s.adjustNumHostsForEpoch()
+		}
+	}
+}
+
+func TestCommonDevopsSimulatorTagTypes(t *testing.T) {
+	s := &commonDevopsSimulator{}
+	for _, tagType := range s.TagTypes() {
+		if tagType.Kind() != reflect.String {
+			t.Errorf("tag type incorrect. expected %v, got %v", reflect.String, tagType.Kind())
 		}
 	}
 }

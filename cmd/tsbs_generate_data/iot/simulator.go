@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -65,6 +66,11 @@ func (s Simulator) Fields() map[string][][]byte {
 // TagKeys returns the tag keys of an entry.
 func (s Simulator) TagKeys() [][]byte {
 	return s.base.TagKeys()
+}
+
+// TagTypes returns the data types for the tags of an entry.
+func (s Simulator) TagTypes() []reflect.Type {
+	return s.base.TagTypes()
 }
 
 // Finished checks if the simulator is done.

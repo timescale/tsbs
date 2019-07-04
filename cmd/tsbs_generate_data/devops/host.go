@@ -3,6 +3,7 @@ package devops
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -127,6 +128,8 @@ var (
 		[]byte("service_version"),
 		[]byte("service_environment"),
 	}
+
+	MachineTagType = reflect.TypeOf("some string")
 )
 
 // Host models a machine being monitored for dev ops

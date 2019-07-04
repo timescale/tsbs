@@ -1,6 +1,7 @@
 package devops
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -55,6 +56,14 @@ func (s *commonDevopsSimulator) Fields() map[string][][]byte {
 
 func (s *commonDevopsSimulator) TagKeys() [][]byte {
 	return MachineTagKeys
+}
+
+func (s *commonDevopsSimulator) TagTypes() []reflect.Type {
+	types := make([]reflect.Type, len(MachineTagKeys))
+	for i := 0; i < len(MachineTagKeys); i++ {
+		types[i] = MachineTagType
+	}
+	return types
 }
 
 func (s *commonDevopsSimulator) fields(measurements []common.SimulatedMeasurement) map[string][][]byte {

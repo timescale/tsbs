@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func (d dummyGenerator) Tags() []Tag {
 
 	tags[0] = Tag{
 		Key:   []byte("key"),
-		Value: []byte("value"),
+		Value: "value",
 	}
 
 	return tags
@@ -124,6 +125,34 @@ func TestBaseSimulatorTagKeysPanic(t *testing.T) {
 
 	s := BaseSimulator{}
 	s.TagKeys()
+
+	t.Fatalf("test should have stopped at this point")
+}
+
+func TestBaseSimulatorTagTypes(t *testing.T) {
+	s := testBaseConf.NewSimulator(time.Second, 0).(*BaseSimulator)
+
+	tagTypes := s.TagTypes()
+
+	if got := len(tagTypes); got != 1 {
+		t.Fatalf("tag key count incorrect, got %d want 1", got)
+	}
+
+	if got := tagTypes[0]; got != reflect.TypeOf("string") {
+		t.Errorf("tag type incorrect, got %s want string", got)
+	}
+}
+
+func TestBaseSimulatorTagTypesPanic(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("did not panic when should")
+		}
+	}()
+
+	s := BaseSimulator{}
+	s.TagTypes()
 
 	t.Fatalf("test should have stopped at this point")
 }

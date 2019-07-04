@@ -13,6 +13,7 @@ import (
 const tagsKey = "tags"
 
 var tableCols = make(map[string][]string)
+var tagColumnTypes []string
 
 type dbCreator struct {
 	br      *bufio.Reader
@@ -131,11 +132,14 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	if tags[0] != tagsKey {
 		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", tags[0])
 	}
+	tagNames, tagTypes := extractTagNamesAndTypes(tags[1:])
 	if createMetricsTable {
-		createTagsTable(dbBench, tags[1:])
+		createTagsTable(dbBench, tagNames, tagTypes)
 	}
 	// tableCols is a global map. Globally cache the available tags
-	tableCols[tagsKey] = tags[1:]
+	tableCols[tagsKey] = tagNames
+	// tagTypes holds the type of each tag value (as strings from Go types (string, float32...))
+	tagColumnTypes = tagTypes
 
 	// Each table is defined in the dbCreator 'cols' list. The definition consists of a
 	// comma separated list of the table name followed by its columns. Iterate over each
@@ -247,17 +251,58 @@ func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string)
 	return ret
 }
 
-func createTagsTable(db *sql.DB, tags []string) {
+func createTagsTable(db *sql.DB, tagNames, tagTypes []string) {
 	MustExec(db, "DROP TABLE IF EXISTS tags")
 	if useJSON {
 		MustExec(db, "CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
 		MustExec(db, "CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
 		MustExec(db, "CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
-	} else {
-		cols := strings.Join(tags, " TEXT, ")
-		cols += " TEXT"
-		MustExec(db, fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols))
-		MustExec(db, fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tags, ",")))
-		MustExec(db, fmt.Sprintf("CREATE INDEX ON tags(%s)", tags[0]))
+	}
+
+	MustExec(db, generateTagsTableQuery(tagNames, tagTypes))
+	MustExec(db, fmt.Sprintf("CREATE UNIQUE INDEX uniq1 ON tags(%s)", strings.Join(tagNames, ",")))
+	MustExec(db, fmt.Sprintf("CREATE INDEX ON tags(%s)", tagNames[0]))
+}
+
+func generateTagsTableQuery(tagNames, tagTypes []string) string {
+	tagColumnDefinitions := make([]string, len(tagNames))
+	for i, tagName := range tagNames {
+		pgType := serializedTypeToPgType(tagTypes[i])
+		tagColumnDefinitions[i] = fmt.Sprintf("%s %s", tagName, pgType)
+	}
+
+	cols := strings.Join(tagColumnDefinitions, ", ")
+	return fmt.Sprintf("CREATE TABLE tags(id SERIAL PRIMARY KEY, %s)", cols)
+}
+
+func extractTagNamesAndTypes(tags []string) ([]string, []string) {
+	tagNames := make([]string, len(tags))
+	tagTypes := make([]string, len(tags))
+	for i, tagWithType := range tags {
+		tagAndType := strings.Split(tagWithType, " ")
+		if len(tagAndType) != 2 {
+			panic("tag header has invalid format")
+		}
+		tagNames[i] = tagAndType[0]
+		tagTypes[i] = tagAndType[1]
+	}
+
+	return tagNames, tagTypes
+}
+
+func serializedTypeToPgType(serializedType string) string {
+	switch serializedType {
+	case "string":
+		return "TEXT"
+	case "float32":
+		return "FLOAT"
+	case "float64":
+		return "DOUBLE PRECISION"
+	case "int64":
+		return "BIGINT"
+	case "int32":
+		return "INTEGER"
+	default:
+		panic(fmt.Sprintf("unrecognized type %s", serializedType))
 	}
 }

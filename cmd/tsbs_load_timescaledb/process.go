@@ -68,15 +68,18 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 		}
 	} else {
 		for _, val := range tagRows {
-			row := fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','"))
+			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], tagColumnTypes[:commonTagsLen])
+			row := fmt.Sprintf("(%s)", strings.Join(sqlValues, ","))
 			// Replacing empty tags with NULLs.
+<<<<<<< HEAD
 			row = strings.Replace(row, "''", "NULL", -1)
+=======
+>>>>>>> Add the tag types to the header of an input file
 			values = append(values, row)
 		}
 	}
 	tx := MustBegin(db)
 	defer tx.Commit()
-
 	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
 	if err != nil {
 		panic(err)
@@ -126,7 +129,7 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 	for _, data := range rows {
 		// Split the tags into individual common tags and an extra bit leftover
 		// for non-common tags that need to be added separately. For each of
-		// the common tags, remove everything after = in the form <label>=<val>
+		// the common tags, remove everything before = in the form <label>=<val>
 		// since we won't need it.
 		tags := strings.SplitN(data.tags, ",", commonTagsLen+1)
 		for i := 0; i < commonTagsLen; i++ {
@@ -309,4 +312,22 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batches.m = map[string][]*insertData{}
 	batches.cnt = 0
 	return metricCnt, uint64(rowCnt)
+}
+
+func convertValsToSQLBasedOnType(values []string, types []string) []string {
+	sqlVals := make([]string, len(values))
+	for i, val := range values {
+		if val == "" {
+			sqlVals[i] = "NULL"
+			continue
+		}
+		switch types[i] {
+		case "string":
+			sqlVals[i] = "'" + val + "'"
+		default:
+			sqlVals[i] = val
+		}
+	}
+
+	return sqlVals
 }
