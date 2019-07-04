@@ -162,7 +162,7 @@ func (s *BaseSimulator) TagKeys() [][]byte {
 	return data
 }
 
-// TagTypes returns the type for each tag, extracted from the generated values
+// TagTypes returns the type for each tag, extracted from the generated values.
 func (s *BaseSimulator) TagTypes() []reflect.Type {
 	if len(s.generators) <= 0 {
 		panic("cannot get tag types because no Generators added")

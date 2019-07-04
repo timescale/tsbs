@@ -66,7 +66,6 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	if !firstFieldFormatted {
 		return nil
 	}
-
 	buf = append(buf, ' ')
 	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
 	buf = append(buf, '\n')

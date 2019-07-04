@@ -65,11 +65,11 @@ func TestRedisMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelRedis)
 	}
 
-	if got := p.GetTagValue(labelRedisTagServer); got.(string) != origName {
+	if got := p.GetTagValue(labelRedisTagServer).(string); got != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := p.GetTagValue(labelRedisTagPort); got.(string) != origPort {
+	if got := p.GetTagValue(labelRedisTagPort).(string); got != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 

@@ -170,6 +170,10 @@ func generateTagsTableQuery(tagNames, tagTypes []string) string {
 	// prepare COLUMNs specification for CREATE TABLE statement
 	// all columns would be of the type specified in the tags header
 	// e.g. tags, tag2 string,tag2 int32...
+	if len(tagNames) != len(tagTypes) {
+		panic("wrong number of tag names and tag types")
+	}
+
 	tagColumnDefinitions := make([]string, len(tagNames))
 	for i, tagName := range tagNames {
 		tagType := serializedTypeToClickHouseType(tagTypes[i])

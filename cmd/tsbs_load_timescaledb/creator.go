@@ -13,7 +13,6 @@ import (
 const tagsKey = "tags"
 
 var tableCols = make(map[string][]string)
-var tagColumnTypes []string
 
 type dbCreator struct {
 	br      *bufio.Reader
@@ -257,6 +256,7 @@ func createTagsTable(db *sql.DB, tagNames, tagTypes []string) {
 		MustExec(db, "CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")
 		MustExec(db, "CREATE UNIQUE INDEX uniq1 ON tags(tagset)")
 		MustExec(db, "CREATE INDEX idxginp ON tags USING gin (tagset jsonb_path_ops);")
+		return
 	}
 
 	MustExec(db, generateTagsTableQuery(tagNames, tagTypes))

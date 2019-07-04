@@ -22,13 +22,17 @@ func (i *hostnameIndexer) GetIndex(item *load.Point) int {
 	t := &serialize.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
 		p.Tags(t, j)
-		if string(t.Key()) == "hostname" {
+		key := string(t.Key())
+		if key == "hostname" || key == "name" {
+			// the hostame is the defacto index for devops tags
+			// the truck name is the defacto index for iot tags
 			h := fnv.New32a()
 			h.Write([]byte(string(t.Value())))
 			return int(h.Sum32()) % int(i.partitions)
 		}
 	}
-	return -1
+	// name tag may be skipped in iot use-case
+	return 0
 }
 
 // aggBenchmark allows you to run a benchmark using the aggregated document format

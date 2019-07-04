@@ -79,10 +79,10 @@ func TestDiskMeasurementToPoint(t *testing.T) {
 	if got := string(p.MeasurementName()); got != string(labelDisk) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelDisk)
 	}
-	if got := p.GetTagValue(labelDiskPath); got.(string) != origPath {
+	if got := p.GetTagValue(labelDiskPath).(string); got != origPath {
 		t.Errorf("disk path tag is incorrect: got %s want %s", got, origPath)
 	}
-	if got := p.GetTagValue(labelDiskFSType); got.(string) != origFS {
+	if got := p.GetTagValue(labelDiskFSType).(string); got != origFS {
 		t.Errorf("disk FS type is incorrect: got %s want %s", got, origFS)
 	}
 

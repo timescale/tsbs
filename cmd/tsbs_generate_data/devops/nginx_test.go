@@ -59,11 +59,11 @@ func TestNginxMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelNginx)
 	}
 
-	if got := p.GetTagValue(labelNginxTagServer); got.(string) != origName {
+	if got := p.GetTagValue(labelNginxTagServer).(string); got != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := p.GetTagValue(labelNginxTagPort); got.(string) != origPort {
+	if got := p.GetTagValue(labelNginxTagPort).(string); got != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 

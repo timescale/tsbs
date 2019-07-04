@@ -13,6 +13,9 @@ const (
 	oneTerabyte = 1 << 40
 	inodeSize   = 4096
 	pathFmt     = "/dev/sda%d"
+	fsExt3      = "ext3"
+	fsExt4      = "ext4"
+	fsBtrfs     = "btrfs"
 )
 
 var (
@@ -28,9 +31,6 @@ var (
 	labelDiskPath   = []byte("path")
 	labelDiskFSType = []byte("fstype")
 
-	fsExt3            = "ext3"
-	fsExt4            = "ext4"
-	fsBtrfs           = "btrfs"
 	diskFSTypeChoices = []string{
 		fsExt3,
 		fsExt4,
@@ -51,10 +51,12 @@ var (
 type DiskMeasurement struct {
 	*common.SubsystemMeasurement
 
-	path, fsType string
-	uptime       time.Duration
+	path   string
+	fsType string
+	uptime time.Duration
 }
 
+// NewDiskMeasurement returns a new populated DiskMeasurement
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 	path := fmt.Sprintf(pathFmt, rand.Intn(10))
 	fsType := common.RandomStringSliceChoice(diskFSTypeChoices)
@@ -68,6 +70,7 @@ func NewDiskMeasurement(start time.Time) *DiskMeasurement {
 	}
 }
 
+// ToPoint transfers (populates) the fields and tags of the supplied point
 func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelDisk)
 	p.SetTimestamp(&m.Timestamp)

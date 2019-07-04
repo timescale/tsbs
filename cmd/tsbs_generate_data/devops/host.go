@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -129,6 +130,7 @@ var (
 		[]byte("service_environment"),
 	}
 
+	// MachineTagType is a the type of all the tags, a dummy value string is
 	MachineTagType = reflect.TypeOf("some string")
 )
 
@@ -137,8 +139,16 @@ type Host struct {
 	SimulatedMeasurements []common.SimulatedMeasurement
 
 	// These are all assigned once, at Host creation:
-	Name, Region, Datacenter, Rack, OS, Arch          string
-	Team, Service, ServiceVersion, ServiceEnvironment string
+	Name               string
+	Region             string
+	Datacenter         string
+	Rack               string
+	OS                 string
+	Arch               string
+	Team               string
+	Service            string
+	ServiceVersion     string
+	ServiceEnvironment string
 }
 
 func newHostMeasurements(start time.Time) []common.SimulatedMeasurement {
@@ -216,7 +226,7 @@ func (h *Host) TickAll(d time.Duration) {
 }
 
 func getStringRandomInt(limit int64) string {
-	return fmt.Sprintf("%d", rand.Int63n(limit))
+	return strconv.FormatInt(rand.Int63n(limit), 10)
 }
 
 func randomRegionSliceChoice(s []region) *region {

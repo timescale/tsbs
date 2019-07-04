@@ -209,7 +209,7 @@ func TestCommonDevopsSimulatorPopulatePoint(t *testing.T) {
 	}
 	for i := range prefix {
 		want := prefix[i] + "0"
-		if got := p.GetTagValue(MachineTagKeys[i]); got.(string) != want {
+		if got := p.GetTagValue(MachineTagKeys[i]).(string); got != want {
 			t.Errorf("incorrect tag for idx %d: got %s want %s", i, got, want)
 		}
 	}
@@ -227,7 +227,7 @@ func TestCommonDevopsSimulatorPopulatePoint(t *testing.T) {
 	}
 	for i := range prefix {
 		want := prefix[i] + "0"
-		if got := p.GetTagValue(MachineTagKeys[i]); got.(string) != want {
+		if got := p.GetTagValue(MachineTagKeys[i]).(string); got != want {
 			t.Errorf("incorrect tag for idx %d: got %s want %s", i, got, want)
 		}
 	}
