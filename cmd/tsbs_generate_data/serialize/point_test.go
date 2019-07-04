@@ -300,11 +300,11 @@ func TestTags(t *testing.T) {
 	if got := string(p.tagKeys[0]); got != string(k) {
 		t.Errorf("incorrect first field key: got %s want %s", got, k)
 	}
-	if got := p.tagValues[0]; got.(string) != v {
+	if got := p.tagValues[0].(string); got != v {
 		t.Errorf("incorrect first field val: got %s want %s", got, v)
 	}
 
-	if got := p.GetTagValue([]byte(k)); got.(string) != v {
+	if got := p.GetTagValue([]byte(k)).(string); got != v {
 		t.Errorf("incorrect value returned for key: got %s want %s", got, v)
 	}
 	if got := p.GetTagValue([]byte("bar")); got != nil {

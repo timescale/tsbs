@@ -71,10 +71,7 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], tagColumnTypes[:commonTagsLen])
 			row := fmt.Sprintf("(%s)", strings.Join(sqlValues, ","))
 			// Replacing empty tags with NULLs.
-<<<<<<< HEAD
 			row = strings.Replace(row, "''", "NULL", -1)
-=======
->>>>>>> Add the tag types to the header of an input file
 			values = append(values, row)
 		}
 	}

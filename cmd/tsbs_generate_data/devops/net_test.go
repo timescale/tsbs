@@ -51,7 +51,7 @@ func TestNetMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelNet)
 	}
 
-	if got := p.GetTagValue(labelNetTagInterface); got.(string) != origName {
+	if got := p.GetTagValue(labelNetTagInterface).(string); got != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 

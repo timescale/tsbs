@@ -9,6 +9,10 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+const (
+	diskSerialFmt = "%03d-%03d-%03d"
+)
+
 var (
 	labelDiskIO       = []byte("diskio") // heap optimization
 	labelDiskIOSerial = []byte("serial")
@@ -38,7 +42,7 @@ type DiskIOMeasurement struct {
 
 func NewDiskIOMeasurement(start time.Time) *DiskIOMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, diskIOFields)
-	serial := fmt.Sprintf("%03d-%03d-%03d", rand.Intn(1000), rand.Intn(1000), rand.Intn(1000))
+	serial := fmt.Sprintf(diskSerialFmt, rand.Intn(1000), rand.Intn(1000), rand.Intn(1000))
 	return &DiskIOMeasurement{
 		SubsystemMeasurement: sub,
 		serial:               serial,

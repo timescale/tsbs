@@ -3,6 +3,7 @@ package devops
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -38,7 +39,7 @@ type NginxMeasurement struct {
 func NewNginxMeasurement(start time.Time) *NginxMeasurement {
 	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, nginxFields)
 	serverName := fmt.Sprintf("nginx_%d", rand.Intn(100000))
-	port := fmt.Sprintf("%d", rand.Intn(20000)+1024)
+	port := strconv.FormatInt(rand.Int63n(20000)+1024, 10)
 	return &NginxMeasurement{
 		SubsystemMeasurement: sub,
 		port:                 port,

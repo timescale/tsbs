@@ -53,6 +53,7 @@ var (
 
 	createMetricsTable bool
 	forceTextFormat    bool
+	tagColumnTypes     []string
 )
 
 type insertData struct {

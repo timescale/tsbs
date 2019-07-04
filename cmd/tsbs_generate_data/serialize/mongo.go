@@ -23,26 +23,27 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
-
+	// tags that are not strings will be added as fields
+	fakeTags := make([]int, 0)
 	tags := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.tagKeys); i > 0; i-- {
-		k := string(p.tagKeys[i-1])
-		key := b.CreateString(k)
 		switch v := p.tagValues[i-1].(type) {
 		case string:
+			k := string(p.tagKeys[i-1])
+			key := b.CreateString(k)
 			val := b.CreateString(v)
 			MongoTagStart(b)
 			MongoTagAddKey(b, key)
 			MongoTagAddValue(b, val)
+			tags = append(tags, MongoTagEnd(b))
+		case nil:
+			continue
 		default:
-			MongoTagStart(b)
-			MongoTagAddKey(b, key)
-			prependValue(b, v)
+			fakeTags = append(fakeTags, i-1)
+			continue
 		}
-
-		tags = append(tags, MongoTagEnd(b))
 	}
 	MongoPointStartTagsVector(b, len(tags))
 	for _, t := range tags {
@@ -54,13 +55,23 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.fieldKeys); i > 0; i-- {
-		k := string(p.fieldKeys[i-1])
-		key := b.CreateString(k)
-		MongoReadingStart(b)
-		MongoReadingAddKey(b, key)
-		prependValue(b, p.fieldValues[i-1])
-		fields = append(fields, MongoReadingEnd(b))
+		val := p.fieldValues[i-1]
+		if val == nil {
+			continue
+		}
+		newField := createField(b, p.fieldKeys[i-1], val)
+		fields = append(fields, newField)
 	}
+	for i := 0; i < len(fakeTags); i++ {
+		tagIndex := fakeTags[i]
+		val := p.tagValues[tagIndex]
+		if val == nil {
+			continue
+		}
+		newField := createField(b, p.tagKeys[tagIndex], val)
+		fields = append(fields, newField)
+	}
+
 	MongoPointStartFieldsVector(b, len(fields))
 	for _, f := range fields {
 		b.PrependUOffsetT(f)
@@ -98,10 +109,19 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	return nil
 }
 
+func createField(b *flatbuffers.Builder, key []byte, val interface{}) flatbuffers.UOffsetT {
+	keyStr := b.CreateString(string(key))
+	MongoReadingStart(b)
+	MongoReadingAddKey(b, keyStr)
+	prependValue(b, val)
+	return MongoReadingEnd(b)
+}
 func prependValue(b *flatbuffers.Builder, value interface{}) {
 	switch val := value.(type) {
 	case float64:
 		MongoReadingAddValue(b, val)
+	case float32:
+		MongoReadingAddValue(b, float64(val))
 	case int:
 		MongoReadingAddValue(b, float64(val))
 	case int64:
