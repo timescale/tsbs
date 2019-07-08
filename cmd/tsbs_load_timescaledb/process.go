@@ -63,14 +63,14 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 			}
 			json += "}')"
 			// Replacing empty tags with NULLs.
-			json = strings.ReplaceAll(json, `:""`, `:NULL`)
+			json = strings.Replace(json, `:""`, `:NULL`, -1)
 			values = append(values, json)
 		}
 	} else {
 		for _, val := range tagRows {
 			row := fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','"))
 			// Replacing empty tags with NULLs.
-			row = strings.ReplaceAll(row, "''", "NULL")
+			row = strings.Replace(row, "''", "NULL", -1)
 			values = append(values, row)
 		}
 	}
