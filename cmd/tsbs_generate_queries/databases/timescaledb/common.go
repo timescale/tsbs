@@ -9,6 +9,8 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
+const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
+
 // BaseGenerator contains settings specific for TimescaleDB
 type BaseGenerator struct {
 	UseJSON       bool

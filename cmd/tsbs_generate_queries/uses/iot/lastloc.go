@@ -18,7 +18,7 @@ func NewLastLocPerTruck(core utils.QueryGenerator) utils.QueryFiller {
 	}
 }
 
-// Fill fills in the query.Query with query details
+// Fill fills in the query.Query with query details.
 func (i *LastLocPerTruck) Fill(q query.Query) query.Query {
 	fc, ok := i.core.(LastLocFiller)
 	if !ok {

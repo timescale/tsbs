@@ -81,8 +81,6 @@ func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []stri
 	return selectClauses
 }
 
-const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
-
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu',
 // per minute for nhosts hosts,
 // e.g. in pseudo-SQL:
