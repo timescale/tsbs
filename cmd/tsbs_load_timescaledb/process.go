@@ -63,7 +63,7 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 			}
 			json += "}')"
 			// Replacing empty tags with NULLs.
-			json = strings.Replace(json, `:""`, `:NULL`, -1)
+			json = strings.Replace(json, `:""`, `:null`, -1)
 			values = append(values, json)
 		}
 	} else {
