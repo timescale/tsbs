@@ -63,7 +63,7 @@ func (c *DataGeneratorConfig) Validate() error {
 func (c *DataGeneratorConfig) AddToFlagSet(fs *flag.FlagSet) {
 	c.BaseConfig.AddToFlagSet(fs)
 	flag.Uint64Var(&c.InitialScale, "initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
-	flag.DurationVar(&c.LogInterval, "log-interval", defaultLogInterval, "Duration between host data points")
+	flag.DurationVar(&c.LogInterval, "log-interval", defaultLogInterval, "Duration between data points")
 
 	flag.UintVar(&c.InterleavedGroupID, "interleaved-generation-group-id", 0,
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
