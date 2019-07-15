@@ -29,7 +29,7 @@ var (
 		},
 		{
 			Label:             labelCurrentLoad,
-			DistributionMaker: func() common.Distribution { return common.CWD(loadND, 0, maxLoad, rand.NormFloat64()*maxLoad) },
+			DistributionMaker: func() common.Distribution { return common.CWD(loadND, 0, maxLoad, rand.Float64()*maxLoad) },
 		},
 		{
 			Label:             labelStatus,
