@@ -61,7 +61,7 @@ func (s *commonDevopsSimulator) TagKeys() [][]byte {
 func (s *commonDevopsSimulator) TagTypes() []reflect.Type {
 	types := make([]reflect.Type, len(MachineTagKeys))
 	for i := 0; i < len(MachineTagKeys); i++ {
-		types[i] = MachineTagType
+		types[i] = machineTagType
 	}
 	return types
 }
