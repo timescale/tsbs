@@ -130,8 +130,9 @@ var (
 		[]byte("service_environment"),
 	}
 
-	// MachineTagType is a the type of all the tags, a dummy value string is
-	MachineTagType = reflect.TypeOf("some string")
+	// machineTagType is the type of all the tags (string)
+	// to be used by TagTypes. Not used elsewhere.
+	machineTagType = reflect.TypeOf("some string")
 )
 
 // Host models a machine being monitored for dev ops

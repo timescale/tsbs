@@ -23,8 +23,6 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
-	// tags that are not strings will be added as fields
-	fakeTags := make([]int, 0)
 	tags := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
@@ -41,8 +39,7 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		case nil:
 			continue
 		default:
-			fakeTags = append(fakeTags, i-1)
-			continue
+			panic("non-string tags not implemented for mongo db")
 		}
 	}
 	MongoPointStartTagsVector(b, len(tags))
@@ -62,16 +59,6 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		newField := createField(b, p.fieldKeys[i-1], val)
 		fields = append(fields, newField)
 	}
-	for i := 0; i < len(fakeTags); i++ {
-		tagIndex := fakeTags[i]
-		val := p.tagValues[tagIndex]
-		if val == nil {
-			continue
-		}
-		newField := createField(b, p.tagKeys[tagIndex], val)
-		fields = append(fields, newField)
-	}
-
 	MongoPointStartFieldsVector(b, len(fields))
 	for _, f := range fields {
 		b.PrependUOffsetT(f)

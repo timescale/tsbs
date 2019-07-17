@@ -19,7 +19,6 @@ type CassandraSerializer struct{}
 func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	seriesIDPrefix := make([]byte, 0, 256)
 	seriesIDPrefix = append(seriesIDPrefix, p.measurementName...)
-	fakeTags := make([]int, 0)
 	for i := 0; i < len(p.tagKeys); i++ {
 		switch t := p.tagValues[i].(type) {
 		case string:
@@ -28,26 +27,12 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			seriesIDPrefix = append(seriesIDPrefix, '=')
 			seriesIDPrefix = append(seriesIDPrefix, []byte(t)...)
 		default:
-			fakeTags = append(fakeTags, i)
+			panic("non-string tags not implemented for cassandra")
 		}
 	}
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
 	timestampBucket := p.timestamp.UTC().Format("2006-01-02")
-	for i := 0; i < len(fakeTags); i++ {
-		tagIndex := fakeTags[i]
-		key := p.tagKeys[tagIndex]
-		value := p.tagValues[tagIndex]
-		if value == nil {
-			continue
-		}
-		buf := generateFieldBuf(timestampNanos, timestampBucket, seriesIDPrefix, key, value)
-
-		_, err := w.Write(buf)
-		if err != nil {
-			return err
-		}
-	}
 	for fieldID := 0; fieldID < len(p.fieldKeys); fieldID++ {
 		value := p.fieldValues[fieldID]
 		key := p.fieldKeys[fieldID]
@@ -83,7 +68,7 @@ func typeNameForCassandra(v interface{}) string {
 }
 
 func generateFieldBuf(tsNanos int64, tsBucket string, seriesIDPrefix, key []byte, value interface{}) []byte {
-	tableName := fmt.Sprintf("series_%s", typeNameForCassandra(value))
+	tableName := "series_" + typeNameForCassandra(value)
 
 	buf := make([]byte, 0, 256)
 	comma := []byte(",")
