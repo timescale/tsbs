@@ -386,8 +386,8 @@ func TestDevopsFillInQuery(t *testing.T) {
 	if got := string(q.HumanDescription); got != humanDesc {
 		t.Errorf("filled query mis-described: got %s want %s", got, humanDesc)
 	}
-	if got := string(q.Method); got != "GET" {
-		t.Errorf("filled query has wrong method: got %s want GET", got)
+	if got := string(q.Method); got != "POST" {
+		t.Errorf("filled query has wrong method: got %s want POST", got)
 	}
 	v := url.Values{}
 	v.Set("q", influxql)
@@ -463,8 +463,8 @@ func verifyQuery(t *testing.T, q query.Query, humanLabel, humanDesc, path string
 		t.Errorf("incorrect human description:\ngot\n%s\nwant\n%s", got, humanDesc)
 	}
 
-	if got := string(influxql.Method); got != "GET" {
-		t.Errorf("incorrect method:\ngot\n%s\nwant GET", got)
+	if got := string(influxql.Method); got != "POST" {
+		t.Errorf("incorrect method:\ngot\n%s\nwant POST", got)
 	}
 
 	if got := string(influxql.Path); got != path {
