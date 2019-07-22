@@ -111,8 +111,8 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 		 GROUP BY "name","driver") 
 		WHERE ten_min_mean_velocity > %d`,
 		i.GetRandomFleet(),
-		interval.Start().Format(goTimeFmt),
-		interval.End().Format(goTimeFmt),
+		interval.Start().Format(time.RFC3339),
+		interval.End().Format(time.RFC3339),
 		// Calculate number of 10 min intervals that is the max driving duration for the session if we rest 5 mins per hour.
 		tenMinutePeriods(5, iot.LongDrivingSessionDuration))
 
@@ -135,8 +135,8 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 		 GROUP BY "name","driver") 
 		WHERE ten_min_mean_velocity > %d`,
 		i.GetRandomFleet(),
-		interval.Start().Format(goTimeFmt),
-		interval.End().Format(goTimeFmt),
+		interval.Start().Format(time.RFC3339),
+		interval.End().Format(time.RFC3339),
 		// Calculate number of 10 min intervals that is the max driving duration for the session if we rest 35 mins per hour.
 		tenMinutePeriods(35, iot.DailyDrivingDuration))
 
@@ -161,8 +161,8 @@ func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
 
 // AvgDailyDrivingDuration finds the average driving duration per driver.
 func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
-	start := i.Interval.Start().Format(goTimeFmt)
-	end := i.Interval.End().Format(goTimeFmt)
+	start := i.Interval.Start().Format(time.RFC3339)
+	end := i.Interval.End().Format(time.RFC3339)
 	influxql := fmt.Sprintf(`SELECT count("mv")/6 as "hours driven" 
 		FROM (SELECT mean("velocity") as "mv" 
 		 FROM "readings" 
@@ -184,8 +184,8 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 
 // AvgDailyDrivingSession finds the average driving session without stopping per driver per day.
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
-	start := i.Interval.Start().Format(goTimeFmt)
-	end := i.Interval.End().Format(goTimeFmt)
+	start := i.Interval.Start().Format(time.RFC3339)
+	end := i.Interval.End().Format(time.RFC3339)
 	influxql := fmt.Sprintf(`SELECT "elapsed" 
 		INTO "random_measure2_1" 
 		FROM (SELECT difference("difka"), elapsed("difka", 1m) 
@@ -233,8 +233,8 @@ func (i *IoT) AvgLoad(qi query.Query) {
 
 // DailyTruckActivity returns the number of hours trucks has been active (not out-of-commission) per day per fleet per model.
 func (i *IoT) DailyTruckActivity(qi query.Query) {
-	start := i.Interval.Start().Format(goTimeFmt)
-	end := i.Interval.End().Format(goTimeFmt)
+	start := i.Interval.Start().Format(time.RFC3339)
+	end := i.Interval.End().Format(time.RFC3339)
 	influxql := fmt.Sprintf(`SELECT count("ms")/144 
 		FROM (SELECT mean("status") AS ms 
 		 FROM "diagnostics" 
@@ -256,8 +256,8 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 
 // TruckBreakdownFrequency calculates the amount of times a truck model broke down in the last period.
 func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
-	start := i.Interval.Start().Format(goTimeFmt)
-	end := i.Interval.End().Format(goTimeFmt)
+	start := i.Interval.Start().Format(time.RFC3339)
+	end := i.Interval.End().Format(time.RFC3339)
 	influxql := fmt.Sprintf(`SELECT count("state_changed") 
 		FROM (SELECT difference("broken_down") AS "state_changed" 
 		 FROM (SELECT floor(2*(sum("nzs")/count("nzs")))/floor(2*(sum("nzs")/count("nzs"))) AS "broken_down" 

@@ -11,8 +11,6 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
-const goTimeFmt = "2006-01-02T15:04:05Z"
-
 // BaseGenerator contains settings specific for Influx database.
 type BaseGenerator struct {
 }
