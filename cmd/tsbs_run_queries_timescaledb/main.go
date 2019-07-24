@@ -204,7 +204,13 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	} else if p.opts.printResponse {
 		prettyPrintResponse(rows, tq)
 	}
+	// Fetching all the rows to confirm that the query is fully completed.
+	for rows.Next() {
+	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	took := float64(time.Since(start).Nanoseconds()) / 1e6
 	stat := query.GetStat()
 	stat.Init(q.HumanLabelName(), took)
