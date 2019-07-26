@@ -54,24 +54,21 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 	if useJSON {
 		cols = []string{"tagset"}
 		for _, row := range tagRows {
+			jsonValues := convertValsToJSONBasedOnType(row[:commonTagsLen], tagColumnTypes[:commonTagsLen])
 			json := "('{"
 			for i, k := range tagCols {
 				if i != 0 {
 					json += ","
 				}
-				json += fmt.Sprintf("\"%s\":\"%s\"", k, row[i])
+				json += fmt.Sprintf("\"%s\":%s", k, jsonValues[i])
 			}
 			json += "}')"
-			// Replacing empty tags with NULLs.
-			json = strings.Replace(json, `:""`, `:null`, -1)
 			values = append(values, json)
 		}
 	} else {
 		for _, val := range tagRows {
 			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], tagColumnTypes[:commonTagsLen])
 			row := fmt.Sprintf("(%s)", strings.Join(sqlValues, ","))
-			// Replacing empty tags with NULLs.
-			row = strings.Replace(row, "''", "NULL", -1)
 			values = append(values, row)
 		}
 	}
@@ -310,17 +307,24 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batches.cnt = 0
 	return metricCnt, uint64(rowCnt)
 }
-
 func convertValsToSQLBasedOnType(values []string, types []string) []string {
+	return convertValsToBasedOnType(values, types, "'", "NULL")
+}
+
+func convertValsToJSONBasedOnType(values []string, types []string) []string {
+	return convertValsToBasedOnType(values, types, `"`, "null")
+}
+
+func convertValsToBasedOnType(values []string, types []string, quotemark string, null string) []string {
 	sqlVals := make([]string, len(values))
 	for i, val := range values {
 		if val == "" {
-			sqlVals[i] = "NULL"
+			sqlVals[i] = null
 			continue
 		}
 		switch types[i] {
 		case "string":
-			sqlVals[i] = "'" + val + "'"
+			sqlVals[i] = quotemark + val + quotemark
 		default:
 			sqlVals[i] = val
 		}
