@@ -115,10 +115,9 @@ func TestStationaryTrucks(t *testing.T) {
 
 			expectedQuery: "/query?q=SELECT+%22name%22%2C+%22driver%22+%0A%09%09FROM%28" +
 				"SELECT+mean%28%22velocity%22%29+as+mean_velocity+%0A%09%09+FROM+%22readings%22+%0A%09%09+" +
-				"WHERE+time+%3E+%271970-01-01T01%3A00%3A00Z%27+-+10m+AND+time+%3C%3D+%271970-01-01T01%3A00%3A00Z%27+%0A%09%09+" +
+				"WHERE+time+%3E+%271970-01-01T00%3A36%3A22Z%27+AND+time+%3C%3D+%271970-01-01T00%3A46%3A22Z%27+%0A%09%09+" +
 				"GROUP+BY+time%2810m%29%2C%22name%22%2C%22driver%22%2C%22fleet%22++%0A%09%09+" +
-				"LIMIT+1%29+%0A%09%09WHERE+%22fleet%22+%3D+%27South%27+AND+%22mean_velocity%22+%3C+1+%0A%09%09" +
-				"GROUP+BY+%22name%22",
+				"LIMIT+1%29+%0A%09%09WHERE+%22fleet%22+%3D+%27West%27+AND+%22mean_velocity%22+%3C+1+%0A%09%09GROUP+BY+%22name%22",
 		},
 	}
 
