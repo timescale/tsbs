@@ -25,13 +25,14 @@ func TestLastLocPerTruck(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB last location per truck",
 			expectedHumanDesc:  "TimescaleDB last location per truck",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver, r.* 
-		FROM tags t INNER JOIN LATERAL 
-			(SELECT longitude, latitude 
-			FROM readings r 
-			WHERE r.tags_id=t.id 
-			ORDER BY time DESC LIMIT 1)  r ON true 
-		WHERE t.fleet = 'South'`,
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.name IS NOT NULL
+		AND t.fleet = 'South'`,
 		},
 
 		{
@@ -41,13 +42,14 @@ func TestLastLocPerTruck(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB last location per truck",
 			expectedHumanDesc:  "TimescaleDB last location per truck",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver, r.* 
-		FROM tags t INNER JOIN LATERAL 
-			(SELECT longitude, latitude 
-			FROM readings r 
-			WHERE r.tags_id=t.id 
-			ORDER BY time DESC LIMIT 1)  r ON true 
-		WHERE t.tagset->>'fleet' = 'South'`,
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND t.tagset->>'fleet' = 'South'`,
 		},
 	}
 
@@ -78,13 +80,14 @@ func TestTrucksWithLowFuel(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with low fuel",
 			expectedHumanDesc:  "TimescaleDB trucks with low fuel: under 10 percent",
 			expectedHypertable: iot.DiagnosticsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver, d.* 
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT fuel_state 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE fuel_state < 0.1 
+		WHERE t.name IS NOT NULL
+		AND d.fuel_state < 0.1 
 		AND t.fleet = 'South'`,
 		},
 
@@ -95,13 +98,14 @@ func TestTrucksWithLowFuel(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with low fuel",
 			expectedHumanDesc:  "TimescaleDB trucks with low fuel: under 10 percent",
 			expectedHypertable: iot.DiagnosticsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver, d.* 
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT fuel_state 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE fuel_state < 0.1 
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND d.fuel_state < 0.1 
 		AND t.tagset->>'fleet' = 'South'`,
 		},
 	}
@@ -133,13 +137,14 @@ func TestTrucksWithHighLoad(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with high load",
 			expectedHumanDesc:  "TimescaleDB trucks with high load: over 90 percent",
 			expectedHypertable: iot.DiagnosticsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver, d.* 
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT current_load 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE current_load/cast(t.load_capacity AS INTEGER) > 0.9 
+		WHERE t.name IS NOT NULL
+		AND d.current_load/t.load_capacity > 0.9 
 		AND t.fleet = 'South'`,
 		},
 
@@ -150,13 +155,14 @@ func TestTrucksWithHighLoad(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with high load",
 			expectedHumanDesc:  "TimescaleDB trucks with high load: over 90 percent",
 			expectedHypertable: iot.DiagnosticsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver, d.* 
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT current_load 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE current_load/cast(t.tagset->>'load_capacity' AS INTEGER) > 0.9 
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND d.current_load/t.tagset->>'load_capacity' > 0.9 
 		AND t.tagset->>'fleet' = 'South'`,
 		},
 	}
@@ -188,10 +194,11 @@ func TestStationaryTrucks(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB stationary trucks",
 			expectedHumanDesc:  "TimescaleDB stationary trucks: with low avg velocity in last 10 minutes",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver
 		FROM tags t 
 		INNER JOIN readings r ON r.tags_id = t.id 
 		WHERE time >= '1970-01-01 00:36:22.646325 +0000' AND time < '1970-01-01 00:46:22.646325 +0000'
+		AND t.name IS NOT NULL
 		AND t.fleet = 'West' 
 		GROUP BY name, driver 
 		HAVING avg(r.velocity) < 1`,
@@ -204,10 +211,11 @@ func TestStationaryTrucks(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB stationary trucks",
 			expectedHumanDesc:  "TimescaleDB stationary trucks: with low avg velocity in last 10 minutes",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver
 		FROM tags t 
 		INNER JOIN readings r ON r.tags_id = t.id 
 		WHERE time >= '1970-01-01 00:36:22.646325 +0000' AND time < '1970-01-01 00:46:22.646325 +0000'
+		AND t.tagset->>'name' IS NOT NULL
 		AND t.tagset->>'fleet' = 'West' 
 		GROUP BY name, driver 
 		HAVING avg(r.velocity) < 1`,
@@ -236,7 +244,7 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with longer driving sessions",
 			expectedHumanDesc:  "TimescaleDB trucks with longer driving sessions: stopped less than 20 mins in 4 hour period",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -245,7 +253,8 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE t.fleet = 'West'
+		WHERE t.name IS NOT NULL
+		AND t.fleet = 'West'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > 22`,
 		},
@@ -257,7 +266,7 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with longer driving sessions",
 			expectedHumanDesc:  "TimescaleDB trucks with longer driving sessions: stopped less than 20 mins in 4 hour period",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -266,7 +275,8 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE t.tagset->>'fleet' = 'West'
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND t.tagset->>'fleet' = 'West'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > 22`,
 		},
@@ -299,7 +309,7 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with longer daily sessions",
 			expectedHumanDesc:  "TimescaleDB trucks with longer daily sessions: drove more than 10 hours in the last 24 hours",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.name, t.driver
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -308,7 +318,8 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE t.fleet = 'West'
+		WHERE t.name IS NOT NULL
+		AND t.fleet = 'West'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > 60`,
 		},
@@ -320,7 +331,7 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB trucks with longer daily sessions",
 			expectedHumanDesc:  "TimescaleDB trucks with longer daily sessions: drove more than 10 hours in the last 24 hours",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'name' as name, t.tagset->>'driver' as driver
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -329,7 +340,8 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE t.tagset->>'fleet' = 'West'
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND t.tagset->>'fleet' = 'West'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > 60`,
 		},
@@ -362,11 +374,13 @@ func TestAvgVsProjectedFuelConsumption(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB average vs projected fuel consumption per fleet",
 			expectedHumanDesc:  "TimescaleDB average vs projected fuel consumption per fleet",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.fleet, avg(r.fuel_consumption) AS avg_fuel_consumption, 
-		avg(cast(t.nominal_fuel_consumption AS INTEGER)) AS projected_fuel_consumption
+			expectedSQLQuery: `SELECT t.fleet AS fleet, avg(r.fuel_consumption) AS avg_fuel_consumption, 
+		avg(t.nominal_fuel_consumption) AS projected_fuel_consumption
 		FROM tags t
-		INNER JOIN lateral(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
-		WHERE t.fleet IS NOT NULL AND t.nominal_fuel_consumption IS NOT NULL
+		INNER JOIN LATERAL(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
+		WHERE t.fleet IS NOT NULL
+		AND t.nominal_fuel_consumption IS NOT NULL 
+		AND t.name IS NOT NULL
 		GROUP BY fleet`,
 		},
 
@@ -377,11 +391,13 @@ func TestAvgVsProjectedFuelConsumption(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB average vs projected fuel consumption per fleet",
 			expectedHumanDesc:  "TimescaleDB average vs projected fuel consumption per fleet",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'fleet' as fleet, avg(r.fuel_consumption) AS avg_fuel_consumption, 
-		avg(cast(t.tagset->>'nominal_fuel_consumption' AS INTEGER)) AS projected_fuel_consumption
+			expectedSQLQuery: `SELECT t.tagset->>'fleet' AS fleet, avg(r.fuel_consumption) AS avg_fuel_consumption, 
+		avg(t.tagset->>'nominal_fuel_consumption') AS projected_fuel_consumption
 		FROM tags t
-		INNER JOIN lateral(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
-		WHERE t.tagset->>'fleet' IS NOT NULL AND t.tagset->>'nominal_fuel_consumption' IS NOT NULL
+		INNER JOIN LATERAL(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
+		WHERE t.tagset->>'fleet' IS NOT NULL
+		AND t.tagset->>'nominal_fuel_consumption' IS NOT NULL 
+		AND t.tagset->>'name' IS NOT NULL
 		GROUP BY fleet`,
 		},
 	}
@@ -425,7 +441,7 @@ func TestAvgDailyDrivingDuration(t *testing.T) {
 			FROM ten_minute_driving_sessions
 			GROUP BY day, tags_id
 			)
-		SELECT t.fleet, t.name, t.driver, avg(d.hours) AS avg_daily_hours
+		SELECT t.fleet AS fleet, t.name AS name, t.driver AS driver, avg(d.hours) AS avg_daily_hours
 		FROM daily_total_session d
 		INNER JOIN tags t ON t.id = d.tags_id
 		GROUP BY fleet, name, driver`,
@@ -450,7 +466,7 @@ func TestAvgDailyDrivingDuration(t *testing.T) {
 			FROM ten_minute_driving_sessions
 			GROUP BY day, tags_id
 			)
-		SELECT t.tagset->>'fleet' as fleet, t.tagset->>'name' as name, t.tagset->>'driver' as driver, avg(d.hours) AS avg_daily_hours
+		SELECT t.tagset->>'fleet' AS fleet, t.tagset->>'name' AS name, t.tagset->>'driver' AS driver, avg(d.hours) AS avg_daily_hours
 		FROM daily_total_session d
 		INNER JOIN tags t ON t.id = d.tags_id
 		GROUP BY fleet, name, driver`,
@@ -499,10 +515,11 @@ func TestAvgDailyDrivingSession(t *testing.T) {
 				) x
 			WHERE x.driving <> x.prev_driving
 			)
-		SELECT t.name, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
+		SELECT t.name AS name, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
 		FROM tags t
 		INNER JOIN driver_status_change d ON t.id = d.tags_id
-		WHERE d.driving = true
+		WHERE t.name IS NOT NULL
+		AND d.driving = true
 		GROUP BY name, day
 		ORDER BY name, day`,
 		},
@@ -529,10 +546,11 @@ func TestAvgDailyDrivingSession(t *testing.T) {
 				) x
 			WHERE x.driving <> x.prev_driving
 			)
-		SELECT t.tagset->>'name' as name, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
+		SELECT t.tagset->>'name' AS name, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
 		FROM tags t
 		INNER JOIN driver_status_change d ON t.id = d.tags_id
-		WHERE d.driving = true
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND d.driving = true
 		GROUP BY name, day
 		ORDER BY name, day`,
 		},
@@ -565,13 +583,14 @@ func TestAvgLoad(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB average load per truck model per fleet",
 			expectedHumanDesc:  "TimescaleDB average load per truck model per fleet",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.fleet, t.model, t.load_capacity, avg(d.avg_load / cast(t.load_capacity AS INTEGER)) AS avg_load_percentage
+			expectedSQLQuery: `SELECT t.fleet AS fleet, t.model AS model, t.load_capacity AS load_capacity, avg(d.avg_load / t.load_capacity) AS avg_load_percentage
 		FROM tags t
 		INNER JOIN (
 			SELECT tags_id, avg(current_load) AS avg_load
 			FROM diagnostics d
 			GROUP BY tags_id
 			) d ON t.id = d.tags_id
+		WHERE t.name IS NOT NULL
 		GROUP BY fleet, model, load_capacity`,
 		},
 
@@ -582,13 +601,14 @@ func TestAvgLoad(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB average load per truck model per fleet",
 			expectedHumanDesc:  "TimescaleDB average load per truck model per fleet",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'fleet' as fleet, t.tagset->>'model' as model, t.tagset->>'load_capacity' as load_capacity, avg(d.avg_load / cast(t.tagset->>'load_capacity' AS INTEGER)) AS avg_load_percentage
+			expectedSQLQuery: `SELECT t.tagset->>'fleet' AS fleet, t.tagset->>'model' AS model, t.tagset->>'load_capacity' AS load_capacity, avg(d.avg_load / t.tagset->>'load_capacity') AS avg_load_percentage
 		FROM tags t
 		INNER JOIN (
 			SELECT tags_id, avg(current_load) AS avg_load
 			FROM diagnostics d
 			GROUP BY tags_id
 			) d ON t.id = d.tags_id
+		WHERE t.tagset->>'name' IS NOT NULL
 		GROUP BY fleet, model, load_capacity`,
 		},
 	}
@@ -620,7 +640,7 @@ func TestDailyTruckActivity(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB daily truck activity per fleet per model",
 			expectedHumanDesc:  "TimescaleDB daily truck activity per fleet per model",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.fleet, t.model, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
+			expectedSQLQuery: `SELECT t.fleet AS fleet, t.model AS model, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
 		FROM tags t
 		INNER JOIN (
 			SELECT time_bucket('24 hours', TIME) AS day, time_bucket('10 minutes', TIME) AS ten_minutes, tags_id, count(*) AS ten_mins_per_day
@@ -628,6 +648,7 @@ func TestDailyTruckActivity(t *testing.T) {
 			GROUP BY day, ten_minutes, tags_id
 			HAVING avg(STATUS) < 1
 			) y ON y.tags_id = t.id
+		WHERE t.name IS NOT NULL
 		GROUP BY fleet, model, y.day
 		ORDER BY y.day`,
 		},
@@ -639,7 +660,7 @@ func TestDailyTruckActivity(t *testing.T) {
 			expectedHumanLabel: "TimescaleDB daily truck activity per fleet per model",
 			expectedHumanDesc:  "TimescaleDB daily truck activity per fleet per model",
 			expectedHypertable: iot.ReadingsTableName,
-			expectedSQLQuery: `SELECT t.tagset->>'fleet' as fleet, t.tagset->>'model' as model, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
+			expectedSQLQuery: `SELECT t.tagset->>'fleet' AS fleet, t.tagset->>'model' AS model, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
 		FROM tags t
 		INNER JOIN (
 			SELECT time_bucket('24 hours', TIME) AS day, time_bucket('10 minutes', TIME) AS ten_minutes, tags_id, count(*) AS ten_mins_per_day
@@ -647,6 +668,7 @@ func TestDailyTruckActivity(t *testing.T) {
 			GROUP BY day, ten_minutes, tags_id
 			HAVING avg(STATUS) < 1
 			) y ON y.tags_id = t.id
+		WHERE t.tagset->>'name' IS NOT NULL
 		GROUP BY fleet, model, y.day
 		ORDER BY y.day`,
 		},
@@ -691,10 +713,11 @@ func TestTruckBreakdownFrequency(t *testing.T) {
 					) AS next_broken_down
 			FROM breakdown_per_truck_per_ten_minutes
 			)
-		SELECT t.model, count(*)
+		SELECT t.model AS model, count(*)
 		FROM tags t
 		INNER JOIN breakdowns_per_truck b ON t.id = b.tags_id
-		WHERE broken_down = false AND next_broken_down = true
+		WHERE t.name IS NOT NULL
+		AND broken_down = false AND next_broken_down = true
 		GROUP BY model`,
 		},
 
@@ -717,10 +740,11 @@ func TestTruckBreakdownFrequency(t *testing.T) {
 					) AS next_broken_down
 			FROM breakdown_per_truck_per_ten_minutes
 			)
-		SELECT t.tagset->>'model' as model, count(*)
+		SELECT t.tagset->>'model' AS model, count(*)
 		FROM tags t
 		INNER JOIN breakdowns_per_truck b ON t.id = b.tags_id
-		WHERE broken_down = false AND next_broken_down = true
+		WHERE t.tagset->>'name' IS NOT NULL
+		AND broken_down = false AND next_broken_down = true
 		GROUP BY model`,
 		},
 	}
