@@ -79,17 +79,17 @@ func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 
 // StationaryTrucks finds all trucks that have low average velocity in a time window.
 func (i *IoT) StationaryTrucks(qi query.Query) {
-	end := i.Interval.End().Format(time.RFC3339)
+	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
 	influxql := fmt.Sprintf(`SELECT "name", "driver" 
 		FROM(SELECT mean("velocity") as mean_velocity 
 		 FROM "readings" 
-		 WHERE time > '%s' - 10m AND time <= '%s' 
+		 WHERE time > '%s' AND time <= '%s' 
 		 GROUP BY time(10m),"name","driver","fleet"  
 		 LIMIT 1) 
 		WHERE "fleet" = '%s' AND "mean_velocity" < 1 
 		GROUP BY "name"`,
-		end,
-		end,
+		interval.Start().Format(time.RFC3339),
+		interval.End().Format(time.RFC3339),
 		i.GetRandomFleet())
 
 	humanLabel := "Influx stationary trucks"
