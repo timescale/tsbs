@@ -28,25 +28,34 @@ func NewIoT(start, end time.Time, scale int, g *BaseGenerator) *IoT {
 	}
 }
 
-// LastLocPerTruck finds all the truck locations along with truck and driver names.
-func (i *IoT) LastLocPerTruck(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
-
+func (i *IoT) columnSelect(column string) string {
 	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
+		return fmt.Sprintf("tagset->>'%[1]s'", column)
 	}
 
-	sql := fmt.Sprintf(`SELECT %s, r.* 
-		FROM tags t INNER JOIN LATERAL 
-			(SELECT longitude, latitude 
-			FROM readings r 
-			WHERE r.tags_id=t.id 
-			ORDER BY time DESC LIMIT 1)  r ON true 
-		WHERE %s = '%s'`,
-		tagsSelect,
-		fleetTag,
+	return column
+}
+
+func (i *IoT) withAlias(column string) string {
+	return fmt.Sprintf("%s AS %s", i.columnSelect(column), column)
+}
+
+// LastLocPerTruck finds all the truck locations along with truck and driver names.
+func (i *IoT) LastLocPerTruck(qi query.Query) {
+	name, driver, fleet := "name", "driver", "fleet"
+
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.%s IS NOT NULL
+		AND t.%s = '%s'`,
+		i.withAlias(name),
+		i.withAlias(driver),
+		i.columnSelect(name),
+		i.columnSelect(fleet),
 		i.GetRandomFleet())
 
 	humanLabel := "TimescaleDB last location per truck"
@@ -57,24 +66,21 @@ func (i *IoT) LastLocPerTruck(qi query.Query) {
 
 // TrucksWithLowFuel finds all trucks with low fuel (less than 10%).
 func (i *IoT) TrucksWithLowFuel(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
+	name, driver, fleet := "name", "driver", "fleet"
 
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
-	}
-
-	sql := fmt.Sprintf(`SELECT %s, d.* 
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT fuel_state 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE fuel_state < 0.1 
-		AND %s = '%s'`,
-		tagsSelect,
-		fleetTag,
+		WHERE t.%s IS NOT NULL
+		AND d.fuel_state < 0.1 
+		AND t.%s = '%s'`,
+		i.withAlias(name),
+		i.withAlias(driver),
+		i.columnSelect(name),
+		i.columnSelect(fleet),
 		i.GetRandomFleet())
 
 	humanLabel := "TimescaleDB trucks with low fuel"
@@ -85,27 +91,22 @@ func (i *IoT) TrucksWithLowFuel(qi query.Query) {
 
 // TrucksWithHighLoad finds all trucks that have load over 90%.
 func (i *IoT) TrucksWithHighLoad(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
-	loadTag := "t.load_capacity"
+	name, driver, fleet, load := "name", "driver", "fleet", "load_capacity"
 
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
-		loadTag = "t.tagset->>'load_capacity'"
-	}
-
-	sql := fmt.Sprintf(`SELECT %s, d.* 
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, d.* 
 		FROM tags t INNER JOIN LATERAL 
 			(SELECT current_load 
 			FROM diagnostics d 
 			WHERE d.tags_id=t.id 
 			ORDER BY time DESC LIMIT 1) d ON true 
-		WHERE current_load/cast(%s AS INTEGER) > 0.9 
-		AND %s = '%s'`,
-		tagsSelect,
-		loadTag,
-		fleetTag,
+		WHERE t.%s IS NOT NULL
+		AND d.current_load/t.%s > 0.9 
+		AND t.%s = '%s'`,
+		i.withAlias(name),
+		i.withAlias(driver),
+		i.columnSelect(name),
+		i.columnSelect(load),
+		i.columnSelect(fleet),
 		i.GetRandomFleet())
 
 	humanLabel := "TimescaleDB trucks with high load"
@@ -116,26 +117,23 @@ func (i *IoT) TrucksWithHighLoad(qi query.Query) {
 
 // StationaryTrucks finds all trucks that have low average velocity in a time window.
 func (i *IoT) StationaryTrucks(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
-	}
+	name, driver, fleet := "name", "driver", "fleet"
 
 	interval := i.Interval.MustRandWindow(iot.StationaryDuration)
-	sql := fmt.Sprintf(`SELECT %s
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s
 		FROM tags t 
 		INNER JOIN readings r ON r.tags_id = t.id 
 		WHERE time >= '%s' AND time < '%s'
-		AND %s = '%s' 
+		AND t.%s IS NOT NULL
+		AND t.%s = '%s' 
 		GROUP BY name, driver 
 		HAVING avg(r.velocity) < 1`,
-		tagsSelect,
+		i.withAlias(name),
+		i.withAlias(driver),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
-		fleetTag,
+		i.columnSelect(name),
+		i.columnSelect(fleet),
 		i.GetRandomFleet())
 
 	humanLabel := "TimescaleDB stationary trucks"
@@ -146,16 +144,10 @@ func (i *IoT) StationaryTrucks(qi query.Query) {
 
 // TrucksWithLongDrivingSessions finds all trucks that have not stopped at least 20 mins in the last 4 hours.
 func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
-	}
+	name, driver, fleet := "name", "driver", "fleet"
 
 	interval := i.Interval.MustRandWindow(iot.LongDrivingSessionDuration)
-	sql := fmt.Sprintf(`SELECT %s
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -164,13 +156,16 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE %s = '%s'
+		WHERE t.%s IS NOT NULL
+		AND t.%s = '%s'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > %d`,
-		tagsSelect,
+		i.withAlias(name),
+		i.withAlias(driver),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
-		fleetTag,
+		i.columnSelect(name),
+		i.columnSelect(fleet),
 		i.GetRandomFleet(),
 		// Calculate number of 10 min intervals that is the max driving duration for the session if we rest 5 mins per hour.
 		tenMinutePeriods(5, iot.LongDrivingSessionDuration))
@@ -183,16 +178,10 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 
 // TrucksWithLongDailySessions finds all trucks that have driven more than 10 hours in the last 24 hours.
 func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
-	tagsSelect := "t.name, t.driver"
-	fleetTag := "t.fleet"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-		fleetTag = "t.tagset->>'fleet'"
-	}
+	name, driver, fleet := "name", "driver", "fleet"
 
 	interval := i.Interval.MustRandWindow(iot.DailyDrivingDuration)
-	sql := fmt.Sprintf(`SELECT %s
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s
 		FROM tags t 
 		INNER JOIN LATERAL 
 			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
@@ -201,13 +190,16 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 			GROUP BY ten_minutes, tags_id  
 			HAVING avg(velocity) > 1 
 			ORDER BY ten_minutes, tags_id) AS r ON t.id = r.tags_id 
-		WHERE %s = '%s'
+		WHERE t.%s IS NOT NULL
+		AND t.%s = '%s'
 		GROUP BY name, driver 
 		HAVING count(r.ten_minutes) > %d`,
-		tagsSelect,
+		i.withAlias(name),
+		i.withAlias(driver),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
-		fleetTag,
+		i.columnSelect(name),
+		i.columnSelect(fleet),
 		i.GetRandomFleet(),
 		// Calculate number of 10 min intervals that is the max driving duration for the session if we rest 35 mins per hour.
 		tenMinutePeriods(35, iot.DailyDrivingDuration))
@@ -220,26 +212,21 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 
 // AvgVsProjectedFuelConsumption calculates average and projected fuel consumption per fleet.
 func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
-	tagsSelect := "t.fleet"
-	fleetTag := "t.fleet"
-	consumptionTag := "t.nominal_fuel_consumption"
+	fleet, consumption, name := "fleet", "nominal_fuel_consumption", "name"
 
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'fleet' as fleet"
-		fleetTag = "t.tagset->>'fleet'"
-		consumptionTag = "t.tagset->>'nominal_fuel_consumption'"
-	}
-
-	sql := fmt.Sprintf(`SELECT %s, avg(r.fuel_consumption) AS avg_fuel_consumption, 
-		avg(cast(%s AS INTEGER)) AS projected_fuel_consumption
+	sql := fmt.Sprintf(`SELECT t.%s, avg(r.fuel_consumption) AS avg_fuel_consumption, 
+		avg(t.%s) AS projected_fuel_consumption
 		FROM tags t
-		INNER JOIN lateral(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
-		WHERE %s IS NOT NULL AND %s IS NOT NULL
+		INNER JOIN LATERAL(SELECT tags_id, fuel_consumption FROM readings r WHERE r.tags_id = t.id AND velocity > 1) r ON true
+		WHERE t.%s IS NOT NULL
+		AND t.%s IS NOT NULL 
+		AND t.%s IS NOT NULL
 		GROUP BY fleet`,
-		tagsSelect,
-		consumptionTag,
-		fleetTag,
-		consumptionTag)
+		i.withAlias(fleet),
+		i.columnSelect(consumption),
+		i.columnSelect(fleet),
+		i.columnSelect(consumption),
+		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB average vs projected fuel consumption per fleet"
 	humanDesc := humanLabel
@@ -249,11 +236,7 @@ func (i *IoT) AvgVsProjectedFuelConsumption(qi query.Query) {
 
 // AvgDailyDrivingDuration finds the average driving duration per driver.
 func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
-	tagsSelect := "t.fleet, t.name, t.driver"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'fleet' as fleet, t.tagset->>'name' as name, t.tagset->>'driver' as driver"
-	}
+	name, driver, fleet := "name", "driver", "fleet"
 
 	sql := fmt.Sprintf(`WITH ten_minute_driving_sessions
 		AS (
@@ -267,11 +250,13 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 			FROM ten_minute_driving_sessions
 			GROUP BY day, tags_id
 			)
-		SELECT %s, avg(d.hours) AS avg_daily_hours
+		SELECT t.%s, t.%s, t.%s, avg(d.hours) AS avg_daily_hours
 		FROM daily_total_session d
 		INNER JOIN tags t ON t.id = d.tags_id
 		GROUP BY fleet, name, driver`,
-		tagsSelect)
+		i.withAlias(fleet),
+		i.withAlias(name),
+		i.withAlias(driver))
 
 	humanLabel := "TimescaleDB average driver driving duration per day"
 	humanDesc := humanLabel
@@ -281,11 +266,7 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 
 // AvgDailyDrivingSession finds the average driving session without stopping per driver per day.
 func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
-	tagsSelect := "t.name"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'name' as name"
-	}
+	name := "name"
 
 	sql := fmt.Sprintf(`WITH driver_status
 		AS (
@@ -302,13 +283,15 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 				) x
 			WHERE x.driving <> x.prev_driving
 			)
-		SELECT %s, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
+		SELECT t.%s, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
 		FROM tags t
 		INNER JOIN driver_status_change d ON t.id = d.tags_id
-		WHERE d.driving = true
+		WHERE t.%s IS NOT NULL
+		AND d.driving = true
 		GROUP BY name, day
 		ORDER BY name, day`,
-		tagsSelect)
+		i.withAlias(name),
+		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB average driver driving session without stopping per day"
 	humanDesc := humanLabel
@@ -318,24 +301,22 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 
 // AvgLoad finds the average load per truck model per fleet.
 func (i *IoT) AvgLoad(qi query.Query) {
-	tagsSelect := "t.fleet, t.model, t.load_capacity"
-	loadTag := "t.load_capacity"
+	fleet, model, load, name := "fleet", "model", "load_capacity", "name"
 
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'fleet' as fleet, t.tagset->>'model' as model, t.tagset->>'load_capacity' as load_capacity"
-		loadTag = "t.tagset->>'load_capacity'"
-	}
-
-	sql := fmt.Sprintf(`SELECT %s, avg(d.avg_load / cast(%s AS INTEGER)) AS avg_load_percentage
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, t.%s, avg(d.avg_load / t.%s) AS avg_load_percentage
 		FROM tags t
 		INNER JOIN (
 			SELECT tags_id, avg(current_load) AS avg_load
 			FROM diagnostics d
 			GROUP BY tags_id
 			) d ON t.id = d.tags_id
+		WHERE t.%s IS NOT NULL
 		GROUP BY fleet, model, load_capacity`,
-		tagsSelect,
-		loadTag)
+		i.withAlias(fleet),
+		i.withAlias(model),
+		i.withAlias(load),
+		i.columnSelect(load),
+		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB average load per truck model per fleet"
 	humanDesc := humanLabel
@@ -345,13 +326,9 @@ func (i *IoT) AvgLoad(qi query.Query) {
 
 // DailyTruckActivity returns the number of hours trucks has been active (not out-of-commission) per day per fleet per model.
 func (i *IoT) DailyTruckActivity(qi query.Query) {
-	tagsSelect := "t.fleet, t.model"
+	fleet, model, name := "fleet", "model", "name"
 
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'fleet' as fleet, t.tagset->>'model' as model"
-	}
-
-	sql := fmt.Sprintf(`SELECT %s, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
 		FROM tags t
 		INNER JOIN (
 			SELECT time_bucket('24 hours', TIME) AS day, time_bucket('10 minutes', TIME) AS ten_minutes, tags_id, count(*) AS ten_mins_per_day
@@ -359,9 +336,12 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 			GROUP BY day, ten_minutes, tags_id
 			HAVING avg(STATUS) < 1
 			) y ON y.tags_id = t.id
+		WHERE t.%s IS NOT NULL
 		GROUP BY fleet, model, y.day
 		ORDER BY y.day`,
-		tagsSelect)
+		i.withAlias(fleet),
+		i.withAlias(model),
+		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB daily truck activity per fleet per model"
 	humanDesc := humanLabel
@@ -371,11 +351,7 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 
 // TruckBreakdownFrequency calculates the amount of times a truck model broke down in the last period.
 func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
-	tagsSelect := "t.model"
-
-	if i.UseJSON {
-		tagsSelect = "t.tagset->>'model' as model"
-	}
+	model, name := "model", "name"
 
 	sql := fmt.Sprintf(`WITH breakdown_per_truck_per_ten_minutes
 		AS (
@@ -389,12 +365,14 @@ func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
 					) AS next_broken_down
 			FROM breakdown_per_truck_per_ten_minutes
 			)
-		SELECT %s, count(*)
+		SELECT t.%s, count(*)
 		FROM tags t
 		INNER JOIN breakdowns_per_truck b ON t.id = b.tags_id
-		WHERE broken_down = false AND next_broken_down = true
+		WHERE t.%s IS NOT NULL
+		AND broken_down = false AND next_broken_down = true
 		GROUP BY model`,
-		tagsSelect)
+		i.withAlias(model),
+		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB truck breakdown frequency per model"
 	humanDesc := humanLabel

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andreyvit/diff"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/query"
 )
@@ -530,6 +531,6 @@ func verifyQuery(t *testing.T, q query.Query, humanLabel, humanDesc, hypertable,
 	}
 
 	if got := string(tsq.SqlQuery); got != sqlQuery {
-		t.Errorf("incorrect SQL query:\ngot\n%s\nwant\n%s", got, sqlQuery)
+		t.Errorf("incorrect SQL query:\ndiff\n%s\ngot\n%s\nwant\n%s", diff.CharacterDiff(got, sqlQuery), got, sqlQuery)
 	}
 }
