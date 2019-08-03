@@ -13,7 +13,7 @@ DATABASE_USER=${DATABASE_USER:-postgres}
 
 # Load parameters - personal
 CHUNK_TIME=${CHUNK_TIME:-8h}
-PARTITIONS=${PARTITIONS:-1}
+PARTITIONS=${PARTITIONS:-0}
 HASH_WORKERS=${HASH_WORKERS:-false}
 TIME_PARTITION_INDEX=${TIME_PARTITION_INDEX:-false}
 PERF_OUTPUT=${PERF_OUTPUT:-}
@@ -24,6 +24,7 @@ DO_CREATE_DB=${DO_CREATE_DB:-true}
 FORCE_TEXT_FORMAT=${FORCE_TEXT_FORMAT:-false}
 USE_COPY=${USE_COPY:-true}
 REPLICATION_FACTOR=${REPLICATION_FACTOR:-0}
+CREATE_METRICS_TABLE=${CREATE_METRICS_TABLE:-true}
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
@@ -53,4 +54,5 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --do-create-db=${DO_CREATE_DB} \
                                 --force-text-format=${FORCE_TEXT_FORMAT} \
                                 --use-copy=${USE_COPY} \
-                                --replication-factor=${REPLICATION_FACTOR}
+                                --replication-factor=${REPLICATION_FACTOR} \
+                                --create-metrics-table=${CREATE_METRICS_TABLE}

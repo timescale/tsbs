@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
@@ -152,6 +153,20 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 		fieldDefs, indexDefs := d.getFieldAndIndexDefinitions(columns)
 		if createMetricsTable {
 			d.createTableAndIndexes(dbBench, tableName, fieldDefs, indexDefs)
+		} else {
+			// If not creating table, wait for another client to set it up
+			i := 0
+			checkTableQuery := fmt.Sprintf("SELECT * FROM pg_tables WHERE tablename = '%s'", tableName)
+			r := MustQuery(dbBench, checkTableQuery)
+			for !r.Next() {
+				time.Sleep(100 * time.Millisecond)
+				i += 1
+				if (i == 600) {
+					return fmt.Errorf("expected table not created after one minute of waiting")
+				}
+				r = MustQuery(dbBench, checkTableQuery)
+			}
+			return nil
 		}
 	}
 	return nil
@@ -222,10 +237,29 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	}
 
 	if useHypertable {
+		var creationCommand string
+		var partitionsOption string
+
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+
+		// Don't pass replication factor directly to the create command.  We
+		// currently only support a replication factor of 1, which is implicit
+		// in create_distributed_hypertable.
+		if replicationFactor == 0 {
+			creationCommand = "create_hypertable"
+		} else {
+			creationCommand = "create_distributed_hypertable"
+		}
+		
+		if numberPartitions != 0 {
+			partitionsOption = fmt.Sprintf("number_partitions => %v::smallint", numberPartitions)
+		} else {
+			partitionsOption = "number_partitions => NULL"
+		}
+
 		MustExec(dbBench,
-			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE, replication_factor => %d)",
-				tableName, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000, replicationFactor))
+			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+				creationCommand, tableName, "tags_id", partitionsOption, chunkTime.Nanoseconds()/1000))
 	}
 }
 
