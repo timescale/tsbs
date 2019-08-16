@@ -200,7 +200,7 @@ func TestStationaryTrucks(t *testing.T) {
 		WHERE time >= '1970-01-01 00:36:22.646325 +0000' AND time < '1970-01-01 00:46:22.646325 +0000'
 		AND t.name IS NOT NULL
 		AND t.fleet = 'West' 
-		GROUP BY name, driver 
+		GROUP BY 1, 2 
 		HAVING avg(r.velocity) < 1`,
 		},
 
@@ -217,7 +217,7 @@ func TestStationaryTrucks(t *testing.T) {
 		WHERE time >= '1970-01-01 00:36:22.646325 +0000' AND time < '1970-01-01 00:46:22.646325 +0000'
 		AND t.tagset->>'name' IS NOT NULL
 		AND t.tagset->>'fleet' = 'West' 
-		GROUP BY name, driver 
+		GROUP BY 1, 2 
 		HAVING avg(r.velocity) < 1`,
 		},
 	}
