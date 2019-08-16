@@ -126,7 +126,7 @@ func (i *IoT) StationaryTrucks(qi query.Query) {
 		WHERE time >= '%s' AND time < '%s'
 		AND t.%s IS NOT NULL
 		AND t.%s = '%s' 
-		GROUP BY name, driver 
+		GROUP BY 1, 2 
 		HAVING avg(r.velocity) < 1`,
 		i.withAlias(name),
 		i.withAlias(driver),
