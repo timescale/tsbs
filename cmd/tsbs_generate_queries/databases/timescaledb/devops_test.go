@@ -255,11 +255,11 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHypertable: "cpu",
 			expectedSQLQuery: `
         WITH cpu_avg AS (
-          SELECT time_bucket('3600 seconds', time) as hour, tags_id,
+          SELECT time_bucket('3600 seconds', time) as hour, hostname,
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 12:16:22.646325 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, hostname, mean_usage_user
         FROM cpu_avg
@@ -278,7 +278,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:54:10.138978 +0000' AND time < '1970-01-01 12:54:10.138978 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags->>'hostname', mean_usage_user
         FROM cpu_avg
@@ -297,7 +297,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:47:30.894865 +0000' AND time < '1970-01-01 12:47:30.894865 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags.hostname, mean_usage_user
         FROM cpu_avg
@@ -317,7 +317,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:37:12.342805 +0000' AND time < '1970-01-01 12:37:12.342805 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags->>'hostname', mean_usage_user
         FROM cpu_avg

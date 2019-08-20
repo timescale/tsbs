@@ -162,7 +162,7 @@ if __name__ == "__main__":
         args.load_file_dir if not args.query_only else None,
         args.db_name,
         args.batch_size,
-        args.limit,
+        args.max-queries,
         args.workers,
         args.hostname,
         args.extra_query_args)

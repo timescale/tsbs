@@ -44,11 +44,12 @@ var (
 	numberPartitions int
 	chunkTime        time.Duration
 
-	timeIndex          bool
-	timePartitionIndex bool
-	partitionIndex     bool
-	fieldIndex         string
-	fieldIndexCount    int
+	timeIndex           bool
+	timePartitionIndex  bool
+	partitionIndex      bool
+	partitionOnHostname bool
+	fieldIndex          string
+	fieldIndexCount     int
 
 	profileFile          string
 	replicationStatsFile string
@@ -96,11 +97,12 @@ func init() {
 	pflag.Int("partitions", 1, "Number of partitions")
 	pflag.Duration("chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
-	pflag.Bool("time-index", true, "Whether to build an index on the time dimension")
-	pflag.Bool("time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
-	pflag.Bool("partition-index", true, "Whether to build an index on the partition key")
-	pflag.String("field-index", valueTimeIdx, "index types for tags (comma delimited)")
-	pflag.Int("field-index-count", 0, "Number of indexed fields (-1 for all)")
+	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
+	flag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
+	flag.BoolVar(&partitionOnHostname, "partition-on-hostname", false, "Whether to create the space partition on the hostname column (instead of tags-id)")
+	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
+	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma delimited)")
+	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	pflag.String("write-profile", "", "File to output CPU/memory profile to")
 	pflag.String("write-replication-stats", "", "File to output replication stats to")

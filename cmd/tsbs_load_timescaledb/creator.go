@@ -217,17 +217,25 @@ func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []s
 // createTableAndIndexes takes a list of field and index definitions for a given tableName and constructs
 // the necessary table, index, and potential hypertable based on the user's settings
 func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fieldDefs []string, indexDefs []string) {
+	var partitionColumn string
+
+	if partitionOnHostname {
+		partitionColumn = "hostname"
+	} else {
+		partitionColumn = "tags_id"
+	}
+
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
 	if partitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", tableName))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
 	}
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to
 	// use --time-partition-index for reduced index lock contention.
 	if timePartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", tableName))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, partitionColumn))
 	} else if timeIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", tableName))
 	}
@@ -259,7 +267,7 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 
 		MustExec(dbBench,
 			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				creationCommand, tableName, "tags_id", partitionsOption, chunkTime.Nanoseconds()/1000))
+				creationCommand, tableName, partitionColumn, partitionsOption, chunkTime.Nanoseconds()/1000))
 	}
 }
 
