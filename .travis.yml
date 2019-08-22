@@ -1,18 +1,21 @@
 language: go
-
-go_import_path: github.com/timescale/tsbs
-
-go:
-  - 1.9.x
-  - 1.10.x
-  - 1.11.x
-
-before_install:
-  - go get -t -v ./...
-
-script:
-  - go test -race -v ./...
-  - ./.coverage_tests.sh
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+jobs:
+  include:
+    - stage: test
+      name: "Go before modules"
+      go:
+        - 1.10.x
+      before_install:
+        - go get -t -v ./...
+      script:
+        - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+    - stage: test
+      name: "Go with modules"
+      go:
+        - 1.11.x
+        - 1.12.x
+      install: skip
+      script:
+        - GO111MODULE=on go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
