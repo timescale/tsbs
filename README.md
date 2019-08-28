@@ -19,8 +19,8 @@ Current databases supported:
 The **Time Series Benchmark Suite (TSBS)** is a collection of Go
 programs that are used to generate datasets and then benchmark read
 and write performance of various databases. The intent is to make the
-TSBS extensible so that a variety of use cases (e.g., devops, finance,
-etc.), query types, and databases can be included and benchmarked. To
+TSBS extensible so that a variety of use cases (e.g., devops, IoT, 
+finance, etc.), query types, and databases can be included and benchmarked. To
 this end we hope to help prospective database administrators find the
 best database for their needs and their workloads. Further, if you
 are the developer of a time series database and want to include your
@@ -28,8 +28,8 @@ database in the TSBS, feel free to open a pull request to add it!
 
 ## Current use cases
 
-Currently, TSBS supports one use case -- dev ops -- in two forms. The
-full form is used to generate, insert, and measure data from 9 'systems'
+Currently, TSBS supports two use cases. First one, 'dev ops', comes in two forms. 
+The full form is used to generate, insert, and measure data from 9 'systems'
 that could be monitored in a real world dev ops scenario (e.g., CPU,
 memory, disk, etc). Together, these 9 systems generate 100 metrics
 per reading interval. The alternate form focuses solely on CPU
@@ -41,6 +41,19 @@ of the host, its operating system, etc) are generated for each host
 with readings in the dataset. Each unique set of tags identifies
 one host in the dataset and the number of different hosts generated is
 defined by the `scale` flag (see below).
+
+The second use case is meant to simulate the data load in an IoT environment.
+This use case is based on data streaming from a set of trucks tied to a 
+fictional trucking company. This use case will simulate gathering diagnostic
+data and metrics from each truck, and will also introduce environmental factors
+such as out of order data and batch ingestion (for trucks 
+that are offline for a period of time). We are also tracking truck metadata 
+and using this to tie metrics and diagnostics together as part of the query set.  
+
+The queries that are generated as part of this use case will cover both real 
+time truck status and analytics that will look at the time series data in 
+an effort to be more predictive about truck behavior.  The scale factor with 
+this use case will be based on the number of trucks tracked.  
 
 ## What the TSBS tests
 
@@ -129,13 +142,21 @@ write data. The above configuration will generate just over 100M rows
 Increasing the time period by a day will add an additional ~33M rows
 so that, e.g., 30 days would yield a billion rows (10B metrics)
 
+##### IoT use case
+
+The main difference between the `iot` use case and other use cases is that 
+it generates data which can contain out-of-order, missing, or empty 
+entries to better represent real-life scenarios associated to the use case. 
+Using a specified seed means that we can do this in a deterministic and 
+reproducible way for multiple runs of data generation.
+
 #### Query generation
 
 Variables needed:
 1. the same use case, seed, # of devices, and start time as used in data generation
 1. an end time that is one second after the end time from data generation. E.g., for `2016-01-04T00:00:00Z` use `2016-01-04T00:00:01Z`
 1. the number of queries to generate. E.g., `1000`
-1. and the type of query you'd like to generate. E.g., `single-groupby-1-1-1`
+1. and the type of query you'd like to generate. E.g., `single-groupby-1-1-1` or `last-loc`
 
 For the last step there are numerous queries to choose from, which are
 listed in [Appendix I](#appendix-i-query-types). Additionally, the file
@@ -317,3 +338,19 @@ the results.
 |high-cpu-1| All the readings where one metric is above a threshold for a particular host
 |lastpoint| The last reading for each host
 |groupby-orderby-limit| The last 5 aggregate readings (across time) before a randomly chosen endpoint
+
+### IoT
+|Query type|Description|
+|:---|:---|
+|last-loc|Fetch real-time (i.e. last) location of each truck
+|low-fuel|Fetch all trucks with low fuel (less than 10%)
+|high-load|Fetch trucks with high current load (over 90% load capacity)
+|stationary-trucks|Fetch all trucks that are stationary (low avg velocity in last 10 mins)
+|long-driving-sessions|Get trucks which haven't rested for at least 20 mins in the last 4 hours
+|long-daily-sessions|Get trucks which drove more than 10 hours in the last 24 hours
+|avg-vs-projected-fuel-consumption|Calculate average vs. projected fuel consumption per fleet
+|avg-daily-driving-duration|Calculate average daily driving duration per driver
+|avg-daily-driving-session|Calculate average daily driving session per driver
+|avg-load|Calculate average load per truck model per fleet
+|daily-activity|Get the number of hours truck has been active (vs. out-of-commission) per day per fleet
+|breakdown-frequency|Calculate breakdown frequency by truck model
