@@ -109,9 +109,9 @@ benchmarking phases.
 #### Data generation
 
 Variables needed:
-1. a use case. E.g., `cpu-only` (choose from `cpu-only` or `devops`)
+1. a use case. E.g., `iot` (choose from `cpu-only`, `devops`, or `iot`)
 1. a PRNG seed for deterministic generation. E.g., `123`
-1. the number of devices to generate for. E.g., `4000`
+1. the number of devices / trucks to generate for. E.g., `4000`
 1. a start time for the data's timestamps. E.g., `2016-01-01T00:00:00Z`
 1. an end time. E.g., `2016-01-04T00:00:00Z`
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
@@ -124,7 +124,7 @@ datasets, if you chose to generate for multiple databases) that can
 be used to benchmark data loading of the database(s) chosen using
 the `tsbs_generate_data` tool:
 ```bash
-$ tsbs_generate_data -use-case="cpu-only" -seed=123 -scale=4000 \
+$ tsbs_generate_data -use-case="iot" -seed=123 -scale=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:00Z" \
     -log-interval="10s" -format="timescaledb" \
@@ -162,16 +162,16 @@ For the last step there are numerous queries to choose from, which are
 listed in [Appendix I](#appendix-i-query-types). Additionally, the file
 `scripts/generate_queries.sh` contains a list of all of them as the
 default value for the environmental variable `QUERY_TYPES`. If you are
-generating more than one type of query, we recommend you use that
+generating more than one type of query, we recommend you use the
 helper script.
 
 For generating just one set of queries for a given type:
 ```bash
-$ tsbs_generate_queries -use-case="cpu-only" -seed=123 -scale=4000 \
+$ tsbs_generate_queries -use-case="iot" -seed=123 -scale=4000 \
     -timestamp-start="2016-01-01T00:00:00Z" \
     -timestamp-end="2016-01-04T00:00:01Z" \
-    -queries=1000 -query-type="single-groupby-1-1-1" -format="timescaledb" \
-    | gzip > /tmp/timescaledb-queries-single-groupby-1-1-1.gz
+    -queries=1000 -query-type="breakdown-frequency" -format="timescaledb" \
+    | gzip > /tmp/timescaledb-queries-breakdown-frequency.gz
 ```
 
 For generating sets of queries for multiple types:
@@ -179,7 +179,7 @@ For generating sets of queries for multiple types:
 $ FORMATS="timescaledb" SCALE=4000 SEED=123 \
     TS_START="2016-01-01T00:00:00Z" \
     TS_END="2016-01-04T00:00:01Z" \
-    QUERIES=1000 QUERY_TYPES="single-groupby-1-1-1 single-groupby-1-1-12 double-groupby-1" \
+    QUERIES=1000 QUERY_TYPES="last-loc low-fuel avg-load" \
     BULK_DATA_DIR="/tmp/bulk_queries" scripts/generate_queries.sh
 ```
 
@@ -284,10 +284,10 @@ to run multiple query types in a row. The queries it generates should be
 put in a file with one query per line and the path given to the script.
 For example, if you had a file named `queries.txt` that looked like this:
 ```text
-high-cpu-1
-cpu-max-all-8
-groupby-orderby-limit
-double-groupby-1
+last-loc
+avg-load
+high-load
+long-driving-session
 ```
 
 You could generate a run script named `query_test.sh`:
@@ -302,13 +302,13 @@ And the resulting script file would look like:
 ```bash
 #!/bin/bash
 # Queries
-cat /tmp/queries/timescaledb-high-cpu-1-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-high-cpu-1-queries.out
+cat /tmp/queries/timescaledb-last-loc-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-last-loc-queries.out
 
-cat /tmp/queries/timescaledb-cpu-max-all-8-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-cpu-max-all-8-queries.out
+cat /tmp/queries/timescaledb-avg-load-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-avg-load-queries.out
 
-cat /tmp/queries/timescaledb-groupby-orderby-limit-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-groupby-orderby-limit-queries.out
+cat /tmp/queries/timescaledb-high-load-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-high-load-queries.out
 
-cat /tmp/queries/timescaledb-double-groupby-1-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-double-groupby-1-queries.out
+cat /tmp/queries/timescaledb-long-driving-session-queries.gz | gunzip | query_benchmarker_timescaledb --workers=8 --limit=1000 --hosts="localhost" --postgres="user=postgres sslmode=disable"  | tee query_timescaledb_timescaledb-long-driving-session-queries.out
 ```
 
 ### Query validation (optional)
