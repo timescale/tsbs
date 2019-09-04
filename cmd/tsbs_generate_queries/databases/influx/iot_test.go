@@ -1,16 +1,76 @@
 package influx
 
 import (
+	"fmt"
 	"math/rand"
+	"net/url"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/query"
+)
+
+const (
+	testScale = 10
 )
 
 type IoTTestCase struct {
 	desc               string
+	input              int
+	fail               bool
+	failMsg            string
 	expectedHumanLabel string
 	expectedHumanDesc  string
 	expectedQuery      string
+}
+
+func TestLastLocByTruck(t *testing.T) {
+	cases := []IoTTestCase{
+		{
+			desc:    "zero trucks",
+			input:   0,
+			fail:    true,
+			failMsg: "number of trucks cannot be < 1; got 0",
+		},
+		{
+			desc:    "more trucks than scale",
+			input:   2 * testScale,
+			fail:    true,
+			failMsg: "number of trucks (20) larger than total trucks. See --scale (10)",
+		},
+		{
+			desc:  "one truck",
+			input: 1,
+
+			expectedHumanLabel: "Influx last location by specific truck",
+			expectedHumanDesc:  "Influx last location by specific truck: random    1 trucks",
+			expectedQuery: `SELECT "name", "driver", "latitude", "longitude" 
+		FROM "readings" 
+		WHERE ("name" = 'truck_5') 
+		ORDER BY "time" 
+		LIMIT 1`,
+		},
+		{
+			desc:  "three truck",
+			input: 3,
+
+			expectedHumanLabel: "Influx last location by specific truck",
+			expectedHumanDesc:  "Influx last location by specific truck: random    3 trucks",
+			expectedQuery: `SELECT "name", "driver", "latitude", "longitude" 
+		FROM "readings" 
+		WHERE ("name" = 'truck_9' or "name" = 'truck_3' or "name" = 'truck_5') 
+		ORDER BY "time" 
+		LIMIT 1`,
+		},
+	}
+
+	testFunc := func(i *IoT, c IoTTestCase) query.Query {
+		q := i.GenerateEmptyQuery()
+		i.LastLocByTruck(q, c.input)
+		return q
+	}
+
+	runIoTTestCases(t, testFunc, time.Now(), time.Now(), cases)
 }
 
 func TestLastLocPerTruck(t *testing.T) {
@@ -455,4 +515,44 @@ func TestTenMinutePeriods(t *testing.T) {
 		}
 	}
 
+}
+
+func runIoTTestCases(t *testing.T, testFunc func(*IoT, IoTTestCase) query.Query, s time.Time, e time.Time, cases []IoTTestCase) {
+	rand.Seed(123) // Setting seed for testing purposes.
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			b := BaseGenerator{}
+			dq, err := b.NewIoT(s, e, testScale)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			i := dq.(*IoT)
+
+			if c.fail {
+				func() {
+					defer func() {
+						r := recover()
+						if r == nil {
+							t.Fatalf("did not panic when should")
+						}
+
+						if r != c.failMsg {
+							t.Fatalf("incorrect fail message: got %s, want %s", r, c.failMsg)
+						}
+					}()
+
+					testFunc(i, c)
+				}()
+			} else {
+				q := testFunc(i, c)
+
+				v := url.Values{}
+				v.Set("q", c.expectedQuery)
+				expectedPath := fmt.Sprintf("/query?%s", v.Encode())
+
+				verifyQuery(t, q, c.expectedHumanLabel, c.expectedHumanDesc, expectedPath)
+			}
+		})
+	}
 }

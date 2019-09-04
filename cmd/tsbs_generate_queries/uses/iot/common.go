@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -27,6 +28,8 @@ const (
 
 	// LabelLastLoc is the label for the last location query.
 	LabelLastLoc = "last-loc"
+	// LabelLastLocSingleTruck is the label for the last location query for a single truck.
+	LabelLastLocSingleTruck = "single-last-loc"
 	// LabelLowFuel is the label for the low fuel query.
 	LabelLowFuel = "low-fuel"
 	// LabelHighLoad is the label for the high load query.
@@ -68,9 +71,43 @@ func NewCore(start, end time.Time, scale int) (*Core, error) {
 
 }
 
+// GetRandomTrucks returns a random set of nTrucks from a given Core
+func (c *Core) GetRandomTrucks(nTrucks int) ([]string, error) {
+	return getRandomTrucks(nTrucks, c.Scale)
+}
+
+// getRandomTruckNames returns a subset of numTrucks names of a permutation of truck names,
+// numbered from 0 to totalTrucks.
+// Ex.: truck_12, truck_7, truck_25 for numTrucks=3 and totalTrucks=30 (3 out of 30)
+func getRandomTrucks(numTrucks int, totalTrucks int) ([]string, error) {
+	if numTrucks < 1 {
+		return nil, fmt.Errorf("number of trucks cannot be < 1; got %d", numTrucks)
+	}
+	if numTrucks > totalTrucks {
+		return nil, fmt.Errorf("number of trucks (%d) larger than total trucks. See --scale (%d)", numTrucks, totalTrucks)
+	}
+
+	randomNumbers, err := common.GetRandomSubsetPerm(numTrucks, totalTrucks)
+	if err != nil {
+		return nil, err
+	}
+
+	truckNames := []string{}
+	for _, n := range randomNumbers {
+		truckNames = append(truckNames, fmt.Sprintf("truck_%d", n))
+	}
+
+	return truckNames, nil
+}
+
 // LastLocFiller is a type that can fill in a last location query.
 type LastLocFiller interface {
 	LastLocPerTruck(query.Query)
+}
+
+// LastLocByTruckFiller is a type that can fill in a last location query for a number of trucks.
+type LastLocByTruckFiller interface {
+	LastLocByTruck(query.Query, int)
 }
 
 // TruckLowFuelFiller is a type that can fill in a trucks with low fuel query.
