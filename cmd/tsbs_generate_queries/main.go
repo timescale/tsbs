@@ -33,6 +33,7 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 	"iot": {
 		iot.LabelLastLoc:                       iot.NewLastLocPerTruck,
+		iot.LabelLastLocSingleTruck:            iot.NewLastLocSingleTruck,
 		iot.LabelLowFuel:                       iot.NewTruckWithLowFuel,
 		iot.LabelHighLoad:                      iot.NewTruckWithHighLoad,
 		iot.LabelStationaryTrucks:              iot.NewStationaryTrucks,

@@ -2,7 +2,6 @@ package devops
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
@@ -14,7 +13,6 @@ const (
 	errNHostsCannotNegative = "nHosts cannot be negative"
 	errNoMetrics            = "cannot get 0 metrics"
 	errTooManyMetrics       = "too many metrics asked for"
-	errMoreItemsThanScale   = "cannot get random permutation with more items than scale"
 
 	// TableName is the name of the table where the time series data is stored for devops use case.
 	TableName = "cpu"
@@ -156,7 +154,7 @@ func getRandomHosts(numHosts int, totalHosts int) ([]string, error) {
 		return nil, fmt.Errorf("number of hosts (%d) larger than total hosts. See --scale (%d)", numHosts, totalHosts)
 	}
 
-	randomNumbers, err := getRandomSubsetPerm(numHosts, totalHosts)
+	randomNumbers, err := common.GetRandomSubsetPerm(numHosts, totalHosts)
 	if err != nil {
 		return nil, err
 	}
@@ -167,31 +165,4 @@ func getRandomHosts(numHosts int, totalHosts int) ([]string, error) {
 	}
 
 	return hostnames, nil
-}
-
-// getRandomSubsetPerm returns a subset of numItems of a permutation of numbers from 0 to totalNumbers,
-// e.g., 5 items out of 30. This is an alternative to rand.Perm and then taking a sub-slice,
-// which used up a lot more memory and slowed down query generation significantly.
-// The subset of the permutation should have no duplicates and thus, can not be longer that original set
-// Ex.: 12, 7, 25 for numItems=3 and totalItems=30 (3 out of 30)
-func getRandomSubsetPerm(numItems int, totalItems int) ([]int, error) {
-	if numItems > totalItems {
-		// Cannot make a subset longer than the original set
-		return nil, fmt.Errorf(errMoreItemsThanScale)
-	}
-
-	seen := map[int]bool{}
-	res := []int{}
-	for i := 0; i < numItems; i++ {
-		for {
-			n := rand.Intn(totalItems)
-			// Keep iterating until a previously unseen int is found
-			if !seen[n] {
-				seen[n] = true
-				res = append(res, n)
-				break
-			}
-		}
-	}
-	return res, nil
 }
