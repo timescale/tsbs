@@ -48,7 +48,7 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		buf = append(buf, ' ')
 		buf = append(buf, p.tagKeys[i]...)
 		buf = append(buf, '=')
-		buf = append(buf, p.tagValues[i]...)
+		buf = append(buf, p.tagValues[i].(string)...)
 	}
 
 	series := string(buf[HeaderLength:])

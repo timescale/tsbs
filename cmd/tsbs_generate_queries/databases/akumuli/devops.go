@@ -12,6 +12,7 @@ import (
 
 // Devops produces Influx-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
 }
 
@@ -19,18 +20,6 @@ func panicIfErr(err error) {
 	if err != nil {
 		panic(err.Error())
 	}
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.HTTP
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewHTTP()
 }
 
 type tsdbQueryRange struct {
@@ -302,15 +291,4 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	humanLabel := devops.GetDoubleGroupByLabel("Akumuli", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
-}
-
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, body string, begin, end int64) {
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.Method = []byte("POST")
-	q.Path = []byte("/api/query")
-	q.Body = []byte(body)
-	q.StartTimestamp = begin
-	q.EndTimestamp = end
 }

@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
@@ -239,7 +240,8 @@ func (g *QueryGenerator) initFactories() error {
 		return err
 	}
 
-	return nil
+	akumuli := &akumuli.BaseGenerator{}
+	return g.addFactory(FormatAkumuli, akumuli)
 }
 
 func (g *QueryGenerator) addFactory(database string, factory interface{}) error {
