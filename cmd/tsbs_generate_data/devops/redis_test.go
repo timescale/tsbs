@@ -17,12 +17,12 @@ func TestRedisMeasurementTick(t *testing.T) {
 	oldVals := map[string]float64{}
 	fields := ldmToFieldLabels(redisFields)
 	for i, ldm := range redisFields {
-		oldVals[string(ldm.label)] = m.distributions[i].Get()
+		oldVals[string(ldm.Label)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -36,7 +36,7 @@ func TestRedisMeasurementTick(t *testing.T) {
 		t.Errorf("port updated unexpectedly: got %s want %s", got, origPort)
 	}
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -54,8 +54,8 @@ func TestRedisMeasurementTick(t *testing.T) {
 func TestRedisMeasurementToPoint(t *testing.T) {
 	now := time.Now()
 	m := NewRedisMeasurement(now)
-	origName := string(m.serverName)
-	origPort := string(m.port)
+	origName := m.serverName
+	origPort := m.port
 	duration := time.Second
 	m.Tick(duration)
 
@@ -65,11 +65,11 @@ func TestRedisMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelRedis)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagServer)); got != origName {
+	if got := p.GetTagValue(labelRedisTagServer).(string); got != origName {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origName)
 	}
 
-	if got := string(p.GetTagValue(labelRedisTagPort)); got != origPort {
+	if got := p.GetTagValue(labelRedisTagPort).(string); got != origPort {
 		t.Errorf("incorrect tag value for port: got %s want %s", got, origPort)
 	}
 
@@ -78,8 +78,8 @@ func TestRedisMeasurementToPoint(t *testing.T) {
 	}
 
 	for _, ldm := range redisFields {
-		if got := p.GetFieldValue(ldm.label); got == nil {
-			t.Errorf("field %s returned a nil value unexpectedly", ldm.label)
+		if got := p.GetFieldValue(ldm.Label); got == nil {
+			t.Errorf("field %s returned a nil value unexpectedly", ldm.Label)
 		}
 	}
 }

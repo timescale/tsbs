@@ -28,13 +28,13 @@ var (
 )
 
 type MemMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 	bytesTotal int64 // this doesn't change
 }
 
 func NewMemMeasurement(start time.Time) *MemMeasurement {
-	sub := newSubsystemMeasurement(start, 3)
-	bytesTotal := randomInt64SliceChoice(memoryTotalChoices)
+	sub := common.NewSubsystemMeasurement(start, 3)
+	bytesTotal := common.RandomInt64SliceChoice(memoryTotalChoices)
 
 	// Reuse NormalDistributions as arguments to other distributions. This is
 	// safe to do because the higher-level distribution advances the ND and
@@ -42,25 +42,25 @@ func NewMemMeasurement(start time.Time) *MemMeasurement {
 	nd := common.ND(0.0, float64(bytesTotal)/64)
 
 	// used bytes
-	sub.distributions[0] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
+	sub.Distributions[0] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
 	// cached bytes
-	sub.distributions[1] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
+	sub.Distributions[1] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
 	// buffered bytes
-	sub.distributions[2] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
+	sub.Distributions[2] = common.CWD(nd, 0.0, float64(bytesTotal), rand.Float64()*float64(bytesTotal))
 	return &MemMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		bytesTotal:           bytesTotal,
 	}
 }
 
 func (m *MemMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelMem)
-	p.SetTimestamp(&m.timestamp)
+	p.SetTimestamp(&m.Timestamp)
 
 	total := m.bytesTotal
-	used := int64(m.distributions[0].Get())
-	cached := int64(m.distributions[1].Get())
-	buffered := int64(m.distributions[2].Get())
+	used := int64(m.Distributions[0].Get())
+	cached := int64(m.Distributions[1].Get())
+	buffered := int64(m.Distributions[2].Get())
 	available := total - int64(used)
 
 	p.AppendField(memoryFieldKeys[0], total)

@@ -2,7 +2,6 @@ package cassandra
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -19,19 +18,8 @@ func panicIfErr(err error) {
 
 // Devops produces Cassandra-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.Cassandra
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewCassandra()
 }
 
 func (d *Devops) getHostWhereWithHostnames(hostnames []string) []string {
@@ -173,19 +161,4 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	q := qi.(*query.Cassandra)
 	q.GroupByDuration = time.Hour
 	q.WhereClause = []byte("usage_user,>,90.0")
-}
-
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval *utils.TimeInterval, tagSets [][]string) {
-	q := qi.(*query.Cassandra)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-
-	q.AggregationType = []byte(aggType)
-	q.MeasurementName = []byte("cpu")
-	q.FieldName = []byte(strings.Join(fields, ","))
-
-	q.TimeStart = interval.Start()
-	q.TimeEnd = interval.End()
-
-	q.TagSets = tagSets
 }

@@ -143,6 +143,45 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			},
 			shouldPanic: true,
 		},
+		{
+			desc: "empty tag value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=,tag2=bar",
+					fields: "100,1,5,42",
+				},
+			},
+			wantTags: [][]string{{"", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, nil, 1.0, 5.0, 42.0},
+			},
+		},
+		{
+			desc: "empty extra tag value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=foo,tag2=bar,tag3=",
+					fields: "100,1,5,42",
+				},
+			},
+			wantTags: [][]string{{"foo", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": ""}, 1.0, 5.0, 42.0},
+			},
+		},
+		{
+			desc: "empty field value",
+			rows: []*insertData{
+				{
+					tags:   "tag1=foo,tag2=bar",
+					fields: "100,,5,42",
+				},
+			},
+			wantTags: [][]string{{"foo", "bar"}},
+			wantData: [][]interface{}{
+				[]interface{}{toTS("100"), nil, nil, nil, 5.0, 42.0},
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -209,5 +248,15 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 		}
 
 		inTableTag = oldInTableTag
+	}
+}
+
+func TestConvertValsToSQLBasedOnType(t *testing.T) {
+	inVals := []string{"1", "2", "3", "4", "5", ""}
+	inTypes := []string{"text", "int32", "int64", "float32", "float64", "int32"}
+	converted := convertValsToSQLBasedOnType(inVals, inTypes)
+	expected := []string{"'1'", "2", "3", "4", "5", "NULL"}
+	if reflect.DeepEqual(expected, converted) {
+		t.Errorf("error converting to sql values\nexpected: %v\ngot: %v", expected, converted)
 	}
 }

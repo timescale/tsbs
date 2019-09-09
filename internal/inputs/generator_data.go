@@ -12,6 +12,7 @@ import (
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
@@ -62,7 +63,7 @@ func (c *DataGeneratorConfig) Validate() error {
 func (c *DataGeneratorConfig) AddToFlagSet(fs *flag.FlagSet) {
 	c.BaseConfig.AddToFlagSet(fs)
 	flag.Uint64Var(&c.InitialScale, "initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
-	flag.DurationVar(&c.LogInterval, "log-interval", defaultLogInterval, "Duration between host data points")
+	flag.DurationVar(&c.LogInterval, "log-interval", defaultLogInterval, "Duration between data points")
 
 	flag.UintVar(&c.InterleavedGroupID, "interleaved-generation-group-id", 0,
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
@@ -186,6 +187,15 @@ func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.Sim
 			HostCount:       dgc.Scale,
 			HostConstructor: devops.NewHost,
 		}
+	case useCaseIoT:
+		ret = &iot.SimulatorConfig{
+			Start: g.tsStart,
+			End:   g.tsEnd,
+
+			InitGeneratorScale:   dgc.InitialScale,
+			GeneratorScale:       dgc.Scale,
+			GeneratorConstructor: iot.NewTruck,
+		}
 	case useCaseCPUOnly:
 		ret = &devops.CPUOnlySimulatorConfig{
 			Start: g.tsStart,
@@ -242,9 +252,12 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 
 func (g *DataGenerator) writeHeader(sim common.Simulator) {
 	g.bufOut.WriteString("tags")
-	for _, key := range sim.TagKeys() {
+	types := sim.TagTypes()
+	for i, key := range sim.TagKeys() {
 		g.bufOut.WriteString(",")
 		g.bufOut.Write(key)
+		g.bufOut.WriteString(" ")
+		g.bufOut.WriteString(types[i].String())
 	}
 	g.bufOut.WriteString("\n")
 	// sort the keys so the header is deterministic

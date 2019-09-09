@@ -2,36 +2,18 @@ package influx
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/query"
 )
 
-// TODO: Remove the need for this by continuing to bubble up errors
-func panicIfErr(err error) {
-	if err != nil {
-		panic(err.Error())
-	}
-}
-
 // Devops produces Influx-specific queries for all the devops query types.
 type Devops struct {
+	*BaseGenerator
 	*devops.Core
-}
-
-// NewDevops makes an Devops object ready to generate Queries.
-func NewDevops(start, end time.Time, scale int) *Devops {
-	core, err := devops.NewCore(start, end, scale)
-	panicIfErr(err)
-	return &Devops{core}
-}
-
-// GenerateEmptyQuery returns an empty query.HTTP
-func (d *Devops) GenerateEmptyQuery() query.Query {
-	return query.NewHTTP()
 }
 
 func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
@@ -46,7 +28,7 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 
 func (d *Devops) getHostWhereString(nHosts int) string {
 	hostnames, err := d.GetRandomHosts(nHosts)
-	panicIfErr(err)
+	databases.PanicIfErr(err)
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
@@ -71,7 +53,7 @@ func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []stri
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.MustRandWindow(timeRange)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
-	panicIfErr(err)
+	databases.PanicIfErr(err)
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 	whereHosts := d.getHostWhereString(nHosts)
 
@@ -105,7 +87,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
-	panicIfErr(err)
+	databases.PanicIfErr(err)
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	selectClauses := d.getSelectClausesAggMetrics("mean", metrics)
 
@@ -160,19 +142,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	}
 
 	humanLabel, err := devops.GetHighCPULabel("Influx", nHosts)
-	panicIfErr(err)
+	databases.PanicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	influxql := fmt.Sprintf("SELECT * from cpu where usage_user > 90.0 %s and time >= '%s' and time < '%s'", hostWhereClause, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
-}
-
-func (d *Devops) fillInQuery(qi query.Query, humanLabel, humanDesc, influxql string) {
-	v := url.Values{}
-	v.Set("q", influxql)
-	q := qi.(*query.HTTP)
-	q.HumanLabel = []byte(humanLabel)
-	q.HumanDescription = []byte(humanDesc)
-	q.Method = []byte("GET")
-	q.Path = []byte(fmt.Sprintf("/query?%s", v.Encode()))
-	q.Body = nil
 }

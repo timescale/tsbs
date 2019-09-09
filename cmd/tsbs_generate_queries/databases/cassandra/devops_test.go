@@ -27,9 +27,14 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		d, err := b.NewDevops(time.Now(), time.Now(), 10)
 
-		got := d.getHostWhereWithHostnames(c.hostnames)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+
+		got := d.(*Devops).getHostWhereWithHostnames(c.hostnames)
 		if len(got) != len(c.want) {
 			t.Errorf("%s: incorrect output len: got %d want %d", c.desc, len(got), len(c.want))
 		}
@@ -49,7 +54,13 @@ func TestDevopsFillInQuery(t *testing.T) {
 	tags := [][]string{{"foo=val", "bar=val2"}}
 	now := time.Now()
 
-	d := NewDevops(now, now.Add(time.Nanosecond), 10)
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(now, now.Add(time.Nanosecond), 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
+
 	qi := d.GenerateEmptyQuery()
 	q := qi.(*query.Cassandra)
 	if len(q.HumanLabel) != 0 {

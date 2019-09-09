@@ -15,7 +15,7 @@ import (
 type Point struct {
 	measurementName []byte
 	tagKeys         [][]byte
-	tagValues       [][]byte
+	tagValues       []interface{}
 	fieldKeys       [][]byte
 	fieldValues     []interface{}
 	timestamp       *time.Time
@@ -26,11 +26,22 @@ func NewPoint() *Point {
 	return &Point{
 		measurementName: nil,
 		tagKeys:         make([][]byte, 0),
-		tagValues:       make([][]byte, 0),
+		tagValues:       make([]interface{}, 0),
 		fieldKeys:       make([][]byte, 0),
 		fieldValues:     make([]interface{}, 0),
 		timestamp:       nil,
 	}
+}
+
+// Copy duplicates all the values from a given Point.
+func (p *Point) Copy(from *Point) {
+	p.measurementName = from.measurementName
+	p.tagKeys = from.tagKeys
+	p.tagValues = from.tagValues
+	p.fieldKeys = from.fieldKeys
+	p.fieldValues = from.fieldValues
+	timeCopy := *from.timestamp
+	p.timestamp = &timeCopy
 }
 
 // Reset clears all information from this Point so it can be reused.
@@ -83,15 +94,34 @@ func (p *Point) GetFieldValue(key []byte) interface{} {
 	return nil
 }
 
+// ClearFieldValue sets the field value to nil for a given field key.
+// This will panic if the internal state has been altered to not have the same number of field keys as field values.
+func (p *Point) ClearFieldValue(key []byte) {
+	if len(p.fieldKeys) != len(p.fieldValues) {
+		panic("field keys and field values are out of sync")
+	}
+	for i, v := range p.fieldKeys {
+		if bytes.Equal(v, key) {
+			p.fieldValues[i] = nil
+			return
+		}
+	}
+}
+
+// TagKeys returns the Point's tag keys
+func (p *Point) TagKeys() [][]byte {
+	return p.tagKeys
+}
+
 // AppendTag adds a tag with a given key and value to this data point
-func (p *Point) AppendTag(key, value []byte) {
+func (p *Point) AppendTag(key []byte, value interface{}) {
 	p.tagKeys = append(p.tagKeys, key)
 	p.tagValues = append(p.tagValues, value)
 }
 
 // GetTagValue returns the corresponding value for a given tag key or nil if it does not exist.
 // This will panic if the internal state has been altered to not have the same number of tag keys as tag values.
-func (p *Point) GetTagValue(key []byte) []byte {
+func (p *Point) GetTagValue(key []byte) interface{} {
 	if len(p.tagKeys) != len(p.tagValues) {
 		panic("tag keys and tag values are out of sync")
 	}
@@ -101,6 +131,20 @@ func (p *Point) GetTagValue(key []byte) []byte {
 		}
 	}
 	return nil
+}
+
+// ClearTagValue sets the tag value to nil for a given field key.
+// This will panic if the internal state has been altered to not have the same number of tag keys as tag values.
+func (p *Point) ClearTagValue(key []byte) {
+	if len(p.tagKeys) != len(p.tagValues) {
+		panic("tag keys and tag values are out of sync")
+	}
+	for i, v := range p.tagKeys {
+		if bytes.Equal(v, key) {
+			p.tagValues[i] = nil
+			return
+		}
+	}
 }
 
 // PointSerializer serializes a Point for writing

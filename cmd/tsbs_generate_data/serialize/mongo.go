@@ -23,27 +23,24 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
-
-	fieldsMap := make(map[string]interface{})
-	for i, val := range p.fieldKeys {
-		fieldsMap[string(val)] = p.fieldValues[i]
-	}
-	tagsMap := make(map[string]string)
-	for i, val := range p.tagKeys {
-		tagsMap[string(val)] = string(p.tagValues[i])
-	}
-
 	tags := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.tagKeys); i > 0; i-- {
-		k := string(p.tagKeys[i-1])
-		key := b.CreateString(k)
-		val := b.CreateString(tagsMap[k])
-		MongoTagStart(b)
-		MongoTagAddKey(b, key)
-		MongoTagAddValue(b, val)
-		tags = append(tags, MongoTagEnd(b))
+		switch v := p.tagValues[i-1].(type) {
+		case string:
+			k := string(p.tagKeys[i-1])
+			key := b.CreateString(k)
+			val := b.CreateString(v)
+			MongoTagStart(b)
+			MongoTagAddKey(b, key)
+			MongoTagAddValue(b, val)
+			tags = append(tags, MongoTagEnd(b))
+		case nil:
+			continue
+		default:
+			panic("non-string tags not implemented for mongo db")
+		}
 	}
 	MongoPointStartTagsVector(b, len(tags))
 	for _, t := range tags {
@@ -55,22 +52,12 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.fieldKeys); i > 0; i-- {
-		k := string(p.fieldKeys[i-1])
-		key := b.CreateString(k)
-		MongoReadingStart(b)
-		MongoReadingAddKey(b, key)
-		v := fieldsMap[k]
-		switch val := v.(type) {
-		case float64:
-			MongoReadingAddValue(b, val)
-		case int:
-			MongoReadingAddValue(b, float64(val))
-		case int64:
-			MongoReadingAddValue(b, float64(val))
-		default:
-			panic(fmt.Sprintf("cannot covert %T to float64", val))
+		val := p.fieldValues[i-1]
+		if val == nil {
+			continue
 		}
-		fields = append(fields, MongoReadingEnd(b))
+		newField := createField(b, p.fieldKeys[i-1], val)
+		fields = append(fields, newField)
 	}
 	MongoPointStartFieldsVector(b, len(fields))
 	for _, f := range fields {
@@ -107,4 +94,26 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	fbBuilderPool.Put(b)
 
 	return nil
+}
+
+func createField(b *flatbuffers.Builder, key []byte, val interface{}) flatbuffers.UOffsetT {
+	keyStr := b.CreateString(string(key))
+	MongoReadingStart(b)
+	MongoReadingAddKey(b, keyStr)
+	prependValue(b, val)
+	return MongoReadingEnd(b)
+}
+func prependValue(b *flatbuffers.Builder, value interface{}) {
+	switch val := value.(type) {
+	case float64:
+		MongoReadingAddValue(b, val)
+	case float32:
+		MongoReadingAddValue(b, float64(val))
+	case int:
+		MongoReadingAddValue(b, float64(val))
+	case int64:
+		MongoReadingAddValue(b, float64(val))
+	default:
+		panic(fmt.Sprintf("cannot covert %T to float64", val))
+	}
 }

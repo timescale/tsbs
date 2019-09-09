@@ -36,9 +36,15 @@ func (s *SiriDBSerializer) Serialize(p *Point, w io.Writer) error {
 		if i != 0 {
 			line = append(line, ',')
 		}
-		line = append(line, p.tagKeys[i]...)
-		line = append(line, '=')
-		line = append(line, v...)
+		switch t := v.(type) {
+		case string:
+			line = append(line, p.tagKeys[i]...)
+			line = append(line, '=')
+			line = append(line, []byte(t)...)
+		default:
+			panic("Non string tags not supported")
+		}
+
 	}
 
 	lenName := len(line) - 8

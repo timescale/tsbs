@@ -95,6 +95,17 @@ func (b *testBenchmark) GetDBCreator() DBCreator {
 	return nil
 }
 
+type testSleepRegulator struct {
+	calledTimes int
+	lock        sync.Mutex
+}
+
+func (sr *testSleepRegulator) Sleep(workerNum int, startedWorkAt time.Time) {
+	sr.lock.Lock()
+	sr.calledTimes++
+	sr.lock.Unlock()
+}
+
 func TestGetBufferedReader(t *testing.T) {
 	r := &BenchmarkRunner{}
 	br := r.br
@@ -113,7 +124,7 @@ func TestGetBufferedReader(t *testing.T) {
 	r.fileName = "foo"
 	br = r.GetBufferedReader()
 	if br != nil {
-		t.Errorf("filename returned not nil buffered reader for unexistent file")
+		t.Errorf("filename returned not nil buffered reader for nonexistent file")
 	}
 
 	if !fatalCalled {
@@ -407,6 +418,39 @@ func TestWork(t *testing.T) {
 
 	if !b.processors[1].closed {
 		t.Errorf("TestWork: processor 1 not closed")
+	}
+}
+
+func TestWorkWithSleep(t *testing.T) {
+	br := &BenchmarkRunner{
+		sleepRegulator: &testSleepRegulator{lock: sync.Mutex{}},
+	}
+	b := &testBenchmark{}
+	b.processors = append(b.processors, &testProcessor{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	c := newDuplexChannel(1)
+	c.sendToWorker(&testBatch{})
+	go br.work(b, &wg, c, 0)
+	<-c.toScanner
+	c.close()
+	wg.Wait()
+
+	if got := b.processors[0].worker; got != 0 {
+		t.Errorf("processor 0 has wrong worker id: got %d want %d", got, 0)
+	}
+
+	if got := br.metricCnt; got != 1 {
+		t.Errorf("invalid metric count: got %d want %d", got, 1)
+	}
+
+	if !b.processors[0].closed {
+		t.Errorf("processor 0 not closed")
+	}
+
+	numTimesSleepRegulatorCalled := br.sleepRegulator.(*testSleepRegulator).calledTimes
+	if numTimesSleepRegulatorCalled != 1 {
+		t.Errorf("sleep regulator called %d times instead of 1", numTimesSleepRegulatorCalled)
 	}
 }
 

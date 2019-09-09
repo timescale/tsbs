@@ -13,6 +13,9 @@ const (
 	oneTerabyte = 1 << 40
 	inodeSize   = 4096
 	pathFmt     = "/dev/sda%d"
+	fsExt3      = "ext3"
+	fsExt4      = "ext4"
+	fsBtrfs     = "btrfs"
 )
 
 var (
@@ -28,10 +31,7 @@ var (
 	labelDiskPath   = []byte("path")
 	labelDiskFSType = []byte("fstype")
 
-	fsExt3            = []byte("ext3")
-	fsExt4            = []byte("ext4")
-	fsBtrfs           = []byte("btrfs")
-	diskFSTypeChoices = [][]byte{
+	diskFSTypeChoices = []string{
 		fsExt3,
 		fsExt4,
 		fsBtrfs,
@@ -49,34 +49,37 @@ var (
 )
 
 type DiskMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 
-	path, fsType []byte
-	uptime       time.Duration
+	path   string
+	fsType string
+	uptime time.Duration
 }
 
+// NewDiskMeasurement returns a new populated DiskMeasurement
 func NewDiskMeasurement(start time.Time) *DiskMeasurement {
-	path := []byte(fmt.Sprintf(pathFmt, rand.Intn(10)))
-	fsType := randomByteStringSliceChoice(diskFSTypeChoices)
-	sub := newSubsystemMeasurement(start, 1)
-	sub.distributions[0] = common.CWD(common.ND(50, 1), 0, oneTerabyte, oneTerabyte/2)
+	path := fmt.Sprintf(pathFmt, rand.Intn(10))
+	fsType := common.RandomStringSliceChoice(diskFSTypeChoices)
+	sub := common.NewSubsystemMeasurement(start, 1)
+	sub.Distributions[0] = common.CWD(common.ND(50, 1), 0, oneTerabyte, oneTerabyte/2)
 
 	return &DiskMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		path:                 path,
 		fsType:               fsType,
 	}
 }
 
+// ToPoint transfers (populates) the fields and tags of the supplied point
 func (m *DiskMeasurement) ToPoint(p *serialize.Point) {
 	p.SetMeasurementName(labelDisk)
-	p.SetTimestamp(&m.timestamp)
+	p.SetTimestamp(&m.Timestamp)
 
 	p.AppendTag(labelDiskPath, m.path)
 	p.AppendTag(labelDiskFSType, m.fsType)
 
 	// the only thing that actually changes is the free byte count:
-	free := int64(m.distributions[0].Get())
+	free := int64(m.Distributions[0].Get())
 
 	total := int64(oneTerabyte)
 	used := total - free

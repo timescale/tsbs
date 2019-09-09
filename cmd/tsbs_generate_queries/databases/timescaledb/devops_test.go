@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andreyvit/diff"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/query"
 )
@@ -64,9 +65,15 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
-		d.UseJSON = c.useJSON
-		d.UseTags = c.useTags
+		b := BaseGenerator{
+			UseJSON: c.useJSON,
+			UseTags: c.useTags,
+		}
+		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dq.(*Devops)
 
 		if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -95,7 +102,12 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 
 	for _, c := range cases {
 		rand.Seed(123)
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dq.(*Devops)
 
 		if got := d.getHostWhereString(c.nHosts); got != c.want {
 			t.Errorf("incorrect output for %d hosts: got %s want %s", c.nHosts, got, c.want)
@@ -104,8 +116,12 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 }
 
 func TestDevopsGetTimeBucket(t *testing.T) {
-	d := NewDevops(time.Now(), time.Now(), 10)
-	d.UseTimeBucket = false
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	seconds := 60
 	want := fmt.Sprintf(nonTimeBucketFmt, seconds, seconds)
@@ -148,7 +164,12 @@ func TestDevopsGetSelectClausesAggMetrics(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		d := NewDevops(time.Now(), time.Now(), 10)
+		b := BaseGenerator{}
+		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+		if err != nil {
+			t.Fatalf("Error while creating devops generator")
+		}
+		d := dq.(*Devops)
 
 		if got := strings.Join(d.getSelectClausesAggMetrics(c.agg, c.metrics), ","); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -169,7 +190,14 @@ func TestDevopsGroupByTime(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
 	e := s.Add(time.Hour)
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{
+		UseTimeBucket: true,
+	}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	metrics := 1
 	nHosts := 1
@@ -195,7 +223,14 @@ func TestGroupByOrderByLimit(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
 	e := s.Add(2 * time.Hour)
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{
+		UseTimeBucket: true,
+	}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
 	d.GroupByOrderByLimit(q)
@@ -299,9 +334,16 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(s, e, 10)
-			d.UseJSON = c.useJSON
-			d.UseTags = c.useTags
+			b := BaseGenerator{
+				UseJSON:       c.useJSON,
+				UseTags:       c.useTags,
+				UseTimeBucket: true,
+			}
+			dq, err := b.NewDevops(s, e, 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			q := d.GenerateEmptyQuery()
 			d.GroupByTimeAndPrimaryTag(q, numMetrics)
@@ -327,7 +369,14 @@ func TestMaxAllCPU(t *testing.T) {
 	s := time.Unix(0, 0)
 	e := s.Add(devops.MaxAllDuration).Add(time.Hour)
 
-	d := NewDevops(s, e, 10)
+	b := BaseGenerator{
+		UseTimeBucket: true,
+	}
+	dq, err := b.NewDevops(s, e, 10)
+	if err != nil {
+		t.Fatalf("Error while creating devops generator")
+	}
+	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
 	d.MaxAllCPU(q, 1)
@@ -385,9 +434,15 @@ func TestLastPointPerHost(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(time.Now(), time.Now(), 10)
-			d.UseJSON = c.useJSON
-			d.UseTags = c.useTags
+			b := BaseGenerator{
+				UseJSON: c.useJSON,
+				UseTags: c.useTags,
+			}
+			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			q := d.GenerateEmptyQuery()
 			d.LastPointPerHost(q)
@@ -441,7 +496,12 @@ func TestHighCPUForHosts(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			d := NewDevops(s, e, 10)
+			b := BaseGenerator{}
+			dq, err := b.NewDevops(s, e, 10)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			d := dq.(*Devops)
 
 			q := d.GenerateEmptyQuery()
 			d.HighCPUForHosts(q, c.nHosts)
@@ -471,6 +531,6 @@ func verifyQuery(t *testing.T, q query.Query, humanLabel, humanDesc, hypertable,
 	}
 
 	if got := string(tsq.SqlQuery); got != sqlQuery {
-		t.Errorf("incorrect SQL query:\ngot\n%s\nwant\n%s", got, sqlQuery)
+		t.Errorf("incorrect SQL query:\ndiff\n%s\ngot\n%s\nwant\n%s", diff.CharacterDiff(got, sqlQuery), got, sqlQuery)
 	}
 }

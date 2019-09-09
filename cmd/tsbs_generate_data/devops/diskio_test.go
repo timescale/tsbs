@@ -16,12 +16,12 @@ func TestDiskIOMeasurementTick(t *testing.T) {
 	oldVals := map[string]float64{}
 	fields := ldmToFieldLabels(diskIOFields)
 	for i, ldm := range diskIOFields {
-		oldVals[string(ldm.label)] = m.distributions[i].Get()
+		oldVals[string(ldm.Label)] = m.Distributions[i].Get()
 	}
 
 	rand.Seed(123)
 	m.Tick(duration)
-	err := testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err := testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -29,7 +29,7 @@ func TestDiskIOMeasurementTick(t *testing.T) {
 		t.Errorf("server name updated unexpectedly: got %s want %s", got, origSerial)
 	}
 	m.Tick(duration)
-	err = testDistributionsAreDifferent(oldVals, m.subsystemMeasurement, fields)
+	err = testDistributionsAreDifferent(oldVals, m.SubsystemMeasurement, fields)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -51,13 +51,13 @@ func TestDiskIOMeasurementToPoint(t *testing.T) {
 		t.Errorf("incorrect measurement name: got %s want %s", got, labelDiskIO)
 	}
 
-	if got := string(p.GetTagValue(labelDiskIOSerial)); got != origSerial {
+	if got := p.GetTagValue(labelDiskIOSerial).(string); got != origSerial {
 		t.Errorf("incorrect tag value for server name: got %s want %s", got, origSerial)
 	}
 
 	for _, ldm := range diskIOFields {
-		if got := p.GetFieldValue(ldm.label); got == nil {
-			t.Errorf("field %s returned a nil value unexpectedly", ldm.label)
+		if got := p.GetFieldValue(ldm.Label); got == nil {
+			t.Errorf("field %s returned a nil value unexpectedly", ldm.Label)
 		}
 	}
 }

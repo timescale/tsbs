@@ -31,7 +31,7 @@ func (s *CrateDBSerializer) Serialize(p *Point, w io.Writer) error {
 			buf = append(buf, '"')
 			buf = append(buf, key...)
 			buf = append(buf, []byte("\":\"")...)
-			buf = append(buf, p.tagValues[i]...)
+			buf = fastFormatAppend(p.tagValues[i], buf)
 			buf = append(buf, []byte("\",")...)
 		}
 		buf = buf[:len(buf)-1]

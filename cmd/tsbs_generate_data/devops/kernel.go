@@ -17,7 +17,7 @@ var (
 	// immediately uses its value and saves the state
 	kernelND = common.ND(5, 1)
 
-	kernelFields = []labeledDistributionMaker{
+	kernelFields = []common.LabeledDistributionMaker{
 		{[]byte("interrupts"), func() common.Distribution { return common.MWD(kernelND, 0) }},
 		{[]byte("context_switches"), func() common.Distribution { return common.MWD(kernelND, 0) }},
 		{[]byte("processes_forked"), func() common.Distribution { return common.MWD(kernelND, 0) }},
@@ -27,20 +27,20 @@ var (
 )
 
 type KernelMeasurement struct {
-	*subsystemMeasurement
+	*common.SubsystemMeasurement
 	bootTime int64
 }
 
 func NewKernelMeasurement(start time.Time) *KernelMeasurement {
-	sub := newSubsystemMeasurementWithDistributionMakers(start, kernelFields)
+	sub := common.NewSubsystemMeasurementWithDistributionMakers(start, kernelFields)
 	bootTime := rand.Int63n(240)
 	return &KernelMeasurement{
-		subsystemMeasurement: sub,
+		SubsystemMeasurement: sub,
 		bootTime:             bootTime,
 	}
 }
 
 func (m *KernelMeasurement) ToPoint(p *serialize.Point) {
 	p.AppendField(labelKernelBootTime, m.bootTime)
-	m.toPointAllInt64(p, labelKernel, kernelFields)
+	m.ToPointAllInt64(p, labelKernel, kernelFields)
 }

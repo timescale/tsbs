@@ -1,4 +1,4 @@
-package devops
+package common
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ func testIfInByteStringSlice(t *testing.T, arr [][]byte, choice []byte) {
 			return
 		}
 	}
-	t.Errorf("could known find choice in array: %s", choice)
+	t.Errorf("could not find choice in array: %s", choice)
 }
 
 func TestRandomByteSliceChoice(t *testing.T) {
@@ -22,7 +22,7 @@ func TestRandomByteSliceChoice(t *testing.T) {
 	}
 	// One million attempts ought to catch it?
 	for i := 0; i < 1000000; i++ {
-		choice := randomByteStringSliceChoice(arr)
+		choice := RandomByteStringSliceChoice(arr)
 		testIfInByteStringSlice(t, arr, choice)
 	}
 }
@@ -33,14 +33,14 @@ func testIfInInt64Slice(t *testing.T, arr []int64, choice int64) {
 			return
 		}
 	}
-	t.Errorf("could known find choice in array: %d", choice)
+	t.Errorf("could not find choice in array: %d", choice)
 }
 
 func TestRandomInt64Choice(t *testing.T) {
 	arr := []int64{0, 10000, 9999}
 	// One million attempts ought to catch it?
 	for i := 0; i < 1000000; i++ {
-		choice := randomInt64SliceChoice(arr)
+		choice := RandomInt64SliceChoice(arr)
 		testIfInInt64Slice(t, arr, choice)
 	}
 }

@@ -2,6 +2,7 @@ package devops
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -173,8 +174,8 @@ func TestCommonDevopsSimulatorFields(t *testing.T) {
 	}()
 }
 
-func bprintf(format string, args ...interface{}) []byte {
-	return []byte(fmt.Sprintf(format, args...))
+func sprintf(format string, args ...interface{}) string {
+	return fmt.Sprintf(format, args...)
 }
 
 var prefix = []string{"host", "region", "datacenter", "rack", "os", "arch", "team", "service", "service_version", "service_env"}
@@ -184,16 +185,16 @@ func TestCommonDevopsSimulatorPopulatePoint(t *testing.T) {
 	numHosts := uint64(2)
 	for i := uint64(0); i < numHosts; i++ {
 		host := Host{
-			Name:               bprintf("%s%d", prefix[0], i),
-			Region:             bprintf("%s%d", prefix[1], i),
-			Datacenter:         bprintf("%s%d", prefix[2], i),
-			Rack:               bprintf("%s%d", prefix[3], i),
-			OS:                 bprintf("%s%d", prefix[4], i),
-			Arch:               bprintf("%s%d", prefix[5], i),
-			Team:               bprintf("%s%d", prefix[6], i),
-			Service:            bprintf("%s%d", prefix[7], i),
-			ServiceVersion:     bprintf("%s%d", prefix[8], i),
-			ServiceEnvironment: bprintf("%s%d", prefix[9], i),
+			Name:               sprintf("%s%d", prefix[0], i),
+			Region:             sprintf("%s%d", prefix[1], i),
+			Datacenter:         sprintf("%s%d", prefix[2], i),
+			Rack:               sprintf("%s%d", prefix[3], i),
+			OS:                 sprintf("%s%d", prefix[4], i),
+			Arch:               sprintf("%s%d", prefix[5], i),
+			Team:               sprintf("%s%d", prefix[6], i),
+			Service:            sprintf("%s%d", prefix[7], i),
+			ServiceVersion:     sprintf("%s%d", prefix[8], i),
+			ServiceEnvironment: sprintf("%s%d", prefix[9], i),
 		}
 		host.SimulatedMeasurements = []common.SimulatedMeasurement{NewCPUMeasurement(time.Now())}
 		s.hosts = append(s.hosts, host)
@@ -208,7 +209,7 @@ func TestCommonDevopsSimulatorPopulatePoint(t *testing.T) {
 	}
 	for i := range prefix {
 		want := prefix[i] + "0"
-		if got := string(p.GetTagValue(MachineTagKeys[i])); got != want {
+		if got := p.GetTagValue(MachineTagKeys[i]).(string); got != want {
 			t.Errorf("incorrect tag for idx %d: got %s want %s", i, got, want)
 		}
 	}
@@ -226,7 +227,7 @@ func TestCommonDevopsSimulatorPopulatePoint(t *testing.T) {
 	}
 	for i := range prefix {
 		want := prefix[i] + "0"
-		if got := string(p.GetTagValue(MachineTagKeys[i])); got != want {
+		if got := p.GetTagValue(MachineTagKeys[i]).(string); got != want {
 			t.Errorf("incorrect tag for idx %d: got %s want %s", i, got, want)
 		}
 	}
@@ -293,6 +294,15 @@ func TestAdjustNumHostsForEpoch(t *testing.T) {
 				t.Errorf("%s: incorrect number of hosts in epoch %d: got %d want %d", c.desc, i, got, want)
 			}
 			s.adjustNumHostsForEpoch()
+		}
+	}
+}
+
+func TestCommonDevopsSimulatorTagTypes(t *testing.T) {
+	s := &commonDevopsSimulator{}
+	for _, tagType := range s.TagTypes() {
+		if tagType.Kind() != reflect.String {
+			t.Errorf("tag type incorrect. expected %v, got %v", reflect.String, tagType.Kind())
 		}
 	}
 }

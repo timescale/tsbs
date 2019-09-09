@@ -2,17 +2,30 @@ package cratedb
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/query"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/timescale/tsbs/query"
 )
 
+const testScale = 10
+
+func assertNewDevops(t *testing.T, start, end time.Time) *Devops {
+	b := BaseGenerator{}
+	dq, err := b.NewDevops(start, end, testScale)
+	if err != nil {
+		t.Fatalf("error while creating devops generator")
+	}
+
+	return dq.(*Devops)
+}
+
 func TestDevopsGetSelectAggClauses(t *testing.T) {
-	d := NewDevops(time.Now(), time.Now(), 10)
+	d := assertNewDevops(t, time.Now(), time.Now())
 	cases := []struct {
 		desc    string
 		agg     string
@@ -40,7 +53,7 @@ func TestDevopsGetSelectAggClauses(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := strings.Join(d.getSelectAggClauses(c.agg, c.metrics), ", ");
+		got := strings.Join(d.getSelectAggClauses(c.agg, c.metrics), ", ")
 		if got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
 		}
@@ -53,7 +66,7 @@ func TestDevopsMaxAllCPUQuery(t *testing.T) {
 
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 1, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),
@@ -90,7 +103,7 @@ func TestDevopsGroupByTimeAndPrimaryTagQuery(t *testing.T) {
 
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 10, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),
@@ -121,7 +134,7 @@ func TestDevopsGroupByTimeAndPrimaryTagQuery(t *testing.T) {
 func TestDevopsGroupByOrderByLimitQuery(t *testing.T) {
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 10, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),
@@ -152,7 +165,7 @@ func TestDevopsGroupByOrderByLimitQuery(t *testing.T) {
 func TestDevopsLastPointPerHostQuery(t *testing.T) {
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 10, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),
@@ -186,7 +199,7 @@ func TestDevopsHighCPUForHostsQuery(t *testing.T) {
 	rand.Seed(100)
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 10, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),
@@ -218,7 +231,7 @@ func TestDevopsGroupByTimeQuery(t *testing.T) {
 
 	start := time.Date(2006, 1, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2006, 1, 1, 20, 0, 0, 0, time.UTC)
-	d := NewDevops(start, end, 10)
+	d := assertNewDevops(t, start, end)
 
 	want := &query.CrateDB{
 		Table: []byte("cpu"),

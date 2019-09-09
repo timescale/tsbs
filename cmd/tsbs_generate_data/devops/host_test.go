@@ -1,7 +1,6 @@
 package devops
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"testing"
@@ -19,42 +18,42 @@ func TestNewHostMeasurements(t *testing.T) {
 	}
 	// Cast each measurement to its type; will panic if wrong types
 	cpu := measurements[0].(*CPUMeasurement)
-	if got := cpu.timestamp; got != start {
+	if got := cpu.Timestamp; got != start {
 		t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, start)
 	}
-	if got := len(cpu.distributions); got <= 1 {
+	if got := len(cpu.Distributions); got <= 1 {
 		t.Errorf("too few CPU measurements: got %d", got)
 	}
 	diskio := measurements[1].(*DiskIOMeasurement)
-	if got := diskio.timestamp; got != start {
+	if got := diskio.Timestamp; got != start {
 		t.Errorf("incorrect diskio measurement timestamp: got %v want %v", got, start)
 	}
 	disk := measurements[2].(*DiskMeasurement)
-	if got := disk.timestamp; got != start {
+	if got := disk.Timestamp; got != start {
 		t.Errorf("incorrect disk measurement timestamp: got %v want %v", got, start)
 	}
 	kernel := measurements[3].(*KernelMeasurement)
-	if got := kernel.timestamp; got != start {
+	if got := kernel.Timestamp; got != start {
 		t.Errorf("incorrect kernel measurement timestamp: got %v want %v", got, start)
 	}
 	mem := measurements[4].(*MemMeasurement)
-	if got := mem.timestamp; got != start {
+	if got := mem.Timestamp; got != start {
 		t.Errorf("incorrect mem measurement timestamp: got %v want %v", got, start)
 	}
 	net := measurements[5].(*NetMeasurement)
-	if got := net.timestamp; got != start {
+	if got := net.Timestamp; got != start {
 		t.Errorf("incorrect net measurement timestamp: got %v want %v", got, start)
 	}
 	nginx := measurements[6].(*NginxMeasurement)
-	if got := nginx.timestamp; got != start {
+	if got := nginx.Timestamp; got != start {
 		t.Errorf("incorrect nginx measurement timestamp: got %v want %v", got, start)
 	}
 	postgresql := measurements[7].(*PostgresqlMeasurement)
-	if got := postgresql.timestamp; got != start {
+	if got := postgresql.Timestamp; got != start {
 		t.Errorf("incorrect postgresql measurement timestamp: got %v want %v", got, start)
 	}
 	redis := measurements[8].(*RedisMeasurement)
-	if got := redis.timestamp; got != start {
+	if got := redis.Timestamp; got != start {
 		t.Errorf("incorrect redis measurement timestamp: got %v want %v", got, start)
 	}
 }
@@ -67,10 +66,10 @@ func TestNewCPUOnlyHostMeasurements(t *testing.T) {
 	}
 	// Cast each measurement to its type; will panic if wrong types
 	cpu := measurements[0].(*CPUMeasurement)
-	if got := cpu.timestamp; got != start {
+	if got := cpu.Timestamp; got != start {
 		t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, start)
 	}
-	if got := len(cpu.distributions); got <= 1 {
+	if got := len(cpu.Distributions); got <= 1 {
 		t.Errorf("too few CPU measurements: got %d", got)
 	}
 }
@@ -83,10 +82,10 @@ func TestNewCPUSingleHostMeasurements(t *testing.T) {
 	}
 	// Cast each measurement to its type; will panic if wrong types
 	cpu := measurements[0].(*CPUMeasurement)
-	if got := cpu.timestamp; got != start {
+	if got := cpu.Timestamp; got != start {
 		t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, start)
 	}
-	if got := len(cpu.distributions); got != 1 {
+	if got := len(cpu.Distributions); got != 1 {
 		t.Errorf("CPU measurements not equal to 1: got %d", got)
 	}
 }
@@ -105,10 +104,10 @@ func TestNewHost(t *testing.T) {
 		}
 
 		cpu := h.SimulatedMeasurements[0].(*CPUMeasurement)
-		if got := cpu.timestamp; got != now {
+		if got := cpu.Timestamp; got != now {
 			t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, now)
 		}
-		if got := len(cpu.distributions); got <= 1 {
+		if got := len(cpu.Distributions); got <= 1 {
 			t.Errorf("too few CPU measurements: got %d", got)
 		}
 	}
@@ -128,10 +127,10 @@ func TestNewHostCPUOnly(t *testing.T) {
 		}
 
 		cpu := h.SimulatedMeasurements[0].(*CPUMeasurement)
-		if got := cpu.timestamp; got != now {
+		if got := cpu.Timestamp; got != now {
 			t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, now)
 		}
-		if got := len(cpu.distributions); got <= 1 {
+		if got := len(cpu.Distributions); got <= 1 {
 			t.Errorf("too few CPU measurements: got %d", got)
 		}
 	}
@@ -151,10 +150,10 @@ func TestNewHostCPUSingle(t *testing.T) {
 		}
 
 		cpu := h.SimulatedMeasurements[0].(*CPUMeasurement)
-		if got := cpu.timestamp; got != now {
+		if got := cpu.Timestamp; got != now {
 			t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, now)
 		}
-		if got := len(cpu.distributions); got != 1 {
+		if got := len(cpu.Distributions); got != 1 {
 			t.Errorf("CPU measurements not equal to 1: got %d", got)
 		}
 	}
@@ -166,17 +165,17 @@ func testGenerator(s time.Time) []common.SimulatedMeasurement {
 	}
 }
 
-func findRegionDatacenters(name []byte) [][]byte {
+func findRegionDatacenters(name string) []string {
 	for _, r := range regions {
-		if bytes.Equal(r.Name, name) {
+		if r.Name == name {
 			return r.Datacenters
 		}
 	}
 	panic(fmt.Errorf("unknown region %s", name))
 }
 
-func testStringNumberIsValid(t *testing.T, limit int64, s []byte) {
-	n, err := strconv.ParseInt(string(s), 10, 0)
+func testStringNumberIsValid(t *testing.T, limit int64, s string) {
+	n, err := strconv.ParseInt(s, 10, 0)
 	if err != nil {
 		t.Errorf("string number conversion error: %v", err)
 	}
@@ -195,14 +194,14 @@ func TestNewHostWithMeasurementGenerator(t *testing.T) {
 			t.Errorf("incorrect host name format: got %s want %s", got, wantName)
 		}
 		dcs := findRegionDatacenters(h.Region)
-		testIfInByteStringSlice(t, dcs, h.Datacenter)
+		testIfInStringSlice(t, dcs, h.Datacenter)
 		testStringNumberIsValid(t, machineRackChoicesPerDatacenter, h.Rack)
-		testIfInByteStringSlice(t, MachineArchChoices, h.Arch)
-		testIfInByteStringSlice(t, MachineOSChoices, h.OS)
+		testIfInStringSlice(t, MachineArchChoices, h.Arch)
+		testIfInStringSlice(t, MachineOSChoices, h.OS)
 		testStringNumberIsValid(t, machineServiceChoices, h.Service)
 		testStringNumberIsValid(t, machineServiceVersionChoices, h.ServiceVersion)
-		testIfInByteStringSlice(t, MachineServiceEnvironmentChoices, h.ServiceEnvironment)
-		testIfInByteStringSlice(t, MachineTeamChoices, h.Team)
+		testIfInStringSlice(t, MachineServiceEnvironmentChoices, h.ServiceEnvironment)
+		testIfInStringSlice(t, MachineTeamChoices, h.Team)
 
 		if got := len(h.SimulatedMeasurements); got != 1 {
 			t.Errorf("simulated measurements incorrect len: got %d", got)
@@ -237,21 +236,21 @@ func TestHostTickAll(t *testing.T) {
 	}
 }
 
-func TestGetByteStringRandomInt(t *testing.T) {
+func TestGetStringRandomInt(t *testing.T) {
 	limit := int64(100)
 	for i := 0; i < 1000000; i++ {
-		s := getByteStringRandomInt(limit)
+		s := getStringRandomInt(limit)
 		testStringNumberIsValid(t, limit, s)
 	}
 }
 
 func testIfInRegionSlice(t *testing.T, arr []region, choice *region) {
 	for _, x := range arr {
-		if bytes.Equal(x.Name, choice.Name) {
+		if x.Name == choice.Name {
 			return
 		}
 	}
-	t.Errorf("could known find choice in array: %v", choice)
+	t.Errorf("could not find choice in array: %v", choice)
 }
 
 func TestRandomRegionSliceChoice(t *testing.T) {

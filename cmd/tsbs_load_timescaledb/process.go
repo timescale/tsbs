@@ -54,24 +54,26 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 	if useJSON {
 		cols = []string{"tagset"}
 		for _, row := range tagRows {
+			jsonValues := convertValsToJSONBasedOnType(row[:commonTagsLen], tagColumnTypes[:commonTagsLen])
 			json := "('{"
 			for i, k := range tagCols {
 				if i != 0 {
 					json += ","
 				}
-				json += fmt.Sprintf("\"%s\":\"%s\"", k, row[i])
+				json += fmt.Sprintf("\"%s\":%s", k, jsonValues[i])
 			}
 			json += "}')"
 			values = append(values, json)
 		}
 	} else {
 		for _, val := range tagRows {
-			values = append(values, fmt.Sprintf("('%s')", strings.Join(val[:commonTagsLen], "','")))
+			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], tagColumnTypes[:commonTagsLen])
+			row := fmt.Sprintf("(%s)", strings.Join(sqlValues, ","))
+			values = append(values, row)
 		}
 	}
 	tx := MustBegin(db)
 	defer tx.Commit()
-
 	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
 	if err != nil {
 		panic(err)
@@ -121,7 +123,7 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 	for _, data := range rows {
 		// Split the tags into individual common tags and an extra bit leftover
 		// for non-common tags that need to be added separately. For each of
-		// the common tags, remove everything after = in the form <label>=<val>
+		// the common tags, remove everything before = in the form <label>=<val>
 		// since we won't need it.
 		tags := strings.SplitN(data.tags, ",", commonTagsLen+1)
 		for i := 0; i < commonTagsLen; i++ {
@@ -149,10 +151,16 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 			r = append(r, tags[0])
 		}
 		for _, v := range metrics[1:] {
+			if v == "" {
+				r = append(r, nil)
+				continue
+			}
+
 			num, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				panic(err)
 			}
+
 			r = append(r, num)
 		}
 
@@ -298,4 +306,29 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 	batches.m = map[string][]*insertData{}
 	batches.cnt = 0
 	return metricCnt, uint64(rowCnt)
+}
+func convertValsToSQLBasedOnType(values []string, types []string) []string {
+	return convertValsToBasedOnType(values, types, "'", "NULL")
+}
+
+func convertValsToJSONBasedOnType(values []string, types []string) []string {
+	return convertValsToBasedOnType(values, types, `"`, "null")
+}
+
+func convertValsToBasedOnType(values []string, types []string, quotemark string, null string) []string {
+	sqlVals := make([]string, len(values))
+	for i, val := range values {
+		if val == "" {
+			sqlVals[i] = null
+			continue
+		}
+		switch types[i] {
+		case "string":
+			sqlVals[i] = quotemark + val + quotemark
+		default:
+			sqlVals[i] = val
+		}
+	}
+
+	return sqlVals
 }

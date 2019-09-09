@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -73,20 +73,15 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 		panic("http request did not return status 200 OK")
 	}
 
-	reader := bufio.NewReader(resp.Body)
-	buf := make([]byte, 8192)
-	for {
-		_, err = reader.Read(buf)
-		if err == io.EOF {
-			err = nil
-			break
-		} else if err != nil {
-			panic(err)
-		}
+	var body []byte
+	body, err = ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		panic(err)
 	}
+
 	lag = float64(time.Since(start).Nanoseconds()) / 1e6 // milliseconds
 
-	// TODO(rrk) - Make it print responses again
 	if opts != nil {
 		// Print debug messages, if applicable:
 		switch opts.Debug {
@@ -100,7 +95,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 		case 4:
 			fmt.Fprintf(os.Stderr, "debug: %s in %7.2fms -- %s\n", q.HumanLabel, lag, q.HumanDescription)
 			fmt.Fprintf(os.Stderr, "debug:   request: %s\n", string(q.String()))
-			//fmt.Fprintf(os.Stderr, "debug:   response: %s\n", string(resp.Body()))
+			fmt.Fprintf(os.Stderr, "debug:   response: %s\n", string(body))
 		default:
 		}
 
@@ -111,7 +106,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 
 			var pretty bytes.Buffer
 			prefix := fmt.Sprintf("ID %d: ", q.GetID())
-			//err = json.Indent(&pretty, resp.Body(), prefix, "  ")
+			err = json.Indent(&pretty, body, prefix, "  ")
 			if err != nil {
 				return
 			}
