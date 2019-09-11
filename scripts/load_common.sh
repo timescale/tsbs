@@ -3,6 +3,7 @@
 # Database credentials
 DATABASE_HOST=${DATABASE_HOST:-"localhost"}
 DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
+PORT=${PORT:-5432}
 
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
