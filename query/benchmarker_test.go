@@ -30,7 +30,7 @@ func TestProcessorHandler(t *testing.T) {
 
 	p1 := &testProcessor{}
 	p2 := &testProcessor{}
-	b := NewBenchmarkRunner()
+	b := NewBenchmarkRunner(BenchmarkRunnerConfig{})
 	b.ch = make(chan Query, 2)
 
 	var wg sync.WaitGroup
@@ -64,9 +64,9 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 	p1 := &testProcessor{}
 	p2 := &testProcessor{}
 	b := &BenchmarkRunner{}
-	b.scanner = newScanner(&b.limit)
+	b.scanner = newScanner(&b.Limit)
 	spArgs := &statProcessorArgs{
-		limit:          &b.limit,
+		limit:          &b.Limit,
 		prewarmQueries: true,
 	}
 	b.sp = newStatProcessor(spArgs)
@@ -100,7 +100,9 @@ func TestBenchmarkRunnerGetBufferedReaderPanicOnMissingFile(t *testing.T) {
 		t.Fatalf("file '%s' should not exist", dumbFileName)
 	}
 	b := &BenchmarkRunner{
-		fileName: dumbFileName,
+		BenchmarkRunnerConfig: BenchmarkRunnerConfig{
+			FileName: dumbFileName,
+		},
 	}
 	defer func() {
 		if r := recover(); !strings.HasPrefix(r.(string), "cannot open file for read") {
@@ -127,7 +129,9 @@ func TestBenchmarkRunnerGetBufferedReaderCached(t *testing.T) {
 	}
 
 	b := &BenchmarkRunner{
-		fileName: randomFile.Name(),
+		BenchmarkRunnerConfig: BenchmarkRunnerConfig{
+			FileName: randomFile.Name(),
+		},
 	}
 
 	// RUN
@@ -136,7 +140,7 @@ func TestBenchmarkRunnerGetBufferedReaderCached(t *testing.T) {
 	b.GetBufferedReader()
 
 	//change file name
-	b.fileName = dumbFileName
+	b.FileName = dumbFileName
 
 	// second call should use cached, not open another BuffReader
 	b.GetBufferedReader()
@@ -156,20 +160,20 @@ func TestBenchmarkRunnerRunPanicOnNoWorkers(t *testing.T) {
 func TestBenchmarkRunnerGettersAndSetters(t *testing.T) {
 	b := &BenchmarkRunner{}
 	b.SetLimit(1)
-	if b.limit != 1 {
-		t.Errorf("Expected %d, got %d", 1, b.limit)
+	if b.Limit != 1 {
+		t.Errorf("Expected %d, got %d", 1, b.Limit)
 	}
 
-	b.printResponses = true
+	b.PrintResponses = true
 	if !b.DoPrintResponses() {
 		t.Error("Expected true, got false")
 	}
-	b.debug = 12
+	b.Debug = 12
 	if b.DebugLevel() != 12 {
 		t.Errorf("Expected 12, got %d", b.DebugLevel())
 	}
 
-	b.dbName = "Some name"
+	b.DBName = "Some name"
 	if b.DatabaseName() != "Some name" {
 		t.Errorf("Expected 'Some name', got '%s'", b.DatabaseName())
 	}
@@ -177,7 +181,9 @@ func TestBenchmarkRunnerGettersAndSetters(t *testing.T) {
 func TestBenchmarkRunnerRunPanicOnBurnInBiggerThanLimit(t *testing.T) {
 	limit := uint64(1)
 	runner := &BenchmarkRunner{
-		workers: 1,
+		BenchmarkRunnerConfig: BenchmarkRunnerConfig{
+			Workers: 1,
+		},
 		sp: &defaultStatProcessor{
 			args: &statProcessorArgs{burnIn: limit + 1},
 		},
@@ -232,12 +238,14 @@ func TestBenchmarkRunnerRunNoQueries(t *testing.T) {
 	waits for workers to finish and reports stats. */
 	limit := uint64(1)
 	b := &BenchmarkRunner{
-		workers:    1,
-		limit:      limit,
-		sp:         &sp,
-		fileName:   fakeQueriesFile.Name(),
-		scanner:    newScanner(&limit),
-		memProfile: profFile.Name(),
+		BenchmarkRunnerConfig: BenchmarkRunnerConfig{
+			Workers:    1,
+			Limit:      limit,
+			FileName:   fakeQueriesFile.Name(),
+			MemProfile: profFile.Name(),
+		},
+		sp:      &sp,
+		scanner: newScanner(&limit),
 	}
 
 	processor := &mockProcessor{}
@@ -260,8 +268,8 @@ func TestBenchmarkRunnerRunNoQueries(t *testing.T) {
 	if !spStarted {
 		t.Error("stat processor wasn't started")
 	}
-	if processorsCreated != b.workers {
-		t.Errorf("expected %d processors to be created, but %d were", b.workers, processorsCreated)
+	if processorsCreated != b.Workers {
+		t.Errorf("expected %d processors to be created, but %d were", b.Workers, processorsCreated)
 	}
 	if !sp.closed {
 		t.Error("stat processor wasn't closed")

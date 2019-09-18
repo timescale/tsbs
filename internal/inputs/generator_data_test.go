@@ -193,13 +193,13 @@ func TestDataGeneratorGenerate(t *testing.T) {
 	c = &DataGeneratorConfig{
 		BaseConfig: BaseConfig{
 			Seed:      123,
-			Limit:     3,
 			Format:    FormatTimescaleDB,
 			Use:       useCaseCPUOnly,
 			Scale:     1,
 			TimeStart: defaultTimeStart,
 			TimeEnd:   defaultTimeEnd,
 		},
+		Limit:                3,
 		InitialScale:         1,
 		LogInterval:          time.Second,
 		InterleavedNumGroups: 1,
@@ -329,8 +329,8 @@ func TestRunSimulator(t *testing.T) {
 		dgc := &DataGeneratorConfig{
 			BaseConfig: BaseConfig{
 				Scale: 1,
-				Limit: c.limit,
 			},
+			Limit:                c.limit,
 			InitialScale:         1,
 			LogInterval:          defaultLogInterval,
 			InterleavedGroupID:   c.groupID,

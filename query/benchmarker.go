@@ -2,13 +2,14 @@ package query
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
 	"sync"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -19,19 +20,38 @@ const (
 	defaultReadSize = 4 << 20 // 4 MB
 )
 
+// BenchmarkRunnerConfig is the configuration of the benchmark runner.
+type BenchmarkRunnerConfig struct {
+	DBName         string `mapstructure:"db-name"`
+	Limit          uint64 `mapstructure:"max-queries"`
+	MemProfile     string `mapstructure:"memprofile"`
+	Workers        uint   `mapstructure:"workers"`
+	PrintResponses bool   `mapstructure:"print-responses"`
+	Debug          int    `mapstructure:"debug"`
+	FileName       string `mapstructure:"file"`
+	BurnIn         uint64 `mapstructure:"burn-in"`
+	PrintInterval  uint64 `mapstructure:"print-interval"`
+	PrewarmQueries bool   `mapstructure:"prewarm-queries"`
+}
+
+// AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
+func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
+	fs.String("db-name", "benchmark", "Name of database to use for queries")
+	fs.Uint64("burn-in", 0, "Number of queries to ignore before collecting statistics.")
+	fs.Uint64("max-queries", 0, "Limit the number of queries to send, 0 = no limit")
+	fs.Uint64("print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
+	fs.String("memprofile", "", "Write a memory profile to this file.")
+	fs.Uint("workers", 1, "Number of concurrent requests to make.")
+	fs.Bool("prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
+	fs.Bool("print-responses", false, "Pretty print response bodies for correctness checking (default false).")
+	fs.Int("debug", 0, "Whether to print debug messages.")
+	fs.String("file", "", "File name to read queries from")
+}
+
 // BenchmarkRunner contains the common components for running a query benchmarking
 // program against a database.
 type BenchmarkRunner struct {
-	// flag fields
-	dbName         string
-	limit          uint64
-	memProfile     string
-	workers        uint
-	printResponses bool
-	debug          int
-	fileName       string
-
-	// non-flag fields
+	BenchmarkRunnerConfig
 	br      *bufio.Reader
 	sp      statProcessor
 	scanner *scanner
@@ -40,23 +60,15 @@ type BenchmarkRunner struct {
 
 // NewBenchmarkRunner creates a new instance of BenchmarkRunner which is
 // common functionality to be used by query benchmarker programs
-func NewBenchmarkRunner() *BenchmarkRunner {
-	runner := &BenchmarkRunner{}
-	runner.scanner = newScanner(&runner.limit)
+func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
+	runner := &BenchmarkRunner{BenchmarkRunnerConfig: config}
+	runner.scanner = newScanner(&runner.Limit)
 	spArgs := &statProcessorArgs{
-		limit: &runner.limit,
+		limit:          &runner.Limit,
+		printInterval:  runner.PrintInterval,
+		prewarmQueries: runner.PrewarmQueries,
+		burnIn:         runner.BurnIn,
 	}
-
-	flag.StringVar(&runner.dbName, "db-name", "benchmark", "Name of database to use for queries")
-	flag.Uint64Var(&spArgs.burnIn, "burn-in", 0, "Number of queries to ignore before collecting statistics.")
-	flag.Uint64Var(&runner.limit, "max-queries", 0, "Limit the number of queries to send, 0 = no limit")
-	flag.Uint64Var(&spArgs.printInterval, "print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
-	flag.StringVar(&runner.memProfile, "memprofile", "", "Write a memory profile to this file.")
-	flag.UintVar(&runner.workers, "workers", 1, "Number of concurrent requests to make.")
-	flag.BoolVar(&spArgs.prewarmQueries, "prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
-	flag.BoolVar(&runner.printResponses, "print-responses", false, "Pretty print response bodies for correctness checking (default false).")
-	flag.IntVar(&runner.debug, "debug", 0, "Whether to print debug messages.")
-	flag.StringVar(&runner.fileName, "file", "", "File name to read queries from")
 
 	runner.sp = newStatProcessor(spArgs)
 	return runner
@@ -64,22 +76,22 @@ func NewBenchmarkRunner() *BenchmarkRunner {
 
 // SetLimit changes the number of queries to run, with 0 being all of them
 func (b *BenchmarkRunner) SetLimit(limit uint64) {
-	b.limit = limit
+	b.Limit = limit
 }
 
 // DoPrintResponses indicates whether responses for queries should be printed
 func (b *BenchmarkRunner) DoPrintResponses() bool {
-	return b.printResponses
+	return b.PrintResponses
 }
 
 // DebugLevel returns the level of debug messages for this benchmark
 func (b *BenchmarkRunner) DebugLevel() int {
-	return b.debug
+	return b.Debug
 }
 
 // DatabaseName returns the name of the database to run queries against
 func (b *BenchmarkRunner) DatabaseName() string {
-	return b.dbName
+	return b.DBName
 }
 
 // ProcessorCreate is a function that creates a new Processor (called in Run)
@@ -97,11 +109,11 @@ type Processor interface {
 // GetBufferedReader returns the buffered Reader that should be used by the loader
 func (b *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 	if b.br == nil {
-		if len(b.fileName) > 0 {
+		if len(b.FileName) > 0 {
 			// Read from specified file
-			file, err := os.Open(b.fileName)
+			file, err := os.Open(b.FileName)
 			if err != nil {
-				panic(fmt.Sprintf("cannot open file for read %s: %v", b.fileName, err))
+				panic(fmt.Sprintf("cannot open file for read %s: %v", b.FileName, err))
 			}
 			b.br = bufio.NewReaderSize(file, defaultReadSize)
 		} else {
@@ -116,22 +128,22 @@ func (b *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 // It launches a gorountine to track stats, creates workers to process queries,
 // read in the input, execute the queries, and then does cleanup.
 func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorCreate) {
-	if b.workers == 0 {
+	if b.Workers == 0 {
 		panic("must have at least one worker")
 	}
 
 	spArgs := b.sp.getArgs()
-	if spArgs.burnIn > b.limit {
+	if spArgs.burnIn > b.Limit {
 		panic("burn-in is larger than limit")
 	}
-	b.ch = make(chan Query, b.workers)
+	b.ch = make(chan Query, b.Workers)
 
 	// Launch the stats processor:
-	go b.sp.process(b.workers)
+	go b.sp.process(b.Workers)
 
 	// Launch query processors
 	var wg sync.WaitGroup
-	for i := 0; i < int(b.workers); i++ {
+	for i := 0; i < int(b.Workers); i++ {
 		wg.Add(1)
 		go b.processorHandler(&wg, queryPool, processorCreateFn(), i)
 	}
@@ -155,8 +167,8 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	}
 
 	// (Optional) create a memory profile:
-	if len(b.memProfile) > 0 {
-		f, err := os.Create(b.memProfile)
+	if len(b.MemProfile) > 0 {
+		f, err := os.Create(b.MemProfile)
 		if err != nil {
 			log.Fatal(err)
 		}

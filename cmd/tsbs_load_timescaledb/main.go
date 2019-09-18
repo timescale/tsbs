@@ -5,7 +5,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"log"
 	"regexp"
@@ -13,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -69,41 +71,82 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&postgresConnect, "postgres", "sslmode=disable", "PostgreSQL connection string")
-	flag.StringVar(&host, "host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
-	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
-	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
-	flag.StringVar(&pass, "pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
-	flag.StringVar(&connDB, "admin-db-name", user, "Database to connect to in order to create additional benchmark databases.\n"+
+	pflag.String("postgres", "sslmode=disable", "PostgreSQL connection string")
+	pflag.String("host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
+	pflag.String("port", "5432", "Which port to connect to on the database host")
+	pflag.String("user", "postgres", "User to connect to PostgreSQL as")
+	pflag.String("pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
+	pflag.String("admin-db-name", user, "Database to connect to in order to create additional benchmark databases.\n"+
 		"By default this is the same as the `user` (i.e., `postgres` if neither is set),\n"+
 		"but sometimes a user does not have its own database.")
 
-	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
+	pflag.Bool("log-batches", false, "Whether to time individual batches.")
 
-	flag.BoolVar(&useHypertable, "use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
-	flag.BoolVar(&useJSON, "use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
-	flag.BoolVar(&inTableTag, "in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
+	pflag.Bool("use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
+	pflag.Bool("use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
+	pflag.Bool("in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
-	flag.BoolVar(&hashWorkers, "hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
+	pflag.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 
-	flag.IntVar(&numberPartitions, "partitions", 1, "Number of partitions")
-	flag.DurationVar(&chunkTime, "chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
+	pflag.Int("partitions", 1, "Number of partitions")
+	pflag.Duration("chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
-	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
-	flag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
-	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
-	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma delimited)")
-	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
+	pflag.Bool("time-index", true, "Whether to build an index on the time dimension")
+	pflag.Bool("time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
+	pflag.Bool("partition-index", true, "Whether to build an index on the partition key")
+	pflag.String("field-index", valueTimeIdx, "index types for tags (comma delimited)")
+	pflag.Int("field-index-count", 0, "Number of indexed fields (-1 for all)")
 
-	flag.StringVar(&profileFile, "write-profile", "", "File to output CPU/memory profile to")
-	flag.StringVar(&replicationStatsFile, "write-replication-stats", "", "File to output replication stats to")
-	flag.BoolVar(&createMetricsTable, "create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
+	pflag.String("write-profile", "", "File to output CPU/memory profile to")
+	pflag.String("write-replication-stats", "", "File to output replication stats to")
+	pflag.Bool("create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
-	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
+	pflag.Bool("force-text-format", false, "Send/receive data in text format")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	postgresConnect = viper.GetString("postgres")
+	host = viper.GetString("host")
+	port = viper.GetString("port")
+	user = viper.GetString("user")
+	pass = viper.GetString("pass")
+	connDB = viper.GetString("admin-db-name")
+	logBatches = viper.GetBool("log-batches")
+
+	useHypertable = viper.GetBool("use-hypertable")
+	useJSON = viper.GetBool("use-jsonb-tags")
+	inTableTag = viper.GetBool("in-table-partition-tag")
+	hashWorkers = viper.GetBool("hash-workers")
+
+	numberPartitions = viper.GetInt("partitions")
+	chunkTime = viper.GetDuration("chunk-time")
+
+	timeIndex = viper.GetBool("time-index")
+	timePartitionIndex = viper.GetBool("time-partition-index")
+	partitionIndex = viper.GetBool("partition-index")
+	fieldIndex = viper.GetString("field-index")
+	fieldIndexCount = viper.GetInt("field-index-count")
+
+	profileFile = viper.GetString("write-profile")
+	replicationStatsFile = viper.GetString("write-replication-stats")
+	createMetricsTable = viper.GetBool("create-metrics-table")
+
+	forceTextFormat = viper.GetBool("force-text-format")
+
+	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct{}
