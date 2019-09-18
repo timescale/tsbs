@@ -6,15 +6,94 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/timescale/tsbs/query"
+)
+
+const (
+	testScale = 10
 )
 
 type testCase struct {
 	desc               string
+	fail               bool
+	failMsg            string
+	input              int
 	useJSON            bool
 	expectedHumanLabel string
 	expectedHumanDesc  string
 	expectedHypertable string
 	expectedSQLQuery   string
+}
+
+func TestLastLocByTruck(t *testing.T) {
+	cases := []testCase{
+		{
+			desc:    "zero trucks",
+			input:   0,
+			fail:    true,
+			failMsg: "number of trucks cannot be < 1; got 0",
+		},
+		{
+			desc:    "more trucks than scale",
+			input:   2 * testScale,
+			fail:    true,
+			failMsg: "number of trucks (20) larger than total trucks. See --scale (10)",
+		},
+		{
+			desc:  "one truck",
+			input: 1,
+
+			expectedHumanLabel: "TimescaleDB last location by specific truck",
+			expectedHumanDesc:  "TimescaleDB last location by specific truck: random    1 trucks",
+			expectedHypertable: "readings",
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.name IN ('truck_5')`,
+		},
+		{
+			desc:    "one truck use json",
+			input:   1,
+			useJSON: true,
+
+			expectedHumanLabel: "TimescaleDB last location by specific truck",
+			expectedHumanDesc:  "TimescaleDB last location by specific truck: random    1 trucks",
+			expectedHypertable: "readings",
+			expectedSQLQuery: `SELECT t.tagset->>'name' AS name, t.tagset->>'driver' AS driver, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.tags_id IN (SELECT id FROM tags WHERE tagset @> '{"name": "truck_9"}')`,
+		},
+		{
+			desc:  "three truck",
+			input: 3,
+
+			expectedHumanLabel: "TimescaleDB last location by specific truck",
+			expectedHumanDesc:  "TimescaleDB last location by specific truck: random    3 trucks",
+			expectedHypertable: "readings",
+			expectedSQLQuery: `SELECT t.name AS name, t.driver AS driver, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.name IN ('truck_3','truck_5','truck_9')`,
+		},
+	}
+
+	testFunc := func(i *IoT, c testCase) query.Query {
+		q := i.GenerateEmptyQuery()
+		i.LastLocByTruck(q, c.input)
+		return q
+	}
+
+	runTestCases(t, testFunc, time.Now(), time.Now(), cases)
 }
 
 func TestLastLocPerTruck(t *testing.T) {
@@ -812,4 +891,41 @@ func TestTenMinutePeriods(t *testing.T) {
 		}
 	}
 
+}
+
+func runTestCases(t *testing.T, testFunc func(*IoT, testCase) query.Query, s time.Time, e time.Time, cases []testCase) {
+	rand.Seed(123) // Setting seed for testing purposes.
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			b := BaseGenerator{}
+			b.UseJSON = c.useJSON
+			dq, err := b.NewIoT(s, e, testScale)
+			if err != nil {
+				t.Fatalf("Error while creating devops generator")
+			}
+			i := dq.(*IoT)
+
+			if c.fail {
+				func() {
+					defer func() {
+						r := recover()
+						if r == nil {
+							t.Fatalf("did not panic when should")
+						}
+
+						if r != c.failMsg {
+							t.Fatalf("incorrect fail message: got %s, want %s", r, c.failMsg)
+						}
+					}()
+
+					testFunc(i, c)
+				}()
+			} else {
+				q := testFunc(i, c)
+
+				verifyQuery(t, q, c.expectedHumanLabel, c.expectedHumanDesc, c.expectedHypertable, c.expectedSQLQuery)
+			}
+		})
+	}
 }

@@ -2,14 +2,6 @@ language: go
 jobs:
   include:
     - stage: test
-      name: "Go before modules (1.10)"
-      go:
-        - 1.10.x
-      before_install:
-        - go get -t -v ./...
-      script:
-        - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-    - stage: test
       name: "Go with modules (1.11)"
       go:
         - 1.11.x
@@ -20,6 +12,13 @@ jobs:
       name: "Go with modules (1.12)"
       go:
         - 1.12.x
+      install: skip
+      script:
+        - GO111MODULE=on go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+    - stage: test
+      name: "Go with modules (1.13)"
+      go:
+        - 1.13.x
       install: skip
       script:
         - GO111MODULE=on go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...

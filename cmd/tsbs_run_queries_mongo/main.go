@@ -6,13 +6,15 @@ package main
 
 import (
 	"encoding/gob"
-	"flag"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -36,12 +38,29 @@ func init() {
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.M{})
-	runner = query.NewBenchmarkRunner()
 
-	flag.StringVar(&daemonURL, "url", "mongodb://localhost:27017", "Daemon URL.")
-	flag.DurationVar(&timeout, "read-timeout", 30*time.Second, "Timeout value for individual queries")
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.Parse()
+	pflag.String("url", "mongodb://localhost:27017", "Daemon URL.")
+	pflag.Duration("read-timeout", 30*time.Second, "Timeout value for individual queries")
+
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	daemonURL = viper.GetString("url")
+	timeout = viper.GetDuration("read-timeout")
+
+	runner = query.NewBenchmarkRunner(config)
 }
 
 func main() {

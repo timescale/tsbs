@@ -2,6 +2,7 @@ package timescaledb
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
@@ -38,6 +39,49 @@ func (i *IoT) columnSelect(column string) string {
 
 func (i *IoT) withAlias(column string) string {
 	return fmt.Sprintf("%s AS %s", i.columnSelect(column), column)
+}
+
+func (i *IoT) getTrucksWhereWithNames(names []string) string {
+	nameClauses := []string{}
+	if i.UseJSON {
+		for _, s := range names {
+			nameClauses = append(nameClauses, fmt.Sprintf("tagset @> '{\"name\": \"%s\"}'", s))
+		}
+		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE %s)", strings.Join(nameClauses, " OR "))
+	}
+
+	for _, s := range names {
+		nameClauses = append(nameClauses, fmt.Sprintf("'%s'", s))
+	}
+	return fmt.Sprintf("name IN (%s)", strings.Join(nameClauses, ","))
+}
+
+// getHostWhereString gets multiple random hostnames and creates a WHERE SQL statement for these hostnames.
+func (i *IoT) getTruckWhereString(nTrucks int) string {
+	names, err := i.GetRandomTrucks(nTrucks)
+	panicIfErr(err)
+	return i.getTrucksWhereWithNames(names)
+}
+
+// LastLocByTruck finds the truck location for nTrucks.
+func (i *IoT) LastLocByTruck(qi query.Query, nTrucks int) {
+	name, driver := "name", "driver"
+
+	sql := fmt.Sprintf(`SELECT t.%s, t.%s, r.*
+		FROM tags t INNER JOIN LATERAL
+			(SELECT longitude, latitude
+			FROM readings r
+			WHERE r.tags_id=t.id
+			ORDER BY time DESC LIMIT 1)  r ON true
+		WHERE t.%s`,
+		i.withAlias(name),
+		i.withAlias(driver),
+		i.getTruckWhereString(nTrucks))
+
+	humanLabel := "TimescaleDB last location by specific truck"
+	humanDesc := fmt.Sprintf("%s: random %4d trucks", humanLabel, nTrucks)
+
+	i.fillInQuery(qi, humanLabel, humanDesc, iot.ReadingsTableName, sql)
 }
 
 // LastLocPerTruck finds all the truck locations along with truck and driver names.

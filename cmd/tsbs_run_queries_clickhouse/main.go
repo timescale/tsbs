@@ -6,13 +6,15 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/kshvakov/clickhouse"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -33,22 +35,40 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 	var hosts string
 
-	flag.StringVar(&chConnect, "additional-params", "sslmode=disable",
+	pflag.String("additional-params", "sslmode=disable",
 		"String of additional ClickHouse connection parameters, e.g., 'sslmode=disable'.")
-	flag.StringVar(&hosts, "hosts", "localhost",
+	pflag.String("hosts", "localhost",
 		"Comma separated list of ClickHouse hosts (pass multiple values for sharding reads on a multi-node setup)")
-	flag.StringVar(&user, "user", "default", "User to connect to ClickHouse as")
-	flag.StringVar(&password, "password", "", "Password to connect to ClickHouse")
+	pflag.String("user", "default", "User to connect to ClickHouse as")
+	pflag.String("password", "", "Password to connect to ClickHouse")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	chConnect = viper.GetString("additional-params")
+	hosts = viper.GetString("hosts")
+	user = viper.GetString("user")
+	password = viper.GetString("password")
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
 	for _, host := range strings.Split(hosts, ",") {
 		hostsList = append(hostsList, host)
 	}
+
+	runner = query.NewBenchmarkRunner(config)
 }
 
 func main() {

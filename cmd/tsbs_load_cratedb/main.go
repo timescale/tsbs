@@ -3,9 +3,14 @@ package main
 import (
 	"bufio"
 	"flag"
-	"github.com/jackc/pgx"
-	"github.com/timescale/tsbs/load"
+	"fmt"
 	"log"
+
+	"github.com/jackc/pgx"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/load"
 )
 
 var loader *load.BenchmarkRunner
@@ -42,23 +47,44 @@ func (b *benchmark) GetDBCreator() load.DBCreator {
 }
 
 func main() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	hosts := flag.String("hosts", "localhost", "CrateDB hostnames")
-	port := flag.Uint("port", 5432, "A port to connect to database instances")
-	user := flag.String("user", "crate", "User to connect to CrateDB")
-	pass := flag.String("pass", "", "Password for user connecting to CrateDB")
+	pflag.String("hosts", "localhost", "CrateDB hostnames")
+	pflag.Uint("port", 5432, "A port to connect to database instances")
+	pflag.String("user", "crate", "User to connect to CrateDB")
+	pflag.String("pass", "", "Password for user connecting to CrateDB")
+
+	pflag.Int("replicas", 0, "Number of replicas per a metric table")
+	pflag.Int("shards", 5, "Number of shards per a metric table")
+
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	hosts := viper.GetString("hosts")
+	port := viper.GetUint("port")
+	user := viper.GetString("user")
+	pass := viper.GetString("pass")
 
 	numReplicas := flag.Int("replicas", 0, "Number of replicas per a metric table")
 	numShards := flag.Int("shards", 5, "Number of shards per a metric table")
 
-	flag.Parse()
+	loader = load.GetBenchmarkRunner(config)
 
 	connConfig := &pgx.ConnConfig{
-		Host:     *hosts,
-		Port:     uint16(*port),
-		User:     *user,
-		Password: *pass,
+		Host:     hosts,
+		Port:     uint16(port),
+		User:     user,
+		Password: pass,
 		Database: "doc",
 	}
 

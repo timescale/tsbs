@@ -4,9 +4,12 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"time"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -33,13 +36,30 @@ var (
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&daemonURL, "url", "localhost:27017", "Mongo URL.")
-	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
-	flag.BoolVar(&documentPer, "document-per-event", false, "Whether to use one document per event or aggregate by hour")
+	pflag.String("url", "localhost:27017", "Mongo URL.")
+	pflag.Duration("write-timeout", 10*time.Second, "Write timeout.")
+	pflag.Bool("document-per-event", false, "Whether to use one document per event or aggregate by hour")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	daemonURL = viper.GetString("url")
+	writeTimeout = viper.GetDuration("write-timeout")
+	documentPer = viper.GetBool("document-per-event")
+
+	loader = load.GetBenchmarkRunner(config)
 }
 
 func main() {

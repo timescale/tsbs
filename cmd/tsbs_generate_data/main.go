@@ -14,14 +14,16 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime/pprof"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/inputs"
+	"github.com/timescale/tsbs/internal/utils"
 )
 
 var (
@@ -32,12 +34,27 @@ var (
 
 // Parse args:
 func init() {
-	config.AddToFlagSet(flag.CommandLine)
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&profileFile, "profile-file", "", "File to which to write go profiling data")
-	flag.Uint64Var(&config.Limit, "max-data-points", 0, "Limit the number of data points to generate, 0 = no limit")
+	pflag.String("profile-file", "", "File to which to write go profiling data")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config.BaseConfig); err != nil {
+		panic(fmt.Errorf("unable to decode base config: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	profileFile = viper.GetString("profile-file")
 }
 
 func main() {

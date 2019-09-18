@@ -6,10 +6,13 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"strings"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -26,18 +29,34 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 	var csvDaemonUrls string
 
-	flag.StringVar(&csvDaemonUrls, "urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
-	flag.Uint64Var(&chunkSize, "chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
+	pflag.String("urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
+	pflag.Uint64("chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	csvDaemonUrls = viper.GetString("urls")
+	chunkSize = viper.GetUint64("chunk-response-size")
 
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
 	if len(daemonUrls) == 0 {
 		log.Fatal("missing 'urls' flag")
 	}
+
+	runner = query.NewBenchmarkRunner(config)
 }
 
 func main() {

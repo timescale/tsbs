@@ -121,7 +121,7 @@ func TestGetBufferedReader(t *testing.T) {
 
 	// Should give a nil bufio.Reader
 	fatalCalled = false
-	r.fileName = "foo"
+	r.FileName = "foo"
 	br = r.GetBufferedReader()
 	if br != nil {
 		t.Errorf("filename returned not nil buffered reader for nonexistent file")
@@ -133,7 +133,7 @@ func TestGetBufferedReader(t *testing.T) {
 
 	// Should give a non-nil bufio.Reader
 	fatalCalled = false
-	r.fileName = "/dev/null"
+	r.FileName = "/dev/null"
 	br = r.GetBufferedReader()
 	if br == nil {
 		t.Errorf("filename returned nil buffered reader for /dev/null")
@@ -141,7 +141,7 @@ func TestGetBufferedReader(t *testing.T) {
 
 	// Should give a non-nil bufio.Reader
 	fatalCalled = false
-	r.fileName = ""
+	r.FileName = ""
 	br = r.GetBufferedReader()
 	if br == nil {
 		t.Errorf("STDOUT returned a nil buffered reader")
@@ -242,9 +242,11 @@ func TestUseDBCreator(t *testing.T) {
 	}
 	for _, c := range cases {
 		r := &BenchmarkRunner{
-			doLoad:         c.doLoad,
-			doCreateDB:     c.doCreate,
-			doAbortOnExist: c.abortOnExist,
+			BenchmarkRunnerConfig: BenchmarkRunnerConfig{
+				DoLoad:         c.doLoad,
+				DoCreateDB:     c.doCreate,
+				DoAbortOnExist: c.abortOnExist,
+			},
 		}
 		core := testCreator{
 			exists:    c.exists,
@@ -366,7 +368,7 @@ func TestCreateChannelsAndPartitions(t *testing.T) {
 	}
 	for _, c := range cases {
 		br := &BenchmarkRunner{}
-		br.workers = c.workers
+		br.Workers = c.workers
 		if c.shouldPanic {
 			testPanic(br, c.queues, c.desc)
 		} else {
