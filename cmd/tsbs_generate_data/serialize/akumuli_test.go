@@ -4,46 +4,9 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestAkumuliSerializerSerialize(t *testing.T) {
-	var (
-		testNow         = time.Unix(1451606400, 0)
-		testMeasurement = []byte("cpu")
-		testTagKeys     = [][]byte{[]byte("hostname"), []byte("region"), []byte("datacenter")}
-		testTagVals     = [][]byte{[]byte("host_0"), []byte("eu-west-1"), []byte("eu-west-1b")}
-		testColFloat    = []byte("usage_guest_nice")
-		testColInt      = []byte("usage_guest")
-		testColInt64    = []byte("big_usage_guest")
-	)
-
-	var testPointDefault = &Point{
-		measurementName: testMeasurement,
-		tagKeys:         testTagKeys,
-		tagValues:       testTagVals,
-		timestamp:       &testNow,
-		fieldKeys:       [][]byte{testColFloat},
-		fieldValues:     []interface{}{testFloat},
-	}
-
-	var testPointMultiField = &Point{
-		measurementName: testMeasurement,
-		tagKeys:         testTagKeys,
-		tagValues:       testTagVals,
-		timestamp:       &testNow,
-		fieldKeys:       [][]byte{testColInt64, testColInt, testColFloat},
-		fieldValues:     []interface{}{testInt64, testInt, testFloat},
-	}
-
-	var testPointInt = &Point{
-		measurementName: testMeasurement,
-		tagKeys:         testTagKeys,
-		tagValues:       testTagVals,
-		timestamp:       &testNow,
-		fieldKeys:       [][]byte{testColInt},
-		fieldValues:     []interface{}{testInt},
-	}
 
 	serializer := AkumuliSerializer{}
 
