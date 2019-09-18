@@ -5,7 +5,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"strconv"
@@ -14,7 +13,10 @@ import (
 
 	siridb "github.com/SiriDB/go-siridb-connector"
 	_ "github.com/lib/pq"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -40,17 +42,38 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&dbUser, "dbuser", "iris", "Username to enter SiriDB")
-	flag.StringVar(&dbPass, "dbpass", "siri", "Password to enter SiriDB")
-	flag.StringVar(&hosts, "hosts", "localhost:9000", "Comma separated list of SiriDB hosts in a cluster.")
-	flag.Uint64Var(&scale, "scale", 8, "Scaling variable (Must be the equal to the scalevar used for data generation).")
-	flag.Uint64Var(&queryLimit, "query-limit", 1000000, "Changes the maximum points which can be returned by a select query.")
-	flag.IntVar(&writeTimeout, "write-timeout", 10, "Write timeout.")
-	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
+	pflag.String("dbuser", "iris", "Username to enter SiriDB")
+	pflag.String("dbpass", "siri", "Password to enter SiriDB")
+	pflag.String("hosts", "localhost:9000", "Comma separated list of SiriDB hosts in a cluster.")
+	pflag.Uint64("scale", 8, "Scaling variable (Must be the equal to the scalevar used for data generation).")
+	pflag.Uint64("query-limit", 1000000, "Changes the maximum points which can be returned by a select query.")
+	pflag.Int("write-timeout", 10, "Write timeout.")
+	pflag.Bool("show-explain", false, "Print out the EXPLAIN output for sample query")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	dbUser = viper.GetString("dbuser")
+	dbPass = viper.GetString("dbpass")
+	hosts = viper.GetString("hosts")
+	scale = viper.GetUint64("scale")
+	queryLimit = viper.GetUint64("query-limit")
+	writeTimeout = viper.GetInt("write-timeout")
+	showExplain = viper.GetBool("show-explain")
+
+	runner = query.NewBenchmarkRunner(config)
 
 	if showExplain {
 		runner.SetLimit(1)

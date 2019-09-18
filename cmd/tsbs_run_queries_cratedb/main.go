@@ -2,14 +2,17 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"github.com/jackc/pgx"
 	"time"
+
+	"github.com/jackc/pgx"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -24,21 +27,40 @@ var (
 var runner *query.BenchmarkRunner
 
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&hosts, "hosts", "localhost", "CrateDB hostnames")
-	flag.StringVar(&user, "user", "crate", "User to connect to CrateDB")
-	flag.StringVar(&pass, "pass", "", "Password for user connecting to CrateDB")
-	flag.IntVar(&port, "port", 5432, "A port to connect to database instances")
-	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
+	pflag.String("hosts", "localhost", "CrateDB hostnames")
+	pflag.String("user", "crate", "User to connect to CrateDB")
+	pflag.String("pass", "", "Password for user connecting to CrateDB")
+	pflag.Int("port", 5432, "A port to connect to database instances")
+	pflag.Bool("show-explain", false, "Print out the EXPLAIN output for sample query")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	hosts = viper.GetString("hosts")
+	user = viper.GetString("user")
+	pass = viper.GetString("pass")
+	port = viper.GetInt("port")
+	showExplain = viper.GetBool("show-explain")
+
+	runner = query.NewBenchmarkRunner(config)
 
 	if showExplain {
 		runner.SetLimit(1)
 	}
-
 }
+
 func main() {
 	runner.Run(&query.CrateDBPool, newProcessor)
 }

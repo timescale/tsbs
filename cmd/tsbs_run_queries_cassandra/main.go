@@ -8,11 +8,14 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -58,20 +61,33 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&daemonURL, "host", "localhost:9042", "Cassandra hostname and port combination.")
-	flag.StringVar(&aggrPlanLabel, "aggregation-plan", "", "Aggregation plan (choices: server, client)")
-	flag.DurationVar(&requestTimeout, "read-timeout", 1*time.Second, "Maximum request timeout.")
-	flag.DurationVar(&csiTimeout, "client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
+	pflag.String("host", "localhost:9042", "Cassandra hostname and port combination.")
+	pflag.String("aggregation-plan", "", "Aggregation plan (choices: server, client)")
+	pflag.Duration("read-timeout", 1*time.Second, "Maximum request timeout.")
+	pflag.Duration("client-side-index-timeout", 10*time.Second, "Maximum client-side index timeout (only used at initialization).")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	daemonURL = viper.GetString("host")
+	aggrPlanLabel = viper.GetString("aggregation-plan")
+	requestTimeout = viper.GetDuration("read-timeout")
+	csiTimeout = viper.GetDuration("client-side-index-timeout")
 
 	if _, ok := aggrPlanChoices[aggrPlanLabel]; !ok {
 		log.Fatal("invalid aggregation plan")
 	}
 	aggrPlan = aggrPlanChoices[aggrPlanLabel]
 
+	runner = query.NewBenchmarkRunner(config)
 }
 
 func main() {

@@ -6,13 +6,15 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -41,21 +43,38 @@ var consistencyMapping = map[string]gocql.Consistency{
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunnerWithBatchSize(100)
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&hosts, "hosts", "localhost:9042", "Comma separated list of Cassandra hosts in a cluster.")
+	pflag.String("hosts", "localhost:9042", "Comma separated list of Cassandra hosts in a cluster.")
 
-	flag.IntVar(&replicationFactor, "replication-factor", 1, "Number of nodes that must have a copy of each key.")
-	flag.StringVar(&consistencyLevel, "consistency", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
-	flag.DurationVar(&writeTimeout, "write-timeout", 10*time.Second, "Write timeout.")
+	pflag.Int("replication-factor", 1, "Number of nodes that must have a copy of each key.")
+	pflag.String("consistency", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
+	pflag.Duration("write-timeout", 10*time.Second, "Write timeout.")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	hosts = viper.GetString("hosts")
+	replicationFactor = viper.GetInt("replication-factor")
+	consistencyLevel = viper.GetString("consistency")
+	writeTimeout = viper.GetDuration("write-timeout")
 
 	if _, ok := consistencyMapping[consistencyLevel]; !ok {
 		fmt.Println("Invalid consistency level.")
 		os.Exit(1)
 	}
 
+	loader = load.GetBenchmarkRunnerWithBatchSize(config, 100)
 }
 
 type benchmark struct {

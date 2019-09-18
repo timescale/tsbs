@@ -3,14 +3,16 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/internal/inputs"
+	internalutils "github.com/timescale/tsbs/internal/utils"
 )
 
 var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
@@ -54,8 +56,8 @@ var config = &inputs.QueryGeneratorConfig{}
 func init() {
 	useCaseMatrix["cpu-only"] = useCaseMatrix["devops"]
 	// Change the Usage function to print the use case matrix of choices:
-	oldUsage := flag.Usage
-	flag.Usage = func() {
+	oldUsage := pflag.Usage
+	pflag.Usage = func() {
 		oldUsage()
 
 		fmt.Fprintf(os.Stderr, "\n")
@@ -67,17 +69,23 @@ func init() {
 		}
 	}
 
-	config.AddToFlagSet(flag.CommandLine)
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.Uint64Var(&config.Limit, "queries", 1000, "Number of queries to generate.")
+	pflag.Parse()
 
-	flag.BoolVar(&config.ClickhouseUseTags, "clickhouse-use-tags", true, "ClickHouse only: Use separate tags table when querying")
-	flag.BoolVar(&config.MongoUseNaive, "mongo-use-naive", true, "MongoDB only: Generate queries for the 'naive' data storage format for Mongo")
-	flag.BoolVar(&config.TimescaleUseJSON, "timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
-	flag.BoolVar(&config.TimescaleUseTags, "timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
-	flag.BoolVar(&config.TimescaleUseTimeBucket, "timescale-use-time-bucket", true, "TimescaleDB only: Use time bucket. Set to false to test on native PostgreSQL")
+	err := internalutils.SetupConfigFile()
 
-	flag.Parse()
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config.BaseConfig); err != nil {
+		panic(fmt.Errorf("unable to decode base config: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
 }
 
 func main() {

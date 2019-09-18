@@ -2,9 +2,12 @@ package main
 
 import (
 	"bufio"
-	"flag"
+	"fmt"
 	"log"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -28,18 +31,38 @@ var fatal = log.Fatal
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&dbUser, "dbuser", "iris", "Username to enter SiriDB")
-	flag.StringVar(&dbPass, "dbpass", "siri", "Password to enter SiriDB")
+	pflag.String("dbuser", "iris", "Username to enter SiriDB")
+	pflag.String("dbpass", "siri", "Password to enter SiriDB")
 
-	flag.StringVar(&hosts, "hosts", "localhost:9000", "Provide 1 or 2 (comma seperated) SiriDB hosts. If 2 hosts are provided, 2 pools are created.")
-	flag.BoolVar(&replica, "replica", false, "Whether to create a replica instead of a second pool, when two hosts are provided.")
+	pflag.String("hosts", "localhost:9000", "Provide 1 or 2 (comma seperated) SiriDB hosts. If 2 hosts are provided, 2 pools are created.")
+	pflag.Bool("replica", false, "Whether to create a replica instead of a second pool, when two hosts are provided.")
 
-	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
-	flag.IntVar(&writeTimeout, "write-timeout", 10, "Write timeout.")
+	pflag.Bool("log-batches", false, "Whether to time individual batches.")
+	pflag.Int("write-timeout", 10, "Write timeout.")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	dbUser = viper.GetString("dbuser")
+	dbPass = viper.GetString("dbpass")
+	hosts = viper.GetString("hosts")
+	replica = viper.GetBool("replica")
+	logBatches = viper.GetBool("log-batches")
+	writeTimeout = viper.GetInt("write-timeout")
+
+	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct{}

@@ -2,7 +2,6 @@ package inputs
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"io"
 	"math/rand"
@@ -10,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
@@ -35,10 +35,11 @@ const defaultLogInterval = 10 * time.Second
 // such as the initial scale and how spaced apart data points should be in time.
 type DataGeneratorConfig struct {
 	BaseConfig
-	InitialScale         uint64
-	LogInterval          time.Duration
-	InterleavedGroupID   uint
-	InterleavedNumGroups uint
+	Limit                uint64        `mapstructure:"max-data-points"`
+	InitialScale         uint64        `mapstructure:"initial-scale"`
+	LogInterval          time.Duration `mapstructure:"log-interval"`
+	InterleavedGroupID   uint          `mapstructure:"interleaved-generation-group-id"`
+	InterleavedNumGroups uint          `mapstructure:"interleaved-generation-groups"`
 }
 
 // Validate checks that the values of the DataGeneratorConfig are reasonable.
@@ -60,14 +61,15 @@ func (c *DataGeneratorConfig) Validate() error {
 	return err
 }
 
-func (c *DataGeneratorConfig) AddToFlagSet(fs *flag.FlagSet) {
+func (c *DataGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	c.BaseConfig.AddToFlagSet(fs)
-	flag.Uint64Var(&c.InitialScale, "initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
-	flag.DurationVar(&c.LogInterval, "log-interval", defaultLogInterval, "Duration between data points")
+	fs.Uint64("max-data-points", 0, "Limit the number of data points to generate, 0 = no limit")
+	fs.Uint64("initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
+	fs.Duration("log-interval", defaultLogInterval, "Duration between data points")
 
-	flag.UintVar(&c.InterleavedGroupID, "interleaved-generation-group-id", 0,
+	fs.Uint("interleaved-generation-group-id", 0,
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
-	flag.UintVar(&c.InterleavedNumGroups, "interleaved-generation-groups", 1,
+	fs.Uint("interleaved-generation-groups", 1,
 		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
 }

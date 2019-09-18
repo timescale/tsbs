@@ -5,9 +5,12 @@ package main
 
 import (
 	"bufio"
-	"flag"
+	"fmt"
 	"log"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -48,20 +51,41 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&host, "host", "localhost", "Hostname of ClickHouse instance")
-	flag.StringVar(&user, "user", "default", "User to connect to ClickHouse as")
-	flag.StringVar(&password, "password", "", "Password to connect to ClickHouse")
+	pflag.String("host", "localhost", "Hostname of ClickHouse instance")
+	pflag.String("user", "default", "User to connect to ClickHouse as")
+	pflag.String("password", "", "Password to connect to ClickHouse")
 
-	flag.BoolVar(&logBatches, "log-batches", false, "Whether to time individual batches.")
+	pflag.Bool("log-batches", false, "Whether to time individual batches.")
 
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
-	flag.BoolVar(&hashWorkers, "hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
+	pflag.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 
-	flag.IntVar(&debug, "debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
+	pflag.Int("debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	host = viper.GetString("host")
+	user = viper.GetString("user")
+	password = viper.GetString("password")
+
+	logBatches = viper.GetBool("log-batches")
+	hashWorkers = viper.GetBool("hash-workers")
+	debug = viper.GetInt("debug")
+
+	loader = load.GetBenchmarkRunner(config)
 	tableCols = make(map[string][]string)
 }
 

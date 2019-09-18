@@ -8,7 +8,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"regexp"
 	"strings"
@@ -17,6 +16,9 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -42,20 +44,40 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
-	var hosts string
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&postgresConnect, "postgres", "host=postgres user=postgres sslmode=disable",
+	pflag.String("postgres", "host=postgres user=postgres sslmode=disable",
 		"String of additional PostgreSQL connection parameters, e.g., 'sslmode=disable'. Parameters for host and database will be ignored.")
-	flag.StringVar(&hosts, "hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
-	flag.StringVar(&user, "user", "postgres", "User to connect to PostgreSQL as")
-	flag.StringVar(&pass, "pass", "", "Password for the user connecting to PostgreSQL (leave blank if not password protected)")
-	flag.StringVar(&port, "port", "5432", "Which port to connect to on the database host")
+	pflag.String("hosts", "localhost", "Comma separated list of PostgreSQL hosts (pass multiple values for sharding reads on a multi-node setup)")
+	pflag.String("user", "postgres", "User to connect to PostgreSQL as")
+	pflag.String("pass", "", "Password for the user connecting to PostgreSQL (leave blank if not password protected)")
+	pflag.String("port", "5432", "Which port to connect to on the database host")
 
-	flag.BoolVar(&showExplain, "show-explain", false, "Print out the EXPLAIN output for sample query")
-	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
+	pflag.Bool("show-explain", false, "Print out the EXPLAIN output for sample query")
+	pflag.Bool("force-text-format", false, "Send/receive data in text format")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	postgresConnect = viper.GetString("postgres")
+	hosts := viper.GetString("hosts")
+	user = viper.GetString("user")
+	pass = viper.GetString("pass")
+	port = viper.GetString("port")
+	showExplain = viper.GetBool("show-explain")
+	forceTextFormat = viper.GetBool("force-text-format")
+
+	runner = query.NewBenchmarkRunner(config)
 
 	if showExplain {
 		runner.SetLimit(1)

@@ -1,10 +1,11 @@
 package inputs
 
 import (
-	"flag"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // Error messages when using a GeneratorConfig
@@ -21,7 +22,7 @@ const (
 // a method to validate the config is actually valid.
 type GeneratorConfig interface {
 	// AddToFlagSet adds all the config options to a FlagSet, for easy use with CLIs
-	AddToFlagSet(fs *flag.FlagSet)
+	AddToFlagSet(fs *pflag.FlagSet)
 	// Validate checks that configuration is valid and ready to be consumed by a Generator
 	Validate() error
 }
@@ -30,32 +31,31 @@ type GeneratorConfig interface {
 // options shared across different types of Generators. These include things like
 // the data format (i.e., which database system is this for), a PRNG seed, etc.
 type BaseConfig struct {
-	Format string
-	Use    string
+	Format string `mapstructure:"format"`
+	Use    string `mapstructure:"use-case"`
 
-	Scale uint64
-	Limit uint64
+	Scale uint64 `mapstructure:"scale"`
 
-	TimeStart string
-	TimeEnd   string
+	TimeStart string `mapstructure:"timestamp-start"`
+	TimeEnd   string `mapstructure:"timestamp-end"`
 
-	Seed  int64
-	Debug int
-	File  string
+	Seed  int64  `mapstructure:"seed"`
+	Debug int    `mapstructure:"debug"`
+	File  string `mapstructure:"file"`
 }
 
-func (c *BaseConfig) AddToFlagSet(fs *flag.FlagSet) {
-	fs.StringVar(&c.Format, "format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(formats, ", ")))
-	fs.StringVar(&c.Use, "use-case", "", fmt.Sprintf("Use case to generate."))
-	fs.StringVar(&c.File, "file", "", "Write the output to this path")
+func (c *BaseConfig) AddToFlagSet(fs *pflag.FlagSet) {
+	fs.String("format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(formats, ", ")))
+	fs.String("use-case", "", fmt.Sprintf("Use case to generate."))
 
-	fs.StringVar(&c.TimeStart, "timestamp-start", defaultTimeStart, "Beginning timestamp (RFC3339).")
-	fs.StringVar(&c.TimeEnd, "timestamp-end", defaultTimeEnd, "Ending timestamp (RFC3339).")
+	fs.Uint64("scale", 1, "Scaling value specific to use case (e.g., devices in 'devops').")
 
-	fs.Uint64Var(&c.Scale, "scale", 1, "Scaling value specific to use case (e.g., devices in 'devops').")
-	fs.Int64Var(&c.Seed, "seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
+	fs.String("timestamp-start", defaultTimeStart, "Beginning timestamp (RFC3339).")
+	fs.String("timestamp-end", defaultTimeEnd, "Ending timestamp (RFC3339).")
 
-	fs.IntVar(&c.Debug, "debug", 0, "Control level of debug output")
+	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
+	fs.Int("debug", 0, "Control level of debug output")
+	fs.String("file", "", "Write the output to this path")
 }
 
 func (c *BaseConfig) Validate() error {
