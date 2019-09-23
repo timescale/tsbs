@@ -34,32 +34,67 @@ var (
 
 	readingsFields = []common.LabeledDistributionMaker{
 		{
-			Label:             labelLatitude,
-			DistributionMaker: func() common.Distribution { return common.CWD(geoStepUD, -90.0, 90.0, rand.NormFloat64()*maxLatitude) },
+			Label: labelLatitude,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(geoStepUD, -90.0, 90.0, rand.Float64()*maxLatitude),
+					5,
+				)
+			},
 		},
 		{
-			Label:             labelLongitude,
-			DistributionMaker: func() common.Distribution { return common.CWD(geoStepUD, -180, 180, rand.NormFloat64()*maxLongitude) },
+			Label: labelLongitude,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(geoStepUD, -180, 180, rand.Float64()*maxLongitude),
+					5,
+				)
+			},
 		},
 		{
-			Label:             labelElevation,
-			DistributionMaker: func() common.Distribution { return common.CWD(bigUD, 0, maxElevation, rand.Float64()*500) },
+			Label: labelElevation,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(bigUD, 0, maxElevation, rand.Float64()*500),
+					0,
+				)
+			},
 		},
 		{
-			Label:             labelVelocity,
-			DistributionMaker: func() common.Distribution { return common.CWD(bigUD, 0, maxVelocity, 0) },
+			Label: labelVelocity,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(bigUD, 0, maxVelocity, 0),
+					0,
+				)
+			},
 		},
 		{
-			Label:             labelHeading,
-			DistributionMaker: func() common.Distribution { return common.CWD(smallUD, 0, maxHeading, rand.Float64()*maxHeading) },
+			Label: labelHeading,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(smallUD, 0, maxHeading, rand.Float64()*maxHeading),
+					0,
+				)
+			},
 		},
 		{
-			Label:             labelGrade,
-			DistributionMaker: func() common.Distribution { return common.CWD(smallUD, 0, maxGrade, 0) },
+			Label: labelGrade,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(smallUD, 0, maxGrade, 0),
+					0,
+				)
+			},
 		},
 		{
-			Label:             labelFuelConsumption,
-			DistributionMaker: func() common.Distribution { return common.CWD(smallUD, 0, maxFuelConsumption, maxFuelConsumption/2) },
+			Label: labelFuelConsumption,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(smallUD, 0, maxFuelConsumption, maxFuelConsumption/2),
+					1,
+				)
+			},
 		},
 	}
 )

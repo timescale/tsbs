@@ -175,3 +175,34 @@ func (d *ConstantDistribution) Advance() {
 func (d *ConstantDistribution) Get() float64 {
 	return d.State
 }
+
+// FloatPrecision is a distribution wrapper which specifies the float value precision of the underlying distribution.
+type FloatPrecision struct {
+	step      Distribution
+	precision float64
+}
+
+// Advance calls the underlying distribution Advance method.
+func (f *FloatPrecision) Advance() {
+	f.step.Advance()
+}
+
+// Get returns the value from the underlying distribution with adjusted float value precision.
+func (f *FloatPrecision) Get() float64 {
+	return float64(int(f.step.Get()*f.precision)) / f.precision
+}
+
+// FP creates a new FloatPrecision distribution wrapper with a given distribution and precision value.
+// Precision value is clamped to [0,5] to avoid floating point calculation errors.
+func FP(step Distribution, precision int) *FloatPrecision {
+	// Clamping the precision value to spec.
+	if precision < 0 {
+		precision = 0
+	} else if precision > 5 {
+		precision = 5
+	}
+	return &FloatPrecision{
+		step:      step,
+		precision: math.Pow(10, float64(precision)),
+	}
+}
