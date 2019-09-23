@@ -24,16 +24,31 @@ var (
 
 	diagnosticsFields = []common.LabeledDistributionMaker{
 		{
-			Label:             labelFuelState,
-			DistributionMaker: func() common.Distribution { return &customFuelDistribution{common.CWD(fuelUD, 0, maxFuel, maxFuel)} },
+			Label: labelFuelState,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					&customFuelDistribution{common.CWD(fuelUD, 0, maxFuel, maxFuel)},
+					1,
+				)
+			},
 		},
 		{
-			Label:             labelCurrentLoad,
-			DistributionMaker: func() common.Distribution { return common.CWD(loadND, 0, maxLoad, rand.Float64()*maxLoad) },
+			Label: labelCurrentLoad,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(loadND, 0, maxLoad, rand.Float64()*maxLoad),
+					0,
+				)
+			},
 		},
 		{
-			Label:             labelStatus,
-			DistributionMaker: func() common.Distribution { return common.CWD(statusND, 0, 5, 0) },
+			Label: labelStatus,
+			DistributionMaker: func() common.Distribution {
+				return common.FP(
+					common.CWD(statusND, 0, 5, 0),
+					0,
+				)
+			},
 		},
 	}
 )
