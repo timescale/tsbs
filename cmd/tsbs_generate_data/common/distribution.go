@@ -206,3 +206,36 @@ func FP(step Distribution, precision int) *FloatPrecision {
 		precision: math.Pow(10, float64(precision)),
 	}
 }
+
+// LazyDistribution is a distribution that can change it's value
+// only if a "motivation" distribution provides a value above a specified threshold.
+// Otherwise it remains the same.
+type LazyDistribution struct {
+	motive    Distribution
+	step      Distribution
+	threshold float64
+}
+
+// LD returns a new LazyDistribution that returns a new value from "dist", if the "motavation" distribution,
+// fires above the threshold.
+func LD(motive, dist Distribution, threshold float64) *LazyDistribution {
+	return &LazyDistribution{
+		step:      dist,
+		motive:    motive,
+		threshold: threshold,
+	}
+}
+
+// Advance computes the next value of this distribution.
+func (d *LazyDistribution) Advance() {
+	d.motive.Advance()
+	if d.motive.Get() < d.threshold {
+		return
+	}
+	d.step.Advance()
+}
+
+// Get returns the last computed value for this distribution.
+func (d *LazyDistribution) Get() float64 {
+	return d.step.Get()
+}
