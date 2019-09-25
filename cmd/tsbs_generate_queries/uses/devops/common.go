@@ -50,6 +50,16 @@ func NewCore(start, end time.Time, scale int) (*Core, error) {
 
 }
 
+// MustGetRandomHosts is the form of GetRandomHosts that cannot error; if it does error,
+// it causes a panic.
+func (d *Core) MustGetRandomHosts(nHosts int) []string {
+	hosts, err := getRandomHosts(nHosts, d.Scale)
+	if err != nil {
+		panic(err.Error())
+	}
+	return hosts
+}
+
 // GetRandomHosts returns a random set of nHosts from a given Core
 func (d *Core) GetRandomHosts(nHosts int) ([]string, error) {
 	return getRandomHosts(nHosts, d.Scale)
@@ -67,6 +77,16 @@ var cpuMetrics = []string{
 	"usage_steal",
 	"usage_guest",
 	"usage_guest_nice",
+}
+
+// MustGetCPUMetricsSlice is the form of GetCPUMetricsSlice that cannot error; if it does error,
+// it causes a panic.
+func MustGetCPUMetricsSlice(numMetrics int) []string {
+	metrics, err := GetCPUMetricsSlice(numMetrics)
+	if err != nil {
+		panic(err.Error())
+	}
+	return metrics
 }
 
 // GetCPUMetricsSlice returns a subset of metrics for the CPU
