@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -72,7 +73,7 @@ func init() {
 }
 
 func main() {
-	runner.Run(&query.ClickHousePool, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewClickHouseQueryFn}, newProcessor)
 }
 
 // Get the connection string for a connection to PostgreSQL.

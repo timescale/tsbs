@@ -57,11 +57,6 @@ func TestNewCassandra(t *testing.T) {
 		t.Errorf("incorrect desc: got %s", got)
 	}
 	q.Release()
-
-	// Since we use a pool, check that the next one is reset
-	q = NewCassandraQueryFn().(*Cassandra)
-	check(q)
-	q.Release()
 }
 
 func TestCassandraSetAndGetID(t *testing.T) {

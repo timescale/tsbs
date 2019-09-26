@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -10,17 +11,19 @@ import (
 
 // BaseGenerator contains settings specific for ClickHouse.
 type BaseGenerator struct {
-	UseTags bool
-}
-
-// Releases the query to the generator's query pool
-func (g *BaseGenerator) ReleaseQuery(query.Query) {
-
+	UseTags   bool
+	QueryPool sync.Pool
 }
 
 // GenerateEmptyQuery returns an empty query.ClickHouse.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
-	return query.NewClickHouse()
+	return g.QueryPool.Get().(*query.ClickHouse)
+}
+
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	q.Release()
+	g.QueryPool.Put(q)
 }
 
 // fill Query fills the query struct with data

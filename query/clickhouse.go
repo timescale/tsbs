@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
 )
 
 // ClickHouse encodes a ClickHouse query.
@@ -16,21 +15,13 @@ type ClickHouse struct {
 	id       uint64
 }
 
-// ClickHousePool is a sync.Pool of ClickHouse Query types
-var ClickHousePool = sync.Pool{
-	New: func() interface{} {
-		return &ClickHouse{
-			HumanLabel:       make([]byte, 0, 1024),
-			HumanDescription: make([]byte, 0, 1024),
-			Table:            make([]byte, 0, 1024),
-			SqlQuery:         make([]byte, 0, 1024),
-		}
-	},
-}
-
-// NewClickHouse returns a new ClickHouse Query instance
-func NewClickHouse() *ClickHouse {
-	return ClickHousePool.Get().(*ClickHouse)
+var NewClickHouseQueryFn = func() interface{} {
+	return &ClickHouse{
+		HumanLabel:       make([]byte, 0, 1024),
+		HumanDescription: make([]byte, 0, 1024),
+		Table:            make([]byte, 0, 1024),
+		SqlQuery:         make([]byte, 0, 1024),
+	}
 }
 
 // GetID returns the ID of this Query
@@ -65,6 +56,4 @@ func (ch *ClickHouse) Release() {
 
 	ch.Table = ch.Table[:0]
 	ch.SqlQuery = ch.SqlQuery[:0]
-
-	ClickHousePool.Put(ch)
 }
