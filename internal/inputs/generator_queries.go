@@ -217,12 +217,16 @@ func (g *QueryGenerator) initFactories() error {
 		return err
 	}
 
-	cratedb := &cratedb.BaseGenerator{}
+	cratedb := &cratedb.BaseGenerator{
+		QueryPool: sync.Pool{New: query.NewCrateDbQueryFn},
+	}
 	if err := g.addFactory(FormatCrateDB, cratedb); err != nil {
 		return err
 	}
 
-	influx := &influx.BaseGenerator{}
+	influx := &influx.BaseGenerator{
+		QueryPool: sync.Pool{New: query.NewHTTPQueryFn},
+	}
 	if err := g.addFactory(FormatInflux, influx); err != nil {
 		return err
 	}
@@ -245,7 +249,8 @@ func (g *QueryGenerator) initFactories() error {
 	}
 
 	mongo := &mongo.BaseGenerator{
-		UseNaive: g.config.MongoUseNaive,
+		UseNaive:  g.config.MongoUseNaive,
+		QueryPool: sync.Pool{New: query.NewMongoQueryFn},
 	}
 	if err := g.addFactory(FormatMongo, mongo); err != nil {
 		return err

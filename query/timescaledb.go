@@ -14,7 +14,8 @@ type TimescaleDB struct {
 	SqlQuery   []byte
 	id         uint64
 }
-var NewTimescaleDBQueryFn = func() interface{}{
+
+var NewTimescaleDBQueryFn = func() interface{} {
 	return &TimescaleDB{
 		HumanLabel:       make([]byte, 0, 1024),
 		HumanDescription: make([]byte, 0, 1024),

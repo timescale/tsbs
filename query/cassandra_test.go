@@ -36,7 +36,7 @@ func TestNewCassandra(t *testing.T) {
 			t.Errorf("new query has non-0 group by duration: got %v", q.GroupByDuration)
 		}
 	}
-	q := NewCassandra()
+	q := NewCassandraQueryFn().(*Cassandra)
 	check(q)
 	q.HumanLabel = []byte("foo")
 	q.HumanDescription = []byte("bar")
@@ -59,14 +59,14 @@ func TestNewCassandra(t *testing.T) {
 	q.Release()
 
 	// Since we use a pool, check that the next one is reset
-	q = NewCassandra()
+	q = NewCassandraQueryFn().(*Cassandra)
 	check(q)
 	q.Release()
 }
 
 func TestCassandraSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewCassandra()
+		q := NewCassandraQueryFn().(*Cassandra)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

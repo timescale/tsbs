@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
 	"time"
 )
 
@@ -27,25 +26,18 @@ type Cassandra struct {
 }
 
 //CassandraPool is a sync.Pool of Cassandra Query types
-var CassandraPool = sync.Pool{
-	New: func() interface{} {
-		return &Cassandra{
-			HumanLabel:       []byte{},
-			HumanDescription: []byte{},
-			MeasurementName:  []byte{},
-			FieldName:        []byte{},
-			AggregationType:  []byte{},
-			ForEveryN:        []byte{},
-			WhereClause:      []byte{},
-			OrderBy:          []byte{},
-			TagSets:          [][]string{},
-		}
-	},
-}
-
-// NewCassandra returns a new Cassandra Query instance
-func NewCassandra() *Cassandra {
-	return CassandraPool.Get().(*Cassandra)
+var NewCassandraQueryFn = func() interface{} {
+	return &Cassandra{
+		HumanLabel:       []byte{},
+		HumanDescription: []byte{},
+		MeasurementName:  []byte{},
+		FieldName:        []byte{},
+		AggregationType:  []byte{},
+		ForEveryN:        []byte{},
+		WhereClause:      []byte{},
+		OrderBy:          []byte{},
+		TagSets:          [][]string{},
+	}
 }
 
 // GetID returns the ID of this Query
@@ -90,6 +82,4 @@ func (q *Cassandra) Release() {
 	q.OrderBy = q.OrderBy[:0]
 	q.Limit = 0
 	q.TagSets = q.TagSets[:0]
-
-	CassandraPool.Put(q)
 }

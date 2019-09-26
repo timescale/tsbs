@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runner.Run(&sync.Pool{New:query.NewMongoQueryFn}, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewMongoQueryFn}, newProcessor)
 }
 
 type processor struct {

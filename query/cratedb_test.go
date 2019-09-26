@@ -12,7 +12,7 @@ func TestNewCrateDB(t *testing.T) {
 			t.Errorf("new query has non-0 sql query: got %d", got)
 		}
 	}
-	tq := NewCrateDB()
+	tq := NewCrateDbQueryFn().(*CrateDB)
 	check(tq)
 	tq.HumanLabel = []byte("foo")
 	tq.HumanDescription = []byte("bar")
@@ -28,14 +28,14 @@ func TestNewCrateDB(t *testing.T) {
 	tq.Release()
 
 	// Since we use a pool, check that the next one is reset
-	tq = NewCrateDB()
+	tq = NewCrateDbQueryFn().(*CrateDB)
 	check(tq)
 	tq.Release()
 }
 
 func TestCrateDBSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewCrateDB()
+		q := NewCrateDbQueryFn().(*CrateDB)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

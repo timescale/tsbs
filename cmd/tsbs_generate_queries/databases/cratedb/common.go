@@ -1,6 +1,7 @@
 package cratedb
 
 import (
+	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -10,16 +11,18 @@ import (
 
 // BaseGenerator contains settings specific for CrateDB
 type BaseGenerator struct {
-}
-
-// Releases the query to the generator's query pool
-func (g *BaseGenerator) ReleaseQuery(query.Query) {
-
+	QueryPool sync.Pool
 }
 
 // GenerateEmptyQuery returns an empty query.CrateDB.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
-	return query.NewCrateDB()
+	return g.QueryPool.Get().(*query.CrateDB)
+}
+
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	q.Release()
+	g.QueryPool.Put(q)
 }
 
 // fillInQuery fills the query struct with data.

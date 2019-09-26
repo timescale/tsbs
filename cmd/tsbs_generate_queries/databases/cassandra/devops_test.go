@@ -2,6 +2,7 @@ package cassandra
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool: sync.Pool{New: query.NewCassandraQueryFn}}
 		d, err := b.NewDevops(time.Now(), time.Now(), 10)
 
 		if err != nil {
@@ -54,7 +55,9 @@ func TestDevopsFillInQuery(t *testing.T) {
 	tags := [][]string{{"foo=val", "bar=val2"}}
 	now := time.Now()
 
-	b := BaseGenerator{}
+	b := BaseGenerator{
+		QueryPool: sync.Pool{New: query.NewCassandraQueryFn},
+	}
 	dq, err := b.NewDevops(now, now.Add(time.Nanosecond), 10)
 	if err != nil {
 		t.Fatalf("Error while creating devops generator")

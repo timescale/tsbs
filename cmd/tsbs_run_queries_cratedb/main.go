@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx"
@@ -62,7 +63,7 @@ func init() {
 }
 
 func main() {
-	runner.Run(&query.CrateDBPool, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewCrateDbQueryFn}, newProcessor)
 }
 
 type processor struct {

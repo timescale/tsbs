@@ -136,8 +136,8 @@ func TestLastLocPerTruck(t *testing.T) {
 	for _, c := range cases {
 		rand.Seed(123)
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
@@ -194,8 +194,8 @@ func TestTrucksWithLowFuel(t *testing.T) {
 	for _, c := range cases {
 		rand.Seed(123)
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
@@ -252,8 +252,8 @@ func TestTrucksWithHighLoad(t *testing.T) {
 	for _, c := range cases {
 		rand.Seed(123)
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
@@ -307,8 +307,8 @@ func TestStationaryTrucks(t *testing.T) {
 
 	for _, c := range cases {
 		b := &BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		g := NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(time.Hour), 10, b)
 
@@ -368,8 +368,8 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(6*time.Hour), 10)
 		if err != nil {
@@ -434,8 +434,8 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -490,8 +490,8 @@ func TestAvgVsProjectedFuelConsumption(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -562,8 +562,8 @@ func TestAvgDailyDrivingDuration(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -646,8 +646,8 @@ func TestAvgDailyDrivingSession(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -704,8 +704,8 @@ func TestAvgLoad(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -766,8 +766,8 @@ func TestDailyTruckActivity(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -842,8 +842,8 @@ func TestTruckBreakdownFrequency(t *testing.T) {
 
 	for _, c := range cases {
 		b := BaseGenerator{
-			UseJSON: c.useJSON,
-			QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+			UseJSON:   c.useJSON,
+			QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 		}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
@@ -912,7 +912,7 @@ func runTestCases(t *testing.T, testFunc func(*IoT, testCase) query.Query, s tim
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
 			b := BaseGenerator{
-				QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
+				QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 			}
 			b.UseJSON = c.useJSON
 			dq, err := b.NewIoT(s, e, testScale)

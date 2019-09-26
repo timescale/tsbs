@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -100,7 +101,7 @@ func main() {
 	session = NewCassandraSession(daemonURL, runner.DatabaseName(), requestTimeout)
 	defer session.Close()
 
-	runner.Run(&query.CassandraPool, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewCassandraQueryFn}, newProcessor)
 }
 
 type processor struct {

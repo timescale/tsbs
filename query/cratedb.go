@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
 )
 
 // CrateDB encodes a CrateDB request. This will be serialized for use
@@ -16,19 +15,13 @@ type CrateDB struct {
 	id       uint64
 }
 
-var CrateDBPool = sync.Pool{
-	New: func() interface{} {
-		return &CrateDB{
-			HumanLabel:       make([]byte, 0, 1024),
-			HumanDescription: make([]byte, 0, 1024),
-			Table:            make([]byte, 0, 1024),
-			SqlQuery:         make([]byte, 0, 1024),
-		}
-	},
-}
-
-func NewCrateDB() *CrateDB {
-	return CrateDBPool.Get().(*CrateDB)
+var NewCrateDbQueryFn = func() interface{} {
+	return &CrateDB{
+		HumanLabel:       make([]byte, 0, 1024),
+		HumanDescription: make([]byte, 0, 1024),
+		Table:            make([]byte, 0, 1024),
+		SqlQuery:         make([]byte, 0, 1024),
+	}
 }
 
 func (q *CrateDB) GetID() uint64 {
@@ -61,6 +54,4 @@ func (q *CrateDB) Release() {
 
 	q.Table = q.Table[:0]
 	q.SqlQuery = q.SqlQuery[:0]
-
-	CrateDBPool.Put(q)
 }

@@ -2,6 +2,7 @@ package cassandra
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -12,16 +13,18 @@ import (
 
 // BaseGenerator contains settings specific for Cassandra database.
 type BaseGenerator struct {
+	QueryPool sync.Pool
 }
 
 // GenerateEmptyQuery returns an empty query.Cassandra.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
-	return query.NewCassandra()
+	return g.QueryPool.Get().(*query.Cassandra)
 }
 
 // Releases the query to the generator's query pool
-func (g *BaseGenerator) ReleaseQuery(query.Query) {
-
+func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	q.Release()
+	g.QueryPool.Put(q)
 }
 
 // fillInQuery fills the query struct with data.
