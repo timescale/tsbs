@@ -21,7 +21,7 @@ func TestNewHTTP(t *testing.T) {
 			t.Errorf("new query has non-0 end time: got %d", got)
 		}
 	}
-	q := NewHTTP()
+	q := NewHTTPQueryFn().(*HTTP)
 	check(q)
 	q.HumanLabel = []byte("foo")
 	q.HumanDescription = []byte("bar")
@@ -38,16 +38,11 @@ func TestNewHTTP(t *testing.T) {
 		t.Errorf("incorrect desc: got %s", got)
 	}
 	q.Release()
-
-	// Since we use a pool, check that the next one is reset
-	q = NewHTTP()
-	check(q)
-	q.Release()
 }
 
 func TestHTTPSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewHTTP()
+		q := NewHTTPQueryFn().(*HTTP)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

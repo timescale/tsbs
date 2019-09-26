@@ -9,7 +9,7 @@ func TestNewSiriDB(t *testing.T) {
 			t.Errorf("new query has non-0 sql query: got %d", got)
 		}
 	}
-	sq := NewSiriDB()
+	sq := NewSiriDBQueryFn().(*SiriDB)
 	check(sq)
 	sq.HumanLabel = []byte("foo")
 	sq.HumanDescription = []byte("bar")
@@ -22,16 +22,11 @@ func TestNewSiriDB(t *testing.T) {
 		t.Errorf("incorrect desc: got %s", got)
 	}
 	sq.Release()
-
-	// Since we use a pool, check that the next one is reset
-	sq = NewSiriDB()
-	check(sq)
-	sq.Release()
 }
 
 func TestSiriDBSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewSiriDB()
+		q := NewSiriDBQueryFn().(*SiriDB)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

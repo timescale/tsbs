@@ -27,6 +27,7 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 
 // Returns a query to the generator's pool
 func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	q.Release()
 	g.QueryPool.Put(q)
 }
 

@@ -237,7 +237,9 @@ func (g *QueryGenerator) initFactories() error {
 		return err
 	}
 
-	siriDB := &siridb.BaseGenerator{}
+	siriDB := &siridb.BaseGenerator{
+		QueryPool: sync.Pool{New: query.NewSiriDBQueryFn},
+	}
 	if err := g.addFactory(FormatSiriDB, siriDB); err != nil {
 		return err
 	}

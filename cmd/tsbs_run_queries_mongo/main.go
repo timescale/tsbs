@@ -8,6 +8,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/globalsign/mgo"
@@ -69,7 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runner.Run(&query.MongoPool, newProcessor)
+	runner.Run(&sync.Pool{New:query.NewMongoQueryFn}, newProcessor)
 }
 
 type processor struct {

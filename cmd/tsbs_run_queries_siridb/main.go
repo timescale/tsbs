@@ -9,9 +9,10 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	siridb "github.com/SiriDB/go-siridb-connector"
+	"github.com/SiriDB/go-siridb-connector"
 	_ "github.com/lib/pq"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -106,7 +107,7 @@ func main() {
 	ChangeQueryLimit()
 	CreateGroups()
 
-	runner.Run(&query.SiriDBPool, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewSiriDBQueryFn}, newProcessor)
 	siridbConnector.Close()
 }
 

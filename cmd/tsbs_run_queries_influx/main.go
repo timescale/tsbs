@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -60,7 +61,7 @@ func init() {
 }
 
 func main() {
-	runner.Run(&query.HTTPPool, newProcessor)
+	runner.Run(&sync.Pool{New: query.NewHTTPQueryFn}, newProcessor)
 }
 
 type processor struct {

@@ -16,7 +16,7 @@ func TestNewMongo(t *testing.T) {
 			t.Errorf("new query has non-0 bson doc: got %d", got)
 		}
 	}
-	q := NewMongo()
+	q := NewMongoQueryFn().(*Mongo)
 	check(q)
 	q.HumanLabel = []byte("foo")
 	q.HumanDescription = []byte("bar")
@@ -30,16 +30,11 @@ func TestNewMongo(t *testing.T) {
 		t.Errorf("incorrect desc: got %s", got)
 	}
 	q.Release()
-
-	// Since we use a pool, check that the next one is reset
-	q = NewMongo()
-	check(q)
-	q.Release()
 }
 
 func TestMongoSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewMongo()
+		q := NewMongoQueryFn().(*Mongo)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

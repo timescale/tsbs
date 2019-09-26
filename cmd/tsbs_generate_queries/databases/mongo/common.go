@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -10,17 +11,19 @@ import (
 
 // BaseGenerator contains settings specific for Mongo database.
 type BaseGenerator struct {
-	UseNaive bool
+	QueryPool sync.Pool
+	UseNaive  bool
 }
 
 // GenerateEmptyQuery returns an empty query.Mongo.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
-	return query.NewMongo()
+	return g.QueryPool.Get().(*query.Mongo)
 }
 
 // Releases the query to the generator's query pool
-func (g *BaseGenerator) ReleaseQuery(query.Query) {
-
+func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	q.Release()
+	g.QueryPool.Put(q)
 }
 
 // NewDevops creates a new devops use case query generator.

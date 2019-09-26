@@ -2,6 +2,7 @@ package siridb
 
 import (
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool: sync.Pool{New: query.NewSiriDBQueryFn}}
 		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
 		if err != nil {
 			t.Fatalf("Error while creating devops generator")
@@ -65,7 +66,7 @@ func TestDevopsGetMetricWhereWithMetrics(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool: sync.Pool{New: query.NewSiriDBQueryFn}}
 		dq, err := b.NewDevops(time.Now(), time.Now(), 10)
 		if err != nil {
 			t.Fatalf("Error while creating devops generator")
@@ -325,7 +326,7 @@ func TestDevopsFillInQuery(t *testing.T) {
 	humanLabel := "this is my label"
 	humanDesc := "and now my description"
 	siriql := "select filter(> 90) from `usage_user` before '2017-01-01'"
-	b := BaseGenerator{}
+	b := BaseGenerator{QueryPool: sync.Pool{New: query.NewSiriDBQueryFn}}
 	dq, err := b.NewDevops(time.Now(), time.Now(), 10)
 	if err != nil {
 		t.Fatalf("Error while creating devops generator")
@@ -370,7 +371,9 @@ func runTestCases(t *testing.T, testFunc func(*Devops, testCase) query.Query, s 
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			b := BaseGenerator{}
+			b := BaseGenerator{
+				QueryPool: sync.Pool{New: query.NewSiriDBQueryFn},
+			}
 			dq, err := b.NewDevops(s, e, 10)
 			if err != nil {
 				t.Fatalf("Error while creating devops generator")

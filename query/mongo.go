@@ -2,8 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
-
 	"github.com/globalsign/mgo/bson"
 )
 
@@ -17,21 +15,13 @@ type Mongo struct {
 	id               uint64
 }
 
-// MongoPool is a sync.Pool of Mongo Query types
-var MongoPool = sync.Pool{
-	New: func() interface{} {
-		return &Mongo{
-			HumanLabel:       []byte{},
-			HumanDescription: []byte{},
-			CollectionName:   []byte{},
-			BsonDoc:          []bson.M{},
-		}
-	},
-}
-
-// NewMongo returns a new Mongo Query instance
-func NewMongo() *Mongo {
-	return MongoPool.Get().(*Mongo)
+var NewMongoQueryFn = func() interface{} {
+	return &Mongo{
+		HumanLabel:       []byte{},
+		HumanDescription: []byte{},
+		CollectionName:   []byte{},
+		BsonDoc:          []bson.M{},
+	}
 }
 
 // GetID returns the ID of this Query
@@ -66,6 +56,4 @@ func (q *Mongo) Release() {
 	q.id = 0
 	q.CollectionName = q.CollectionName[:0]
 	q.BsonDoc = nil
-
-	MongoPool.Put(q)
 }

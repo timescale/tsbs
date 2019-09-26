@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
 )
 
 // HTTP encodes an HTTP request. This will typically by serialized for use
@@ -19,23 +18,16 @@ type HTTP struct {
 }
 
 // HTTPPool is a sync.Pool of HTTP Query types
-var HTTPPool = sync.Pool{
-	New: func() interface{} {
-		return &HTTP{
-			HumanLabel:       []byte{},
-			HumanDescription: []byte{},
-			Method:           []byte{},
-			Path:             []byte{},
-			Body:             []byte{},
-			StartTimestamp:   0,
-			EndTimestamp:     0,
-		}
-	},
-}
-
-// NewHTTP returns a new HTTP type Query
-func NewHTTP() *HTTP {
-	return HTTPPool.Get().(*HTTP)
+var NewHTTPQueryFn = func() interface{} {
+	return &HTTP{
+		HumanLabel:       []byte{},
+		HumanDescription: []byte{},
+		Method:           []byte{},
+		Path:             []byte{},
+		Body:             []byte{},
+		StartTimestamp:   0,
+		EndTimestamp:     0,
+	}
 }
 
 // GetID returns the ID of this Query
@@ -73,6 +65,4 @@ func (q *HTTP) Release() {
 	q.Body = q.Body[:0]
 	q.StartTimestamp = 0
 	q.EndTimestamp = 0
-
-	HTTPPool.Put(q)
 }

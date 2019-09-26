@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"sync"
 )
 
 type SiriDB struct {
@@ -12,18 +11,12 @@ type SiriDB struct {
 	id               uint64
 }
 
-var SiriDBPool = sync.Pool{
-	New: func() interface{} {
-		return &SiriDB{
-			HumanLabel:       make([]byte, 0, 1024),
-			HumanDescription: make([]byte, 0, 1024),
-			SqlQuery:         make([]byte, 0, 1024),
-		}
-	},
-}
-
-func NewSiriDB() *SiriDB {
-	return SiriDBPool.Get().(*SiriDB)
+var NewSiriDBQueryFn = func() interface{} {
+	return &SiriDB{
+		HumanLabel:       make([]byte, 0, 1024),
+		HumanDescription: make([]byte, 0, 1024),
+		SqlQuery:         make([]byte, 0, 1024),
+	}
 }
 
 // GetID returns the ID of this Query
@@ -57,6 +50,4 @@ func (q *SiriDB) Release() {
 	q.HumanDescription = q.HumanDescription[:0]
 	q.id = 0
 	q.SqlQuery = q.SqlQuery[:0]
-
-	SiriDBPool.Put(q)
 }

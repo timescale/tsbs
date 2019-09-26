@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -88,7 +89,7 @@ func TestLastLocPerTruck(t *testing.T) {
 
 	for _, c := range cases {
 		rand.Seed(123)
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -118,7 +119,7 @@ func TestTrucksWithLowFuel(t *testing.T) {
 
 	for _, c := range cases {
 		rand.Seed(123)
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -150,7 +151,7 @@ func TestTrucksWithHighLoad(t *testing.T) {
 
 	for _, c := range cases {
 		rand.Seed(123)
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Now(), time.Now(), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -182,7 +183,7 @@ func TestStationaryTrucks(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := &BaseGenerator{}
+		b := &BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		g := NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(time.Hour), 10, b)
 
 		q := g.GenerateEmptyQuery()
@@ -212,7 +213,7 @@ func TestTrucksWithLongDrivingSessions(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(6*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -247,7 +248,7 @@ func TestTrucksWithLongDailySessions(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -277,7 +278,7 @@ func TestAvgVsProjectedFuelConsumption(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -311,7 +312,7 @@ func TestAvgDailyDrivingDuration(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -352,7 +353,7 @@ func TestAvgDailyDrivingSession(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -384,7 +385,7 @@ func TestAvgLoad(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -418,7 +419,7 @@ func TestDailyTruckActivity(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -455,7 +456,7 @@ func TestTruckBreakdownFrequency(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		b := BaseGenerator{}
+		b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 		ig, err := b.NewIoT(time.Unix(0, 0), time.Unix(0, 0).Add(25*time.Hour), 10)
 		if err != nil {
 			t.Fatalf("Error while creating iot generator")
@@ -522,7 +523,7 @@ func runIoTTestCases(t *testing.T, testFunc func(*IoT, IoTTestCase) query.Query,
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			b := BaseGenerator{}
+			b := BaseGenerator{QueryPool:sync.Pool{New:query.NewHTTPQueryFn}}
 			dq, err := b.NewIoT(s, e, testScale)
 			if err != nil {
 				t.Fatalf("Error while creating devops generator")
