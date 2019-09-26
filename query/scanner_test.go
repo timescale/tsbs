@@ -120,7 +120,7 @@ func TestScanTimescaleDB(t *testing.T) {
 	totalQueries := uint64(7)
 	var b bytes.Buffer
 	err := encodeQueries(&b, totalQueries, func(i uint64) Query {
-		q := NewTimescaleDB()
+		q := NewTimescaleDBQueryFn().(*TimescaleDB)
 		q.HumanLabel = []byte(fmt.Sprintf(labelFmt, i))
 		q.HumanDescription = []byte(fmt.Sprintf(descFmt, i))
 		q.Hypertable = []byte(fmt.Sprintf(hyperFmt, i))
@@ -130,7 +130,8 @@ func TestScanTimescaleDB(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	runScan(t, &b, 0, totalQueries, &TimescaleDBPool, func(i int, q Query) error {
+	pool := sync.Pool{New: NewTimescaleDBQueryFn}
+	runScan(t, &b, 0, totalQueries, &pool, func(i int, q Query) error {
 		qt := q.(*TimescaleDB)
 		want := fmt.Sprintf(labelFmt, i)
 		if got := string(qt.HumanLabel); got != want {

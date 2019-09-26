@@ -18,6 +18,11 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 	return query.NewMongo()
 }
 
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(query.Query) {
+
+}
+
 // NewDevops creates a new devops use case query generator.
 func (g *BaseGenerator) NewDevops(start, end time.Time, scale int) (utils.QueryGenerator, error) {
 	core, err := devops.NewCore(start, end, scale)

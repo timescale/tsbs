@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
+	"github.com/timescale/tsbs/query"
 	"io"
 	"math/rand"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -229,6 +231,7 @@ func (g *QueryGenerator) initFactories() error {
 		UseJSON:       g.config.TimescaleUseJSON,
 		UseTags:       g.config.TimescaleUseTags,
 		UseTimeBucket: g.config.TimescaleUseTimeBucket,
+		QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
 	}
 	if err := g.addFactory(FormatTimescaleDB, timescale); err != nil {
 		return err
@@ -338,7 +341,7 @@ func (g *QueryGenerator) runQueryGeneration(useGen utils.QueryGenerator, filler 
 				}
 			}
 		}
-		q.Release()
+		useGen.ReleaseQuery(q)
 
 		currentGroup++
 		if currentGroup == c.InterleavedNumGroups {

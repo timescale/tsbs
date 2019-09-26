@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -191,6 +192,7 @@ func TestDevopsGroupByTime(t *testing.T) {
 	s := time.Unix(0, 0)
 	e := s.Add(time.Hour)
 	b := BaseGenerator{
+		QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
 		UseTimeBucket: true,
 	}
 	dq, err := b.NewDevops(s, e, 10)
@@ -225,6 +227,7 @@ func TestGroupByOrderByLimit(t *testing.T) {
 	e := s.Add(2 * time.Hour)
 	b := BaseGenerator{
 		UseTimeBucket: true,
+		QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
 	}
 	dq, err := b.NewDevops(s, e, 10)
 	if err != nil {
@@ -338,6 +341,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 				UseJSON:       c.useJSON,
 				UseTags:       c.useTags,
 				UseTimeBucket: true,
+				QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
 			}
 			dq, err := b.NewDevops(s, e, 10)
 			if err != nil {
@@ -371,6 +375,7 @@ func TestMaxAllCPU(t *testing.T) {
 
 	b := BaseGenerator{
 		UseTimeBucket: true,
+		QueryPool:     sync.Pool{New: query.NewTimescaleDBQueryFn},
 	}
 	dq, err := b.NewDevops(s, e, 10)
 	if err != nil {
@@ -435,8 +440,9 @@ func TestLastPointPerHost(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
 			b := BaseGenerator{
-				UseJSON: c.useJSON,
-				UseTags: c.useTags,
+				UseJSON:   c.useJSON,
+				UseTags:   c.useTags,
+				QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
 			}
 			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
 			if err != nil {
@@ -496,7 +502,9 @@ func TestHighCPUForHosts(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			b := BaseGenerator{}
+			b := BaseGenerator{
+				QueryPool: sync.Pool{New: query.NewTimescaleDBQueryFn},
+			}
 			dq, err := b.NewDevops(s, e, 10)
 			if err != nil {
 				t.Fatalf("Error while creating devops generator")

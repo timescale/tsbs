@@ -17,6 +17,11 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 	return query.NewSiriDB()
 }
 
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(query.Query) {
+
+}
+
 // fillInQuery fills the query struct with data.
 func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
 	q := qi.(*query.SiriDB)

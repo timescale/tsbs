@@ -12,7 +12,7 @@ func TestNewTimescaleDB(t *testing.T) {
 			t.Errorf("new query has non-0 sql query: got %d", got)
 		}
 	}
-	tq := NewTimescaleDB()
+	tq := NewTimescaleDBQueryFn().(*TimescaleDB)
 	check(tq)
 	tq.HumanLabel = []byte("foo")
 	tq.HumanDescription = []byte("bar")
@@ -26,16 +26,11 @@ func TestNewTimescaleDB(t *testing.T) {
 		t.Errorf("incorrect desc: got %s", got)
 	}
 	tq.Release()
-
-	// Since we use a pool, check that the next one is reset
-	tq = NewTimescaleDB()
-	check(tq)
-	tq.Release()
 }
 
 func TestTimescaleDBSetAndGetID(t *testing.T) {
 	for i := 0; i < 2; i++ {
-		q := NewTimescaleDB()
+		q := NewTimescaleDBQueryFn().(*TimescaleDB)
 		testSetAndGetID(t, q)
 		q.Release()
 	}

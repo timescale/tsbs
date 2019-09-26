@@ -13,6 +13,11 @@ type BaseGenerator struct {
 	UseTags bool
 }
 
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(query.Query) {
+
+}
+
 // GenerateEmptyQuery returns an empty query.ClickHouse.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 	return query.NewClickHouse()

@@ -19,6 +19,11 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 	return query.NewCassandra()
 }
 
+// Releases the query to the generator's query pool
+func (g *BaseGenerator) ReleaseQuery(query.Query) {
+
+}
+
 // fillInQuery fills the query struct with data.
 func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, aggType string, fields []string, interval *internalutils.TimeInterval, tagSets [][]string) {
 	q := qi.(*query.Cassandra)

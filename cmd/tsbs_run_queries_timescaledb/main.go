@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/jackc/pgx/stdlib"
@@ -96,7 +97,9 @@ func init() {
 }
 
 func main() {
-	runner.Run(&query.TimescaleDBPool, newProcessor)
+	runner.Run(&sync.Pool{
+		New: query.NewTimescaleDBQueryFn,
+	}, newProcessor)
 }
 
 // Get the connection string for a connection to PostgreSQL.

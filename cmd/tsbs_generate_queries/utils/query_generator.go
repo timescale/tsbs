@@ -5,9 +5,11 @@ import "github.com/timescale/tsbs/query"
 // QueryGenerator is an interface that a database-specific implementation of a
 // use case implements to set basic configuration that can then be used by
 // a specific QueryFiller, ultimately yielding a query.Query with information
-// to be run.
+// to be run. Also contains a method that will release a query to the query
+// pool used to generate it.
 type QueryGenerator interface {
 	GenerateEmptyQuery() query.Query
+	ReleaseQuery(query.Query)
 }
 
 // QueryFiller describes a type that can fill in a query and return it

@@ -1,6 +1,7 @@
 package timescaledb
 
 import (
+	"sync"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -16,11 +17,17 @@ type BaseGenerator struct {
 	UseJSON       bool
 	UseTags       bool
 	UseTimeBucket bool
+	QueryPool     sync.Pool
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB.
 func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
-	return query.NewTimescaleDB()
+	return g.QueryPool.Get().(*query.TimescaleDB)
+}
+
+// Returns a query to the generator's pool
+func (g *BaseGenerator) ReleaseQuery(q query.Query) {
+	g.QueryPool.Put(q)
 }
 
 // fillInQuery fills the query struct with data.
