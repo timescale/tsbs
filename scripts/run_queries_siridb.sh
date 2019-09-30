@@ -57,10 +57,10 @@ function run_file()
     cat $FULL_DATA_FILE_NAME \
         | $GUNZIP \
         | $EXE_FILE_NAME \
-            -max-queries $MAX_QUERIES \
-            -workers $NUM_WORKERS \
-            -scale $SCALE \
-            -query-limit $QUERY_LIMIT \
+            --max-queries $MAX_QUERIES \
+            --workers $NUM_WORKERS \
+            --scale $SCALE \
+            --query-limit $QUERY_LIMIT \
         | tee $OUT_FULL_FILE_NAME
 }
 
