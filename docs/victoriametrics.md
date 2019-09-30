@@ -7,6 +7,7 @@ This supplemental guide explains how the data generated for TSBS is stored,
 additional flags available when using the data importer (`tsbs_load_victoriametrics`),
 and additional flags available for the query runner (`tsbs_run_queries_victoriametrics`).
 **This should be read *after* the main README.**
+**Supposed that all required binaries are already installed.**
 
 ## Data format
 
@@ -29,7 +30,7 @@ All data out of retention period will be automatically deleted after insertion.
 
 One of the ways to generate data for insertion is to use `scripts/generate_data.sh`:
 ```text
-FORMATS=victoriametrics TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z  ./scripts/generate_data.sh
+FORMATS=victoriametrics SCALE=100 TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z  ./scripts/generate_data.sh
 ```
 
 ---
@@ -42,6 +43,9 @@ One of the ways to load data in VictoriaMetrics is to use `scripts/load_victoria
 ```text
 ./scripts/load_victoriametrics.sh
 ```
+> Assumed that VictoriaMetrics is already installed and ready for insertion on default port `8428`.
+  If not - please set `DATABASE_PORT` variable accordingly.
+
 
 ### Additional Flags
 
@@ -61,7 +65,7 @@ of query types `groupby-orderby-limit` and `lastpoint`.
 
 Of of the ways to generate queries for VictoriaMetrics is to use `scripts/generate_queries.sh`:
 ```text
- FORMATS=victoriametrics TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z \
+ FORMATS=victoriametrics SCALE=100 TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z \
  QUERY_TYPES="cpu-max-all-8 double-groupby-1" ./scripts/generate_queries.sh
 ```
 
