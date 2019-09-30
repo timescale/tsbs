@@ -1,7 +1,6 @@
 package iot
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
@@ -9,8 +8,9 @@ import (
 )
 
 const (
-	maxFuel = 1.0
-	maxLoad = 5000.0
+	maxFuel          = 1.0
+	maxLoad          = 5000.0
+	loadChangeChance = 0.05
 )
 
 var (
@@ -19,7 +19,8 @@ var (
 	labelCurrentLoad = []byte("current_load")
 	labelStatus      = []byte("status")
 	fuelUD           = common.UD(-0.001, 0)
-	loadND           = common.ND(0, 1)
+	loadUD           = common.UD(0, maxLoad)
+	loadSaddleUD     = common.UD(0, 1)
 	statusND         = common.ND(0, 1)
 
 	diagnosticsFields = []common.LabeledDistributionMaker{
@@ -36,7 +37,7 @@ var (
 			Label: labelCurrentLoad,
 			DistributionMaker: func() common.Distribution {
 				return common.FP(
-					common.CWD(loadND, 0, maxLoad, rand.Float64()*maxLoad),
+					common.LD(loadSaddleUD, loadUD, 1-loadChangeChance),
 					0,
 				)
 			},
