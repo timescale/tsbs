@@ -6,8 +6,20 @@ It can be used as long-term remote storage for Prometheus.
 This supplemental guide explains how the data generated for TSBS is stored,
 additional flags available when using the data importer (`tsbs_load_victoriametrics`),
 and additional flags available for the query runner (`tsbs_run_queries_victoriametrics`).
+
+To install all required tools pls do following:
+```
+# Install desired binaries. At a minimum this includes tsbs_generate_data,
+# tsbs_generate_queries, one tsbs_load_* binary, and one tsbs_run_queries_*
+# binary:
+$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
+$ cd tsbs_generate_data && go install
+$ cd ../tsbs_generate_queries && go install
+$ cd ../tsbs_load_victoriametrics && go install
+$ cd ../tsbs_run_queries_victoriametrics && go install
+```
+
 **This should be read *after* the main README.**
-**Supposed that all required binaries are already installed.**
 
 ## Data format
 
