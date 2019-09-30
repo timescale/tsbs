@@ -73,7 +73,8 @@ distributed in a round robin fashion across the URLs.
 
 VictoriaMetrics supports PromQL which has some limitations comparing to SQL.
 Because of this VictoriaMetrics query generator lacks for implementation
-of query types `groupby-orderby-limit` and `lastpoint`.
+of query types `groupby-orderby-limit` and `lastpoint` for `devops` use-case
+and all queries for `iot` use-case.
 
 Of of the ways to generate queries for VictoriaMetrics is to use `scripts/generate_queries.sh`:
 ```text
