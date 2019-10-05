@@ -15,6 +15,16 @@ type Devops struct {
 	*devops.Core
 }
 
+// mustGetRandomHosts is the form of GetRandomHosts that cannot error; if it does error,
+// it causes a panic.
+func (d *Devops) mustGetRandomHosts(nHosts int) []string {
+	hosts, err := d.GetRandomHosts(nHosts)
+	if err != nil {
+		panic(err.Error())
+	}
+	return hosts
+}
+
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	panic("GroupByOrderByLimit not supported in PromQL")
 }
@@ -32,8 +42,8 @@ func (d *Devops) LastPointPerHost(qq query.Query) {
 // 	)
 // ) by (__name__)
 func (d *Devops) GroupByTime(qq query.Query, nHosts, numMetrics int, timeRange time.Duration) {
-	metrics := devops.MustGetCPUMetricsSlice(numMetrics)
-	hosts := d.MustGetRandomHosts(nHosts)
+	metrics := mustGetCPUMetricsSlice(numMetrics)
+	hosts := d.mustGetRandomHosts(nHosts)
 	selectClause := getSelectClause(metrics, hosts)
 	qi := &queryInfo{
 		query:    fmt.Sprintf("max(max_over_time(%s[1m])) by (__name__)", selectClause),
@@ -58,7 +68,7 @@ func (d *Devops) GroupByTime(qq query.Query, nHosts, numMetrics int, timeRange t
 // double-groupby-5
 // double-groupby-all
 func (d *Devops) GroupByTimeAndPrimaryTag(qq query.Query, numMetrics int) {
-	metrics := devops.MustGetCPUMetricsSlice(numMetrics)
+	metrics := mustGetCPUMetricsSlice(numMetrics)
 	selectClause := getSelectClause(metrics, nil)
 	qi := &queryInfo{
 		query:    fmt.Sprintf("avg(avg_over_time(%s[1h])) by (__name__, hostname)", selectClause),
@@ -78,7 +88,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qq query.Query, numMetrics int) {
 // 	)
 // ) by (__name__)
 func (d *Devops) MaxAllCPU(qq query.Query, nHosts int) {
-	hosts := d.MustGetRandomHosts(nHosts)
+	hosts := d.mustGetRandomHosts(nHosts)
 	selectClause := getSelectClause(devops.GetAllCPUMetrics(), hosts)
 	qi := &queryInfo{
 		query:    fmt.Sprintf("max(max_over_time(%s[1h])) by (__name__)", selectClause),
@@ -101,7 +111,7 @@ func (d *Devops) MaxAllCPU(qq query.Query, nHosts int) {
 func (d *Devops) HighCPUForHosts(qq query.Query, nHosts int) {
 	var hostClause string
 	if nHosts > 0 {
-		hosts := d.MustGetRandomHosts(nHosts)
+		hosts := d.mustGetRandomHosts(nHosts)
 		hostClause = getHostClause(hosts)
 	}
 	qi := &queryInfo{
@@ -138,4 +148,14 @@ func getSelectClause(metrics, hosts []string) string {
 		return fmt.Sprintf("{__name__=~'cpu_(%s)', %s}", metricsClause, hostsClause)
 	}
 	return fmt.Sprintf("{__name__=~'cpu_(%s)'}", metricsClause)
+}
+
+// mustGetCPUMetricsSlice is the form of GetCPUMetricsSlice that cannot error; if it does error,
+// it causes a panic.
+func mustGetCPUMetricsSlice(numMetrics int) []string {
+	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	if err != nil {
+		panic(err.Error())
+	}
+	return metrics
 }
