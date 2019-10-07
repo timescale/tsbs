@@ -3,18 +3,23 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/timescale/tsbs/load"
 )
 
-func TestBatch(t *testing.T) {
+func TestMain(m *testing.M) {
 	bufPool = sync.Pool{
 		New: func() interface{} {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
 		},
 	}
+	os.Exit(m.Run())
+}
+
+func TestBatch(t *testing.T) {
 	f := &factory{}
 	b := f.New().(*batch)
 	if b.Len() != 0 {
@@ -81,7 +86,7 @@ func TestDecode(t *testing.T) {
 
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("cpu,tag1=tag1text,tag2=tag2text col1=0.0,col2=0.0 140")
-	br := bufio.NewReader(bytes.NewReader([]byte(input)))
+	br := bufio.NewReader(bytes.NewReader(input))
 	decoder := &decoder{scanner: bufio.NewScanner(br)}
 	_ = decoder.Decode(br)
 	// nothing left, should be EOF
