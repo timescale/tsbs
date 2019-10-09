@@ -8,7 +8,7 @@ import (
 
 func TestAkumuliSerializerSerialize(t *testing.T) {
 
-	serializer := AkumuliSerializer{}
+	serializer := NewAkumuliSerializer()
 
 	points := []*Point{
 		testPointDefault,
@@ -27,39 +27,39 @@ func TestAkumuliSerializerSerialize(t *testing.T) {
 
 	cases := []testCase{
 		{
-			1,
-			"+cpu.usage_guest_nice  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
-			"series name default",
+			expCount: 1,
+			expValue: "+cpu.usage_guest_nice  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
+			name:     "series name default",
 		},
 		{
-			1,
-			"+cpu.usage_guest  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
-			"series name int",
+			expCount: 1,
+			expValue: "+cpu.usage_guest  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
+			name:     "series name int",
 		},
 		{
-			1,
-			"+cpu.big_usage_guest|cpu.usage_guest|cpu.usage_guest_nice  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
-			"series name multi-field",
+			expCount: 1,
+			expValue: "+cpu.big_usage_guest|cpu.usage_guest|cpu.usage_guest_nice  hostname=host_0 region=eu-west-1 datacenter=eu-west-1b",
+			name:     "series name multi-field",
 		},
 		{
-			2,
-			"*1\n+38.24311829",
-			"value default",
+			expCount: 2,
+			expValue: "*1\n+38.24311829",
+			name:     "value default",
 		},
 		{
-			2,
-			"*1\n:38",
-			"value int",
+			expCount: 2,
+			expValue: "*1\n:38",
+			name:     "value int",
 		},
 		{
-			2,
-			"*3\n:5000000000\n:38\n+38.24311829",
-			"value multi-field",
+			expCount: 2,
+			expValue: "*3\n:5000000000\n:38\n+38.24311829",
+			name:     "value multi-field",
 		},
 		{
-			6,
-			":1451606400000000000",
-			"timestamp",
+			expCount: 6,
+			expValue: ":1451606400000000000",
+			name:     "timestamp",
 		},
 	}
 	buf := new(bytes.Buffer)

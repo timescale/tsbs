@@ -67,7 +67,7 @@ type tsdbAggregateAllQuery struct {
 // per minute for nhosts hosts,
 // e.g. in pseudo-SQL:
 //
-// SELECT minute, max(metric)
+// SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
 // WHERE
 // 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
@@ -84,10 +84,7 @@ type tsdbAggregateAllQuery struct {
 // single-groupby-5-1-1
 // single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange time.Duration) {
-	interval, err := d.Interval.RandWindow(timeRange)
-	if err != nil {
-		panic(err)
-	}
+	interval := d.Interval.MustRandWindow(timeRange)
 	hostnames, err := d.GetRandomHosts(nhosts)
 	if err != nil {
 		panic(err)
@@ -137,11 +134,10 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 // high-cpu-1
 // high-cpu-all
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
-	interval, err := d.Interval.RandWindow(devops.HighCPUDuration)
-	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	var hostnames []string
-
 	if nHosts > 0 {
+		var err error
 		hostnames, err = d.GetRandomHosts(nHosts)
 		panicIfErr(err)
 	}
@@ -190,8 +186,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 // cpu-max-all-1
 // cpu-max-all-8
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval, err := d.Interval.RandWindow(devops.MaxAllDuration)
-	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
 	hostnames, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
 	startTimestamp := interval.StartUnixNano()
@@ -262,8 +257,7 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	panicIfErr(err)
-	interval, err := d.Interval.RandWindow(devops.DoubleGroupByDuration)
-	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	startTimestamp := interval.StartUnixNano()
 	endTimestamp := interval.EndUnixNano()
 

@@ -15,16 +15,19 @@ type AkumuliSerializer struct {
 	index      uint32
 }
 
-// Serialize writes Point data to the given writer, conforming to the
-// AKUMULI RESP protocol.  Serialized adds extra data to guide data loader.
-//
-func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
-	if s.book == nil {
-		s.book = make(map[string]uint32)
-		s.deferred = make([]byte, 0, 4096)
-		s.bookClosed = false
-	}
+// NewAkumuliSerializer initializes AkumuliSerializer instance.
+func NewAkumuliSerializer() *AkumuliSerializer {
+	s := &AkumuliSerializer{}
+	s.book = make(map[string]uint32)
+	s.deferred = make([]byte, 0, 4096)
+	s.bookClosed = false
+	return s
+}
 
+// Serialize writes Point data to the given writer, conforming to the
+// AKUMULI RESP protocol.  Serializer adds extra data to guide data loader.
+// This function writes output that contains binary and text data in RESP format.
+func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	deferPoint := false
 
 	buf := make([]byte, 0, 1024)
