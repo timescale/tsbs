@@ -1,6 +1,6 @@
 module github.com/timescale/tsbs
 
-go 1.12
+go 1.13
 
 require (
 	github.com/SiriDB/go-siridb-connector v0.0.0-20190110105621-86b34c44c921
