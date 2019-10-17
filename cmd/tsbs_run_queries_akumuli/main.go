@@ -6,8 +6,11 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/query"
 )
 
@@ -23,11 +26,26 @@ var (
 
 // Parse args:
 func init() {
-	runner = query.NewBenchmarkRunner()
+	var config query.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli API endpoint IP address.")
+	pflag.StringVar(&endpoint, "endpoint", "http://localhost:8181", "Akumuli API endpoint IP address.")
 
-	flag.Parse()
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	endpoint = viper.GetString("endpoint")
+
+	runner = query.NewBenchmarkRunner(config)
 }
 
 func main() {
