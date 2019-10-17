@@ -7,10 +7,13 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"flag"
+	"fmt"
 	"log"
 	"sync"
 
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -30,10 +33,24 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
-	loader = load.GetBenchmarkRunner()
+	var config load.BenchmarkRunnerConfig
+	config.AddToFlagSet(pflag.CommandLine)
 
-	flag.StringVar(&endpoint, "endpoint", "http://localhost:8282", "Akumuli RESP endpoint IP address.")
-	flag.Parse()
+	pflag.StringVar(&endpoint, "endpoint", "http://localhost:8282", "Akumuli RESP endpoint IP address.")
+	pflag.Parse()
+
+	err := utils.SetupConfigFile()
+
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
+	endpoint = viper.GetString("endpoint")
+	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct{}
