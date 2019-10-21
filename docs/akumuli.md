@@ -18,7 +18,7 @@ realclients that send data independently without actually parsing the messages.
 
 ## `tsbs_load_akumuli` Additional Flags
 
-#### `-endpoint` (type: `string`, default: `http://localhost:8282`)
+#### `--endpoint` (type: `string`, default: `http://localhost:8282`)
 
 TCP endpoint to connect to for inserting data. Workers will create individual connections.
 
@@ -26,7 +26,7 @@ TCP endpoint to connect to for inserting data. Workers will create individual co
 
 ## `tsbs_run_queries_akumuli` Additional Flags
 
-#### `-endpoint` (type: `string`, default: `http://localhost:8181`)
+#### `--endpoint` (type: `string`, default: `http://localhost:8181`)
 
 HTTP API endpoint to run queries.
 
@@ -49,7 +49,7 @@ To start over you should stop the database by sending SIGINT to the akumulid pro
 
 Run `tsbs_generate_data` with `-format=akumuli` to generate the input.
 Here is the sample command:
-`./cmd/tsbs_generate_data/tsbs_generate_data -use-case="cpu-only" -seed=123 -scale=1000 -timestamp-start="2016-01-01T00:00:00Z" -timestamp-end="2016-01-02T00:00:00Z" -log-interval="10s" -format="akumuli" | gzip > /tmp/akumuli-data.gz`
+`./cmd/tsbs_generate_data/tsbs_generate_data --use-case="cpu-only" --seed=123 --scale=1000 --timestamp-start="2016-01-01T00:00:00Z" --timestamp-end="2016-01-02T00:00:00Z" --log-interval="10s" --format="akumuli" | gzip > /tmp/akumuli-data.gz`
 
 The easiest way to generate queries is to use `scripts/generate_queries.sh` script.
 `FORMATS="akumuli" SCALE=1000 SEED=123 TS_START="2016-01-01T00:00:00Z" TS_END="2016-01-02T00:00:01Z" QUERY_TYPES="cpu-max-all-1 cpu-max-all-8 double-groupby-1 double-groupby-5 double-groupby-all high-cpu-1 high-cpu-all lastpoint single-groupby-1-1-1 single-groupby-1-1-12 single-groupby-1-8-1 single-groupby-5-1-1 single-groupby-5-1-12" QUERIES=1000 BULK_DATA_DIR="/tmp/bulk_queries" scripts/generate_queries.sh`
