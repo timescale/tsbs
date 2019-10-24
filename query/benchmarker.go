@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"runtime/pprof"
 	"sync"
 	"time"
 
 	"github.com/spf13/pflag"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -24,7 +26,9 @@ const (
 type BenchmarkRunnerConfig struct {
 	DBName         string `mapstructure:"db-name"`
 	Limit          uint64 `mapstructure:"max-queries"`
+	LimitRps       uint64 `mapstructure:"max-rps"`
 	MemProfile     string `mapstructure:"memprofile"`
+	HDRLatenciesFile     string `mapstructure:"hdr-latencies"`
 	Workers        uint   `mapstructure:"workers"`
 	PrintResponses bool   `mapstructure:"print-responses"`
 	Debug          int    `mapstructure:"debug"`
@@ -39,8 +43,10 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.String("db-name", "benchmark", "Name of database to use for queries")
 	fs.Uint64("burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	fs.Uint64("max-queries", 0, "Limit the number of queries to send, 0 = no limit")
+	fs.Uint64("max-rps", 0, "Limit the rate of queries per second, 0 = no limit")
 	fs.Uint64("print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	fs.String("memprofile", "", "Write a memory profile to this file.")
+	fs.String("hdr-latencies", "", "Write the High Dynamic Range (HDR) Histogram of Response Latencies to this file.")
 	fs.Uint("workers", 1, "Number of concurrent requests to make.")
 	fs.Bool("prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	fs.Bool("print-responses", false, "Pretty print response bodies for correctness checking (default false).")
@@ -70,7 +76,7 @@ func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
 		burnIn:         runner.BurnIn,
 	}
 
-	runner.sp = newStatProcessor(spArgs)
+	runner.sp = newStatProcessor(spArgs, runner.HDRLatenciesFile)
 	return runner
 }
 
@@ -139,13 +145,22 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	b.ch = make(chan Query, b.Workers)
 
 	// Launch the stats processor:
-	go b.sp.process(b.Workers)
+	go b.sp.process(b.Workers,b.HDRLatenciesFile)
+
+	var requestRate = rate.Limit(math.MaxFloat64)
+	var requestBurst = 0
+	if b.LimitRps != 0 {
+		requestRate = rate.Limit(b.LimitRps)
+		requestBurst = int(b.Workers)
+	}
+
+	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
 
 	// Launch query processors
 	var wg sync.WaitGroup
 	for i := 0; i < int(b.Workers); i++ {
 		wg.Add(1)
-		go b.processorHandler(&wg, queryPool, processorCreateFn(), i)
+		go b.processorHandler(&wg, rateLimiter, queryPool, processorCreateFn(), i)
 	}
 
 	// Read in jobs, closing the job channel when done:
@@ -177,9 +192,11 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	}
 }
 
-func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, queryPool *sync.Pool, processor Processor, workerNum int) {
+func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate.Limiter, queryPool *sync.Pool, processor Processor, workerNum int) {
 	processor.Init(workerNum)
 	for query := range b.ch {
+		for rateLimiter.Allow() == false {
+		}
 		stats, err := processor.ProcessQuery(query, false)
 		if err != nil {
 			panic(err)

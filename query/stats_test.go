@@ -78,35 +78,38 @@ func TestStateGroupMedian(t *testing.T) {
 			want: 1.0,
 		},
 		{
-			len:  2,
-			want: 2.0,
-		},
-		{
-			len:  4,
-			want: 4.0,
-		},
-		{
 			len:  5,
 			want: 5.0,
 		},
 		{
-			len:  1000,
-			want: 1000,
+			len:  99,
+			want: 99.0,
+		},
+		{
+			len:  999,
+			want: 999.0,
+		},
+		{
+			len:  9999,
+			want: 9999.0,
 		},
 	}
-
+	errorMargin := 0.0001
 	for _, c := range cases {
 		sg := newStatGroup(c.len)
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		if got := sg.median(); c.want != got {
-			t.Errorf("got: %v want: %v\n", got, c.want)
+		lowerLimit := c.want - (c.want*errorMargin)
+		upperLimit := c.want + (c.want*errorMargin)
+		if got := sg.median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
 }
 
 func TestStatGroupMedian0InitialSize(t *testing.T) {
+	errorMargin := 0.0001
 	cases := []struct {
 		len  uint64
 		want float64
@@ -120,20 +123,20 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 			want: 1.0,
 		},
 		{
-			len:  2,
-			want: 2.0,
-		},
-		{
-			len:  4,
-			want: 4.0,
-		},
-		{
 			len:  5,
 			want: 5.0,
 		},
 		{
-			len:  1000,
-			want: 1000,
+			len:  99,
+			want: 99.0,
+		},
+		{
+			len:  999,
+			want: 999.0,
+		},
+		{
+			len:  9999,
+			want: 9999.0,
 		},
 	}
 
@@ -142,8 +145,10 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		if got := sg.median(); c.want != got {
-			t.Errorf("got: %v want: %v\n", got, c.want)
+		lowerLimit := c.want - (c.want*errorMargin)
+		upperLimit := c.want + (c.want*errorMargin)
+		if got := sg.median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
 }
@@ -192,13 +197,13 @@ func TestStatGroupPush(t *testing.T) {
 		for _, val := range c.vals {
 			sg.push(val)
 		}
-		if got := sg.min; got != c.wantMin {
+		if got := sg.Min(); got != c.wantMin {
 			t.Errorf("%s: incorrect min: got %f want %f", c.desc, got, c.wantMin)
 		}
-		if got := sg.max; got != c.wantMax {
+		if got := sg.Max(); got != c.wantMax {
 			t.Errorf("%s: incorrect max: got %f want %f", c.desc, got, c.wantMin)
 		}
-		if got := sg.mean; got != c.wantMean {
+		if got := sg.Mean(); got != c.wantMean {
 			t.Errorf("%s: incorrect mean: got %f want %f", c.desc, got, c.wantMin)
 		}
 		if got := sg.count; got != c.wantCount {

@@ -2,9 +2,12 @@ package query
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // statProcessor is used to collect, analyze, and print query execution statistics.
@@ -12,7 +15,7 @@ type statProcessor interface {
 	getArgs() *statProcessorArgs
 	send(stats []*Stat)
 	sendWarm(stats []*Stat)
-	process(workers uint)
+	process(workers uint, latencyFile string)
 	CloseAndWait()
 }
 
@@ -28,16 +31,22 @@ type defaultStatProcessor struct {
 	args *statProcessorArgs
 	wg   sync.WaitGroup
 	c    chan *Stat // c is the channel for Stats to be sent for processing
+	latencyFile string
+	opsCount 	uint64
 }
 
-func newStatProcessor(args *statProcessorArgs) statProcessor {
+func newStatProcessor(args *statProcessorArgs, latencyFile string) statProcessor {
 	if args == nil {
 		panic("Stat Processor needs args")
 	}
-	return &defaultStatProcessor{args: args}
+	return &defaultStatProcessor{args: args, latencyFile: latencyFile, }
 }
 
 func (sp *defaultStatProcessor) getArgs() *statProcessorArgs {
+	return sp.args
+}
+
+func (sp *defaultStatProcessor) getStatsMapping() *statProcessorArgs {
 	return sp.args
 }
 
@@ -64,7 +73,7 @@ func (sp *defaultStatProcessor) sendWarm(stats []*Stat) {
 
 // process collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
-func (sp *defaultStatProcessor) process(workers uint) {
+func (sp *defaultStatProcessor) process(workers uint,latencyFile string ) {
 	sp.c = make(chan *Stat, workers)
 	sp.wg.Add(1)
 	const allQueriesLabel = labelAllQueries
@@ -78,7 +87,12 @@ func (sp *defaultStatProcessor) process(workers uint) {
 	}
 
 	i := uint64(0)
+	start := time.Now()
+	prevTime := start
+	prevRequestCount := uint64(0)
+
 	for stat := range sp.c {
+		atomic.AddUint64(&sp.opsCount, 1)
 		if i < sp.args.burnIn {
 			i++
 			statPool.Put(stat)
@@ -119,7 +133,17 @@ func (sp *defaultStatProcessor) process(workers uint) {
 
 		// print stats to stderr (if printInterval is greater than zero):
 		if sp.args.printInterval > 0 && i > 0 && i%sp.args.printInterval == 0 && (i < *sp.args.limit || *sp.args.limit == 0) {
-			_, err := fmt.Fprintf(os.Stderr, "after %d queries with %d workers:\n", i-sp.args.burnIn, workers)
+			now := time.Now()
+			sinceStart := now.Sub(start)
+			took := now.Sub(prevTime)
+			intervalQueryRate := float64(sp.opsCount-prevRequestCount) / float64(took.Seconds())
+			overallQueryRate := float64(sp.opsCount) / float64(sinceStart.Seconds())
+			_, err := fmt.Fprintf(os.Stderr, "After %d queries with %d workers:\nInterval query rate: %0.2f queries/sec\tOverall query rate: %0.2f queries/sec\n",
+				i-sp.args.burnIn,
+				workers,
+				intervalQueryRate,
+				overallQueryRate,
+			)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -131,11 +155,14 @@ func (sp *defaultStatProcessor) process(workers uint) {
 			if err != nil {
 				log.Fatal(err)
 			}
+			prevRequestCount = sp.opsCount
+			prevTime = now
 		}
 	}
-
+	sinceStart := time.Now().Sub(start)
+	overallQueryRate := float64(sp.opsCount) / float64(sinceStart.Seconds())
 	// the final stats output goes to stdout:
-	_, err := fmt.Printf("run complete after %d queries with %d workers:\n", i-sp.args.burnIn, workers)
+	_, err := fmt.Printf("Run complete after %d queries with %d workers (Overall query rate %0.2f queries/sec):\n", i-sp.args.burnIn, workers,overallQueryRate)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,6 +170,18 @@ func (sp *defaultStatProcessor) process(workers uint) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if len(latencyFile) > 0  {
+		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", latencyFile)
+
+		d1 := []byte(statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(10, 1000.0))
+		fErr := ioutil.WriteFile(latencyFile, d1, 0644)
+		if fErr != nil {
+			log.Fatal(err)
+		}
+
+	}
+
 	sp.wg.Done()
 }
 

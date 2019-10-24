@@ -1,7 +1,9 @@
 package query
 
 import (
+	"golang.org/x/time/rate"
 	"io/ioutil"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -36,8 +38,12 @@ func TestProcessorHandler(t *testing.T) {
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	go b.processorHandler(&wg, qPool, p1, 0)
-	go b.processorHandler(&wg, qPool, p2, 5)
+	var requestRate = rate.Limit(math.MaxFloat64)
+	var requestBurst = 0
+	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
+
+	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q
@@ -69,13 +75,17 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 		limit:          &b.Limit,
 		prewarmQueries: true,
 	}
-	b.sp = newStatProcessor(spArgs)
+	var requestRate = rate.Limit(math.MaxFloat64)
+	var requestBurst = 0
+	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
+
+	b.sp = newStatProcessor(spArgs, "")
 	b.ch = make(chan Query, 2)
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	go b.processorHandler(&wg, qPool, p1, 0)
-	go b.processorHandler(&wg, qPool, p2, 5)
+	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q
@@ -303,7 +313,7 @@ func (m *mockStatProcessor) sendWarm(stats []*Stat) {
 		m.onSend(stats)
 	}
 }
-func (m *mockStatProcessor) process(workers uint) {
+func (m *mockStatProcessor) process(workers uint, latencyFile string) {
 	if m.onProcess != nil {
 		m.onProcess(workers)
 	}
