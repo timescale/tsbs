@@ -3,9 +3,9 @@ package query
 import (
 	"fmt"
 	"io"
-	"math"
 	"sort"
 	"sync"
+	"github.com/filipecosta90/hdrhistogram"
 )
 
 // Stat represents one statistical measurement, typically used to store the
@@ -57,53 +57,41 @@ func (s *Stat) reset() *Stat {
 
 // statGroup collects simple streaming statistics.
 type statGroup struct {
-	min    float64
-	max    float64
-	mean   float64
+	latencyHDRHistogram *hdrhistogram.Histogram
 	sum    float64
 	values []float64
-
-	// used for stddev calculations
-	m      float64
-	s      float64
-	stdDev float64
-
 	count int64
 }
 
 // newStatGroup returns a new StatGroup with an initial size
 func newStatGroup(size uint64) *statGroup {
+	// This latency Histogram could be used to track and analyze the counts of
+	// observed integer values between 0 us and 30000000 us ( 30 secs )
+	// while maintaining a value precision of 4 significant digits across that range,
+	// translating to a value resolution of :
+	//   - 1 microsecond up to 10 milliseconds,
+	//   - 100 microsecond (or better) from 10 milliseconds up to 10 seconds,
+	//   - 300 microsecond (or better) from 10 seconds up to 30 seconds,
+	lH := hdrhistogram.New(1, 30000000, 4)
 	return &statGroup{
 		values: make([]float64, size),
 		count:  0,
+		latencyHDRHistogram: lH,
 	}
 }
 
-// median returns the median value of the StatGroup
+// median returns the median value of the StatGroup in milliseconds
 func (s *statGroup) median() float64 {
-	sort.Float64s(s.values[:s.count])
-	if s.count == 0 {
-		return 0
-	} else if s.count%2 == 0 {
-		idx := s.count / 2
-		return (s.values[idx] + s.values[idx-1]) / 2.0
-	} else {
-		return s.values[s.count/2]
-	}
+	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/10e2
 }
 
 // push updates a StatGroup with a new value.
 func (s *statGroup) push(n float64) {
+	s.latencyHDRHistogram.RecordValue(int64(n * 10e2))
 	if s.count == 0 {
-		s.min = n
-		s.max = n
-		s.mean = n
 		s.count = 1
 		s.sum = n
 
-		s.m = n
-		s.s = 0.0
-		s.stdDev = 0.0
 		if len(s.values) > 0 {
 			s.values[0] = n
 		} else {
@@ -112,40 +100,37 @@ func (s *statGroup) push(n float64) {
 		return
 	}
 
-	if n < s.min {
-		s.min = n
-	}
-	if n > s.max {
-		s.max = n
-	}
-
 	s.sum += n
-
-	// constant-space mean update:
-	sum := s.mean*float64(s.count) + n
-	s.mean = sum / float64(s.count+1)
-	if int(s.count) == len(s.values) {
-		s.values = append(s.values, n)
-	} else {
-		s.values[s.count] = n
-	}
-
 	s.count++
-
-	oldM := s.m
-	s.m += (n - oldM) / float64(s.count)
-	s.s += (n - oldM) * (n - s.m)
-	s.stdDev = math.Sqrt(s.s / (float64(s.count) - 1.0))
 }
 
 // string makes a simple description of a statGroup.
 func (s *statGroup) string() string {
-	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d", s.min, s.median(), s.mean, s.max, s.stdDev, s.sum/1e3, s.count)
+	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
+		float64(s.latencyHDRHistogram.Min())/10e2,
+		s.median(),
+		float64(s.latencyHDRHistogram.Mean())/10e2,
+		float64(s.latencyHDRHistogram.Max())/10e2,
+		float64(s.latencyHDRHistogram.StdDev())/10e2,
+		s.sum/1e3,
+		s.count)
 }
 
 func (s *statGroup) write(w io.Writer) error {
 	_, err := fmt.Fprintln(w, s.string())
 	return err
+}
+
+func (s *statGroup) Mean() float64 {
+	return float64(s.latencyHDRHistogram.Mean())/10e2
+}
+
+func (s *statGroup) Max() float64 {
+	return float64(s.latencyHDRHistogram.Max())/10e2
+}
+
+func (s *statGroup) Min() float64 {
+	return float64(s.latencyHDRHistogram.Min())/10e2
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
