@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
 	"log"
 	"strings"
 )
@@ -41,7 +42,7 @@ func (d *dbCreator) Init() {
 	}
 	d.tableDefs = tableDefs
 
-	conn, err := pgx.Connect(*d.cfg)
+	conn, err := pgx.ConnectConfig(context.Background(), d.cfg)
 	if err != nil {
 		fatal("Cannot establish a connection to database: %v", err)
 		panic(err)
@@ -148,7 +149,7 @@ func (d *dbCreator) createMetricsTable(table *tableDef) error {
 		strings.Join(metricCols, ", "),
 		d.numShards,
 		d.numReplicas)
-	_, err := d.conn.Exec(sql)
+	_, err := d.conn.Exec(context.Background(), sql)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,7 @@ func (d *dbCreator) createMetricsTable(table *tableDef) error {
 // returns true if there are any tables in a schema
 func (d *dbCreator) DBExists(dbName string) bool {
 	var exists bool
-	err := d.conn.QueryRow(`
+	err := d.conn.QueryRow(context.Background(), `
 		SELECT count(table_name) > 0 
 		FROM information_schema.tables 
 		WHERE table_schema = $1`, dbName,
@@ -179,7 +180,7 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 		return err
 	}
 	for _, table := range tables {
-		_, err := d.conn.Exec(fmt.Sprintf("DROP TABLE %s", table.fqn()))
+		_, err := d.conn.Exec(context.Background(), fmt.Sprintf("DROP TABLE %s", table.fqn()))
 		if err != nil {
 			return err
 		}
@@ -188,7 +189,7 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 }
 
 func (d *dbCreator) getTables(dbName string) ([]tableDef, error) {
-	rows, err := d.conn.Query(`
+	rows, err := d.conn.Query(context.Background(), `
 		SELECT table_schema, table_name
 		FROM information_schema.tables
 		WHERE table_schema = $1`, dbName)
@@ -214,7 +215,7 @@ func (d *dbCreator) getTables(dbName string) ([]tableDef, error) {
 }
 
 func (d *dbCreator) Close() {
-	if err := d.conn.Close(); err != nil {
+	if err := d.conn.Close(context.Background()); err != nil {
 		log.Printf("an error on connection closing: %v", err)
 	}
 }
