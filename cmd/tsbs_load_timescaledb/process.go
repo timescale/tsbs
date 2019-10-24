@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/stdlib"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/lib/pq"
 	"github.com/timescale/tsbs/load"
 )
@@ -236,11 +237,11 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		}
 	} else {
 		rows := pgx.CopyFromRows(dataRows)
-		inserted, err := p.pgxConn.CopyFrom(pgx.Identifier{hypertable}, cols, rows)
+		inserted, err := p.pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
 		if err != nil {
 			panic(err)
 		}
-		if inserted != len(dataRows) {
+		if inserted != int64(len(dataRows)) {
 			fmt.Fprintf(os.Stderr, "Failed to insert all the data! Expected: %d, Got: %d", len(dataRows), inserted)
 			os.Exit(1)
 		}
