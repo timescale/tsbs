@@ -379,7 +379,7 @@ func TestMaxAllCPU(t *testing.T) {
 	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
-	d.MaxAllCPU(q, 1)
+	d.MaxAllCPU(q, 1, devops.MaxAllDuration)
 	verifyQuery(t, q, expectedHumanLabel, expectedHumanDesc, expectedHypertable, expectedSQLQuery)
 }
 

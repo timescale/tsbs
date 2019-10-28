@@ -236,7 +236,7 @@ func TestMaxAllCPU(t *testing.T) {
 
 	testFunc := func(d *Devops, c testCase) query.Query {
 		q := d.GenerateEmptyQuery()
-		d.MaxAllCPU(q, c.input)
+		d.MaxAllCPU(q, c.input, devops.MaxAllDuration)
 		return q
 	}
 

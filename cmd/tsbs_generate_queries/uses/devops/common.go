@@ -107,7 +107,7 @@ type LastPointFiller interface {
 
 // MaxAllFiller is a type that can fill in a max all CPU metrics query
 type MaxAllFiller interface {
-	MaxAllCPU(query.Query, int)
+	MaxAllCPU(query.Query, int, time.Duration)
 }
 
 // GroupbyOrderbyLimitFiller is a type that can fill in a groupby-orderby-limit query

@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -23,8 +24,9 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 		devops.LabelSingleGroupby + "-5-1-1":  devops.NewSingleGroupby(5, 1, 1),
 		devops.LabelSingleGroupby + "-5-1-12": devops.NewSingleGroupby(5, 1, 12),
 		devops.LabelSingleGroupby + "-5-8-1":  devops.NewSingleGroupby(5, 8, 1),
-		devops.LabelMaxAll + "-1":             devops.NewMaxAllCPU(1),
-		devops.LabelMaxAll + "-8":             devops.NewMaxAllCPU(8),
+		devops.LabelMaxAll + "-1":             devops.NewMaxAllCPU(1, devops.MaxAllDuration),
+		devops.LabelMaxAll + "-8":             devops.NewMaxAllCPU(8, devops.MaxAllDuration),
+		devops.LabelMaxAll + "-32-24":         devops.NewMaxAllCPU(32, 24*time.Hour),
 		devops.LabelDoubleGroupby + "-1":      devops.NewGroupBy(1),
 		devops.LabelDoubleGroupby + "-5":      devops.NewGroupBy(5),
 		devops.LabelDoubleGroupby + "-all":    devops.NewGroupBy(devops.GetCPUMetricsLen()),
