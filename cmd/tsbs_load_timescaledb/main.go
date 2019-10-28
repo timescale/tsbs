@@ -97,20 +97,20 @@ func init() {
 	pflag.Int("partitions", 1, "Number of partitions")
 	pflag.Duration("chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
-	flag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
-	flag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
-	flag.BoolVar(&partitionOnHostname, "partition-on-hostname", false, "Whether to create the space partition on the hostname column (instead of tags-id)")
-	flag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
-	flag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma delimited)")
-	flag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
+	pflag.BoolVar(&timeIndex, "time-index", true, "Whether to build an index on the time dimension")
+	pflag.BoolVar(&timePartitionIndex, "time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
+	pflag.BoolVar(&partitionOnHostname, "partition-on-hostname", false, "Whether to create the space partition on the hostname column (instead of tags-id)")
+	pflag.BoolVar(&partitionIndex, "partition-index", true, "Whether to build an index on the partition key")
+	pflag.StringVar(&fieldIndex, "field-index", valueTimeIdx, "index types for tags (comma delimited)")
+	pflag.IntVar(&fieldIndexCount, "field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	pflag.String("write-profile", "", "File to output CPU/memory profile to")
 	pflag.String("write-replication-stats", "", "File to output replication stats to")
 	pflag.Bool("create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
-	flag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
-	flag.BoolVar(&useCopy, "use-copy", true, "Perform inserts using COPY")
-	flag.IntVar(&replicationFactor, "replication-factor", 0, "To create distributed hypertable use use replication-factor >= 1")
+	pflag.BoolVar(&forceTextFormat, "force-text-format", false, "Send/receive data in text format")
+	pflag.BoolVar(&useCopy, "use-copy", true, "Perform inserts using COPY")
+	pflag.IntVar(&replicationFactor, "replication-factor", 0, "To create distributed hypertable use use replication-factor >= 1")
 
 	pflag.Parse()
 

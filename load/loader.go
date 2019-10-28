@@ -230,7 +230,7 @@ func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
 
 		switch dbcp := dbc.(type) {
 		case DBCreatorPost:
-			err := dbcp.PostCreateDB(l.dbName)
+			err := dbcp.PostCreateDB(l.DBName)
 			if err != nil {
 				panic(err)
 			}
