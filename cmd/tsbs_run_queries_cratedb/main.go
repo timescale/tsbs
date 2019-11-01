@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"time"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	_ "github.com/jackc/pgx/stdlib"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/timescale/tsbs/internal/utils"
@@ -66,7 +69,7 @@ func main() {
 }
 
 type processor struct {
-	pool    *pgx.ConnPool
+	pool    *pgxpool.Pool
 	connCfg *pgx.ConnConfig
 	opts    *executorOptions
 }
@@ -80,11 +83,13 @@ type executorOptions struct {
 func newProcessor() query.Processor {
 	return &processor{
 		connCfg: &pgx.ConnConfig{
-			Host:     hosts,
-			Port:     uint16(port),
-			User:     user,
-			Password: pass,
-			Database: runner.DatabaseName(),
+			Config: pgconn.Config{
+				Host:     hosts,
+				Port:     uint16(port),
+				User:     user,
+				Password: pass,
+				Database: runner.DatabaseName(),
+			},
 		},
 		opts: &executorOptions{
 			showExplain:   showExplain,
@@ -95,10 +100,10 @@ func newProcessor() query.Processor {
 }
 
 func (p *processor) Init(workerNumber int) {
-	pool, err := pgx.NewConnPool(
-		pgx.ConnPoolConfig{
-			MaxConnections: workerNumber,
-			ConnConfig:     *p.connCfg,
+	pool, err := pgxpool.ConnectConfig(context.Background(),
+		&pgxpool.Config{
+			MaxConns:   int32(workerNumber),
+			ConnConfig: p.connCfg,
 		})
 	if err != nil {
 		panic(err)
@@ -118,7 +123,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	if showExplain {
 		qry = "EXPLAIN ANALYZE " + qry
 	}
-	rows, err := p.pool.Query(qry)
+	rows, err := p.pool.Query(context.Background(), qry)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +150,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 // prettyPrintResponse prints a Query and its response in JSON format with two
 // keys: 'query' which has a value of the SQL used to generate the second key
 // 'results' which is an array of each row in the return set.
-func prettyPrintResponse(rows *pgx.Rows, q *query.CrateDB) {
+func prettyPrintResponse(rows pgx.Rows, q *query.CrateDB) {
 	resp := make(map[string]interface{})
 	resp["query"] = string(q.SqlQuery)
 	resp["results"] = mapRows(rows)
@@ -158,7 +163,7 @@ func prettyPrintResponse(rows *pgx.Rows, q *query.CrateDB) {
 	fmt.Println(string(line) + "\n")
 }
 
-func mapRows(r *pgx.Rows) []map[string]interface{} {
+func mapRows(r pgx.Rows) []map[string]interface{} {
 	var rows []map[string]interface{}
 	cols := r.FieldDescriptions()
 	for r.Next() {
@@ -174,7 +179,7 @@ func mapRows(r *pgx.Rows) []map[string]interface{} {
 		}
 
 		for i, column := range cols {
-			row[column.Name] = *values[i].(*interface{})
+			row[string(column.Name)] = *values[i].(*interface{})
 		}
 		rows = append(rows, row)
 	}

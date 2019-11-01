@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/jackc/pgx/stdlib"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
