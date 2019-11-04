@@ -59,7 +59,6 @@ func (s *Stat) reset() *Stat {
 type statGroup struct {
 	latencyHDRHistogram *hdrhistogram.Histogram
 	sum    float64
-	values []float64
 	count int64
 }
 
@@ -74,7 +73,6 @@ func newStatGroup(size uint64) *statGroup {
 	//   - 300 microsecond (or better) from 10 seconds up to 30 seconds,
 	lH := hdrhistogram.New(1, 30000000, 4)
 	return &statGroup{
-		values: make([]float64, size),
 		count:  0,
 		latencyHDRHistogram: lH,
 	}
@@ -88,18 +86,6 @@ func (s *statGroup) median() float64 {
 // push updates a StatGroup with a new value.
 func (s *statGroup) push(n float64) {
 	s.latencyHDRHistogram.RecordValue(int64(n * 10e2))
-	if s.count == 0 {
-		s.count = 1
-		s.sum = n
-
-		if len(s.values) > 0 {
-			s.values[0] = n
-		} else {
-			s.values = append(s.values, n)
-		}
-		return
-	}
-
 	s.sum += n
 	s.count++
 }

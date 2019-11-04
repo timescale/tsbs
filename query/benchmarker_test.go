@@ -79,7 +79,7 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 	var requestBurst = 0
 	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
 
-	b.sp = newStatProcessor(spArgs, "")
+	b.sp = newStatProcessor(spArgs)
 	b.ch = make(chan Query, 2)
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
@@ -313,7 +313,7 @@ func (m *mockStatProcessor) sendWarm(stats []*Stat) {
 		m.onSend(stats)
 	}
 }
-func (m *mockStatProcessor) process(workers uint, latencyFile string) {
+func (m *mockStatProcessor) process(workers uint) {
 	if m.onProcess != nil {
 		m.onProcess(workers)
 	}

@@ -15,7 +15,7 @@ type statProcessor interface {
 	getArgs() *statProcessorArgs
 	send(stats []*Stat)
 	sendWarm(stats []*Stat)
-	process(workers uint, latencyFile string)
+	process(workers uint)
 	CloseAndWait()
 }
 
@@ -24,6 +24,8 @@ type statProcessorArgs struct {
 	limit          *uint64 // limit is the number of statistics to analyze before stopping
 	burnIn         uint64  // burnIn is the number of statistics to ignore before analyzing
 	printInterval  uint64  // printInterval is how often print intermediate stats (number of queries)
+	hdrLatenciesFile string // hdrLatenciesFile is the filename to Write the High Dynamic Range (HDR) Histogram of Response Latencies to
+
 }
 
 // statProcessor is used to collect, analyze, and print query execution statistics.
@@ -31,15 +33,14 @@ type defaultStatProcessor struct {
 	args *statProcessorArgs
 	wg   sync.WaitGroup
 	c    chan *Stat // c is the channel for Stats to be sent for processing
-	latencyFile string
 	opsCount 	uint64
 }
 
-func newStatProcessor(args *statProcessorArgs, latencyFile string) statProcessor {
+func newStatProcessor(args *statProcessorArgs) statProcessor {
 	if args == nil {
 		panic("Stat Processor needs args")
 	}
-	return &defaultStatProcessor{args: args, latencyFile: latencyFile, }
+	return &defaultStatProcessor{args: args}
 }
 
 func (sp *defaultStatProcessor) getArgs() *statProcessorArgs {
@@ -73,7 +74,7 @@ func (sp *defaultStatProcessor) sendWarm(stats []*Stat) {
 
 // process collects latency results, aggregating them into summary
 // statistics. Optionally, they are printed to stderr at regular intervals.
-func (sp *defaultStatProcessor) process(workers uint,latencyFile string ) {
+func (sp *defaultStatProcessor) process(workers uint) {
 	sp.c = make(chan *Stat, workers)
 	sp.wg.Add(1)
 	const allQueriesLabel = labelAllQueries
@@ -171,11 +172,11 @@ func (sp *defaultStatProcessor) process(workers uint,latencyFile string ) {
 		log.Fatal(err)
 	}
 
-	if len(latencyFile) > 0  {
-		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", latencyFile)
+	if len(sp.args.hdrLatenciesFile) > 0  {
+		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", sp.args.hdrLatenciesFile)
 
 		d1 := []byte(statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(10, 1000.0))
-		fErr := ioutil.WriteFile(latencyFile, d1, 0644)
+		fErr := ioutil.WriteFile(sp.args.hdrLatenciesFile, d1, 0644)
 		if fErr != nil {
 			log.Fatal(err)
 		}

@@ -24,18 +24,18 @@ const (
 
 // BenchmarkRunnerConfig is the configuration of the benchmark runner.
 type BenchmarkRunnerConfig struct {
-	DBName         string `mapstructure:"db-name"`
-	Limit          uint64 `mapstructure:"max-queries"`
-	LimitRps       uint64 `mapstructure:"max-rps"`
-	MemProfile     string `mapstructure:"memprofile"`
-	HDRLatenciesFile     string `mapstructure:"hdr-latencies"`
-	Workers        uint   `mapstructure:"workers"`
-	PrintResponses bool   `mapstructure:"print-responses"`
-	Debug          int    `mapstructure:"debug"`
-	FileName       string `mapstructure:"file"`
-	BurnIn         uint64 `mapstructure:"burn-in"`
-	PrintInterval  uint64 `mapstructure:"print-interval"`
-	PrewarmQueries bool   `mapstructure:"prewarm-queries"`
+	DBName           string `mapstructure:"db-name"`
+	Limit            uint64 `mapstructure:"max-queries"`
+	LimitRps         uint64 `mapstructure:"max-rps"`
+	MemProfile       string `mapstructure:"memprofile"`
+	HDRLatenciesFile string `mapstructure:"hdr-latencies"`
+	Workers          uint   `mapstructure:"workers"`
+	PrintResponses   bool   `mapstructure:"print-responses"`
+	Debug            int    `mapstructure:"debug"`
+	FileName         string `mapstructure:"file"`
+	BurnIn           uint64 `mapstructure:"burn-in"`
+	PrintInterval    uint64 `mapstructure:"print-interval"`
+	PrewarmQueries   bool   `mapstructure:"prewarm-queries"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -74,9 +74,10 @@ func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
 		printInterval:  runner.PrintInterval,
 		prewarmQueries: runner.PrewarmQueries,
 		burnIn:         runner.BurnIn,
+		hdrLatenciesFile: runner.HDRLatenciesFile,
 	}
 
-	runner.sp = newStatProcessor(spArgs, runner.HDRLatenciesFile)
+	runner.sp = newStatProcessor(spArgs)
 	return runner
 }
 
@@ -145,7 +146,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	b.ch = make(chan Query, b.Workers)
 
 	// Launch the stats processor:
-	go b.sp.process(b.Workers,b.HDRLatenciesFile)
+	go b.sp.process(b.Workers)
 
 	var requestRate = rate.Limit(math.MaxFloat64)
 	var requestBurst = 0
@@ -195,8 +196,9 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate.Limiter, queryPool *sync.Pool, processor Processor, workerNum int) {
 	processor.Init(workerNum)
 	for query := range b.ch {
-		for rateLimiter.Allow() == false {
-		}
+		r := rateLimiter.ReserveN(time.Now(), 1)
+		time.Sleep(r.Delay())
+
 		stats, err := processor.ProcessQuery(query, false)
 		if err != nil {
 			panic(err)
