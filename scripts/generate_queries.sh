@@ -78,18 +78,18 @@ for QUERY_TYPE in ${QUERY_TYPES}; do
 
             echo "Generating ${DATA_FILE_NAME}:"
             ${EXE_FILE_NAME} \
-                -format ${FORMAT} \
-                -queries ${QUERIES} \
-                -query-type ${QUERY_TYPE} \
-                -scale ${SCALE} \
-                -seed ${SEED} \
-                -timestamp-start ${TS_START} \
-                -timestamp-end ${TS_END} \
-                -use-case ${USE_CASE} \
-                -timescale-use-json=${USE_JSON} \
-                -timescale-use-tags=${USE_TAGS} \
-                -timescale-use-time-bucket=${USE_TIME_BUCKET} \
-                -clickhouse-use-tags=${USE_TAGS} \
+                --format ${FORMAT} \
+                --queries ${QUERIES} \
+                --query-type ${QUERY_TYPE} \
+                --scale ${SCALE} \
+                --seed ${SEED} \
+                --timestamp-start ${TS_START} \
+                --timestamp-end ${TS_END} \
+                --use-case ${USE_CASE} \
+                --timescale-use-json=${USE_JSON} \
+                --timescale-use-tags=${USE_TAGS} \
+                --timescale-use-time-bucket=${USE_TIME_BUCKET} \
+                --clickhouse-use-tags=${USE_TAGS} \
             | gzip  > ${DATA_FILE_NAME}
 
             trap - EXIT

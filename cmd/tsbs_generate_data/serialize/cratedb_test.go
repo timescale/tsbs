@@ -20,7 +20,6 @@ func TestCrateDBSerializerSerialize(t *testing.T) {
 			desc:       "a regular Point with multiple fields",
 			inputPoint: testPointMultiField,
 			output:     "cpu\t{\"hostname\":\"host_0\",\"region\":\"eu-west-1\",\"datacenter\":\"eu-west-1b\"}\t1451606400000000000\t5000000000\t38\t38.24311829\n",
-
 		},
 		{
 			desc:       "a Point with no tags",

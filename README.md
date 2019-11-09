@@ -355,3 +355,17 @@ the results.
 |avg-load|Calculate average load per truck model per fleet
 |daily-activity|Get the number of hours truck has been active (vs. out-of-commission) per day per fleet
 |breakdown-frequency|Calculate breakdown frequency by truck model
+
+## Contributing
+
+We welcome contributions from the community to make TSBS better!
+
+You can help either by opening an
+[issue](https://github.com/timescale/tsbs/issues) with
+any suggestions or bug reports, or by forking this repository,
+making your own contribution, and submitting a pull request.
+
+Before we accept any contributions, Timescale contributors need to
+sign the [Contributor License Agreement](https://cla-assistant.io/timescale/tsbs) (CLA).
+By signing a CLA, we can ensure that the community is free and confident in its
+ability to use your contributions.

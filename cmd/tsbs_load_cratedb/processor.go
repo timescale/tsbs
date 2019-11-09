@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timescale/tsbs/load"
 	"strings"
 )
@@ -11,7 +12,7 @@ import (
 type processor struct {
 	tableDefs []*tableDef
 	connCfg   *pgx.ConnConfig
-	pool      *pgx.ConnPool
+	pool      *pgxpool.Pool
 }
 
 // load.Processor interface implementation
@@ -19,35 +20,15 @@ func (p *processor) Init(workerNum int, doLoad bool) {
 	if !doLoad {
 		return
 	}
-	pool, err := pgx.NewConnPool(pgx.ConnPoolConfig{
-		ConnConfig:     *p.connCfg,
-		MaxConnections: workerNum,
+	pool, err := pgxpool.ConnectConfig(context.Background(), &pgxpool.Config{
+		ConnConfig: p.connCfg,
+		MaxConns:   int32(workerNum),
 	})
 	if err != nil {
 		fatal("cannot create a new connection pool: %v", err)
 		panic(err)
 	}
 	p.pool = pool
-
-	err = p.prepareInsertStmtsFor(p.tableDefs)
-	if err != nil {
-		fatal("cannot prepare insert statements: %v", err)
-		panic(err)
-	}
-}
-
-func (p *processor) prepareInsertStmtsFor(tableDefs []*tableDef) error {
-	for _, table := range tableDefs {
-		stmt, err := p.createInsertStmt(table)
-		if err != nil {
-			return err
-		}
-		_, err = p.pool.Prepare(table.name, stmt)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 const InsertStmt = "INSERT INTO %s (%s) VALUES (%s)"
@@ -88,8 +69,7 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 // load.Processor interface implementation
 func (p *processor) InsertBatch(table string, rows []*row) uint64 {
 	metricCnt := uint64(0)
-
-	b := p.pool.BeginBatch()
+	b := pgx.Batch{}
 	for _, row := range rows {
 		b.Queue(table, *row, nil, nil)
 		// a number of metric values is all row values minus tags and timestamp
@@ -97,15 +77,8 @@ func (p *processor) InsertBatch(table string, rows []*row) uint64 {
 		// metric values
 		metricCnt += uint64(len(*row) - 2)
 	}
-	err := b.Send(context.Background(), nil)
-	if err != nil {
-		fatal("failed to process a batch %v", err)
-		if e := b.Close(); e != nil {
-			fatal("failed to close a batch operation %v", e)
-		}
-	}
-
-	if err = b.Close(); err != nil {
+	batchResults := p.pool.SendBatch(context.Background(), &b)
+	if err := batchResults.Close(); err != nil {
 		fatal("failed to close a batch operation %v", err)
 	}
 	return metricCnt

@@ -46,7 +46,7 @@ for FULL_DATA_FILE_NAME in ${BULK_DATA_DIR}/queries_timescaledb*; do
     cat $FULL_DATA_FILE_NAME \
         | $GUNZIP \
         | $EXE_FILE_NAME \
-            -max-queries $MAX_QUERIES \
-            -workers $NUM_WORKERS \
+            --max-queries $MAX_QUERIES \
+            --workers $NUM_WORKERS \
         | tee $OUT_FULL_FILE_NAME
 done

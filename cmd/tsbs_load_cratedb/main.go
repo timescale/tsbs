@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/jackc/pgconn"
 	"log"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
@@ -81,11 +82,12 @@ func main() {
 	loader = load.GetBenchmarkRunner(config)
 
 	connConfig := &pgx.ConnConfig{
-		Host:     hosts,
-		Port:     uint16(port),
-		User:     user,
-		Password: pass,
-		Database: "doc",
+		Config: pgconn.Config{Host: hosts,
+			Port:     uint16(port),
+			User:     user,
+			Password: pass,
+			Database: "doc",
+		},
 	}
 
 	// TODO implement or check if anything has to be done to support WorkerPerQueue mode
