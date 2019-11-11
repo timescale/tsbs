@@ -156,6 +156,8 @@ func TestBenchmarkRunnerGetBufferedReaderCached(t *testing.T) {
 	b.GetBufferedReader()
 }
 
+
+
 func TestBenchmarkRunnerRunPanicOnNoWorkers(t *testing.T) {
 	runner := &BenchmarkRunner{}
 	defer func() {

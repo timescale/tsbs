@@ -47,10 +47,6 @@ func (sp *defaultStatProcessor) getArgs() *statProcessorArgs {
 	return sp.args
 }
 
-func (sp *defaultStatProcessor) getStatsMapping() *statProcessorArgs {
-	return sp.args
-}
-
 func (sp *defaultStatProcessor) send(stats []*Stat) {
 	if stats == nil {
 		return

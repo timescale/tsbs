@@ -78,11 +78,6 @@ func newStatGroup(size uint64) *statGroup {
 	}
 }
 
-// median returns the median value of the StatGroup in milliseconds
-func (s *statGroup) median() float64 {
-	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/10e2
-}
-
 // push updates a StatGroup with a new value.
 func (s *statGroup) push(n float64) {
 	s.latencyHDRHistogram.RecordValue(int64(n * 10e2))
@@ -93,11 +88,11 @@ func (s *statGroup) push(n float64) {
 // string makes a simple description of a statGroup.
 func (s *statGroup) string() string {
 	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
-		float64(s.latencyHDRHistogram.Min())/10e2,
-		s.median(),
-		float64(s.latencyHDRHistogram.Mean())/10e2,
-		float64(s.latencyHDRHistogram.Max())/10e2,
-		float64(s.latencyHDRHistogram.StdDev())/10e2,
+		s.Min(),
+		s.Median(),
+		s.Mean(),
+		s.Max(),
+		s.StdDev(),
 		s.sum/1e3,
 		s.count)
 }
@@ -107,16 +102,29 @@ func (s *statGroup) write(w io.Writer) error {
 	return err
 }
 
+// Median returns the Median value of the StatGroup in milliseconds
+func (s *statGroup) Median() float64 {
+	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/10e2
+}
+
+// Mean returns the Mean value of the StatGroup in milliseconds
 func (s *statGroup) Mean() float64 {
 	return float64(s.latencyHDRHistogram.Mean())/10e2
 }
 
+// Max returns the Max value of the StatGroup in milliseconds
 func (s *statGroup) Max() float64 {
 	return float64(s.latencyHDRHistogram.Max())/10e2
 }
 
+// Min returns the Min value of the StatGroup in milliseconds
 func (s *statGroup) Min() float64 {
 	return float64(s.latencyHDRHistogram.Min())/10e2
+}
+
+// StdDev returns the StdDev value of the StatGroup in milliseconds
+func (s *statGroup) StdDev() float64 {
+	return float64(s.latencyHDRHistogram.StdDev())/10e2
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
