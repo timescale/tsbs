@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -38,7 +39,7 @@ func TestProcessorHandler(t *testing.T) {
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	var requestRate = rate.Limit(math.MaxFloat64)
+	var requestRate = rate.Inf
 	var requestBurst = 0
 	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
 
@@ -75,7 +76,7 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 		limit:          &b.Limit,
 		prewarmQueries: true,
 	}
-	var requestRate = rate.Limit(math.MaxFloat64)
+	var requestRate = rate.Inf
 	var requestBurst = 0
 	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
 
@@ -334,4 +335,28 @@ type mockProcessor struct {
 func (mp *mockProcessor) Init(workerNum int) { mp.initCalled = true }
 func (mp *mockProcessor) ProcessQuery(q Query, isWarm bool) ([]*Stat, error) {
 	return mp.processRes, mp.processErr
+}
+
+func Test_getRateLimiter(t *testing.T) {
+	type args struct {
+		limitRPS uint64
+		workers  uint
+	}
+	tests := []struct {
+		name 	   string
+		args 	   args
+		wantLimit  float64
+		wantBurst  int
+	}{
+	{"zero limit", args{0,8}, math.MaxFloat64,0 },
+	{"8 burst", args{300,8}, 300.0,8 },
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limiter := getRateLimiter(tt.args.limitRPS, tt.args.workers)
+			if gotBurst := limiter.Burst(); !reflect.DeepEqual(gotBurst, tt.wantBurst) {
+				t.Errorf("getRateLimiter() Burst got = %v, want %v", gotBurst, tt.wantBurst)
+			}
+		})
+	}
 }

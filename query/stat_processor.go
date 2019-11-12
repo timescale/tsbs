@@ -172,8 +172,8 @@ func (sp *defaultStatProcessor) process(workers uint) {
 		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", sp.args.hdrLatenciesFile)
 
 		d1 := []byte(statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(10, 1000.0))
-		fErr := ioutil.WriteFile(sp.args.hdrLatenciesFile, d1, 0644)
-		if fErr != nil {
+		err = ioutil.WriteFile(sp.args.hdrLatenciesFile, d1, 0644)
+		if err != nil {
 			log.Fatal(err)
 		}
 

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"runtime/pprof"
 	"sync"
@@ -26,7 +25,7 @@ const (
 type BenchmarkRunnerConfig struct {
 	DBName           string `mapstructure:"db-name"`
 	Limit            uint64 `mapstructure:"max-queries"`
-	LimitRps         uint64 `mapstructure:"max-rps"`
+	LimitRPS         uint64 `mapstructure:"max-rps"`
 	MemProfile       string `mapstructure:"memprofile"`
 	HDRLatenciesFile string `mapstructure:"hdr-latencies"`
 	Workers          uint   `mapstructure:"workers"`
@@ -148,14 +147,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	// Launch the stats processor:
 	go b.sp.process(b.Workers)
 
-	var requestRate = rate.Limit(math.MaxFloat64)
-	var requestBurst = 0
-	if b.LimitRps != 0 {
-		requestRate = rate.Limit(b.LimitRps)
-		requestBurst = int(b.Workers)
-	}
-
-	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
+	rateLimiter := getRateLimiter(b.LimitRPS,b.Workers)
 
 	// Launch query processors
 	var wg sync.WaitGroup
@@ -196,7 +188,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate.Limiter, queryPool *sync.Pool, processor Processor, workerNum int) {
 	processor.Init(workerNum)
 	for query := range b.ch {
-		r := rateLimiter.ReserveN(time.Now(), 1)
+		r := rateLimiter.Reserve()
 		time.Sleep(r.Delay())
 
 		stats, err := processor.ProcessQuery(query, false)
@@ -220,4 +212,14 @@ func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate
 		queryPool.Put(query)
 	}
 	wg.Done()
+}
+
+func getRateLimiter(limitRPS uint64, workers uint) *rate.Limiter {
+	var requestRate = rate.Inf
+	var requestBurst = 0
+	if limitRPS != 0 {
+		requestRate = rate.Limit(limitRPS)
+		requestBurst = int(workers)
+	}
+	return rate.NewLimiter(requestRate, requestBurst)
 }

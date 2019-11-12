@@ -8,6 +8,10 @@ import (
 	"github.com/filipecosta90/hdrhistogram"
 )
 
+var (
+	hdrScaleFactor = 1e3
+)
+
 // Stat represents one statistical measurement, typically used to store the
 // latency of a query (or part of query).
 type Stat struct {
@@ -65,13 +69,13 @@ type statGroup struct {
 // newStatGroup returns a new StatGroup with an initial size
 func newStatGroup(size uint64) *statGroup {
 	// This latency Histogram could be used to track and analyze the counts of
-	// observed integer values between 0 us and 30000000 us ( 30 secs )
-	// while maintaining a value precision of 4 significant digits across that range,
+	// observed integer values between 0 us and 3600000000 us ( 3600 secs )
+	// while maintaining a value precision of 3 significant digits across that range,
 	// translating to a value resolution of :
-	//   - 1 microsecond up to 10 milliseconds,
-	//   - 100 microsecond (or better) from 10 milliseconds up to 10 seconds,
-	//   - 300 microsecond (or better) from 10 seconds up to 30 seconds,
-	lH := hdrhistogram.New(1, 30000000, 4)
+	//   - 1 microsecond up to 10 millisecond,
+	//   - 10 millisecond (or better) from 10 millisecond up to 10 seconds,
+	//   - 1 second (or better) from 10 second up to 3600 seconds,
+	lH := hdrhistogram.New(1, 3600000000, 4)
 	return &statGroup{
 		count:  0,
 		latencyHDRHistogram: lH,
@@ -80,7 +84,7 @@ func newStatGroup(size uint64) *statGroup {
 
 // push updates a StatGroup with a new value.
 func (s *statGroup) push(n float64) {
-	s.latencyHDRHistogram.RecordValue(int64(n * 10e2))
+	s.latencyHDRHistogram.RecordValue(int64(n * hdrScaleFactor))
 	s.sum += n
 	s.count++
 }
@@ -93,7 +97,7 @@ func (s *statGroup) string() string {
 		s.Mean(),
 		s.Max(),
 		s.StdDev(),
-		s.sum/1e3,
+		s.sum/hdrScaleFactor,
 		s.count)
 }
 
@@ -104,27 +108,27 @@ func (s *statGroup) write(w io.Writer) error {
 
 // Median returns the Median value of the StatGroup in milliseconds
 func (s *statGroup) Median() float64 {
-	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/10e2
+	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/ hdrScaleFactor
 }
 
 // Mean returns the Mean value of the StatGroup in milliseconds
 func (s *statGroup) Mean() float64 {
-	return float64(s.latencyHDRHistogram.Mean())/10e2
+	return float64(s.latencyHDRHistogram.Mean())/ hdrScaleFactor
 }
 
 // Max returns the Max value of the StatGroup in milliseconds
 func (s *statGroup) Max() float64 {
-	return float64(s.latencyHDRHistogram.Max())/10e2
+	return float64(s.latencyHDRHistogram.Max())/ hdrScaleFactor
 }
 
 // Min returns the Min value of the StatGroup in milliseconds
 func (s *statGroup) Min() float64 {
-	return float64(s.latencyHDRHistogram.Min())/10e2
+	return float64(s.latencyHDRHistogram.Min())/ hdrScaleFactor
 }
 
 // StdDev returns the StdDev value of the StatGroup in milliseconds
 func (s *statGroup) StdDev() float64 {
-	return float64(s.latencyHDRHistogram.StdDev())/10e2
+	return float64(s.latencyHDRHistogram.StdDev())/ hdrScaleFactor
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
