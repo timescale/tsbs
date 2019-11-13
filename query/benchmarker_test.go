@@ -337,7 +337,7 @@ func (mp *mockProcessor) ProcessQuery(q Query, isWarm bool) ([]*Stat, error) {
 	return mp.processRes, mp.processErr
 }
 
-func Test_getRateLimiter(t *testing.T) {
+func TestGetRateLimiter(t *testing.T) {
 	type args struct {
 		limitRPS uint64
 		workers  uint
