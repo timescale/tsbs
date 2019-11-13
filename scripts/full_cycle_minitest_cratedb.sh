@@ -1,4 +1,8 @@
 #!/bin/bash
+# showcases the ftsb 3 phases for cratedb
+# - 1) data and query generation
+# - 2) data loading/insertion
+# - 3) query execution
 
 # generate data
 mkdir -p /tmp/bulk_data
