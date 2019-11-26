@@ -2,8 +2,13 @@ package serialize
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
+)
+
+const (
+	placeholderText = "AAAAFFEE"
 )
 
 // AkumuliSerializer writes a series of Point elements into RESP encoded
@@ -33,7 +38,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf := make([]byte, 0, 1024)
 	// Add cue
 	const HeaderLength = 8
-	buf = append(buf, "AAAAFFEE+"...)
+	buf = append(buf, placeholderText...)
+	buf = append(buf, "+"...)
 
 	// Series name
 	for i := 0; i < len(p.fieldKeys); i++ {
@@ -70,7 +76,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			// Shortcut
 			s.index++
 			tmp := make([]byte, 0, 1024)
-			tmp = append(tmp, "AAAAFFEE*2\n"...)
+			tmp = append(tmp, placeholderText...)
+			tmp = append(tmp, "*2\n"...)
 			tmp = append(tmp, buf[HeaderLength:]...)
 			tmp = append(tmp, '\n')
 			tmp = append(tmp, fmt.Sprintf(":%d\n", s.index)...)
@@ -97,7 +104,7 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(0))
 			binary.LittleEndian.PutUint32(buf[:4], id)
 		} else {
-			panic("Unexpected series name")
+			return errors.New("unexpected series name")
 		}
 	}
 
@@ -127,10 +134,8 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(len(p.fieldValues)))
 	if deferPoint {
 		s.deferred = append(s.deferred, buf...)
-		err = nil
-	} else {
-		_, err = w.Write(buf)
+		return nil
 	}
-
+	_, err = w.Write(buf)
 	return err
 }
