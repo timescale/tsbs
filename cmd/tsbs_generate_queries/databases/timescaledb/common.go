@@ -1,7 +1,7 @@
 package timescaledb
 
 import (
-        "fmt"
+	"fmt"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"

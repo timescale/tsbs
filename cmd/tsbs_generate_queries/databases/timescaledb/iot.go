@@ -206,7 +206,7 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 		HAVING count(r.ten_minutes) > %d`,
 		i.withAlias(name),
 		i.withAlias(driver),
-		i.getTimeBucket(10 * oneMinute, "time"),
+		i.getTimeBucket(10*oneMinute, "time"),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
 		i.columnSelect(name),
@@ -241,7 +241,7 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 		HAVING count(r.ten_minutes) > %d`,
 		i.withAlias(name),
 		i.withAlias(driver),
-                i.getTimeBucket(10 * oneMinute, "time"),
+		i.getTimeBucket(10*oneMinute, "time"),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
 		i.columnSelect(name),
@@ -300,8 +300,8 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 		FROM daily_total_session d
 		INNER JOIN tags t ON t.id = d.tags_id
 		GROUP BY fleet, name, driver`,
-                i.getTimeBucket(10 * oneMinute, "TIME"),
-                i.getTimeBucket(24 * oneHour, "ten_minutes"),
+		i.getTimeBucket(10*oneMinute, "TIME"),
+		i.getTimeBucket(24*oneHour, "ten_minutes"),
 		i.withAlias(fleet),
 		i.withAlias(name),
 		i.withAlias(driver))
@@ -338,9 +338,9 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 		AND d.driving = true
 		GROUP BY name, day
 		ORDER BY name, day`,
-                i.getTimeBucket(10 * oneMinute, "TIME"),
+		i.getTimeBucket(10*oneMinute, "TIME"),
 		i.withAlias(name),
-                i.getTimeBucket(24 * oneHour, "start"),
+		i.getTimeBucket(24*oneHour, "start"),
 		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB average driver driving session without stopping per day"
@@ -391,8 +391,8 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 		ORDER BY y.day`,
 		i.withAlias(fleet),
 		i.withAlias(model),
-                i.getTimeBucket(24 * oneHour, "time"),
-                i.getTimeBucket(10 * oneMinute, "time"),
+		i.getTimeBucket(24*oneHour, "time"),
+		i.getTimeBucket(10*oneMinute, "time"),
 		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB daily truck activity per fleet per model"
@@ -423,7 +423,7 @@ func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
 		WHERE t.%s IS NOT NULL
 		AND broken_down = false AND next_broken_down = true
 		GROUP BY model`,
-                i.getTimeBucket(10 * oneMinute, "time"),
+		i.getTimeBucket(10*oneMinute, "time"),
 		i.withAlias(model),
 		i.columnSelect(name))
 
