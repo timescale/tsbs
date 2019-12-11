@@ -1,0 +1,24 @@
+# ignore .git and .cache folders
+.git
+.editorconfig
+.gitignore
+.dockerignore
+.travis.yml
+coverage.txt
+AUTHORS.md
+CONTRIBUTING.md
+LICENSE
+NOTICE
+README.md
+
+*.out
+*.log
+.DS_Store
+.idea
+.vscode
+**/bin
+**/docs
+**/scripts
+
+# High Dynamic Range (HDR) Histogram files
+*.hdr
