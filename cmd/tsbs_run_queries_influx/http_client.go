@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -104,17 +103,18 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 			// Assumes the response is JSON! This holds for Influx
 			// and Elastic.
 
-			var pretty bytes.Buffer
 			prefix := fmt.Sprintf("ID %d: ", q.GetID())
-			err = json.Indent(&pretty, body, prefix, "  ")
+			var v interface{}
+			var line []byte
+			full := make(map[string]interface{})
+			full["influxql"] = string(q.RawQuery)
+			json.Unmarshal(body, &v)
+			full["response"] = v
+			line, err = json.MarshalIndent(full, prefix, "  ")
 			if err != nil {
 				return
 			}
-
-			_, err = fmt.Fprintf(os.Stderr, "%s%s\n", prefix, pretty.Bytes())
-			if err != nil {
-				return
-			}
+			fmt.Println(string(line) + "\n")
 		}
 	}
 
