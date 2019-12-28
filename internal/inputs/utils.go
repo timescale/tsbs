@@ -16,7 +16,8 @@ const (
 	FormatMongo       = "mongo"
 	FormatSiriDB      = "siridb"
 	FormatTimescaleDB = "timescaledb"
-	FormatCrateDB     = "cratedb"
+	FormatAkumuli     = "akumuli"
+	FormatCrateDB 	  = "cratedb"
 )
 
 const (
@@ -33,6 +34,7 @@ var formats = []string{
 	FormatMongo,
 	FormatSiriDB,
 	FormatTimescaleDB,
+	FormatAkumuli,
 	FormatCrateDB,
 }
 
