@@ -78,35 +78,38 @@ func TestStateGroupMedian(t *testing.T) {
 			want: 1.0,
 		},
 		{
-			len:  2,
-			want: 2.0,
-		},
-		{
-			len:  4,
-			want: 4.0,
-		},
-		{
 			len:  5,
 			want: 5.0,
 		},
 		{
-			len:  1000,
-			want: 1000,
+			len:  99,
+			want: 99.0,
+		},
+		{
+			len:  999,
+			want: 999.0,
+		},
+		{
+			len:  9999,
+			want: 9999.0,
 		},
 	}
-
+	errorMargin := 0.0001
 	for _, c := range cases {
 		sg := newStatGroup(c.len)
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		if got := sg.median(); c.want != got {
-			t.Errorf("got: %v want: %v\n", got, c.want)
+		lowerLimit := c.want - (c.want*errorMargin)
+		upperLimit := c.want + (c.want*errorMargin)
+		if got := sg.Median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
 }
 
 func TestStatGroupMedian0InitialSize(t *testing.T) {
+	errorMargin := 0.0001
 	cases := []struct {
 		len  uint64
 		want float64
@@ -120,20 +123,20 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 			want: 1.0,
 		},
 		{
-			len:  2,
-			want: 2.0,
-		},
-		{
-			len:  4,
-			want: 4.0,
-		},
-		{
 			len:  5,
 			want: 5.0,
 		},
 		{
-			len:  1000,
-			want: 1000,
+			len:  99,
+			want: 99.0,
+		},
+		{
+			len:  999,
+			want: 999.0,
+		},
+		{
+			len:  9999,
+			want: 9999.0,
 		},
 	}
 
@@ -142,8 +145,10 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		if got := sg.median(); c.want != got {
-			t.Errorf("got: %v want: %v\n", got, c.want)
+		lowerLimit := c.want - (c.want*errorMargin)
+		upperLimit := c.want + (c.want*errorMargin)
+		if got := sg.Median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
 }
@@ -155,35 +160,54 @@ func TestStatGroupPush(t *testing.T) {
 		wantMin   float64
 		wantMax   float64
 		wantMean  float64
+		wantMedian  float64
+		wantStdDev  float64
 		wantCount int64
 		wantSum   float64
 	}{
 		{
 			desc:      "ordered smallest to largest",
-			vals:      []float64{0.0, 1.0, 2.0},
-			wantMin:   0.0,
-			wantMax:   2.0,
-			wantMean:  1.0,
-			wantCount: 3,
-			wantSum:   3.0,
+			vals:      []float64{2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0},
+			wantMin:   2.0,
+			wantMax:   9.0,
+			wantMean:  5.0,
+			wantMedian:  4.0,
+			wantStdDev:  2.0,
+			wantCount: 8,
+			wantSum:   40.0,
 		},
 		{
 			desc:      "ordered largest to smallest",
-			vals:      []float64{2.0, 1.0, 0.0},
-			wantMin:   0.0,
-			wantMax:   2.0,
-			wantMean:  1.0,
+			vals:      []float64{9.0, 7.0, 5.0, 5.0, 4.0, 4.0, 4.0, 2.0},
+			wantMin:   2.0,
+			wantMax:   9.0,
+			wantMean:  5.0,
+			wantMedian:  4.0,
+			wantStdDev:  2.0,
+			wantCount: 8,
+			wantSum:   40.0,
+		},
+		{
+			desc:      "no variance",
+			vals:      []float64{10.0, 10.0, 10.0},
+			wantMin:   10.0,
+			wantMax:   10.0,
+			wantMean:  10.0,
+			wantMedian:  10.0,
+			wantStdDev:  0.0,
 			wantCount: 3,
-			wantSum:   3.0,
+			wantSum:   30.0,
 		},
 		{
 			desc:      "out of order",
-			vals:      []float64{17.0, 10.0, 12.0},
-			wantMin:   10.0,
-			wantMax:   17.0,
-			wantMean:  13.0,
-			wantCount: 3,
-			wantSum:   39.0,
+			vals:      []float64{12.0, 10.0, 10.0, 10.0, 8.0, 10.0,10.0, 10.0},
+			wantMin:   8.0,
+			wantMax:   12.0,
+			wantMean:  10.0,
+			wantMedian:  10.0,
+			wantStdDev:  1.0,
+			wantCount: 8,
+			wantSum:   80.0,
 		},
 	}
 
@@ -192,20 +216,26 @@ func TestStatGroupPush(t *testing.T) {
 		for _, val := range c.vals {
 			sg.push(val)
 		}
-		if got := sg.min; got != c.wantMin {
-			t.Errorf("%s: incorrect min: got %f want %f", c.desc, got, c.wantMin)
+		if got := sg.Min(); got != c.wantMin {
+			t.Errorf("%s: incorrect Min: got %f want %f", c.desc, got, c.wantMin)
 		}
-		if got := sg.max; got != c.wantMax {
-			t.Errorf("%s: incorrect max: got %f want %f", c.desc, got, c.wantMin)
+		if got := sg.Max(); got != c.wantMax {
+			t.Errorf("%s: incorrect Max: got %f want %f", c.desc, got, c.wantMin)
 		}
-		if got := sg.mean; got != c.wantMean {
-			t.Errorf("%s: incorrect mean: got %f want %f", c.desc, got, c.wantMin)
+		if got := sg.Mean(); got != c.wantMean {
+			t.Errorf("%s: incorrect Mean: got %f want %f", c.desc, got, c.wantMin)
+		}
+		if got := sg.Median(); got != c.wantMedian {
+			t.Errorf("%s: incorrect Median: got %f want %f", c.desc, got, c.wantMedian)
+		}
+		if got := sg.StdDev(); got != c.wantStdDev {
+			t.Errorf("%s: incorrect StdDev: got %f want %f", c.desc, got, c.wantStdDev)
 		}
 		if got := sg.count; got != c.wantCount {
 			t.Errorf("%s: incorrect count: got %d want %d", c.desc, got, c.wantCount)
 		}
 		if got := sg.sum; got != c.wantSum {
-			t.Errorf("%s: incorrect sum: got %f want %f", c.desc, got, c.wantMin)
+			t.Errorf("%s: incorrect sum: got %f want %f", c.desc, got, c.wantSum)
 		}
 	}
 }

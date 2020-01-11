@@ -237,6 +237,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 		ret = &serialize.MongoSerializer{}
 	case FormatSiriDB:
 		ret = &serialize.SiriDBSerializer{}
+	case FormatAkumuli:
+		ret = serialize.NewAkumuliSerializer()
 	case FormatCrateDB:
 		g.writeHeader(sim)
 		ret = &serialize.CrateDBSerializer{}

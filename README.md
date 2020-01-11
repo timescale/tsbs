@@ -6,13 +6,14 @@ at https://github.com/influxdata/influxdb-comparisons.
 
 Current databases supported:
 
-+ TimescaleDB [(supplemental docs)](docs/timescaledb.md)
-+ MongoDB [(supplemental docs)](docs/mongo.md)
-+ InfluxDB [(supplemental docs)](docs/influx.md)
++ Akumuli [(supplemental docs)](docs/akumuli.md)
 + Cassandra [(supplemental docs)](docs/cassandra.md)
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + CrateDB [(supplemental docs)](docs/cratedb.md)
++ InfluxDB [(supplemental docs)](docs/influx.md)
++ MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
++ TimescaleDB [(supplemental docs)](docs/timescaledb.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
 
 ## Overview
@@ -20,22 +21,24 @@ Current databases supported:
 The **Time Series Benchmark Suite (TSBS)** is a collection of Go
 programs that are used to generate datasets and then benchmark read
 and write performance of various databases. The intent is to make the
-TSBS extensible so that a variety of use cases (e.g., devops, IoT, 
-finance, etc.), query types, and databases can be included and benchmarked. To
-this end we hope to help prospective database administrators find the
+TSBS extensible so that a variety of use cases (e.g., devops, IoT,
+finance, etc.), query types, and databases can be included and benchmarked.
+To this end we hope to help prospective database administrators find the
 best database for their needs and their workloads. Further, if you
 are the developer of a time series database and want to include your
 database in the TSBS, feel free to open a pull request to add it!
 
 ## Current use cases
 
-Currently, TSBS supports two use cases. First one, 'dev ops', comes in two forms. 
-The full form is used to generate, insert, and measure data from 9 'systems'
-that could be monitored in a real world dev ops scenario (e.g., CPU,
-memory, disk, etc). Together, these 9 systems generate 100 metrics
-per reading interval. The alternate form focuses solely on CPU
-metrics for a simpler, more streamlined use case. This use case generates
-10 CPU metrics per reading.
+Currently, TSBS supports two use cases.
+
+### Dev ops
+A 'dev ops' use case, which comes in two forms. The full form is used to
+generate, insert, and measure data from 9 'systems' that could be monitored
+in a real world dev ops scenario (e.g., CPU, memory, disk, etc).
+Together, these 9 systems generate 100 metrics per reading interval.
+The alternate form focuses solely on CPU metrics for a simpler, more
+streamlined use case. This use case generates 10 CPU metrics per reading.
 
 In addition to metric readings, 'tags' (including the location
 of the host, its operating system, etc) are generated for each host
@@ -43,18 +46,38 @@ with readings in the dataset. Each unique set of tags identifies
 one host in the dataset and the number of different hosts generated is
 defined by the `scale` flag (see below).
 
-The second use case is meant to simulate the data load in an IoT environment.
-This use case is based on data streaming from a set of trucks tied to a 
-fictional trucking company. This use case will simulate gathering diagnostic
-data and metrics from each truck, and will also introduce environmental factors
-such as out of order data and batch ingestion (for trucks 
-that are offline for a period of time). We are also tracking truck metadata 
-and using this to tie metrics and diagnostics together as part of the query set.  
+### Internet of Things (IoT)
+The second use case is meant to simulate the data load in an IoT
+environment. This use case simulates data streaming from a set of trucks
+belonging to a fictional trucking company. This use case simulates
+diagnostic data and metrics from each truck, and introduces environmental
+factors such as out-of-order data and batch ingestion (for trucks
+that are offline for a period of time). It also tracks truck metadata
+and uses this to tie metrics and diagnostics together as part of the query
+set.  
 
-The queries that are generated as part of this use case will cover both real 
-time truck status and analytics that will look at the time series data in 
-an effort to be more predictive about truck behavior.  The scale factor with 
+The queries that are generated as part of this use case will cover both real
+time truck status and analytics that will look at the time series data in
+an effort to be more predictive about truck behavior.  The scale factor with
 this use case will be based on the number of trucks tracked.  
+
+---
+
+Not all databases implement all use cases. This table below shows which use
+cases are implemented for each database:
+
+|Database|Dev ops|IoT|
+|:---|:---:|:---:|
+|Akumuli|X¹||
+|Cassandra|X||
+|ClickHouse|X||
+|CrateDB|X||
+|InfluxDB|X|X|
+|MongoDB|X|
+|SiriDB|X|
+|TimescaleDB|X|X|
+
+¹ Does not support the `groupby-orderby-limit` query
 
 ## What the TSBS tests
 
@@ -125,10 +148,10 @@ datasets, if you chose to generate for multiple databases) that can
 be used to benchmark data loading of the database(s) chosen using
 the `tsbs_generate_data` tool:
 ```bash
-$ tsbs_generate_data -use-case="iot" -seed=123 -scale=4000 \
-    -timestamp-start="2016-01-01T00:00:00Z" \
-    -timestamp-end="2016-01-04T00:00:00Z" \
-    -log-interval="10s" -format="timescaledb" \
+$ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
+    --timestamp-start="2016-01-01T00:00:00Z" \
+    --timestamp-end="2016-01-04T00:00:00Z" \
+    --log-interval="10s" --format="timescaledb" \
     | gzip > /tmp/timescaledb-data.gz
 
 # Each additional database would be a separate call.
@@ -145,10 +168,10 @@ so that, e.g., 30 days would yield a billion rows (10B metrics)
 
 ##### IoT use case
 
-The main difference between the `iot` use case and other use cases is that 
-it generates data which can contain out-of-order, missing, or empty 
-entries to better represent real-life scenarios associated to the use case. 
-Using a specified seed means that we can do this in a deterministic and 
+The main difference between the `iot` use case and other use cases is that
+it generates data which can contain out-of-order, missing, or empty
+entries to better represent real-life scenarios associated to the use case.
+Using a specified seed means that we can do this in a deterministic and
 reproducible way for multiple runs of data generation.
 
 #### Query generation
@@ -168,10 +191,10 @@ helper script.
 
 For generating just one set of queries for a given type:
 ```bash
-$ tsbs_generate_queries -use-case="iot" -seed=123 -scale=4000 \
-    -timestamp-start="2016-01-01T00:00:00Z" \
-    -timestamp-end="2016-01-04T00:00:01Z" \
-    -queries=1000 -query-type="breakdown-frequency" -format="timescaledb" \
+$ tsbs_generate_queries --use-case="iot" --seed=123 --scale=4000 \
+    --timestamp-start="2016-01-01T00:00:00Z" \
+    --timestamp-end="2016-01-04T00:00:01Z" \
+    --queries=1000 --query-type="breakdown-frequency" --format="timescaledb" \
     | gzip > /tmp/timescaledb-queries-breakdown-frequency.gz
 ```
 

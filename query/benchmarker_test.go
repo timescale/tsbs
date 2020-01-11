@@ -1,8 +1,11 @@
 package query
 
 import (
+	"golang.org/x/time/rate"
 	"io/ioutil"
+	"math"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -36,8 +39,12 @@ func TestProcessorHandler(t *testing.T) {
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	go b.processorHandler(&wg, qPool, p1, 0)
-	go b.processorHandler(&wg, qPool, p2, 5)
+	var requestRate = rate.Inf
+	var requestBurst = 0
+	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
+
+	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q
@@ -69,13 +76,17 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 		limit:          &b.Limit,
 		prewarmQueries: true,
 	}
+	var requestRate = rate.Inf
+	var requestBurst = 0
+	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
+
 	b.sp = newStatProcessor(spArgs)
 	b.ch = make(chan Query, 2)
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	go b.processorHandler(&wg, qPool, p1, 0)
-	go b.processorHandler(&wg, qPool, p2, 5)
+	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q
@@ -145,6 +156,8 @@ func TestBenchmarkRunnerGetBufferedReaderCached(t *testing.T) {
 	// second call should use cached, not open another BuffReader
 	b.GetBufferedReader()
 }
+
+
 
 func TestBenchmarkRunnerRunPanicOnNoWorkers(t *testing.T) {
 	runner := &BenchmarkRunner{}
@@ -322,4 +335,28 @@ type mockProcessor struct {
 func (mp *mockProcessor) Init(workerNum int) { mp.initCalled = true }
 func (mp *mockProcessor) ProcessQuery(q Query, isWarm bool) ([]*Stat, error) {
 	return mp.processRes, mp.processErr
+}
+
+func TestGetRateLimiter(t *testing.T) {
+	type args struct {
+		limitRPS uint64
+		workers  uint
+	}
+	tests := []struct {
+		name 	   string
+		args 	   args
+		wantLimit  float64
+		wantBurst  int
+	}{
+	{"zero limit", args{0,8}, math.MaxFloat64,0 },
+	{"8 burst", args{300,8}, 300.0,8 },
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limiter := getRateLimiter(tt.args.limitRPS, tt.args.workers)
+			if gotBurst := limiter.Burst(); !reflect.DeepEqual(gotBurst, tt.wantBurst) {
+				t.Errorf("getRateLimiter() Burst got = %v, want %v", gotBurst, tt.wantBurst)
+			}
+		})
+	}
 }
