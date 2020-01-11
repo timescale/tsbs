@@ -76,8 +76,10 @@ cases are implemented for each database:
 |MongoDB|X|
 |SiriDB|X|
 |TimescaleDB|X|X|
+|VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
+² Does not support the `groupby-orderby-limit` and `lastpoint` queries
 
 ## What the TSBS tests
 
