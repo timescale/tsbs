@@ -2,6 +2,7 @@ package devops
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -150,59 +151,76 @@ type Host struct {
 	Service            string
 	ServiceVersion     string
 	ServiceEnvironment string
+
+	// needed for generic use-casea
+	GenericMetricCount uint64 // number of metrics generated
+	StartEpoch         uint64
+	EpochsToLive       uint64 // 0 means forever
 }
 
-func newHostMeasurements(start time.Time) []common.SimulatedMeasurement {
+type generator func(ctx *HostContext) []common.SimulatedMeasurement
+
+func newHostMeasurements(ctx *HostContext) []common.SimulatedMeasurement {
 	return []common.SimulatedMeasurement{
-		NewCPUMeasurement(start),
-		NewDiskIOMeasurement(start),
-		NewDiskMeasurement(start),
-		NewKernelMeasurement(start),
-		NewMemMeasurement(start),
-		NewNetMeasurement(start),
-		NewNginxMeasurement(start),
-		NewPostgresqlMeasurement(start),
-		NewRedisMeasurement(start),
+		NewCPUMeasurement(ctx.start),
+		NewDiskIOMeasurement(ctx.start),
+		NewDiskMeasurement(ctx.start),
+		NewKernelMeasurement(ctx.start),
+		NewMemMeasurement(ctx.start),
+		NewNetMeasurement(ctx.start),
+		NewNginxMeasurement(ctx.start),
+		NewPostgresqlMeasurement(ctx.start),
+		NewRedisMeasurement(ctx.start),
 	}
 }
 
-func newCPUOnlyHostMeasurements(start time.Time) []common.SimulatedMeasurement {
+func newCPUOnlyHostMeasurements(ctx *HostContext) []common.SimulatedMeasurement {
 	return []common.SimulatedMeasurement{
-		NewCPUMeasurement(start),
+		NewCPUMeasurement(ctx.start),
 	}
 }
 
-func newCPUSingleHostMeasurements(start time.Time) []common.SimulatedMeasurement {
+func newCPUSingleHostMeasurements(ctx *HostContext) []common.SimulatedMeasurement {
 	return []common.SimulatedMeasurement{
-		newSingleCPUMeasurement(start),
+		newSingleCPUMeasurement(ctx.start),
 	}
+}
+
+func newGenericHostMeasurements(ctx *HostContext) []common.SimulatedMeasurement {
+	return []common.SimulatedMeasurement{NewGenericMeasurements(ctx.start, ctx.metricCount)}
 }
 
 // NewHost creates a new host in a simulated devops use case
-func NewHost(i int, start time.Time) Host {
-	return newHostWithMeasurementGenerator(i, start, newHostMeasurements)
+func NewHost(ctx *HostContext) Host {
+	return newHostWithMeasurementGenerator(newHostMeasurements, ctx)
 }
 
 // NewHostCPUOnly creates a new host in a simulated cpu-only use case, which is a subset of a devops case
 // with only CPU metrics simulated
-func NewHostCPUOnly(i int, start time.Time) Host {
-	return newHostWithMeasurementGenerator(i, start, newCPUOnlyHostMeasurements)
+func NewHostCPUOnly(ctx *HostContext) Host {
+	return newHostWithMeasurementGenerator(newCPUOnlyHostMeasurements, ctx)
 }
 
 // NewHostCPUSingle creates a new host in a simulated cpu-single use case, which is a subset of a devops case
 // with only a single CPU metric is simulated
-func NewHostCPUSingle(i int, start time.Time) Host {
-	return newHostWithMeasurementGenerator(i, start, newCPUSingleHostMeasurements)
+func NewHostCPUSingle(ctx *HostContext) Host {
+	return newHostWithMeasurementGenerator(newCPUSingleHostMeasurements, ctx)
 }
 
-func newHostWithMeasurementGenerator(i int, start time.Time, generator func(time.Time) []common.SimulatedMeasurement) Host {
-	sm := generator(start)
+// NewHostGenericMetrics creates a new host in simulated generic metrics use case. Useful for testing with
+// high cardinality metrics
+func NewHostGenericMetrics(ctx *HostContext) Host {
+	return newHostWithMeasurementGenerator(newGenericHostMeasurements, ctx)
+}
+
+func newHostWithMeasurementGenerator(gen generator, ctx *HostContext) Host {
+	sm := gen(ctx)
 
 	region := randomRegionSliceChoice(regions)
 
 	h := Host{
 		// Tag Values that are static throughout the life of a Host:
-		Name:               fmt.Sprintf(hostFmt, i),
+		Name:               fmt.Sprintf(hostFmt, ctx.id),
 		Region:             region.Name,
 		Datacenter:         common.RandomStringSliceChoice(region.Datacenters),
 		Rack:               getStringRandomInt(machineRackChoicesPerDatacenter),
@@ -214,6 +232,9 @@ func newHostWithMeasurementGenerator(i int, start time.Time, generator func(time
 		Team:               common.RandomStringSliceChoice(MachineTeamChoices),
 
 		SimulatedMeasurements: sm,
+		GenericMetricCount:    ctx.metricCount,
+		StartEpoch:            math.MaxUint64,
+		EpochsToLive:          ctx.epochsToLive,
 	}
 
 	return h

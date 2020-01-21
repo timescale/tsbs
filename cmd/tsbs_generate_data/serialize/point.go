@@ -59,6 +59,11 @@ func (p *Point) SetTimestamp(t *time.Time) {
 	p.timestamp = t
 }
 
+// GetTimestamp ..
+func (p *Point) GetTimestamp() *time.Time {
+	return p.timestamp
+}
+
 // SetMeasurementName sets the name of the measurement for this data point
 func (p *Point) SetMeasurementName(s []byte) {
 	p.measurementName = s

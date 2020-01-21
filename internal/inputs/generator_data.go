@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"sort"
@@ -21,10 +22,11 @@ const (
 	ErrNoConfig          = "no GeneratorConfig provided"
 	ErrInvalidDataConfig = "invalid config: DataGenerator needs a DataGeneratorConfig"
 
-	errLogIntervalZero    = "cannot have log interval of 0"
-	errTotalGroupsZero    = "incorrect interleaved groups configuration: total groups = 0"
-	errInvalidGroupsFmt   = "incorrect interleaved groups configuration: id %d >= total groups %d"
-	errCannotParseTimeFmt = "cannot parse time from string '%s': %v"
+	errLogIntervalZero     = "cannot have log interval of 0"
+	errTotalGroupsZero     = "incorrect interleaved groups configuration: total groups = 0"
+	errInvalidGroupsFmt    = "incorrect interleaved groups configuration: id %d >= total groups %d"
+	errCannotParseTimeFmt  = "cannot parse time from string '%s': %v"
+	errMaxMetricCountValue = "max metric count per host has to be greater than 0"
 )
 
 const defaultLogInterval = 10 * time.Second
@@ -35,11 +37,12 @@ const defaultLogInterval = 10 * time.Second
 // such as the initial scale and how spaced apart data points should be in time.
 type DataGeneratorConfig struct {
 	BaseConfig
-	Limit                uint64        `mapstructure:"max-data-points"`
-	InitialScale         uint64        `mapstructure:"initial-scale"`
-	LogInterval          time.Duration `mapstructure:"log-interval"`
-	InterleavedGroupID   uint          `mapstructure:"interleaved-generation-group-id"`
-	InterleavedNumGroups uint          `mapstructure:"interleaved-generation-groups"`
+	Limit                 uint64        `mapstructure:"max-data-points"`
+	InitialScale          uint64        `mapstructure:"initial-scale"`
+	LogInterval           time.Duration `mapstructure:"log-interval"`
+	InterleavedGroupID    uint          `mapstructure:"interleaved-generation-group-id"`
+	InterleavedNumGroups  uint          `mapstructure:"interleaved-generation-groups"`
+	MaxMetricCountPerHost uint64        `mapstructure:"max-metric-count"`
 }
 
 // Validate checks that the values of the DataGeneratorConfig are reasonable.
@@ -58,6 +61,11 @@ func (c *DataGeneratorConfig) Validate() error {
 	}
 
 	err = validateGroups(c.InterleavedGroupID, c.InterleavedNumGroups)
+
+	if c.Use == useCaseDevopsGeneric && c.MaxMetricCountPerHost < 1 {
+		return fmt.Errorf(errMaxMetricCountValue)
+	}
+
 	return err
 }
 
@@ -71,7 +79,7 @@ func (c *DataGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	fs.Uint("interleaved-generation-groups", 1,
 		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
-
+	fs.Uint64("max-metric-count", 0, "Max number of metric fields to generate per host. Used only in devops-generic use-case")
 }
 
 // DataGenerator is a type of Generator for creating data that will be consumed
@@ -215,6 +223,22 @@ func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.Sim
 			InitHostCount:   dgc.InitialScale,
 			HostCount:       dgc.Scale,
 			HostConstructor: devops.NewHostCPUSingle,
+		}
+	case useCaseDevopsGeneric:
+		if dgc.InitialScale == dgc.Scale {
+			// if no initial scale argument given we will start with 50%. The ower bound is 1
+			dgc.InitialScale = uint64(math.Max(float64(1), float64(dgc.Scale/2)))
+		}
+		ret = &devops.GenericMetricsSimulatorConfig{
+			DevopsSimulatorConfig: &devops.DevopsSimulatorConfig{
+				Start: g.tsStart,
+				End:   g.tsEnd,
+
+				InitHostCount:   dgc.InitialScale,
+				HostCount:       dgc.Scale,
+				HostConstructor: devops.NewHostGenericMetrics,
+				MaxMetricCount:  dgc.MaxMetricCountPerHost,
+			},
 		}
 	default:
 		err = fmt.Errorf("unknown use case: '%s'", dgc.Use)

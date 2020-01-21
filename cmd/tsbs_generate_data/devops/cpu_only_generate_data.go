@@ -41,7 +41,7 @@ type CPUOnlySimulatorConfig commonDevopsSimulatorConfig
 func (c *CPUOnlySimulatorConfig) NewSimulator(interval time.Duration, limit uint64) common.Simulator {
 	hostInfos := make([]Host, c.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
-		hostInfos[i] = c.HostConstructor(i, c.Start)
+		hostInfos[i] = c.HostConstructor(NewHostCtx(i, c.Start))
 	}
 
 	epochs := calculateEpochs(commonDevopsSimulatorConfig(*c), interval)

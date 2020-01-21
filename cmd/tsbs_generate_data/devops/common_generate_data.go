@@ -8,6 +8,15 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
+// HostContext contains information needed to create a new host
+type HostContext struct {
+	id    int
+	start time.Time
+	// used for devops-generic use-case
+	metricCount  uint64 // number of metrics to generate
+	epochsToLive uint64 // number of epochs to live
+}
+
 type commonDevopsSimulatorConfig struct {
 	// Start is the beginning time for the Simulator
 	Start time.Time
@@ -18,7 +27,17 @@ type commonDevopsSimulatorConfig struct {
 	// HostCount is the total number of hosts to have in the last reporting period
 	HostCount uint64
 	// HostConstructor is the function used to create a new Host given an id number and start time
-	HostConstructor func(i int, start time.Time) Host
+	HostConstructor func(ctx *HostContext) Host
+	// MaxMetricCount is the max number of metrics per host to create when using generic-devops use-case
+	MaxMetricCount uint64
+}
+
+func NewHostCtx(id int, start time.Time) *HostContext {
+	return &HostContext{id, start, 0, 0}
+}
+
+func NewHostCtxTime(start time.Time) *HostContext {
+	return &HostContext{0, start, 0, 0}
 }
 
 func calculateEpochs(c commonDevopsSimulatorConfig, interval time.Duration) uint64 {
