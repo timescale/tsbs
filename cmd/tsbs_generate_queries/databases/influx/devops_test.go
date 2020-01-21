@@ -251,7 +251,7 @@ func TestMaxAllCPU(t *testing.T) {
 				"from cpu " +
 				"where (hostname = 'host_3') and " +
 				"time >= '1970-01-01T00:54:10Z' and time < '1970-01-01T08:54:10Z' " +
-				"group by time(1m)",
+				"group by time(1h)",
 		},
 		{
 			desc:               "5 hosts",
@@ -263,7 +263,7 @@ func TestMaxAllCPU(t *testing.T) {
 				"from cpu " +
 				"where (hostname = 'host_9' or hostname = 'host_5' or hostname = 'host_1' or hostname = 'host_7' or hostname = 'host_2') " +
 				"and time >= '1970-01-01T00:37:12Z' and time < '1970-01-01T08:37:12Z' " +
-				"group by time(1m)",
+				"group by time(1h)",
 		},
 	}
 

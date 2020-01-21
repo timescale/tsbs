@@ -13,6 +13,7 @@ type HTTP struct {
 	Method           []byte
 	Path             []byte
 	Body             []byte
+	RawQuery         []byte
 	StartTimestamp   int64
 	EndTimestamp     int64
 	id               uint64
@@ -27,6 +28,7 @@ var HTTPPool = sync.Pool{
 			Method:           []byte{},
 			Path:             []byte{},
 			Body:             []byte{},
+			RawQuery:         []byte{},
 			StartTimestamp:   0,
 			EndTimestamp:     0,
 		}
