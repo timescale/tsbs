@@ -17,7 +17,7 @@ const (
 	FormatSiriDB      = "siridb"
 	FormatTimescaleDB = "timescaledb"
 	FormatAkumuli     = "akumuli"
-	FormatCrateDB 	  = "cratedb"
+	FormatCrateDB     = "cratedb"
 	FormatVictoriaMetrics = "victoriametrics"
 )
 
@@ -51,10 +51,11 @@ func isIn(s string, arr []string) bool {
 
 const (
 	// Use case choices (make sure to update TestGetConfig if adding a new one)
-	useCaseCPUOnly   = "cpu-only"
-	useCaseCPUSingle = "cpu-single"
-	useCaseDevops    = "devops"
-	useCaseIoT       = "iot"
+	useCaseCPUOnly       = "cpu-only"
+	useCaseCPUSingle     = "cpu-single"
+	useCaseDevops        = "devops"
+	useCaseIoT           = "iot"
+	useCaseDevopsGeneric = "devops-generic"
 )
 
 var useCaseChoices = []string{
@@ -62,6 +63,7 @@ var useCaseChoices = []string{
 	useCaseCPUSingle,
 	useCaseDevops,
 	useCaseIoT,
+	useCaseDevopsGeneric,
 }
 
 // ParseUTCTime parses a string-represented time of the format 2006-01-02T15:04:05Z07:00

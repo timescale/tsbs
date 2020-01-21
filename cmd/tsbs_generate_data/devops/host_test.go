@@ -12,7 +12,7 @@ import (
 
 func TestNewHostMeasurements(t *testing.T) {
 	start := time.Now()
-	measurements := newHostMeasurements(start)
+	measurements := newHostMeasurements(NewHostCtxTime(start))
 	if got := len(measurements); got != 9 {
 		t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 	}
@@ -60,7 +60,7 @@ func TestNewHostMeasurements(t *testing.T) {
 
 func TestNewCPUOnlyHostMeasurements(t *testing.T) {
 	start := time.Now()
-	measurements := newCPUOnlyHostMeasurements(start)
+	measurements := newCPUOnlyHostMeasurements(NewHostCtxTime(start))
 	if got := len(measurements); got != 1 {
 		t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 	}
@@ -76,7 +76,7 @@ func TestNewCPUOnlyHostMeasurements(t *testing.T) {
 
 func TestNewCPUSingleHostMeasurements(t *testing.T) {
 	start := time.Now()
-	measurements := newCPUSingleHostMeasurements(start)
+	measurements := newCPUSingleHostMeasurements(NewHostCtxTime(start))
 	if got := len(measurements); got != 1 {
 		t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 	}
@@ -94,7 +94,7 @@ func TestNewHost(t *testing.T) {
 	now := time.Now()
 	// test 1000 times to get diversity of results
 	for i := 0; i < 1000; i++ {
-		h := NewHost(i, now)
+		h := NewHost(NewHostCtx(i, now))
 		if got := len(h.SimulatedMeasurements); got != 9 {
 			t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 		}
@@ -117,7 +117,7 @@ func TestNewHostCPUOnly(t *testing.T) {
 	now := time.Now()
 	// test 1000 times to get diversity of results
 	for i := 0; i < 1000; i++ {
-		h := NewHostCPUOnly(i, now)
+		h := NewHostCPUOnly(NewHostCtx(i, now))
 		if got := len(h.SimulatedMeasurements); got != 1 {
 			t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 		}
@@ -140,7 +140,7 @@ func TestNewHostCPUSingle(t *testing.T) {
 	now := time.Now()
 	// test 1000 times to get diversity of results
 	for i := 0; i < 1000; i++ {
-		h := NewHostCPUSingle(i, now)
+		h := NewHostCPUSingle(NewHostCtx(i, now))
 		if got := len(h.SimulatedMeasurements); got != 1 {
 			t.Errorf("incorrect number of measurements: got %d want %d", got, 9)
 		}
@@ -159,7 +159,33 @@ func TestNewHostCPUSingle(t *testing.T) {
 	}
 }
 
-func testGenerator(s time.Time) []common.SimulatedMeasurement {
+func TestNewHostGenericMeasurments(t *testing.T) {
+	now := time.Now()
+	metricCount := uint64(100)
+	resetGenericMetricFields()
+	initGenericMetricFields(metricCount)
+	// test 1000 times to get diversity of results
+	for i := 0; i < 1000; i++ {
+		h := NewHostGenericMetrics(&HostContext{i, now, metricCount, 0})
+		if got := len(h.SimulatedMeasurements); got != 1 {
+			t.Errorf("incorrect number of measurements: got %d want %d", got, 1)
+		}
+		wantName := fmt.Sprintf(hostFmt, i)
+		if got := string(h.Name); got != wantName {
+			t.Errorf("incorrect host name format: got %s want %s", got, wantName)
+		}
+
+		genericMeasurements := h.SimulatedMeasurements[0].(*GenericMeasurements)
+		if got := genericMeasurements.Timestamp; got != now {
+			t.Errorf("incorrect CPU measurement timestamp: got %v want %v", got, now)
+		}
+		if got := len(genericMeasurements.Distributions); got != 100 {
+			t.Errorf("incorrect number of generic measurements: got %d want %d", got, 100)
+		}
+	}
+}
+
+func testGenerator(ctx *HostContext) []common.SimulatedMeasurement {
 	return []common.SimulatedMeasurement{
 		&testMeasurement{ticks: 0},
 	}
@@ -188,7 +214,7 @@ func TestNewHostWithMeasurementGenerator(t *testing.T) {
 	now := time.Now()
 	// test 1000 times to get diversity of results
 	for i := 0; i < 1000; i++ {
-		h := newHostWithMeasurementGenerator(i, now, testGenerator)
+		h := newHostWithMeasurementGenerator(testGenerator, NewHostCtx(i, now))
 		wantName := fmt.Sprintf(hostFmt, i)
 		if got := string(h.Name); got != wantName {
 			t.Errorf("incorrect host name format: got %s want %s", got, wantName)
@@ -218,7 +244,7 @@ func (m *testMeasurement) ToPoint(_ *serialize.Point) {}
 
 func TestHostTickAll(t *testing.T) {
 	now := time.Now()
-	h := newHostWithMeasurementGenerator(0, now, testGenerator)
+	h := newHostWithMeasurementGenerator(testGenerator, NewHostCtxTime(now))
 	if got := h.SimulatedMeasurements[0].(*testMeasurement).ticks; got != 0 {
 		t.Errorf("ticks not equal to 0 to start: got %d", got)
 	}

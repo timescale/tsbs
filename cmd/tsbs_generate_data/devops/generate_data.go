@@ -42,9 +42,9 @@ type DevopsSimulatorConfig commonDevopsSimulatorConfig
 func (d *DevopsSimulatorConfig) NewSimulator(interval time.Duration, limit uint64) common.Simulator {
 	hostInfos := make([]Host, d.HostCount)
 	for i := 0; i < len(hostInfos); i++ {
-		hostInfos[i] = d.HostConstructor(i, d.Start)
+		hostInfos[i] = d.HostConstructor(NewHostCtx(i, d.Start))
 	}
-
+		
 	epochs := calculateEpochs(commonDevopsSimulatorConfig(*d), interval)
 	maxPoints := epochs * d.HostCount * uint64(len(hostInfos[0].SimulatedMeasurements))
 	if limit > 0 && limit < maxPoints {
