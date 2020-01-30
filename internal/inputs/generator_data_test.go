@@ -450,6 +450,7 @@ func TestGetSerializer(t *testing.T) {
 	checkType(FormatSiriDB, &serialize.SiriDBSerializer{})
 	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
 	checkType(FormatCrateDB, &serialize.CrateDBSerializer{})
+	checkType(FormatPrometheus, &serialize.PrometheusSerializer{})
 	checkType(FormatVictoriaMetrics, &serialize.InfluxSerializer{})
 
 	_, err = g.getSerializer(sim, "bogus format")

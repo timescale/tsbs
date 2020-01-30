@@ -271,6 +271,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 	case FormatTimescaleDB:
 		g.writeHeader(sim)
 		ret = &serialize.TimescaleDBSerializer{}
+	case FormatPrometheus:
+		ret, err = serialize.NewPrometheusSerializer(g.bufOut)
 	default:
 		err = fmt.Errorf(errUnknownFormatFmt, format)
 	}
