@@ -66,7 +66,11 @@ func genZipfArray(arraySize uint64, maxValue uint64) []uint64 {
 	zipf := rand.NewZipf(rand.New(rand.NewSource(zipfRandSeed)), 1.01, 1, maxValue)
 	for i := range zipfArray {
 		val := zipf.Uint64()
-		zipfArray[i] = val + 1
+		if val == maxValue {
+			zipfArray[i] = val
+		} else {
+			zipfArray[i] = val + 1
+		}
 	}
 	return zipfArray
 }
