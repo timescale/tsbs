@@ -139,8 +139,10 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 	l.br = l.GetBufferedReader()
 
 	// Create required DB
-	cleanupFn := l.useDBCreator(b.GetDBCreator())
-	defer cleanupFn()
+	if b.GetDBCreator() != nil {
+		cleanupFn := l.useDBCreator(b.GetDBCreator())
+		defer cleanupFn()
+	}
 
 	channels := l.createChannels(workQueues)
 

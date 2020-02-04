@@ -11,6 +11,7 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gocql/gocql v0.0.0-20190810123941-df4b9cc33030
 	github.com/golang/protobuf v1.3.1
+	github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 	github.com/google/flatbuffers v1.11.0
 	github.com/google/go-cmp v0.3.1
 	github.com/jackc/pgconn v1.1.0
