@@ -68,10 +68,10 @@ func (ps *PrometheusSerializer) Serialize(p *Point, w io.Writer) error {
 
 // Each point field will become a new TimeSeries with added field key as a label
 func (ps *PrometheusSerializer) convertToPromSeries(p *Point) []*prompb.TimeSeries {
-	labels := make([]*prompb.Label, len(p.tagKeys))
+	labels := make([]prompb.Label, len(p.tagKeys))
 	series := make([]*prompb.TimeSeries, len(p.fieldKeys))
 	for i := range p.tagKeys {
-		label := &prompb.Label{
+		label := prompb.Label{
 			Name:  string(p.tagKeys[i]),
 			Value: p.tagValues[i].(string),
 		}
@@ -79,7 +79,7 @@ func (ps *PrometheusSerializer) convertToPromSeries(p *Point) []*prompb.TimeSeri
 	}
 	tsMs := p.GetTimestamp().UnixNano() / 1000000
 	for i := range p.fieldKeys {
-		metricNameLabel := &prompb.Label{
+		metricNameLabel := prompb.Label{
 			Name:  model.MetricNameLabel,
 			Value: string(p.fieldKeys[i]),
 		}
