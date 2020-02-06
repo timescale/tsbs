@@ -21,7 +21,7 @@ var promBatchPool sync.Pool = sync.Pool{New: func() interface{} { return &Promet
 
 // PrometheusBatch implements load.Batch interface
 type PrometheusBatch struct {
-	series []*prompb.TimeSeries
+	series []prompb.TimeSeries
 }
 
 func (pb *PrometheusBatch) Len() int {
@@ -29,7 +29,7 @@ func (pb *PrometheusBatch) Len() int {
 }
 
 func (pb *PrometheusBatch) Append(item *load.Point) {
-	pb.series = append(pb.series, item.Data.(*prompb.TimeSeries))
+	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
 }
 
 // PrometheusDecoder implements scan.PointDecoder interface
@@ -43,7 +43,7 @@ func (pd *PrometheusDecoder) Decode(reader *bufio.Reader) *load.Point {
 		if err != nil {
 			panic(err)
 		}
-		return load.NewPoint(ts)
+		return load.NewPoint(*ts)
 	}
 	return nil
 }

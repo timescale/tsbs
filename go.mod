@@ -10,8 +10,8 @@ require (
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gocql/gocql v0.0.0-20190810123941-df4b9cc33030
-	github.com/golang/protobuf v1.3.1
-	github.com/golang/snappy v0.0.0-20170215233205-553a64147049
+	github.com/golang/protobuf v1.3.2
+	github.com/golang/snappy v0.0.1
 	github.com/google/flatbuffers v1.11.0
 	github.com/google/go-cmp v0.3.1
 	github.com/jackc/pgconn v1.1.0
@@ -20,8 +20,8 @@ require (
 	github.com/kshvakov/clickhouse v1.3.11
 	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/common v0.4.0
-	github.com/prometheus/prometheus v2.5.0+incompatible
+	github.com/prometheus/common v0.8.0
+	github.com/prometheus/prometheus v1.8.2-0.20200206105533-641676b3975c
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/shirou/gopsutil v2.18.12+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect

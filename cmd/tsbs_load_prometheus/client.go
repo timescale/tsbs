@@ -32,7 +32,7 @@ func NewClient(urlStr string, timeout time.Duration) (*Client, error) {
 }
 
 // Post sends POST request to Prometheus adapter
-func (c *Client) Post(series []*prompb.TimeSeries) error {
+func (c *Client) Post(series []prompb.TimeSeries) error {
 	wr := &prompb.WriteRequest{
 		Timeseries: series,
 	}
@@ -48,6 +48,7 @@ func (c *Client) Post(series []*prompb.TimeSeries) error {
 	}
 	httpReq.Header.Add("Content-Encoding", "snappy")
 	httpReq.Header.Set("Content-Type", "application/x-protobuf")
+	httpReq.Header.Set("X-Prometheus-Remote-Write-Version", "0.1.0")
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return err

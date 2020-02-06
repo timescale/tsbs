@@ -20,7 +20,7 @@ func TestPrometheusLoader(t *testing.T) {
 	adapterWriteUrl = serverURL.String()
 	pb := PrometheusBenchmark{}
 	pp := pb.GetProcessor().(*PrometheusProcessor)
-	batch := &PrometheusBatch{series: []*prompb.TimeSeries{&prompb.TimeSeries{}}}
+	batch := &PrometheusBatch{series: []prompb.TimeSeries{prompb.TimeSeries{}}}
 	samples, _ := pp.ProcessBatch(batch, true)
 	if samples != 1 {
 		t.Error("wrong number of samples")
