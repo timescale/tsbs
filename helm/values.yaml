@@ -1,0 +1,10 @@
+tsbs:
+  image: timescaledev/tsbs
+
+persistentVolume:
+  size: 100G
+
+resources:
+  requests:
+    memory: 24Gi
+    cpu: 7
