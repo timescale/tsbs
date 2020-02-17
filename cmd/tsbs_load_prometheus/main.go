@@ -94,6 +94,7 @@ func (pm *PrometheusBenchmark) GetBatchFactory() load.BatchFactory {
 }
 
 func (pm *PrometheusBenchmark) GetPointIndexer(_ uint) load.PointIndexer {
+	// We always have one shared queue and 1+ workers
 	return &load.ConstantIndexer{}
 }
 
@@ -131,5 +132,5 @@ func init() {
 }
 
 func main() {
-	loader.RunBenchmark(&PrometheusBenchmark{}, load.WorkerPerQueue)
+	loader.RunBenchmark(&PrometheusBenchmark{}, load.SingleQueue)
 }
