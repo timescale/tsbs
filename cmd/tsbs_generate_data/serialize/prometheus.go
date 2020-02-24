@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 
 	"github.com/golang/protobuf/proto"

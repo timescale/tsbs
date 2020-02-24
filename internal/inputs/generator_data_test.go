@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
 
 	"io"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/data/usecases/devops"
