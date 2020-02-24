@@ -2,6 +2,7 @@ package serialize
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 )
 
@@ -15,13 +16,15 @@ type TimescaleDBSerializer struct{}
 // e.g.,
 // tags,<tag1>,<tag2>,<tag3>,...
 // <measurement>,<timestamp>,<field1>,<field2>,<field3>,...
-func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
+func (s *TimescaleDBSerializer) Serialize(p *data.Point, w io.Writer) error {
 	// Tag row first, prefixed with name 'tags'
 	buf := make([]byte, 0, 256)
 	buf = append(buf, []byte("tags")...)
-	for i, v := range p.tagValues {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	for i, v := range tagValues {
 		buf = append(buf, ',')
-		buf = append(buf, p.tagKeys[i]...)
+		buf = append(buf, tagKeys[i]...)
 		buf = append(buf, '=')
 		buf = fastFormatAppend(v, buf)
 	}
@@ -33,11 +36,11 @@ func (s *TimescaleDBSerializer) Serialize(p *Point, w io.Writer) error {
 
 	// Field row second
 	buf = make([]byte, 0, 256)
-	buf = append(buf, p.measurementName...)
+	buf = append(buf, p.MeasurementName()...)
 	buf = append(buf, ',')
-	buf = append(buf, []byte(fmt.Sprintf("%d", p.timestamp.UTC().UnixNano()))...)
-
-	for _, v := range p.fieldValues {
+	buf = append(buf, []byte(fmt.Sprintf("%d", p.Timestamp().UTC().UnixNano()))...)
+	fieldValues := p.FieldValues()
+	for _, v := range fieldValues {
 		buf = append(buf, ',')
 		buf = fastFormatAppend(v, buf)
 	}

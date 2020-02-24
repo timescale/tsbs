@@ -4,17 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/data/usecases/devops"
+	"github.com/timescale/tsbs/pkg/data/usecases/iot"
 	"io"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 func TestDataGeneratorConfigValidate(t *testing.T) {
@@ -227,7 +227,7 @@ func (s *testSimulator) Finished() bool {
 	return s.iteration >= s.limit
 }
 
-func (s *testSimulator) Next(p *serialize.Point) bool {
+func (s *testSimulator) Next(p *data.Point) bool {
 	p.AppendField(keyIteration, s.iteration)
 	ret := s.iteration < s.shouldWriteLimit
 	s.iteration++
@@ -250,7 +250,7 @@ type testSerializer struct {
 	shouldError bool
 }
 
-func (s *testSerializer) Serialize(p *serialize.Point, w io.Writer) error {
+func (s *testSerializer) Serialize(p *data.Point, w io.Writer) error {
 	if s.shouldError {
 		return fmt.Errorf("erroring")
 	}

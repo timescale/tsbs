@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 	"log"
 	"testing"
@@ -23,7 +24,7 @@ func TestMongoSerializerSerialize(t *testing.T) {
 	}
 	cases := []struct {
 		desc       string
-		inputPoint *Point
+		inputPoint *data.Point
 		want       output
 	}{
 		{
@@ -34,8 +35,8 @@ func TestMongoSerializerSerialize(t *testing.T) {
 				ts:          testNow.UnixNano(),
 				tagKeys:     testTagKeys,
 				tagVals:     testTagVals,
-				readingKeys: testPointDefault.fieldKeys,
-				readingVals: testPointDefault.fieldValues,
+				readingKeys: testPointDefault.FieldKeys(),
+				readingVals: testPointDefault.FieldValues(),
 			},
 		},
 		{
@@ -46,8 +47,8 @@ func TestMongoSerializerSerialize(t *testing.T) {
 				ts:          testNow.UnixNano(),
 				tagKeys:     testTagKeys,
 				tagVals:     testTagVals,
-				readingKeys: testPointInt.fieldKeys,
-				readingVals: testPointInt.fieldValues,
+				readingKeys: testPointInt.FieldKeys(),
+				readingVals: testPointInt.FieldValues(),
 			},
 		},
 		{
@@ -58,8 +59,8 @@ func TestMongoSerializerSerialize(t *testing.T) {
 				ts:          testNow.UnixNano(),
 				tagKeys:     testTagKeys,
 				tagVals:     testTagVals,
-				readingKeys: testPointMultiField.fieldKeys,
-				readingVals: testPointMultiField.fieldValues,
+				readingKeys: testPointMultiField.FieldKeys(),
+				readingVals: testPointMultiField.FieldValues(),
 			},
 		},
 		{
@@ -70,8 +71,8 @@ func TestMongoSerializerSerialize(t *testing.T) {
 				ts:          testNow.UnixNano(),
 				tagKeys:     [][]byte{},
 				tagVals:     []interface{}{},
-				readingKeys: testPointNoTags.fieldKeys,
-				readingVals: testPointNoTags.fieldValues,
+				readingKeys: testPointNoTags.FieldKeys(),
+				readingVals: testPointNoTags.FieldValues(),
 			},
 		},
 	}
@@ -184,10 +185,9 @@ func TestMongoSerializerTypePanic(t *testing.T) {
 				t.Errorf("did not panic when should")
 			}
 		}()
-		p := &Point{
-			measurementName: testMeasurement,
-			timestamp:       &testNow,
-		}
+		p := &data.Point{}
+		p.SetMeasurementName(testMeasurement)
+		p.SetTimestamp(&testNow)
 		p.AppendField([]byte("broken"), "a string?")
 		ps := &MongoSerializer{}
 		b := new(bytes.Buffer)

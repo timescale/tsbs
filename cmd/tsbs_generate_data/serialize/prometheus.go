@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 
 	"github.com/golang/protobuf/proto"
@@ -45,7 +46,7 @@ func (ps *PrometheusSerializer) writeHeader(w io.Writer) (int, error) {
 }
 
 // Serialize point into our custom binary format
-func (ps *PrometheusSerializer) Serialize(p *Point, w io.Writer) error {
+func (ps *PrometheusSerializer) Serialize(p *data.Point, w io.Writer) error {
 	series := ps.convertToPromSeries(p)
 	for _, ts := range series {
 		protoBytes, err := proto.Marshal(ts)
@@ -67,27 +68,31 @@ func (ps *PrometheusSerializer) Serialize(p *Point, w io.Writer) error {
 }
 
 // Each point field will become a new TimeSeries with added field key as a label
-func (ps *PrometheusSerializer) convertToPromSeries(p *Point) []*prompb.TimeSeries {
-	labels := make([]prompb.Label, len(p.tagKeys))
-	series := make([]*prompb.TimeSeries, len(p.fieldKeys))
-	for i := range p.tagKeys {
+func (ps *PrometheusSerializer) convertToPromSeries(p *data.Point) []*prompb.TimeSeries {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	fieldKeys := p.FieldKeys()
+	fieldValues := p.FieldValues()
+	labels := make([]prompb.Label, len(tagKeys))
+	series := make([]*prompb.TimeSeries, len(fieldKeys))
+	for i := range tagKeys {
 		label := prompb.Label{
-			Name:  string(p.tagKeys[i]),
-			Value: p.tagValues[i].(string),
+			Name:  string(tagKeys[i]),
+			Value: tagValues[i].(string),
 		}
 		labels[i] = label
 	}
-	tsMs := p.GetTimestamp().UnixNano() / 1000000
-	for i := range p.fieldKeys {
+	tsMs := p.Timestamp().UnixNano() / 1000000
+	for i := range fieldKeys {
 		metricNameLabel := prompb.Label{
 			Name:  model.MetricNameLabel,
-			Value: string(p.fieldKeys[i]),
+			Value: string(fieldKeys[i]),
 		}
 		allLabels := append(labels, metricNameLabel)
 
 		ts := &prompb.TimeSeries{
 			Labels:  allLabels,
-			Samples: []prompb.Sample{prompb.Sample{Value: getFloat64(p.fieldValues[i]), Timestamp: tsMs}},
+			Samples: []prompb.Sample{prompb.Sample{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
 		}
 		series[i] = ts
 	}

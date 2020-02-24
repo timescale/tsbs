@@ -3,6 +3,11 @@ package inputs
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/data/usecases/devops"
+	"github.com/timescale/tsbs/pkg/data/usecases/iot"
 	"io"
 	"math"
 	"math/rand"
@@ -11,10 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // Error messages when using a DataGenerator
@@ -162,7 +163,7 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 	defer g.bufOut.Flush()
 
 	currGroupID := uint(0)
-	point := serialize.NewPoint()
+	point := data.NewPoint()
 	for !sim.Finished() {
 		write := sim.Next(point)
 		if !write {

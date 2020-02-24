@@ -3,6 +3,7 @@ package serialize
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 	"log"
 	"strconv"
@@ -28,17 +29,19 @@ type SiriDBSerializer struct{}
 //
 // The output looks like this:
 // <number of metrics> <length of name and tags> <name and tags> <length of field key_1> <length of timestamp_1 and field value_1> <field key_1> <packed timestamp_1 and value_1> <length of field key_2> <length of timestamp_1 and field value_2> <field key_2> <packed timestamp_1 and value_2>... etc.
-func (s *SiriDBSerializer) Serialize(p *Point, w io.Writer) error {
+func (s *SiriDBSerializer) Serialize(p *data.Point, w io.Writer) error {
 	line := make([]byte, 8, 1024)
-	line = append(line, p.measurementName...)
+	line = append(line, p.MeasurementName()...)
 	line = append(line, '|')
-	for i, v := range p.tagValues {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	for i, v := range tagValues {
 		if i != 0 {
 			line = append(line, ',')
 		}
 		switch t := v.(type) {
 		case string:
-			line = append(line, p.tagKeys[i]...)
+			line = append(line, tagKeys[i]...)
 			line = append(line, '=')
 			line = append(line, []byte(t)...)
 		default:
@@ -51,20 +54,21 @@ func (s *SiriDBSerializer) Serialize(p *Point, w io.Writer) error {
 
 	var err error
 	metricCount := 0
-
-	for i, value := range p.fieldValues {
+	fieldValues := p.FieldValues()
+	fieldKeys := p.FieldKeys()
+	for i, value := range fieldValues {
 
 		indexLenData := len(line) + 4
 
 		key := make([]byte, 9, 64)
 		key[8] = '|'
-		key = append(key, p.fieldKeys[i]...)
+		key = append(key, fieldKeys[i]...)
 
 		binary.LittleEndian.PutUint32(key[0:], uint32(len(key)-8))
 		line = append(line, key...)
 
 		preQpack := len(line)
-		ts, _ := strconv.ParseInt(fmt.Sprintf("%d", p.timestamp.UTC().UnixNano()), 10, 64)
+		ts, _ := strconv.ParseInt(fmt.Sprintf("%d", p.Timestamp().UTC().UnixNano()), 10, 64)
 		err := qpack.PackTo(&line, []interface{}{ts, value}) // packs a byte array in the right format for SiriDB
 		if err != nil {
 			log.Fatal(err)

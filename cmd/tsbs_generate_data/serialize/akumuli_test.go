@@ -2,6 +2,7 @@ package serialize
 
 import (
 	"bytes"
+	"github.com/timescale/tsbs/pkg/data"
 	"strings"
 	"testing"
 )
@@ -10,7 +11,7 @@ func TestAkumuliSerializerSerialize(t *testing.T) {
 
 	serializer := NewAkumuliSerializer()
 
-	points := []*Point{
+	points := []*data.Point{
 		testPointDefault,
 		testPointInt,
 		testPointMultiField,

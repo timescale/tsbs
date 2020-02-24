@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 	"log"
 	"testing"
@@ -18,7 +19,7 @@ func TestSiriDBSerializerSerialize(t *testing.T) {
 	}
 	cases := []struct {
 		desc       string
-		inputPoint *Point
+		inputPoint *data.Point
 		want       output
 	}{
 		{

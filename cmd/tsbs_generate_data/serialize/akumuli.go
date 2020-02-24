@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 )
 
@@ -32,7 +33,7 @@ func NewAkumuliSerializer() *AkumuliSerializer {
 // Serialize writes Point data to the given writer, conforming to the
 // AKUMULI RESP protocol.  Serializer adds extra data to guide data loader.
 // This function writes output that contains binary and text data in RESP format.
-func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
+func (s *AkumuliSerializer) Serialize(p *data.Point, w io.Writer) (err error) {
 	deferPoint := false
 
 	buf := make([]byte, 0, 1024)
@@ -42,22 +43,26 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	buf = append(buf, "+"...)
 
 	// Series name
-	for i := 0; i < len(p.fieldKeys); i++ {
-		buf = append(buf, p.measurementName...)
+	fieldKeys := p.FieldKeys()
+	measurementName := p.MeasurementName()
+	for i := 0; i < len(fieldKeys); i++ {
+		buf = append(buf, measurementName...)
 		buf = append(buf, '.')
-		buf = append(buf, p.fieldKeys[i]...)
-		if i+1 < len(p.fieldKeys) {
+		buf = append(buf, fieldKeys[i]...)
+		if i+1 < len(fieldKeys) {
 			buf = append(buf, '|')
 		} else {
 			buf = append(buf, ' ')
 		}
 	}
 
-	for i := 0; i < len(p.tagKeys); i++ {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	for i := 0; i < len(tagKeys); i++ {
 		buf = append(buf, ' ')
-		buf = append(buf, p.tagKeys[i]...)
+		buf = append(buf, tagKeys[i]...)
 		buf = append(buf, '=')
-		buf = append(buf, p.tagValues[i].(string)...)
+		buf = append(buf, tagValues[i].(string)...)
 	}
 
 	series := string(buf[HeaderLength:])
@@ -112,13 +117,14 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 
 	// Timestamp
 	buf = append(buf, ':')
-	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
+	buf = fastFormatAppend(p.Timestamp().UTC().UnixNano(), buf)
 	buf = append(buf, '\n')
 
 	// Values
-	buf = append(buf, fmt.Sprintf("*%d\n", len(p.fieldValues))...)
-	for i := 0; i < len(p.fieldValues); i++ {
-		v := p.fieldValues[i]
+	fieldValues := p.FieldValues()
+	buf = append(buf, fmt.Sprintf("*%d\n", len(fieldValues))...)
+	for i := 0; i < len(fieldValues); i++ {
+		v := fieldValues[i]
 		switch v.(type) {
 		case int, int64:
 			buf = append(buf, ':')
@@ -131,7 +137,7 @@ func (s *AkumuliSerializer) Serialize(p *Point, w io.Writer) (err error) {
 
 	// Update cue
 	binary.LittleEndian.PutUint16(buf[4:6], uint16(len(buf)))
-	binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(len(p.fieldValues)))
+	binary.LittleEndian.PutUint16(buf[6:HeaderLength], uint16(len(fieldValues)))
 	if deferPoint {
 		s.deferred = append(s.deferred, buf...)
 		return nil
