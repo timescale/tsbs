@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 // Program option vars:

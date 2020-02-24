@@ -3,6 +3,7 @@ package serialize
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 	"sync"
 
@@ -19,17 +20,19 @@ var fbBuilderPool = &sync.Pool{
 type MongoSerializer struct{}
 
 // Serialize writes Point data to the given Writer, using basic gob encoding
-func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
+func (s *MongoSerializer) Serialize(p *data.Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
-	timestampNanos := p.timestamp.UTC().UnixNano()
+	timestampNanos := p.Timestamp().UTC().UnixNano()
 	tags := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
-	for i := len(p.tagKeys); i > 0; i-- {
-		switch v := p.tagValues[i-1].(type) {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	for i := len(tagKeys); i > 0; i-- {
+		switch v := tagValues[i-1].(type) {
 		case string:
-			k := string(p.tagKeys[i-1])
+			k := string(tagKeys[i-1])
 			key := b.CreateString(k)
 			val := b.CreateString(v)
 			MongoTagStart(b)
@@ -51,12 +54,14 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	fields := []flatbuffers.UOffsetT{}
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
-	for i := len(p.fieldKeys); i > 0; i-- {
-		val := p.fieldValues[i-1]
+	fieldKeys := p.FieldKeys()
+	fieldValues := p.FieldValues()
+	for i := len(fieldKeys); i > 0; i-- {
+		val := fieldValues[i-1]
 		if val == nil {
 			continue
 		}
-		newField := createField(b, p.fieldKeys[i-1], val)
+		newField := createField(b, fieldKeys[i-1], val)
 		fields = append(fields, newField)
 	}
 	MongoPointStartFieldsVector(b, len(fields))
@@ -65,7 +70,7 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	}
 	fieldsArr := b.EndVector(len(fields))
 
-	measurement := b.CreateString(string(p.measurementName))
+	measurement := b.CreateString(string(p.MeasurementName()))
 	MongoPointStart(b)
 	MongoPointAddMeasurementName(b, measurement)
 	MongoPointAddTimestamp(b, timestampNanos)

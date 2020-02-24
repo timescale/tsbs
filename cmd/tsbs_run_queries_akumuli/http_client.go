@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 // HTTPClient is a reusable HTTP Client.

@@ -1,6 +1,7 @@
 package serialize
 
 import (
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 )
 
@@ -15,27 +16,29 @@ type InfluxSerializer struct{}
 //
 // For example:
 // foo,tag0=bar baz=-1.0 100\n
-func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
+func (s *InfluxSerializer) Serialize(p *data.Point, w io.Writer) (err error) {
 	buf := make([]byte, 0, 1024)
-	buf = append(buf, p.measurementName...)
+	buf = append(buf, p.MeasurementName()...)
 
 	fakeTags := make([]int, 0)
-	for i := 0; i < len(p.tagKeys); i++ {
-		if p.tagValues[i] == nil {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	for i := 0; i < len(tagKeys); i++ {
+		if tagValues[i] == nil {
 			continue
 		}
-		switch v := p.tagValues[i].(type) {
+		switch v := tagValues[i].(type) {
 		case string:
 			buf = append(buf, ',')
-			buf = append(buf, p.tagKeys[i]...)
+			buf = append(buf, tagKeys[i]...)
 			buf = append(buf, '=')
 			buf = append(buf, []byte(v)...)
 		default:
 			fakeTags = append(fakeTags, i)
 		}
 	}
-
-	if len(fakeTags) > 0 || len(p.fieldKeys) > 0 {
+	fieldKeys := p.FieldKeys()
+	if len(fakeTags) > 0 || len(fieldKeys) > 0 {
 		buf = append(buf, ' ')
 	}
 	firstFieldFormatted := false
@@ -46,11 +49,12 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			buf = append(buf, ',')
 		}
 		firstFieldFormatted = true
-		buf = appendField(buf, p.tagKeys[tagIndex], p.tagValues[tagIndex])
+		buf = appendField(buf, tagKeys[tagIndex], tagValues[tagIndex])
 	}
 
-	for i := 0; i < len(p.fieldKeys); i++ {
-		value := p.fieldValues[i]
+	fieldValues := p.FieldValues()
+	for i := 0; i < len(fieldKeys); i++ {
+		value := fieldValues[i]
 		if value == nil {
 			continue
 		}
@@ -59,7 +63,7 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			buf = append(buf, ',')
 		}
 		firstFieldFormatted = true
-		buf = appendField(buf, p.fieldKeys[i], value)
+		buf = appendField(buf, fieldKeys[i], value)
 	}
 
 	// first field wasn't formatted, because all the fields were nil, InfluxDB will reject the insert
@@ -67,7 +71,7 @@ func (s *InfluxSerializer) Serialize(p *Point, w io.Writer) (err error) {
 		return nil
 	}
 	buf = append(buf, ' ')
-	buf = fastFormatAppend(p.timestamp.UTC().UnixNano(), buf)
+	buf = fastFormatAppend(p.Timestamp().UTC().UnixNano(), buf)
 	buf = append(buf, '\n')
 	_, err = w.Write(buf)
 

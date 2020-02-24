@@ -2,6 +2,7 @@ package serialize
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"io"
 )
 
@@ -17,21 +18,23 @@ type CrateDBSerializer struct{}
 //
 // An example of a serialized point:
 //     cpu\t{"hostname":"host_0","rack":"1"}\t1451606400000000000\t38\t0\t50\t41234
-func (s *CrateDBSerializer) Serialize(p *Point, w io.Writer) error {
+func (s *CrateDBSerializer) Serialize(p *data.Point, w io.Writer) error {
 	buf := make([]byte, 0, 256)
 
 	// measurement type
-	buf = append(buf, p.measurementName...)
+	buf = append(buf, p.MeasurementName()...)
 	buf = append(buf, TAB)
 
 	// tags
-	if len(p.tagKeys) > 0 {
+	tagKeys := p.TagKeys()
+	tagValues := p.TagValues()
+	if len(tagKeys) > 0 {
 		buf = append(buf, '{')
-		for i, key := range p.tagKeys {
+		for i, key := range tagKeys {
 			buf = append(buf, '"')
 			buf = append(buf, key...)
 			buf = append(buf, []byte("\":\"")...)
-			buf = fastFormatAppend(p.tagValues[i], buf)
+			buf = fastFormatAppend(tagValues[i], buf)
 			buf = append(buf, []byte("\",")...)
 		}
 		buf = buf[:len(buf)-1]
@@ -42,11 +45,12 @@ func (s *CrateDBSerializer) Serialize(p *Point, w io.Writer) error {
 
 	// timestamp
 	buf = append(buf, TAB)
-	ts := fmt.Sprintf("%d", p.timestamp.UTC().UnixNano())
+	ts := fmt.Sprintf("%d", p.Timestamp().UTC().UnixNano())
 	buf = append(buf, ts...)
 
 	// metrics
-	for _, v := range p.fieldValues {
+	fieldValues := p.FieldValues()
+	for _, v := range fieldValues {
 		buf = append(buf, TAB)
 		buf = fastFormatAppend(v, buf)
 	}

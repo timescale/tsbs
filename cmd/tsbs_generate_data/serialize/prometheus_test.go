@@ -37,7 +37,7 @@ func TestPrometheusSerializer(t *testing.T) {
 
 	ts := series[0]
 	assertEqual(testFloat, ts.Samples[0].GetValue(), t, "bad sample value")
-	assertEqual(testPointDefault.timestamp.UnixNano()/1000000, ts.Samples[0].GetTimestamp(), t, "wrong timestamp")
+	assertEqual(testPointDefault.Timestamp().UnixNano()/1000000, ts.Samples[0].GetTimestamp(), t, "wrong timestamp")
 
 	// We add metric name as label into TimeSeries
 	assertEqual(len(testPointDefault.TagKeys())+1, len(ts.Labels), t, "wrong number of tags")
