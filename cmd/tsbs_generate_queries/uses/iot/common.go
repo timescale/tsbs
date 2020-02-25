@@ -2,11 +2,11 @@ package iot
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/usecases/iot"
 	"math/rand"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/common"
-	"github.com/timescale/tsbs/internal/usecase"
 	"github.com/timescale/tsbs/pkg/query"
 )
 
@@ -61,7 +61,7 @@ type Core struct {
 
 // GetRandomFleet returns one of the fleet choices by random.
 func (c Core) GetRandomFleet() string {
-	return usecase.FleetChoices[rand.Intn(len(usecase.FleetChoices))]
+	return iot.FleetChoices[rand.Intn(len(iot.FleetChoices))]
 }
 
 // NewCore returns a new Core for the given time range and cardinality

@@ -1,4 +1,4 @@
-package main
+package timescaledb
 
 import (
 	"bufio"
@@ -160,17 +160,17 @@ func TestDBCreatorGetCreateIndexOnFieldSQL(t *testing.T) {
 		},
 		{
 			desc:    "single TIME-VALUE index",
-			idxType: timeValueIdx,
+			idxType: TimeValueIdx,
 			want:    []string{timeValue},
 		},
 		{
 			desc:    "single VALUE-TIME index",
-			idxType: valueTimeIdx,
+			idxType: ValueTimeIdx,
 			want:    []string{valueTime},
 		},
 		{
 			desc:    "two indexes",
-			idxType: timeValueIdx + "," + valueTimeIdx,
+			idxType: TimeValueIdx + "," + ValueTimeIdx,
 			want:    []string{timeValue, valueTime},
 		},
 		{
@@ -259,12 +259,13 @@ func TestDBCreatorGetFieldAndIndexDefinitions(t *testing.T) {
 
 	for _, c := range cases {
 		// Set the global in-table-tag flag based on the test case
-		inTableTag = c.inTableTag
 		// Initialize global cache
 		tableCols[tagsKey] = []string{}
 		tableCols[tagsKey] = append(tableCols[tagsKey], "hostname")
-		dbc := &dbCreator{}
-		fieldIndexCount = c.fieldIndexCount
+		dbc := &dbCreator{opts: &ProgramOptions{
+			InTableTag:      c.inTableTag,
+			FieldIndexCount: c.fieldIndexCount,
+		}}
 		fieldDefs, indexDefs := dbc.getFieldAndIndexDefinitions(c.columns)
 		for i, fieldDef := range fieldDefs {
 			if fieldDef != c.wantFieldDefs[i] {

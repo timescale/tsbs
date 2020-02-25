@@ -1,4 +1,4 @@
-package main
+package timescaledb
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ func TestGetConnectString(t *testing.T) {
 	wantHost := "localhost"
 	wantDB := "benchmark"
 	wantUser := "postgres"
+	wantPort := "5432"
 	want := fmt.Sprintf("host=%s dbname=%s user=%s ssl=disable port=5432", wantHost, wantDB, wantUser)
 	cases := []struct {
 		desc      string
@@ -29,10 +30,8 @@ func TestGetConnectString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		host = wantHost
-		user = wantUser
-		postgresConnect = c.pgConnect
-		cstr := getConnectString()
+		opts := ProgramOptions{Port: wantPort, DBname: wantDB, Host: wantHost, User: wantUser, PostgresConnect: c.pgConnect}
+		cstr := opts.GetConnectString()
 		if cstr != want {
 			t.Errorf("%s: incorrect connect string: got %s want %s", c.desc, cstr, want)
 		}

@@ -5,8 +5,6 @@ import (
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"math/rand"
 	"time"
-
-	"github.com/timescale/tsbs/internal/usecase"
 )
 
 const (
@@ -57,6 +55,14 @@ var (
 		"v2.0",
 		"v2.3",
 	}
+
+	// FleetChoices contains all the fleet name values for the IoT use case
+	FleetChoices = []string{
+		"East",
+		"West",
+		"North",
+		"South",
+	}
 )
 
 // Truck models a truck outfitted with an IoT device which sends back measurements.
@@ -103,7 +109,7 @@ func newTruckWithMeasurementGenerator(i int, start time.Time, generator func(tim
 	h := Truck{
 		tags: []common.Tag{
 			{Key: []byte("name"), Value: fmt.Sprintf(truckNameFmt, i)},
-			{Key: []byte("fleet"), Value: common.RandomStringSliceChoice(usecase.FleetChoices)},
+			{Key: []byte("fleet"), Value: common.RandomStringSliceChoice(FleetChoices)},
 			{Key: []byte("driver"), Value: common.RandomStringSliceChoice(driverChoices)},
 			{Key: []byte("model"), Value: m.Name},
 			{Key: []byte("device_version"), Value: common.RandomStringSliceChoice(deviceVersionChoices)},

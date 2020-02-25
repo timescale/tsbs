@@ -1,4 +1,4 @@
-package main
+package timescaledb
 
 import (
 	"context"
@@ -27,6 +27,11 @@ type syncCSI struct {
 	mutex *sync.RWMutex
 }
 
+type insertData struct {
+	tags   string
+	fields string
+}
+
 func newSyncCSI() *syncCSI {
 	return &syncCSI{
 		m:     make(map[string]int64),
@@ -47,28 +52,28 @@ func subsystemTagsToJSON(tags []string) map[string]interface{} {
 	return json
 }
 
-func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]int64 {
+func (p *processor) insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]int64 {
 	tagCols := tableCols[tagsKey]
 	cols := tagCols
 	values := make([]string, 0)
 	commonTagsLen := len(tagCols)
-	if useJSON {
+	if p.opts.UseJSON {
 		cols = []string{"tagset"}
 		for _, row := range tagRows {
-			jsonValues := convertValsToJSONBasedOnType(row[:commonTagsLen], tagColumnTypes[:commonTagsLen])
-			json := "('{"
+			jsonValues := convertValsToJSONBasedOnType(row[:commonTagsLen], p.opts.TagColumnTypes[:commonTagsLen])
+			jsonX := "('{"
 			for i, k := range tagCols {
 				if i != 0 {
-					json += ","
+					jsonX += ","
 				}
-				json += fmt.Sprintf("\"%s\":%s", k, jsonValues[i])
+				jsonX += fmt.Sprintf("\"%s\":%s", k, jsonValues[i])
 			}
-			json += "}')"
-			values = append(values, json)
+			jsonX += "}')"
+			values = append(values, jsonX)
 		}
 	} else {
 		for _, val := range tagRows {
-			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], tagColumnTypes[:commonTagsLen])
+			sqlValues := convertValsToSQLBasedOnType(val[:commonTagsLen], p.opts.TagColumnTypes[:commonTagsLen])
 			row := fmt.Sprintf("(%s)", strings.Join(sqlValues, ","))
 			values = append(values, row)
 		}
@@ -96,7 +101,7 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 			}
 
 			var key string
-			if useJSON {
+			if p.opts.UseJSON {
 				decodedTagset := map[string]string{}
 				json.Unmarshal(resVals[1].([]byte), &decodedTagset)
 				key = decodedTagset[tagCols[0]]
@@ -115,7 +120,7 @@ func insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]i
 // divides the tags from data into appropriate slices that can then be used in
 // SQL queries to insert into their respective tables. Additionally, it also
 // returns the number of metrics (i.e., non-tag fields) for the data processed.
-func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]interface{}, uint64) {
+func (p *processor) splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]interface{}, uint64) {
 	tagRows := make([][]string, 0, len(rows))
 	dataRows := make([][]interface{}, 0, len(rows))
 	numMetrics := uint64(0)
@@ -148,7 +153,7 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 		// use nil at 2nd position as placeholder for tagKey
 		r := make([]interface{}, 3, dataCols)
 		r[0], r[1], r[2] = ts, nil, json
-		if inTableTag {
+		if p.opts.InTableTag {
 			r = append(r, tags[0])
 		}
 		for _, v := range metrics[1:] {
@@ -174,10 +179,10 @@ func splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]string, [][]inte
 
 func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	colLen := len(tableCols[hypertable]) + numExtraCols
-	if inTableTag {
+	if p.opts.InTableTag {
 		colLen++
 	}
-	tagRows, dataRows, numMetrics := splitTagsAndMetrics(rows, colLen)
+	tagRows, dataRows, numMetrics := p.splitTagsAndMetrics(rows, colLen)
 
 	// Check if any of these tags has yet to be inserted
 	newTags := make([][]string, 0, len(rows))
@@ -190,7 +195,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	p.csi.mutex.RUnlock()
 	if len(newTags) > 0 {
 		p.csi.mutex.Lock()
-		res := insertTags(p.db, newTags, true)
+		res := p.insertTags(p.db, newTags, true)
 		for k, v := range res {
 			p.csi.m[k] = v
 		}
@@ -206,12 +211,12 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 
 	cols := make([]string, 0, colLen)
 	cols = append(cols, "time", "tags_id", "additional_tags")
-	if inTableTag {
+	if p.opts.InTableTag {
 		cols = append(cols, tableCols[tagsKey][0])
 	}
 	cols = append(cols, tableCols[hypertable]...)
 
-	if forceTextFormat {
+	if p.opts.ForceTextFormat {
 		tx := MustBegin(p.db)
 		stmt, err := tx.Prepare(pq.CopyIn(hypertable, cols...))
 		if err != nil {
@@ -254,17 +259,18 @@ type processor struct {
 	db      *sql.DB
 	csi     *syncCSI
 	pgxConn *pgx.Conn
+	opts    *ProgramOptions
 }
 
 func (p *processor) Init(workerNum int, doLoad bool) {
 	if doLoad {
-		p.db = MustConnect(driver, getConnectString())
-		if hashWorkers {
+		p.db = MustConnect(p.opts.Driver, p.opts.GetConnectString())
+		if p.opts.HashWorkers {
 			p.csi = newSyncCSI()
 		} else {
 			p.csi = globalSyncCSI
 		}
-		if !forceTextFormat {
+		if !p.opts.ForceTextFormat {
 			conn, err := stdlib.AcquireConn(p.db)
 			if err != nil {
 				panic(err)
@@ -296,7 +302,7 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
 			start := time.Now()
 			metricCnt += p.processCSI(hypertable, rows)
 
-			if logBatches {
+			if p.opts.LogBatches {
 				now := time.Now()
 				took := now.Sub(start)
 				batchSize := len(rows)

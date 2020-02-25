@@ -1,4 +1,4 @@
-package main
+package timescaledb
 
 import (
 	"reflect"
@@ -97,8 +97,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, nil, 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, nil, 1.0, 5.0, 45.0},
+				{toTS("100"), nil, nil, 1.0, 5.0, 42.0},
+				{toTS("200"), nil, nil, 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -107,8 +107,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, 1.0, 5.0, 45.0},
+				{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, 1.0, 5.0, 42.0},
+				{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -118,8 +118,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, nil, "foo", 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, nil, "foofoo", 1.0, 5.0, 45.0},
+				{toTS("100"), nil, nil, "foo", 1.0, 5.0, 42.0},
+				{toTS("200"), nil, nil, "foofoo", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -129,8 +129,8 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			wantMetrics: 6,
 			wantTags:    [][]string{{"foo", "bar"}, {"foofoo", "barbar"}},
 			wantData: [][]interface{}{
-				[]interface{}{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, "foo", 1.0, 5.0, 42.0},
-				[]interface{}{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, "foofoo", 1.0, 5.0, 45.0},
+				{toTS("100"), nil, map[string]interface{}{"tag3": "baz"}, "foo", 1.0, 5.0, 42.0},
+				{toTS("200"), nil, map[string]interface{}{"tag3": "BAZ"}, "foofoo", 1.0, 5.0, 45.0},
 			},
 		},
 		{
@@ -185,19 +185,22 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		p := &processor{
+			opts: &ProgramOptions{},
+		}
 		if c.shouldPanic {
 			defer func() {
 				if re := recover(); re == nil {
 					t.Errorf("%s: did not panic when should", c.desc)
 				}
 			}()
-			splitTagsAndMetrics(c.rows, numCols+numExtraCols)
+			p.splitTagsAndMetrics(c.rows, numCols+numExtraCols)
 		}
 
-		oldInTableTag := inTableTag
-		inTableTag = c.inTableTag
+		oldInTableTag := p.opts.InTableTag
+		p.opts.InTableTag = c.inTableTag
 
-		gotTags, gotData, numMetrics := splitTagsAndMetrics(c.rows, numCols+numExtraCols)
+		gotTags, gotData, numMetrics := p.splitTagsAndMetrics(c.rows, numCols+numExtraCols)
 		if numMetrics != c.wantMetrics {
 			t.Errorf("%s: number of metrics incorrect: got %d want %d", c.desc, numMetrics, c.wantMetrics)
 		}
@@ -247,7 +250,7 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 			}
 		}
 
-		inTableTag = oldInTableTag
+		p.opts.InTableTag = oldInTableTag
 	}
 }
 
