@@ -4,11 +4,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"log"
-	"regexp"
-	"strings"
+	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"sync"
 	"time"
 
@@ -19,58 +16,12 @@ import (
 )
 
 const (
-	timeValueIdx = "TIME-VALUE"
-	valueTimeIdx = "VALUE-TIME"
-	pgxDriver    = "pgx"
-	pqDriver     = "postgres"
+	pgxDriver = "pgx"
+	pqDriver  = "postgres"
 )
-
-// Program option vars:
-var (
-	postgresConnect string
-	host            string
-	user            string
-	pass            string
-	port            string
-	connDB          string
-	driver          string // postgres or pgx
-
-	useHypertable bool
-	logBatches    bool
-	useJSON       bool
-	inTableTag    bool
-	hashWorkers   bool
-
-	numberPartitions int
-	chunkTime        time.Duration
-
-	timeIndex          bool
-	timePartitionIndex bool
-	partitionIndex     bool
-	fieldIndex         string
-	fieldIndexCount    int
-
-	profileFile          string
-	replicationStatsFile string
-
-	createMetricsTable bool
-	forceTextFormat    bool
-	tagColumnTypes     []string
-)
-
-type insertData struct {
-	tags   string
-	fields string
-}
-
-// Global vars
-var loader *load.BenchmarkRunner
-
-// allows for testing
-var fatal = log.Fatalf
 
 // Parse args:
-func init() {
+func initProgramOptions() (*timescaledb.ProgramOptions, *load.BenchmarkRunner) {
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
@@ -79,7 +30,7 @@ func init() {
 	pflag.String("port", "5432", "Which port to connect to on the database host")
 	pflag.String("user", "postgres", "User to connect to PostgreSQL as")
 	pflag.String("pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
-	pflag.String("admin-db-name", user, "Database to connect to in order to create additional benchmark databases.\n"+
+	pflag.String("admin-db-name", "postgres", "Database to connect to in order to create additional benchmark databases.\n"+
 		"By default this is the same as the `user` (i.e., `postgres` if neither is set),\n"+
 		"but sometimes a user does not have its own database.")
 
@@ -97,7 +48,7 @@ func init() {
 	pflag.Bool("time-index", true, "Whether to build an index on the time dimension")
 	pflag.Bool("time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
 	pflag.Bool("partition-index", true, "Whether to build an index on the partition key")
-	pflag.String("field-index", valueTimeIdx, "index types for tags (comma delimited)")
+	pflag.String("field-index", timescaledb.ValueTimeIdx, "index types for tags (comma delimited)")
 	pflag.Int("field-index-count", 0, "Number of indexed fields (-1 for all)")
 
 	pflag.String("write-profile", "", "File to output CPU/memory profile to")
@@ -117,113 +68,65 @@ func init() {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
+	opts := timescaledb.ProgramOptions{}
+	opts.PostgresConnect = viper.GetString("postgres")
+	opts.Host = viper.GetString("host")
+	opts.DBname = viper.GetString("db-name")
+	opts.Port = viper.GetString("port")
+	opts.User = viper.GetString("user")
+	opts.Pass = viper.GetString("pass")
+	opts.ConnDB = viper.GetString("admin-db-name")
+	opts.LogBatches = viper.GetBool("log-batches")
 
-	postgresConnect = viper.GetString("postgres")
-	host = viper.GetString("host")
-	port = viper.GetString("port")
-	user = viper.GetString("user")
-	pass = viper.GetString("pass")
-	connDB = viper.GetString("admin-db-name")
-	logBatches = viper.GetBool("log-batches")
+	opts.UseHypertable = viper.GetBool("use-hypertable")
+	opts.UseJSON = viper.GetBool("use-jsonb-tags")
+	opts.InTableTag = viper.GetBool("in-table-partition-tag")
+	opts.HashWorkers = viper.GetBool("hash-workers")
 
-	useHypertable = viper.GetBool("use-hypertable")
-	useJSON = viper.GetBool("use-jsonb-tags")
-	inTableTag = viper.GetBool("in-table-partition-tag")
-	hashWorkers = viper.GetBool("hash-workers")
+	opts.NumberPartitions = viper.GetInt("partitions")
+	opts.ChunkTime = viper.GetDuration("chunk-time")
 
-	numberPartitions = viper.GetInt("partitions")
-	chunkTime = viper.GetDuration("chunk-time")
+	opts.TimeIndex = viper.GetBool("time-index")
+	opts.TimePartitionIndex = viper.GetBool("time-partition-index")
+	opts.PartitionIndex = viper.GetBool("partition-index")
+	opts.FieldIndex = viper.GetString("field-index")
+	opts.FieldIndexCount = viper.GetInt("field-index-count")
 
-	timeIndex = viper.GetBool("time-index")
-	timePartitionIndex = viper.GetBool("time-partition-index")
-	partitionIndex = viper.GetBool("partition-index")
-	fieldIndex = viper.GetString("field-index")
-	fieldIndexCount = viper.GetInt("field-index-count")
+	opts.ProfileFile = viper.GetString("write-profile")
+	opts.ReplicationStatsFile = viper.GetString("write-replication-stats")
+	opts.CreateMetricsTable = viper.GetBool("create-metrics-table")
 
-	profileFile = viper.GetString("write-profile")
-	replicationStatsFile = viper.GetString("write-replication-stats")
-	createMetricsTable = viper.GetBool("create-metrics-table")
-
-	forceTextFormat = viper.GetBool("force-text-format")
-
-	loader = load.GetBenchmarkRunner(config)
-}
-
-type benchmark struct{}
-
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
-}
-
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
-	return &factory{}
-}
-
-func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
-	if hashWorkers {
-		return &hostnameIndexer{partitions: maxPartitions}
+	opts.ForceTextFormat = viper.GetBool("force-text-format")
+	if opts.ForceTextFormat {
+		opts.Driver = pqDriver
+	} else {
+		opts.Driver = pgxDriver
 	}
-	return &load.ConstantIndexer{}
-}
-
-func (b *benchmark) GetProcessor() load.Processor {
-	return &processor{}
-}
-
-func (b *benchmark) GetDBCreator() load.DBCreator {
-	return &dbCreator{
-		br:      loader.GetBufferedReader(),
-		connStr: getConnectString(),
-		connDB:  connDB,
-	}
+	loader := load.GetBenchmarkRunner(config)
+	return &opts, loader
 }
 
 func main() {
-	if forceTextFormat {
-		driver = pqDriver
-	} else {
-		driver = pgxDriver
-	}
+	opts, loader := initProgramOptions()
+
 	// If specified, generate a performance profile
-	if len(profileFile) > 0 {
-		go profileCPUAndMem(profileFile)
+	if len(opts.ProfileFile) > 0 {
+		go profileCPUAndMem(opts.ProfileFile)
 	}
 
 	var replicationStatsWaitGroup sync.WaitGroup
-	if len(replicationStatsFile) > 0 {
-		go OutputReplicationStats(getConnectString(), replicationStatsFile, &replicationStatsWaitGroup)
+	if len(opts.ReplicationStatsFile) > 0 {
+		go OutputReplicationStats(opts.GetConnectString(), opts.ReplicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	if hashWorkers {
-		loader.RunBenchmark(&benchmark{}, load.WorkerPerQueue)
+	benchmark := timescaledb.NewBenchmark(opts, loader)
+	if opts.HashWorkers {
+		loader.RunBenchmark(benchmark, load.WorkerPerQueue)
 	} else {
-		loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+		loader.RunBenchmark(benchmark, load.SingleQueue)
 	}
 
-	if len(replicationStatsFile) > 0 {
+	if len(opts.ReplicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()
 	}
-}
-
-func getConnectString() string {
-	// User might be passing in host=hostname the connect string out of habit which may override the
-	// multi host configuration. Same for dbname= and user=. This sanitizes that.
-	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
-	connectString := strings.TrimSpace(re.ReplaceAllString(postgresConnect, ""))
-	connectString = fmt.Sprintf("host=%s dbname=%s user=%s %s", host, loader.DatabaseName(), user, connectString)
-
-	// For optional parameters, ensure they exist then interpolate them into the connectString
-	if len(port) > 0 {
-		connectString = fmt.Sprintf("%s port=%s", connectString, port)
-	}
-	if len(pass) > 0 {
-		connectString = fmt.Sprintf("%s password=%s", connectString, pass)
-	}
-
-	if forceTextFormat {
-		// we assume we're using pq driver
-		connectString = fmt.Sprintf("%s disable_prepared_binary_result=yes binary_parameters=no", connectString)
-	}
-
-	return connectString
 }

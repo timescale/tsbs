@@ -1,16 +1,24 @@
-package main
+package timescaledb
 
 import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
-const tagsKey = "tags"
+const (
+	tagsKey      = "tags"
+	TimeValueIdx = "TIME-VALUE"
+	ValueTimeIdx = "VALUE-TIME"
+)
+
+// allows for testing
+var fatal = log.Fatalf
 
 var tableCols = make(map[string][]string)
 
@@ -20,6 +28,7 @@ type dbCreator struct {
 	cols    []string
 	connStr string
 	connDB  string
+	opts    *ProgramOptions
 }
 
 func (d *dbCreator) Init() {
@@ -102,7 +111,7 @@ func MustBegin(db *sql.DB) *sql.Tx {
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	db := MustConnect(driver, d.connStr)
+	db := MustConnect(d.opts.Driver, d.connStr)
 	defer db.Close()
 	r := MustQuery(db, "SELECT 1 from pg_database WHERE datname = $1", dbName)
 	defer r.Close()
@@ -110,21 +119,21 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	db := MustConnect(driver, d.connStr)
+	db := MustConnect(d.opts.Driver, d.connStr)
 	defer db.Close()
 	MustExec(db, "DROP DATABASE IF EXISTS "+dbName)
 	return nil
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	db := MustConnect(driver, d.connStr)
+	db := MustConnect(d.opts.Driver, d.connStr)
 	MustExec(db, "CREATE DATABASE "+dbName)
 	db.Close()
 	return nil
 }
 
 func (d *dbCreator) PostCreateDB(dbName string) error {
-	dbBench := MustConnect(driver, getConnectString())
+	dbBench := MustConnect(d.opts.Driver, d.opts.GetConnectString())
 	defer dbBench.Close()
 
 	tags := strings.Split(strings.TrimSpace(d.tags), ",")
@@ -132,13 +141,13 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", tags[0])
 	}
 	tagNames, tagTypes := extractTagNamesAndTypes(tags[1:])
-	if createMetricsTable {
-		createTagsTable(dbBench, tagNames, tagTypes)
+	if d.opts.CreateMetricsTable {
+		createTagsTable(dbBench, tagNames, tagTypes, d.opts.UseJSON)
 	}
 	// tableCols is a global map. Globally cache the available tags
 	tableCols[tagsKey] = tagNames
 	// tagTypes holds the type of each tag value (as strings from Go types (string, float32...))
-	tagColumnTypes = tagTypes
+	d.opts.TagColumnTypes = tagTypes
 
 	// Each table is defined in the dbCreator 'cols' list. The definition consists of a
 	// comma separated list of the table name followed by its columns. Iterate over each
@@ -150,7 +159,7 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 		tableCols[tableName] = columns[1:]
 
 		fieldDefs, indexDefs := d.getFieldAndIndexDefinitions(columns)
-		if createMetricsTable {
+		if d.opts.CreateMetricsTable {
 			d.createTableAndIndexes(dbBench, tableName, fieldDefs, indexDefs)
 		}
 	}
@@ -168,7 +177,7 @@ func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []s
 	tableName := columns[0]
 	// If the user has specified that we should partition on the primary tags key, we
 	// add that to the list of columns to create
-	if inTableTag {
+	if d.opts.InTableTag {
 		allCols = append(allCols, partitioningField)
 	}
 
@@ -179,11 +188,11 @@ func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []s
 			continue
 		}
 		fieldType := "DOUBLE PRECISION"
-		idxType := fieldIndex
+		idxType := d.opts.FieldIndex
 		// This condition handles the case where we keep the primary tag key in the table
 		// and partition on it. Since under the current implementation this tag is always
 		// hostname, we set it to a TEXT field instead of DOUBLE PRECISION
-		if inTableTag && idx == 0 {
+		if d.opts.InTableTag && idx == 0 {
 			fieldType = "TEXT"
 			idxType = ""
 			extraCols = 1
@@ -192,7 +201,7 @@ func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []s
 		fieldDefs = append(fieldDefs, fmt.Sprintf("%s %s", field, fieldType))
 		// If the user specifies indexes on additional fields, add them to
 		// our index definitions until we've reached the desired number of indexes
-		if fieldIndexCount == -1 || idx < (fieldIndexCount+extraCols) {
+		if d.opts.FieldIndexCount == -1 || idx < (d.opts.FieldIndexCount+extraCols) {
 			indexDefs = append(indexDefs, d.getCreateIndexOnFieldCmds(tableName, field, idxType)...)
 		}
 	}
@@ -204,16 +213,16 @@ func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []s
 func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fieldDefs []string, indexDefs []string) {
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
-	if partitionIndex {
+	if d.opts.PartitionIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", tableName))
 	}
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to
 	// use --time-partition-index for reduced index lock contention.
-	if timePartitionIndex {
+	if d.opts.TimePartitionIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", tableName))
-	} else if timeIndex {
+	} else if d.opts.TimeIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", tableName))
 	}
 
@@ -221,11 +230,11 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 		MustExec(dbBench, indexDef)
 	}
 
-	if useHypertable {
+	if d.opts.UseHypertable {
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 		MustExec(dbBench,
 			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				tableName, "tags_id", numberPartitions, chunkTime.Nanoseconds()/1000))
+				tableName, "tags_id", d.opts.NumberPartitions, d.opts.ChunkTime.Nanoseconds()/1000))
 	}
 }
 
@@ -237,9 +246,9 @@ func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string)
 		}
 
 		indexDef := ""
-		if idx == timeValueIdx {
+		if idx == TimeValueIdx {
 			indexDef = fmt.Sprintf("(time DESC, %s)", field)
-		} else if idx == valueTimeIdx {
+		} else if idx == ValueTimeIdx {
 			indexDef = fmt.Sprintf("(%s, time DESC)", field)
 		} else {
 			fatal("Unknown index type %v", idx)
@@ -250,7 +259,7 @@ func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string)
 	return ret
 }
 
-func createTagsTable(db *sql.DB, tagNames, tagTypes []string) {
+func createTagsTable(db *sql.DB, tagNames, tagTypes []string, useJSON bool) {
 	MustExec(db, "DROP TABLE IF EXISTS tags")
 	if useJSON {
 		MustExec(db, "CREATE TABLE tags(id SERIAL PRIMARY KEY, tagset JSONB)")

@@ -1,5 +1,9 @@
 package targets
 
+import (
+	"github.com/timescale/tsbs/load"
+)
+
 // Formats supported for generation
 const (
 	FormatCassandra   = "cassandra"
@@ -27,4 +31,8 @@ func SupportedFormats() []string {
 		FormatPrometheus,
 		FormatVictoriaMetrics,
 	}
+}
+
+type ImplementedTarget interface {
+	Benchmark() load.Benchmark
 }
