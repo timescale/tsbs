@@ -3,11 +3,20 @@ package inputs
 import (
 	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/pkg/data"
+	serialize2 "github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/data/usecases/devops"
 	"github.com/timescale/tsbs/pkg/data/usecases/iot"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/akumuli"
+	"github.com/timescale/tsbs/pkg/targets/cassandra"
+	"github.com/timescale/tsbs/pkg/targets/crate"
+	"github.com/timescale/tsbs/pkg/targets/influx"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
+	"github.com/timescale/tsbs/pkg/targets/prometheus"
+	"github.com/timescale/tsbs/pkg/targets/siridb"
+	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"io"
 	"math"
 	"math/rand"
@@ -159,7 +168,7 @@ func (g *DataGenerator) Generate(config GeneratorConfig) error {
 	return g.runSimulator(sim, serializer, g.config)
 }
 
-func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *DataGeneratorConfig) error {
+func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize2.PointSerializer, dgc *DataGeneratorConfig) error {
 	defer g.bufOut.Flush()
 
 	currGroupID := uint(0)
@@ -247,33 +256,33 @@ func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.Sim
 	return ret, err
 }
 
-func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (serialize.PointSerializer, error) {
-	var ret serialize.PointSerializer
+func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (serialize2.PointSerializer, error) {
+	var ret serialize2.PointSerializer
 	var err error
 
 	switch format {
-	case FormatCassandra:
-		ret = &serialize.CassandraSerializer{}
-	case FormatVictoriaMetrics:
-		ret = &serialize.InfluxSerializer{}
-	case FormatInflux:
-		ret = &serialize.InfluxSerializer{}
-	case FormatMongo:
-		ret = &serialize.MongoSerializer{}
-	case FormatSiriDB:
-		ret = &serialize.SiriDBSerializer{}
-	case FormatAkumuli:
-		ret = serialize.NewAkumuliSerializer()
-	case FormatCrateDB:
-		g.writeHeader(sim)
-		ret = &serialize.CrateDBSerializer{}
-	case FormatClickhouse:
+	case targets.FormatCassandra:
+		ret = &cassandra.Serializer{}
+	case targets.FormatInflux:
 		fallthrough
-	case FormatTimescaleDB:
+	case FormatVictoriaMetrics:
+		ret = &influx.Serializer{}
+	case targets.FormatMongo:
+		ret = &mongo.Serializer{}
+	case targets.FormatSiriDB:
+		ret = &siridb.Serializer{}
+	case targets.FormatAkumuli:
+		ret = akumuli.NewAkumuliSerializer()
+	case targets.FormatCrateDB:
 		g.writeHeader(sim)
-		ret = &serialize.TimescaleDBSerializer{}
-	case FormatPrometheus:
-		ret, err = serialize.NewPrometheusSerializer(g.bufOut)
+		ret = &crate.Serializer{}
+	case targets.FormatClickhouse:
+		fallthrough
+	case targets.FormatTimescaleDB:
+		g.writeHeader(sim)
+		ret = &timescaledb.Serializer{}
+	case targets.FormatPrometheus:
+		ret, err = prometheus.NewPrometheusSerializer(g.bufOut)
 	default:
 		err = fmt.Errorf(errUnknownFormatFmt, format)
 	}

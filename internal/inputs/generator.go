@@ -2,6 +2,8 @@ package inputs
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 	"time"
 
@@ -45,7 +47,7 @@ type BaseConfig struct {
 }
 
 func (c *BaseConfig) AddToFlagSet(fs *pflag.FlagSet) {
-	fs.String("format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(formats, ", ")))
+	fs.String("format", "", fmt.Sprintf("Format to generate. (choices: %s)", strings.Join(targets.SupportedFormats(), ", ")))
 	fs.String("use-case", "", fmt.Sprintf("Use case to generate."))
 
 	fs.Uint64("scale", 1, "Scaling value specific to use case (e.g., devices in 'devops').")
@@ -67,11 +69,11 @@ func (c *BaseConfig) Validate() error {
 		c.Seed = int64(time.Now().Nanosecond())
 	}
 
-	if !isIn(c.Format, formats) {
+	if !utils.IsIn(c.Format, targets.SupportedFormats()) {
 		return fmt.Errorf(errBadFormatFmt, c.Format)
 	}
 
-	if !isIn(c.Use, useCaseChoices) {
+	if !utils.IsIn(c.Use, useCaseChoices) {
 		return fmt.Errorf(errBadUseFmt, c.Use)
 	}
 

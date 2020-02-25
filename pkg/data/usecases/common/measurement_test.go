@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/targets/influx"
 	"math"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 func ldmToFieldLabels(ldm []LabeledDistributionMaker) [][]byte {
@@ -155,7 +154,7 @@ func setupToPoint(start time.Time) (*SubsystemMeasurement, []LabeledDistribution
 func testCommonToPoint(t *testing.T, p *data.Point, fieldVal float64) {
 	// serialize the point to check output
 	b := new(bytes.Buffer)
-	serializer := &serialize.InfluxSerializer{}
+	serializer := &influx.Serializer{}
 	serializer.Serialize(p, b)
 
 	if got := string(p.MeasurementName()); got != toPointLabel {

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-
 	"io"
 	"os"
 	"reflect"
@@ -13,17 +12,25 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	serialize2 "github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/data/usecases/devops"
 	"github.com/timescale/tsbs/pkg/data/usecases/iot"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/cassandra"
+	"github.com/timescale/tsbs/pkg/targets/crate"
+	"github.com/timescale/tsbs/pkg/targets/influx"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
+	"github.com/timescale/tsbs/pkg/targets/prometheus"
+	"github.com/timescale/tsbs/pkg/targets/siridb"
+	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 )
 
 func TestDataGeneratorConfigValidate(t *testing.T) {
 	c := &DataGeneratorConfig{
 		BaseConfig: BaseConfig{
 			Seed:   123,
-			Format: FormatTimescaleDB,
+			Format: targets.FormatTimescaleDB,
 			Use:    useCaseDevops,
 			Scale:  10,
 		},
@@ -44,7 +51,7 @@ func TestDataGeneratorConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for bad format")
 	}
-	c.Format = FormatTimescaleDB
+	c.Format = targets.FormatTimescaleDB
 
 	// Test InitialScale validation
 	c.InitialScale = 0
@@ -123,7 +130,7 @@ func TestDataGeneratorInit(t *testing.T) {
 
 	c := &DataGeneratorConfig{
 		BaseConfig: BaseConfig{
-			Format: FormatTimescaleDB,
+			Format: targets.FormatTimescaleDB,
 			Use:    useCaseDevops,
 			Scale:  1,
 		},
@@ -195,7 +202,7 @@ func TestDataGeneratorGenerate(t *testing.T) {
 	c = &DataGeneratorConfig{
 		BaseConfig: BaseConfig{
 			Seed:      123,
-			Format:    FormatTimescaleDB,
+			Format:    targets.FormatTimescaleDB,
 			Use:       useCaseCPUOnly,
 			Scale:     1,
 			TimeStart: defaultTimeStart,
@@ -434,7 +441,7 @@ func TestGetSerializer(t *testing.T) {
 	g.bufOut = bufio.NewWriter(&buf)
 	defer g.bufOut.Flush()
 
-	checkType := func(format string, want serialize.PointSerializer) {
+	checkType := func(format string, want serialize2.PointSerializer) {
 		wantType := reflect.TypeOf(want)
 		s, err := g.getSerializer(sim, format)
 		if err != nil {
@@ -445,15 +452,15 @@ func TestGetSerializer(t *testing.T) {
 		}
 	}
 
-	checkType(FormatCassandra, &serialize.CassandraSerializer{})
-	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
-	checkType(FormatInflux, &serialize.InfluxSerializer{})
-	checkType(FormatMongo, &serialize.MongoSerializer{})
-	checkType(FormatSiriDB, &serialize.SiriDBSerializer{})
-	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
-	checkType(FormatCrateDB, &serialize.CrateDBSerializer{})
-	checkType(FormatPrometheus, &serialize.PrometheusSerializer{})
-	checkType(FormatVictoriaMetrics, &serialize.InfluxSerializer{})
+	checkType(targets.FormatCassandra, &cassandra.Serializer{})
+	checkType(targets.FormatClickhouse, &timescaledb.Serializer{})
+	checkType(targets.FormatInflux, &influx.Serializer{})
+	checkType(targets.FormatMongo, &mongo.Serializer{})
+	checkType(targets.FormatSiriDB, &siridb.Serializer{})
+	checkType(targets.FormatClickhouse, &timescaledb.Serializer{})
+	checkType(targets.FormatCrateDB, &crate.Serializer{})
+	checkType(targets.FormatPrometheus, &prometheus.Serializer{})
+	checkType(targets.FormatVictoriaMetrics, &influx.Serializer{})
 
 	_, err = g.getSerializer(sim, "bogus format")
 	if err == nil {
