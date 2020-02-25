@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"hash/fnv"
 	"log"
 	"sync"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -18,8 +18,8 @@ type hostnameIndexer struct {
 }
 
 func (i *hostnameIndexer) GetIndex(item *load.Point) int {
-	p := item.Data.(*serialize.MongoPoint)
-	t := &serialize.MongoTag{}
+	p := item.Data.(*mongo.MongoPoint)
+	t := &mongo.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
 		p.Tags(t, j)
 		key := string(t.Key())
@@ -125,7 +125,7 @@ func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) 
 	eventCnt := uint64(0)
 	for _, event := range batch.arr {
 		tagsMap := map[string]string{}
-		t := &serialize.MongoTag{}
+		t := &mongo.MongoTag{}
 		for j := 0; j < event.TagsLength(); j++ {
 			event.Tags(t, j)
 			tagsMap[string(t.Key())] = string(t.Value())
@@ -159,7 +159,7 @@ func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) 
 		}
 		x := pPool.Get().(*point)
 		x.Fields = map[string]interface{}{}
-		f := &serialize.MongoReading{}
+		f := &mongo.MongoReading{}
 		for j := 0; j < event.FieldsLength(); j++ {
 			event.Fields(f, j)
 			x.Fields[string(f.Key())] = f.Value()

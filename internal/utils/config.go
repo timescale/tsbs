@@ -21,3 +21,4 @@ func SetupConfigFile() error {
 
 	return nil
 }
+

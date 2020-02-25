@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"log"
 	"sync"
 
 	"github.com/globalsign/mgo"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -69,12 +69,12 @@ func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64
 		x.Timestamp = event.Timestamp()
 		x.Fields = map[string]interface{}{}
 		x.Tags = map[string]string{}
-		f := &serialize.MongoReading{}
+		f := &mongo.MongoReading{}
 		for j := 0; j < event.FieldsLength(); j++ {
 			event.Fields(f, j)
 			x.Fields[string(f.Key())] = f.Value()
 		}
-		t := &serialize.MongoTag{}
+		t := &mongo.MongoTag{}
 		for j := 0; j < event.TagsLength(); j++ {
 			event.Tags(t, j)
 			x.Tags[string(t.Key())] = string(t.Value())

@@ -2,6 +2,7 @@ package inputs
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"testing"
 )
 
@@ -9,7 +10,7 @@ func TestBaseConfigValidate(t *testing.T) {
 	c := &BaseConfig{
 		Scale:  1,
 		Seed:   123,
-		Format: FormatTimescaleDB,
+		Format: targets.FormatTimescaleDB,
 		Use:    useCaseDevops,
 	}
 
@@ -47,10 +48,10 @@ func TestBaseConfigValidate(t *testing.T) {
 	}
 
 	// Test Format validation
-	c.Format = FormatCassandra
+	c.Format = targets.FormatCassandra
 	err = c.Validate()
 	if err != nil {
-		t.Errorf("unexpected error with Format '%s': %v", FormatCassandra, err)
+		t.Errorf("unexpected error with Format '%s': %v", targets.FormatCassandra, err)
 	}
 
 	c.Format = "unknown type"
@@ -63,7 +64,7 @@ func TestBaseConfigValidate(t *testing.T) {
 			t.Errorf("incorrect error for incorrect format: got\n%v\nwant\n%v", got, want)
 		}
 	}
-	c.Format = FormatTimescaleDB
+	c.Format = targets.FormatTimescaleDB
 
 	// Test Use validation
 	c.Use = useCaseCPUOnly

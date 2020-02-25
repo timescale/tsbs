@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"io/ioutil"
 	"os"
@@ -30,7 +31,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 	c := &QueryGeneratorConfig{
 		BaseConfig: BaseConfig{
 			Seed:   123,
-			Format: FormatTimescaleDB,
+			Format: targets.FormatTimescaleDB,
 			Use:    useCaseDevops,
 			Scale:  10,
 		},
@@ -50,7 +51,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for bad format")
 	}
-	c.Format = FormatTimescaleDB
+	c.Format = targets.FormatTimescaleDB
 
 	// Test QueryType validation
 	c.QueryType = ""
@@ -132,7 +133,7 @@ func TestQueryGeneratorInit(t *testing.T) {
 
 	c := &QueryGeneratorConfig{
 		BaseConfig: BaseConfig{
-			Format: FormatTimescaleDB,
+			Format: targets.FormatTimescaleDB,
 			Use:    useCaseCPUOnly, // not in the useCaseMatrix
 			Scale:  1,
 		},
@@ -261,35 +262,35 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating cassandra query generator")
 	}
-	checkType(FormatCassandra, cass)
+	checkType(targets.FormatCassandra, cass)
 
 	bcr := cratedb.BaseGenerator{}
 	crate, err := bcr.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Errorf("Error creating cratedb query generator")
 	}
-	checkType(FormatCrateDB, crate)
+	checkType(targets.FormatCrateDB, crate)
 
 	bi := influx.BaseGenerator{}
 	indb, err := bi.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating influx query generator")
 	}
-	checkType(FormatInflux, indb)
+	checkType(targets.FormatInflux, indb)
 
 	bs := siridb.BaseGenerator{}
 	siri, err := bs.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating siridb query generator")
 	}
-	checkType(FormatSiriDB, siri)
+	checkType(targets.FormatSiriDB, siri)
 
 	bm := mongo.BaseGenerator{}
 	mongodb, err := bm.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating mongodb query generator")
 	}
-	checkType(FormatMongo, mongodb)
+	checkType(targets.FormatMongo, mongodb)
 
 	bm.UseNaive = true
 	nmongo, err := bm.NewDevops(tsStart, tsEnd, scale)
@@ -297,18 +298,18 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		t.Fatalf("Error creating naive mongodb query generator")
 	}
 	g.config.MongoUseNaive = true
-	checkType(FormatMongo, nmongo)
+	checkType(targets.FormatMongo, nmongo)
 
 	bcc := clickhouse.BaseGenerator{}
 	clickh, err := bcc.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating clickhouse query generator")
 	}
-	checkType(FormatClickhouse, clickh)
+	checkType(targets.FormatClickhouse, clickh)
 
 	bcc.UseTags = true
 	clickt, err := bcc.NewDevops(tsStart, tsEnd, scale)
-	checkType(FormatClickhouse, clickt)
+	checkType(targets.FormatClickhouse, clickt)
 	if got := clickt.(*clickhouse.Devops).UseTags; got != bcc.UseTags {
 		t.Errorf("clickhous3 UseTags not set correctly: got %v want %v", got, bcc.UseTags)
 	}
@@ -316,7 +317,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	bt := timescaledb.BaseGenerator{}
 	ts, err := bt.NewDevops(tsStart, tsEnd, scale)
 
-	checkType(FormatTimescaleDB, ts)
+	checkType(targets.FormatTimescaleDB, ts)
 	if got := ts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
@@ -334,7 +335,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	g.config.TimescaleUseJSON = true
 	g.config.TimescaleUseTags = true
 	g.config.TimescaleUseTimeBucket = true
-	checkType(FormatTimescaleDB, tts)
+	checkType(targets.FormatTimescaleDB, tts)
 	if got := tts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
@@ -398,7 +399,7 @@ func getTestConfigAndGenerator() (*QueryGeneratorConfig, *QueryGenerator) {
 	tsEnd = tsEnd.Add(time.Second)
 	c := &QueryGeneratorConfig{
 		BaseConfig: BaseConfig{
-			Format:    FormatTimescaleDB,
+			Format:    targets.FormatTimescaleDB,
 			Use:       useCaseCPUOnly,
 			Scale:     scale,
 			TimeStart: defaultTimeStart,

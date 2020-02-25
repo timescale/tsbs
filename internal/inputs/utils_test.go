@@ -2,6 +2,7 @@ package inputs
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/internal/utils"
 	"testing"
 	"time"
 )
@@ -12,24 +13,24 @@ func TestIsIn(t *testing.T) {
 
 	// Test positive cases
 	for _, s := range arr {
-		if !isIn(s, arr) {
+		if !utils.IsIn(s, arr) {
 			t.Errorf("%s not found in %v incorrectly", s, arr)
 		}
 	}
 	for _, s := range arr2 {
-		if !isIn(s, arr2) {
+		if !utils.IsIn(s, arr2) {
 			t.Errorf("%s not found in %v incorrectly", s, arr)
 		}
 	}
 
 	// Test negative cases
 	for _, s := range arr {
-		if isIn(s, arr2) {
+		if utils.IsIn(s, arr2) {
 			t.Errorf("%s found in %v incorrectly", s, arr)
 		}
 	}
 	for _, s := range arr2 {
-		if isIn(s, arr) {
+		if utils.IsIn(s, arr) {
 			t.Errorf("%s found in %v incorrectly", s, arr)
 		}
 	}

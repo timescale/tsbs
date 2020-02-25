@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"math/rand"
 	"os"
@@ -206,24 +207,24 @@ func (g *QueryGenerator) init(config GeneratorConfig) error {
 
 func (g *QueryGenerator) initFactories() error {
 	cassandra := &cassandra.BaseGenerator{}
-	if err := g.addFactory(FormatCassandra, cassandra); err != nil {
+	if err := g.addFactory(targets.FormatCassandra, cassandra); err != nil {
 		return err
 	}
 
 	clickhouse := &clickhouse.BaseGenerator{
 		UseTags: g.config.ClickhouseUseTags,
 	}
-	if err := g.addFactory(FormatClickhouse, clickhouse); err != nil {
+	if err := g.addFactory(targets.FormatClickhouse, clickhouse); err != nil {
 		return err
 	}
 
 	cratedb := &cratedb.BaseGenerator{}
-	if err := g.addFactory(FormatCrateDB, cratedb); err != nil {
+	if err := g.addFactory(targets.FormatCrateDB, cratedb); err != nil {
 		return err
 	}
 
 	influx := &influx.BaseGenerator{}
-	if err := g.addFactory(FormatInflux, influx); err != nil {
+	if err := g.addFactory(targets.FormatInflux, influx); err != nil {
 		return err
 	}
 
@@ -232,19 +233,19 @@ func (g *QueryGenerator) initFactories() error {
 		UseTags:       g.config.TimescaleUseTags,
 		UseTimeBucket: g.config.TimescaleUseTimeBucket,
 	}
-	if err := g.addFactory(FormatTimescaleDB, timescale); err != nil {
+	if err := g.addFactory(targets.FormatTimescaleDB, timescale); err != nil {
 		return err
 	}
 
 	siriDB := &siridb.BaseGenerator{}
-	if err := g.addFactory(FormatSiriDB, siriDB); err != nil {
+	if err := g.addFactory(targets.FormatSiriDB, siriDB); err != nil {
 		return err
 	}
 
 	mongo := &mongo.BaseGenerator{
 		UseNaive: g.config.MongoUseNaive,
 	}
-	if err := g.addFactory(FormatMongo, mongo); err != nil {
+	if err := g.addFactory(targets.FormatMongo, mongo); err != nil {
 		return err
 	}
 
@@ -254,7 +255,7 @@ func (g *QueryGenerator) initFactories() error {
 	}
 
 	akumuli := &akumuli.BaseGenerator{}
-	return g.addFactory(FormatAkumuli, akumuli)
+	return g.addFactory(targets.FormatAkumuli, akumuli)
 }
 
 func (g *QueryGenerator) addFactory(database string, factory interface{}) error {

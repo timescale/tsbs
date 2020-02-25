@@ -1,0 +1,20 @@
+// mongo.fbs
+namespace serialize;
+table MongoTag {
+  key:string;
+  value:string;
+}
+
+table MongoReading {
+  key:string;
+  value:double;
+}
+
+table MongoPoint {
+  measurementName:string;
+  timestamp:long;
+  tags:[MongoTag];
+  fields:[MongoReading];
+}
+
+root_type MongoPoint;

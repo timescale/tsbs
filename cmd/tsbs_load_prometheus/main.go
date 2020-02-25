@@ -3,11 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets/prometheus"
 	"sync"
 	"time"
 
 	"github.com/prometheus/prometheus/prompb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 
@@ -34,7 +34,7 @@ func (pb *PrometheusBatch) Append(item *load.Point) {
 
 // PrometheusDecoder implements scan.PointDecoder interface
 type PrometheusDecoder struct {
-	iterator *serialize.PrometheusIterator
+	iterator *prometheus.PrometheusIterator
 }
 
 func (pd *PrometheusDecoder) Decode(reader *bufio.Reader) *load.Point {
@@ -82,7 +82,7 @@ func (pbf *PrometheusBatchFactory) New() load.Batch {
 type PrometheusBenchmark struct{}
 
 func (pm *PrometheusBenchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	promIter, err := serialize.NewPrometheusIterator(br)
+	promIter, err := prometheus.NewPrometheusIterator(br)
 	if err != nil {
 		panic(err)
 	}
