@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"io"
 	"log"
@@ -16,7 +17,7 @@ type decoder struct {
 	lenBuf []byte
 }
 
-func (d *decoder) Decode(r *bufio.Reader) *load.Point {
+func (d *decoder) Decode(r *bufio.Reader) *targets.Point {
 	item := &mongo.MongoPoint{}
 
 	_, err := r.Read(d.lenBuf)
@@ -47,7 +48,7 @@ func (d *decoder) Decode(r *bufio.Reader) *load.Point {
 	n := flatbuffers.GetUOffsetT(itemBuf)
 	item.Init(itemBuf, n)
 
-	return load.NewPoint(item)
+	return targets.NewPoint(item)
 }
 
 type batch struct {
@@ -58,14 +59,14 @@ func (b *batch) Len() int {
 	return len(b.arr)
 }
 
-func (b *batch) Append(item *load.Point) {
+func (b *batch) Append(item *targets.Point) {
 	that := item.Data.(*mongo.MongoPoint)
 	b.arr = append(b.arr, that)
 }
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &batch{arr: []*mongo.MongoPoint{}}
 }
 
@@ -74,14 +75,14 @@ type mongoBenchmark struct {
 	dbc *dbCreator
 }
 
-func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) load.PointDecoder {
+func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) targets.PointDecoder {
 	return &decoder{lenBuf: make([]byte, 8)}
 }
 
-func (b *mongoBenchmark) GetBatchFactory() load.BatchFactory {
+func (b *mongoBenchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *mongoBenchmark) GetDBCreator() load.DBCreator {
+func (b *mongoBenchmark) GetDBCreator() targets.DBCreator {
 	return b.dbc
 }

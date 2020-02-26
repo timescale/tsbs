@@ -3,6 +3,7 @@ package load
 import (
 	"bufio"
 	"bytes"
+	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"testing"
 )
@@ -14,7 +15,7 @@ type testBatch struct {
 
 func (b *testBatch) Len() int { return b.len }
 
-func (b *testBatch) Append(p *Point) {
+func (b *testBatch) Append(p *targets.Point) {
 	b.len++
 	b.id = int(p.Data.(byte))
 }
@@ -22,7 +23,7 @@ func (b *testBatch) Append(p *Point) {
 func TestAckAndMaybeSend(t *testing.T) {
 	cases := []struct {
 		desc         string
-		unsent       []Batch
+		unsent       []targets.Batch
 		count        int
 		afterCount   int
 		afterLen     int
@@ -37,21 +38,21 @@ func TestAckAndMaybeSend(t *testing.T) {
 		},
 		{
 			desc:       "unsent has 0 elements",
-			unsent:     []Batch{},
+			unsent:     []targets.Batch{},
 			count:      0,
 			afterCount: -1,
 			afterLen:   0,
 		},
 		{
 			desc:       "unsent has 1 element",
-			unsent:     []Batch{&testBatch{1, 1}},
+			unsent:     []targets.Batch{&testBatch{1, 1}},
 			count:      1,
 			afterCount: 0,
 			afterLen:   0,
 		},
 		{
 			desc:         "unsent has 2 elements",
-			unsent:       []Batch{&testBatch{1, 1}, &testBatch{2, 1}},
+			unsent:       []targets.Batch{&testBatch{1, 1}, &testBatch{2, 1}},
 			count:        2,
 			afterCount:   1,
 			afterLen:     1,
@@ -78,8 +79,8 @@ func TestAckAndMaybeSend(t *testing.T) {
 func TestSendOrQueueBatch(t *testing.T) {
 	cases := []struct {
 		desc           string
-		unsent         []Batch
-		toSend         []Batch
+		unsent         []targets.Batch
+		toSend         []targets.Batch
 		queueSize      int
 		count          int
 		afterCount     int
@@ -88,8 +89,8 @@ func TestSendOrQueueBatch(t *testing.T) {
 	}{
 		{
 			desc:           "unsent is empty, queue does not fill up",
-			unsent:         []Batch{},
-			toSend:         []Batch{&testBatch{1, 1}},
+			unsent:         []targets.Batch{},
+			toSend:         []targets.Batch{&testBatch{1, 1}},
 			queueSize:      1,
 			count:          0,
 			afterCount:     1,
@@ -98,8 +99,8 @@ func TestSendOrQueueBatch(t *testing.T) {
 		},
 		{
 			desc:           "unsent is empty, queue fills up",
-			unsent:         []Batch{},
-			toSend:         []Batch{&testBatch{1, 1}, &testBatch{2, 1}},
+			unsent:         []targets.Batch{},
+			toSend:         []targets.Batch{&testBatch{1, 1}, &testBatch{2, 1}},
 			queueSize:      1,
 			count:          0,
 			afterCount:     2,
@@ -108,8 +109,8 @@ func TestSendOrQueueBatch(t *testing.T) {
 		},
 		{
 			desc:           "unsent is non-empty, queue fills up",
-			unsent:         []Batch{&testBatch{1, 1}},
-			toSend:         []Batch{&testBatch{2, 1}, &testBatch{3, 1}},
+			unsent:         []targets.Batch{&testBatch{1, 1}},
+			toSend:         []targets.Batch{&testBatch{2, 1}, &testBatch{3, 1}},
 			queueSize:      2,
 			count:          1,
 			afterCount:     3,
@@ -138,7 +139,7 @@ func TestNewPoint(t *testing.T) {
 	// simple equality types
 	temp := []interface{}{64, 5.5, true, uint(5), "test string"}
 	for _, x := range temp {
-		p := NewPoint(x)
+		p := targets.NewPoint(x)
 		if p.Data != x {
 			t.Errorf("NewPoint did not have right data: got %v want %d", p.Data, x)
 		}
@@ -146,14 +147,14 @@ func TestNewPoint(t *testing.T) {
 
 	// with a byte arr
 	byteArr := []byte("test")
-	p := NewPoint(byteArr)
+	p := targets.NewPoint(byteArr)
 	if !bytes.Equal(p.Data.([]byte), byteArr) {
 		t.Errorf("NewPoint did not have right byte arr: got %v want %v", p.Data, byteArr)
 	}
 
 	// with a struct
 	batch := &testBatch{id: 101, len: 500}
-	p = NewPoint(batch)
+	p = targets.NewPoint(batch)
 	if got := p.Data.(*testBatch); got.id != 101 || got.len != 500 {
 		t.Errorf("NewPoint did not have right struct: got %v want %v", got, batch)
 	}
@@ -163,8 +164,8 @@ type testDecoder struct {
 	called uint64
 }
 
-func (d *testDecoder) Decode(br *bufio.Reader) *Point {
-	ret := &Point{}
+func (d *testDecoder) Decode(br *bufio.Reader) *targets.Point {
+	ret := &targets.Point{}
 	b, err := br.ReadByte()
 	if err != nil {
 		if err == io.EOF {
@@ -180,7 +181,7 @@ func (d *testDecoder) Decode(br *bufio.Reader) *Point {
 
 type testFactory struct{}
 
-func (f *testFactory) New() Batch {
+func (f *testFactory) New() targets.Batch {
 	return &testBatch{}
 }
 
@@ -245,7 +246,7 @@ func TestScanWithIndexer(t *testing.T) {
 		br := bufio.NewReader(bytes.NewReader(data))
 		channels := []*duplexChannel{newDuplexChannel(1)}
 		decoder := &testDecoder{0}
-		indexer := &ConstantIndexer{}
+		indexer := &targets.ConstantIndexer{}
 		if c.shouldPanic {
 			func() {
 				defer func() {

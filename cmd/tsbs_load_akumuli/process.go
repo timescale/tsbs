@@ -2,10 +2,9 @@ package main
 
 import (
 	"encoding/binary"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"net"
-
-	"github.com/timescale/tsbs/load"
 )
 
 type processor struct {
@@ -32,7 +31,7 @@ func (p *processor) Close(doLoad bool) {
 	}
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch)
 	var nmetrics uint64
 	if doLoad {

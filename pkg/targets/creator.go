@@ -1,4 +1,4 @@
-package load
+package targets
 
 // DBCreator is an interface for a benchmark to do the initial setup of a database
 // in preparation for running a benchmark against it.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"hash/fnv"
 	"log"
@@ -17,7 +18,7 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *load.Point) int {
+func (i *hostnameIndexer) GetIndex(item *targets.Point) int {
 	p := item.Data.(*mongo.MongoPoint)
 	t := &mongo.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
@@ -48,11 +49,11 @@ func newAggBenchmark(l *load.BenchmarkRunner) *aggBenchmark {
 	return &aggBenchmark{mongoBenchmark{l, &dbCreator{}}}
 }
 
-func (b *aggBenchmark) GetProcessor() load.Processor {
+func (b *aggBenchmark) GetProcessor() targets.Processor {
 	return &aggProcessor{dbc: b.dbc}
 }
 
-func (b *aggBenchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
+func (b *aggBenchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 	return &hostnameIndexer{partitions: maxPartitions}
 }
 
@@ -118,7 +119,7 @@ func (p *aggProcessor) Init(workerNum int, doLoad bool) {
 //      ]
 //    ]
 //  }
-func (p *aggProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	docToEvents := make(map[string][]*point)
 	batch := b.(*batch)
 

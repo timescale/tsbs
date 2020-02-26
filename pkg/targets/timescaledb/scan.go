@@ -2,10 +2,9 @@ package timescaledb
 
 import (
 	"bufio"
+	"github.com/timescale/tsbs/pkg/targets"
 	"hash/fnv"
 	"strings"
-
-	"github.com/timescale/tsbs/load"
 )
 
 // hostnameIndexer is used to consistently send the same hostnames to the same worker
@@ -13,7 +12,7 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *load.Point) int {
+func (i *hostnameIndexer) GetIndex(item *targets.Point) int {
 	p := item.Data.(*point)
 	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
 	h := fnv.New32a()
@@ -36,7 +35,7 @@ func (ha *hypertableArr) Len() int {
 	return ha.cnt
 }
 
-func (ha *hypertableArr) Append(item *load.Point) {
+func (ha *hypertableArr) Append(item *targets.Point) {
 	that := item.Data.(*point)
 	k := that.hypertable
 	ha.m[k] = append(ha.m[k], that.row)
@@ -45,7 +44,7 @@ func (ha *hypertableArr) Append(item *load.Point) {
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &hypertableArr{
 		m:   map[string][]*insertData{},
 		cnt: 0,
@@ -58,7 +57,7 @@ type decoder struct {
 
 const tagsPrefix = tagsKey
 
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
+func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 	data := &insertData{}
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
@@ -87,7 +86,7 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	prefix = parts[0]
 	data.fields = parts[1]
 
-	return load.NewPoint(&point{
+	return targets.NewPoint(&point{
 		hypertable: prefix,
 		row:        data,
 	})

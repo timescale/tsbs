@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"time"
 
-	"github.com/timescale/tsbs/load"
 	"github.com/valyala/fasthttp"
 )
 
@@ -43,7 +43,7 @@ func (p *processor) Close(_ bool) {
 	<-p.backingOffDone
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch)
 
 	// Write the batch: try until backoff is not needed.

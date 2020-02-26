@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"sync"
 	"testing"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func TestBatch(t *testing.T) {
@@ -21,7 +20,7 @@ func TestBatch(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("batch not initialized with count 0")
 	}
-	p := &load.Point{
+	p := &targets.Point{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(p)
@@ -35,7 +34,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &load.Point{
+	p = &targets.Point{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=1.0,col2=1.0 190"),
 	}
 	b.Append(p)
@@ -49,7 +48,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &load.Point{
+	p = &targets.Point{
 		Data: []byte("bad_point"),
 	}
 	errMsg := ""

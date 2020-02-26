@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"sync"
 
@@ -55,23 +56,23 @@ func init() {
 
 type benchmark struct{}
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
 	return &decoder{reader: br}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(n uint) load.PointIndexer {
+func (b *benchmark) GetPointIndexer(n uint) targets.PointIndexer {
 	return &pointIndexer{nchan: n}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{endpoint: endpoint}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{}
 }
 

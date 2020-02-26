@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strconv"
 	"strings"
 	"sync"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/kshvakov/clickhouse"
-	"github.com/timescale/tsbs/load"
 )
 
 type syncCSI struct {
@@ -348,7 +348,7 @@ func (p *processor) Close(doLoad bool) {
 }
 
 // load.Processor interface implementation
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*tableArr)
 	rowCnt := 0
 	metricCnt := uint64(0)

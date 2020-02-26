@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	siridb "github.com/SiriDB/go-siridb-connector"
-	"github.com/timescale/tsbs/load"
 	qpack "github.com/transceptor-technology/go-qpack"
 )
 
@@ -34,7 +34,7 @@ func (p *processor) Close(doLoad bool) {
 	}
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (metricCount, rows uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rows uint64) {
 	batch := b.(*batch)
 	if doLoad {
 		if err := p.connection.Connect(dbUser, dbPass, loader.DatabaseName()); err != nil {

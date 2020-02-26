@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"os"
 	"time"
@@ -81,23 +82,23 @@ type benchmark struct {
 	dbc *dbCreator
 }
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
 	return &decoder{scanner: bufio.NewScanner(br)}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{b.dbc}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return b.dbc
 }
 
@@ -113,7 +114,7 @@ func (p *processor) Init(_ int, _ bool) {}
 
 // ProcessBatch reads eventsBatches which contain rows of CQL strings and
 // creates a gocql.LoggedBatch to insert
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	events := b.(*eventsBatch)
 
 	if doLoad {

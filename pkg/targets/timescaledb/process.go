@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"os"
 	"strconv"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/lib/pq"
-	"github.com/timescale/tsbs/load"
 )
 
 const (
@@ -292,7 +292,7 @@ func (p *processor) Close(doLoad bool) {
 	}
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*hypertableArr)
 	rowCnt := 0
 	metricCnt := uint64(0)

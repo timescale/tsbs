@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,7 +21,7 @@ func (p *testProcessor) Init(workerNum int, _ bool) {
 	p.worker = workerNum
 }
 
-func (p *testProcessor) ProcessBatch(b Batch, doLoad bool) (metricCount, rowCount uint64) {
+func (p *testProcessor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
 	return 1, 0
 }
 
@@ -83,15 +84,15 @@ type testBenchmark struct {
 	offset     int64
 }
 
-func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) PointDecoder    { return nil }
-func (b *testBenchmark) GetBatchFactory() BatchFactory                   { return nil }
-func (b *testBenchmark) GetPointIndexer(maxPartitions uint) PointIndexer { return &ConstantIndexer{} }
-func (b *testBenchmark) GetProcessor() Processor {
+func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) targets.PointDecoder { return nil }
+func (b *testBenchmark) GetBatchFactory() targets.BatchFactory                { return nil }
+func (b *testBenchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer { return &targets.ConstantIndexer{} }
+func (b *testBenchmark) GetProcessor() targets.Processor {
 	idx := atomic.AddInt64(&b.offset, 1)
 	idx--
 	return b.processors[idx]
 }
-func (b *testBenchmark) GetDBCreator() DBCreator {
+func (b *testBenchmark) GetDBCreator() targets.DBCreator {
 	return nil
 }
 
@@ -232,7 +233,7 @@ func TestUseDBCreator(t *testing.T) {
 			shouldPanic: true,
 		},
 	}
-	testPanic := func(r *BenchmarkRunner, dbc DBCreator, desc string) {
+	testPanic := func(r *BenchmarkRunner, dbc targets.DBCreator, desc string) {
 		defer func() {
 			if re := recover(); re == nil {
 				t.Errorf("%s: did not panic when should", desc)
@@ -255,7 +256,7 @@ func TestUseDBCreator(t *testing.T) {
 		}
 
 		// Decide whether to decorate the core DBCreator
-		var dbc DBCreator
+		var dbc targets.DBCreator
 		if c.doPost {
 			dbc = &testCreatorPost{core}
 		} else if c.doClose {
