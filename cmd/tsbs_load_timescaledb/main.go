@@ -21,7 +21,7 @@ const (
 )
 
 // Parse args:
-func initProgramOptions() (*timescaledb.ProgramOptions, *load.BenchmarkRunner) {
+func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
@@ -68,7 +68,7 @@ func initProgramOptions() (*timescaledb.ProgramOptions, *load.BenchmarkRunner) {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-	opts := timescaledb.ProgramOptions{}
+	opts := timescaledb.LoadingOptions{}
 	opts.PostgresConnect = viper.GetString("postgres")
 	opts.Host = viper.GetString("host")
 	opts.DBname = viper.GetString("db-name")

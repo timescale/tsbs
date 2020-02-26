@@ -28,7 +28,7 @@ type dbCreator struct {
 	cols    []string
 	connStr string
 	connDB  string
-	opts    *ProgramOptions
+	opts    *LoadingOptions
 }
 
 func (d *dbCreator) Init() {

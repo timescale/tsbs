@@ -1,16 +1,19 @@
 package source
 
 import (
+	"errors"
+	"fmt"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type DataSource interface {
 	NextItem() *load.Point
 }
 
-func NewDataSource(config *DataSourceConfig) DataSource {
+func NewDataSource(target targets.ImplementedTarget, config *DataSourceConfig) (DataSource, error) {
 	if config.Type == FileDataSourceType {
-		return newFileDataSource(config.File)
+		return newFileDataSource(target, config.File)
 	}
-	panic("only file data source supported for now")
+	return nil, errors.New(fmt.Sprintf("Only %s is supported for now", FileDataSourceType))
 }

@@ -259,7 +259,7 @@ type processor struct {
 	db      *sql.DB
 	csi     *syncCSI
 	pgxConn *pgx.Conn
-	opts    *ProgramOptions
+	opts    *LoadingOptions
 }
 
 func (p *processor) Init(workerNum int, doLoad bool) {

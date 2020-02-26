@@ -30,7 +30,7 @@ func TestGetConnectString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		opts := ProgramOptions{Port: wantPort, DBname: wantDB, Host: wantHost, User: wantUser, PostgresConnect: c.pgConnect}
+		opts := LoadingOptions{Port: wantPort, DBname: wantDB, Host: wantHost, User: wantUser, PostgresConnect: c.pgConnect}
 		cstr := opts.GetConnectString()
 		if cstr != want {
 			t.Errorf("%s: incorrect connect string: got %s want %s", c.desc, cstr, want)
