@@ -3,12 +3,11 @@ package source
 import (
 	"errors"
 	"fmt"
-	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type DataSource interface {
-	NextItem() *load.Point
+	NextItem() *targets.Point
 }
 
 func NewDataSource(target targets.ImplementedTarget, config *DataSourceConfig) (DataSource, error) {

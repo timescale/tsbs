@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 )
 
@@ -52,7 +52,7 @@ func (p *processor) createInsertStmt(table *tableDef) (string, error) {
 }
 
 // load.Processor interface implementation
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	eb := b.(*eventsBatch)
 	rowCnt := uint64(0)
 	metricCnt := uint64(0)

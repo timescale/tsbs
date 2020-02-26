@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
 	"github.com/spf13/pflag"
@@ -67,26 +68,26 @@ func init() {
 
 type benchmark struct{}
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
 	return &decoder{
 		buf: make([]byte, 0),
 		len: 0,
 	}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{}
 }
 

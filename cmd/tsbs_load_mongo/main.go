@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -63,7 +64,7 @@ func init() {
 }
 
 func main() {
-	var benchmark load.Benchmark
+	var benchmark targets.Benchmark
 	var workQueues uint
 	if documentPer {
 		benchmark = newNaiveBenchmark(loader)

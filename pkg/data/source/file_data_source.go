@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"os"
@@ -16,7 +15,7 @@ const (
 
 type fileDataSource struct {
 	buffer  *bufio.Reader
-	decoder load.PointDecoder
+	decoder targets.PointDecoder
 }
 
 func newFileDataSource(target targets.ImplementedTarget, config *FileDataSourceConfig) (*fileDataSource, error) {
@@ -29,7 +28,7 @@ func newFileDataSource(target targets.ImplementedTarget, config *FileDataSourceC
 	return &fileDataSource{buffer, decoder}, nil
 }
 
-func (f *fileDataSource) NextItem() *load.Point {
+func (f *fileDataSource) NextItem() *targets.Point {
 	return f.decoder.Decode(f.buffer)
 }
 

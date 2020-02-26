@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackc/pgconn"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
 	"github.com/jackc/pgx/v4"
@@ -24,26 +25,26 @@ type benchmark struct {
 	dbc *dbCreator
 }
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
 	return &decoder{scanner: bufio.NewScanner(br)}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{
 		tableDefs: b.dbc.tableDefs,
 		connCfg:   b.dbc.cfg,
 	}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return b.dbc
 }
 

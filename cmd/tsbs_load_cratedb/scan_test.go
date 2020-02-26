@@ -4,12 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func TestEventsBatch(t *testing.T) {
@@ -18,7 +17,7 @@ func TestEventsBatch(t *testing.T) {
 	if eb.Len() != 0 {
 		t.Errorf("eventBatch must be empty")
 	}
-	points := []*load.Point{
+	points := []*targets.Point{
 		{
 			Data: &point{
 				table: "type1",

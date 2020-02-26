@@ -2,10 +2,9 @@ package main
 
 import (
 	"bufio"
+	"github.com/timescale/tsbs/pkg/targets"
 	"hash/fnv"
 	"strings"
-
-	"github.com/timescale/tsbs/load"
 )
 
 // hostnameIndexer is used to consistently send the same hostnames to the same queue
@@ -14,7 +13,7 @@ type hostnameIndexer struct {
 }
 
 // scan.PointIndexer interface implementation
-func (i *hostnameIndexer) GetIndex(item *load.Point) int {
+func (i *hostnameIndexer) GetIndex(item *targets.Point) int {
 	p := item.Data.(*point)
 	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
 	h := fnv.New32a()
@@ -43,7 +42,7 @@ func (ta *tableArr) Len() int {
 }
 
 // scan.Batch interface implementation
-func (ta *tableArr) Append(item *load.Point) {
+func (ta *tableArr) Append(item *targets.Point) {
 	that := item.Data.(*point)
 	k := that.table
 	ta.m[k] = append(ta.m[k], that.row)
@@ -54,7 +53,7 @@ func (ta *tableArr) Append(item *load.Point) {
 type factory struct{}
 
 // scan.BatchFactory interface implementation
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &tableArr{
 		m:   map[string][]*insertData{},
 		cnt: 0,
@@ -69,7 +68,7 @@ type decoder struct {
 const tagsPrefix = "tags"
 
 // scan.PointDecoder interface implementation
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
+func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 	// Data Point Example
 	// tags,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production
 	// cpu,1451606400000000000,58,2,24,61,22,63,6,44,80,38
@@ -106,7 +105,7 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	prefix = parts[0]
 	data.fields = parts[1]
 
-	return load.NewPoint(&point{
+	return targets.NewPoint(&point{
 		table: prefix,
 		row:   data,
 	})

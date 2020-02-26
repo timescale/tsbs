@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"testing"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func TestHypertableArr(t *testing.T) {
@@ -16,7 +15,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 0 {
 		t.Errorf("tableArr not initialized with count 0")
 	}
-	p := &load.Point{
+	p := &targets.Point{
 		Data: &point{
 			table: "table1",
 			row: &insertData{
@@ -29,7 +28,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 1 {
 		t.Errorf("tableArr count is not 1 after first append")
 	}
-	p = &load.Point{
+	p = &targets.Point{
 		Data: &point{
 			table: "table2",
 			row: &insertData{

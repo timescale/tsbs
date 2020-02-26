@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ func (pb *PrometheusBatch) Len() int {
 	return len(pb.series)
 }
 
-func (pb *PrometheusBatch) Append(item *load.Point) {
+func (pb *PrometheusBatch) Append(item *targets.Point) {
 	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
 }
 
@@ -37,13 +38,13 @@ type PrometheusDecoder struct {
 	iterator *prometheus.PrometheusIterator
 }
 
-func (pd *PrometheusDecoder) Decode(reader *bufio.Reader) *load.Point {
+func (pd *PrometheusDecoder) Decode(reader *bufio.Reader) *targets.Point {
 	if pd.iterator.HasNext() {
 		ts, err := pd.iterator.Next()
 		if err != nil {
 			panic(err)
 		}
-		return load.NewPoint(*ts)
+		return targets.NewPoint(*ts)
 	}
 	return nil
 }
@@ -56,7 +57,7 @@ type PrometheusProcessor struct {
 func (pp *PrometheusProcessor) Init(_ int, _ bool) {}
 
 // ProcessBatch ..
-func (pp *PrometheusProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (pp *PrometheusProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	promBatch := b.(*PrometheusBatch)
 	nrSamples := uint64(promBatch.Len())
 	if doLoad {
@@ -74,14 +75,14 @@ func (pp *PrometheusProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, 
 // PrometheusBatchFactory implements Factory interface
 type PrometheusBatchFactory struct{}
 
-func (pbf *PrometheusBatchFactory) New() load.Batch {
+func (pbf *PrometheusBatchFactory) New() targets.Batch {
 	return promBatchPool.Get().(*PrometheusBatch)
 }
 
 // PrometheusBenchmark implements Benchmark interface
 type PrometheusBenchmark struct{}
 
-func (pm *PrometheusBenchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
+func (pm *PrometheusBenchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
 	promIter, err := prometheus.NewPrometheusIterator(br)
 	if err != nil {
 		panic(err)
@@ -89,16 +90,15 @@ func (pm *PrometheusBenchmark) GetPointDecoder(br *bufio.Reader) load.PointDecod
 	return &PrometheusDecoder{iterator: promIter}
 }
 
-func (pm *PrometheusBenchmark) GetBatchFactory() load.BatchFactory {
+func (pm *PrometheusBenchmark) GetBatchFactory() targets.BatchFactory {
 	return &PrometheusBatchFactory{}
 }
 
-func (pm *PrometheusBenchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	// We always have one shared queue and 1+ workers
-	return &load.ConstantIndexer{}
+func (pm *PrometheusBenchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (pm *PrometheusBenchmark) GetProcessor() load.Processor {
+func (pm *PrometheusBenchmark) GetProcessor() targets.Processor {
 	client, err := NewClient(adapterWriteUrl, time.Second*30)
 	if err != nil {
 		panic(err)
@@ -106,7 +106,7 @@ func (pm *PrometheusBenchmark) GetProcessor() load.Processor {
 	return &PrometheusProcessor{client: client}
 }
 
-func (pm *PrometheusBenchmark) GetDBCreator() load.DBCreator {
+func (pm *PrometheusBenchmark) GetDBCreator() targets.DBCreator {
 	return nil
 }
 

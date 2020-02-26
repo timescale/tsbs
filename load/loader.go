@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"math"
 	"math/rand"
@@ -34,25 +35,6 @@ var (
 	printFn = fmt.Printf
 	fatal   = log.Fatalf
 )
-
-// Benchmark is an interface that represents the skeleton of a program
-// needed to run an insert or load benchmark.
-type Benchmark interface {
-	// GetPointDecoder returns the PointDecoder to use for this Benchmark
-	GetPointDecoder(br *bufio.Reader) PointDecoder
-
-	// GetBatchFactory returns the BatchFactory to use for this Benchmark
-	GetBatchFactory() BatchFactory
-
-	// GetPointIndexer returns the PointIndexer to use for this Benchmark
-	GetPointIndexer(maxPartitions uint) PointIndexer
-
-	// GetProcessor returns the Processor to use for this Benchmark
-	GetProcessor() Processor
-
-	// GetDBCreator returns the DBCreator to use for this Benchmark
-	GetDBCreator() DBCreator
-}
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
@@ -135,7 +117,7 @@ func (l *BenchmarkRunner) DatabaseName() string {
 
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
+func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark, workQueues uint) {
 	l.br = l.GetBufferedReader()
 
 	// Create required DB
@@ -195,7 +177,7 @@ func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 // useDBCreator handles a DBCreator by running it according to flags set by the
 // user. The function returns a function that the caller should defer or run
 // when the benchmark is finished
-func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
+func (l *BenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 	// Empty function to 'defer' from caller
 	closeFn := func() {}
 
@@ -205,7 +187,7 @@ func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
 		dbc.Init()
 
 		switch dbcc := dbc.(type) {
-		case DBCreatorCloser:
+		case targets.DBCreatorCloser:
 			closeFn = dbcc.Close
 		}
 
@@ -231,7 +213,7 @@ func (l *BenchmarkRunner) useDBCreator(dbc DBCreator) func() {
 		}
 
 		switch dbcp := dbc.(type) {
-		case DBCreatorPost:
+		case targets.DBCreatorPost:
 			dbcp.PostCreateDB(l.DBName)
 		}
 	}
@@ -266,7 +248,7 @@ func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
 
 // scan launches any needed reporting mechanism and proceeds to scan input data
 // to distribute to workers
-func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel) uint64 {
+func (l *BenchmarkRunner) scan(b targets.Benchmark, channels []*duplexChannel) uint64 {
 	// Start background reporting process
 	// TODO why it is here? May be it could be moved one level up?
 	if l.ReportingPeriod.Nanoseconds() > 0 {
@@ -278,7 +260,7 @@ func (l *BenchmarkRunner) scan(b Benchmark, channels []*duplexChannel) uint64 {
 }
 
 // work is the processing function for each worker in the loader
-func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int) {
+func (l *BenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int) {
 
 	// Prepare processor
 	proc := b.GetProcessor()
@@ -297,7 +279,7 @@ func (l *BenchmarkRunner) work(b Benchmark, wg *sync.WaitGroup, c *duplexChannel
 
 	// Close proc if necessary
 	switch c := proc.(type) {
-	case ProcessorCloser:
+	case targets.ProcessorCloser:
 		c.Close(l.DoLoad)
 	}
 

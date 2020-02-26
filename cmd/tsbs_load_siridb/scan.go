@@ -3,10 +3,9 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"log"
-
-	"github.com/timescale/tsbs/load"
 )
 
 type point struct {
@@ -24,7 +23,7 @@ func (b *batch) Len() int {
 	return b.batchCnt
 }
 
-func (b *batch) Append(item *load.Point) {
+func (b *batch) Append(item *targets.Point) {
 	that := item.Data.(*point)
 	for k, v := range that.data {
 		if len(b.series[k]) == 0 {
@@ -38,7 +37,7 @@ func (b *batch) Append(item *load.Point) {
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &batch{
 		series:    map[string][]byte{},
 		batchCnt:  0,
@@ -66,7 +65,7 @@ func (d *decoder) Read(bf *bufio.Reader) int {
 	return n
 }
 
-func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
+func (d *decoder) Decode(bf *bufio.Reader) *targets.Point {
 	if d.len < 8 {
 		if n := d.Read(bf); n == 0 {
 			return nil
@@ -113,7 +112,7 @@ func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
 		d.len -= total
 	}
 
-	return load.NewPoint(&point{
+	return targets.NewPoint(&point{
 		data:    data,
 		dataCnt: uint64(valueCnt),
 	})

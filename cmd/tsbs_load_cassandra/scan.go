@@ -3,11 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strings"
 	"sync"
-
-	"github.com/timescale/tsbs/load"
 )
 
 type decoder struct {
@@ -17,7 +16,7 @@ type decoder struct {
 // Reads and returns a CSV line that encodes a data point.
 // Since scanning happens in a single thread, we hold off on transforming it
 // to an INSERT statement until it's being processed concurrently by a worker.
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
+func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
 		return nil
@@ -25,7 +24,7 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 		log.Fatalf("scan error: %v", d.scanner.Err())
 	}
 
-	return load.NewPoint(d.scanner.Text())
+	return targets.NewPoint(d.scanner.Text())
 }
 
 // Transforms a CSV string encoding a single metric into a CQL INSERT statement.
@@ -55,7 +54,7 @@ func (eb *eventsBatch) Len() int {
 	return len(eb.rows)
 }
 
-func (eb *eventsBatch) Append(item *load.Point) {
+func (eb *eventsBatch) Append(item *targets.Point) {
 	that := item.Data.(string)
 	eb.rows = append(eb.rows, that)
 }
@@ -64,6 +63,6 @@ var ePool = &sync.Pool{New: func() interface{} { return &eventsBatch{rows: []str
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return ePool.Get().(*eventsBatch)
 }

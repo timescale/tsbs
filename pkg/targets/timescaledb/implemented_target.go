@@ -2,7 +2,6 @@ package timescaledb
 
 import (
 	"github.com/spf13/viper"
-	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
@@ -13,7 +12,7 @@ func NewTarget() targets.ImplementedTarget {
 type timescaleTarget struct {
 }
 
-func (t *timescaleTarget) Benchmark() load.Benchmark {
+func (t *timescaleTarget) Benchmark() targets.Benchmark {
 	return nil
 }
 

@@ -3,13 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func emptyLog(_ string, _ ...interface{}) (int, error) {
@@ -93,7 +92,7 @@ func TestProcessorProcessBatch(t *testing.T) {
 	}
 	f := &factory{}
 	b := f.New().(*batch)
-	pt := &load.Point{
+	pt := &targets.Point{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(pt)

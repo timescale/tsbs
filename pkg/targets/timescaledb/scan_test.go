@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"testing"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func TestHostnameIndexer(t *testing.T) {
@@ -24,7 +23,7 @@ func TestHostnameIndexer(t *testing.T) {
 	indexer := &hostnameIndexer{1}
 	for _, r := range tagRows {
 		p.row.tags = r
-		idx := indexer.GetIndex(load.NewPoint(p))
+		idx := indexer.GetIndex(targets.NewPoint(p))
 		if idx != 0 {
 			t.Errorf("did not get idx 0 for single partition")
 		}
@@ -39,7 +38,7 @@ func TestHostnameIndexer(t *testing.T) {
 		verifier := make(map[string]int)
 		for _, r := range tagRows {
 			p.row.tags = r
-			idx := indexer.GetIndex(load.NewPoint(p))
+			idx := indexer.GetIndex(targets.NewPoint(p))
 			// check that the partition is not out of bounds
 			if idx >= int(parts) {
 				t.Errorf("got too large a partition: got %d want %d", idx, parts)
@@ -56,7 +55,7 @@ func TestHostnameIndexer(t *testing.T) {
 		// now rerun to verify same tag goes to same idx
 		for _, r := range tagRows {
 			p.row.tags = r
-			idx := indexer.GetIndex(load.NewPoint(p))
+			idx := indexer.GetIndex(targets.NewPoint(p))
 			if idx != verifier[r] {
 				t.Errorf("indexer returned a different result on %d partitions: got %d want %d", parts, idx, verifier[r])
 			}
@@ -70,7 +69,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 0 {
 		t.Errorf("hypertableArr not initialized with count 0")
 	}
-	p := &load.Point{
+	p := &targets.Point{
 		Data: &point{
 			hypertable: "table1",
 			row: &insertData{
@@ -83,7 +82,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 1 {
 		t.Errorf("hypertableArr count is not 1 after first append")
 	}
-	p = &load.Point{
+	p = &targets.Point{
 		Data: &point{
 			hypertable: "table2",
 			row: &insertData{

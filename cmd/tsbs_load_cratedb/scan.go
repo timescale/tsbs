@@ -2,12 +2,11 @@ package main
 
 import (
 	"bufio"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/timescale/tsbs/load"
 )
 
 type row = []interface{}
@@ -30,7 +29,7 @@ func (eb *eventsBatch) Len() int {
 }
 
 // scan.Batch interface implementation
-func (eb *eventsBatch) Append(item *load.Point) {
+func (eb *eventsBatch) Append(item *targets.Point) {
 	p := item.Data.(*point)
 	table := p.table
 	eb.batches[table] = append(eb.batches[table], &p.row)
@@ -45,7 +44,7 @@ var ePool = &sync.Pool{New: func() interface{} {
 type factory struct{}
 
 // scan.BatchFactory interface implementation
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return ePool.Get().(*eventsBatch)
 }
 
@@ -61,7 +60,7 @@ type decoder struct {
 //
 // Converts metric values to double-precision floating-point number, timestamp
 // to time.Time and tags to bytes array.
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
+func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
@@ -94,7 +93,7 @@ func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
 	}
 
 	row := append(row{tags, ts}, metrics...)
-	return load.NewPoint(&point{table: table, row: row})
+	return targets.NewPoint(&point{table: table, row: row})
 }
 
 func parseTime(v string) (time.Time, error) {
