@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/pkg/data/source"
 )
 
 func main() {
@@ -11,21 +13,29 @@ func main() {
 	viper.AddConfigPath(".")
 	//err := viper.ReadInConfig()
 	yamlExample := `
-dataSource:
+format: timescaledb
+data-source:
   type: FILE
   file:
     location: 1
+loader:
+  runner:
+    workers: 1
+  db-specific:
+    host: test-host
 `
 	err := viper.ReadConfig(bytes.NewBuffer([]byte(yamlExample)))
 	if err != nil {
 		panic(err)
 	}
 	topLevel := viper.GetViper()
-	conf := LoadConfig{}
-	if err := topLevel.UnmarshalExact(&conf); err != nil {
+	conf, target, err := ParseLoadConfig(topLevel)
+	if err != nil {
 		panic(err)
 	}
-	if err := conf.Validate(); err != nil {
+	dataSource, err := source.NewDataSource(target, conf.DataSource)
+	if err != nil {
 		panic(err)
 	}
+	fmt.Println(dataSource)
 }

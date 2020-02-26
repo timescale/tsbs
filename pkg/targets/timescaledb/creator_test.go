@@ -262,7 +262,7 @@ func TestDBCreatorGetFieldAndIndexDefinitions(t *testing.T) {
 		// Initialize global cache
 		tableCols[tagsKey] = []string{}
 		tableCols[tagsKey] = append(tableCols[tagsKey], "hostname")
-		dbc := &dbCreator{opts: &ProgramOptions{
+		dbc := &dbCreator{opts: &LoadingOptions{
 			InTableTag:      c.inTableTag,
 			FieldIndexCount: c.fieldIndexCount,
 		}}

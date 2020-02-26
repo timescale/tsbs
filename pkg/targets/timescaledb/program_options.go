@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// Program option vars:
-type ProgramOptions struct {
+// Loading option vars:
+type LoadingOptions struct {
 	PostgresConnect string
 	Host            string
 	DBname          string
@@ -41,7 +41,7 @@ type ProgramOptions struct {
 	TagColumnTypes     []string
 }
 
-func (o *ProgramOptions) GetConnectString() string {
+func (o *LoadingOptions) GetConnectString() string {
 	// User might be passing in host=hostname the connect string out of habit which may override the
 	// multi host configuration. Same for dbname= and user=. This sanitizes that.
 	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)

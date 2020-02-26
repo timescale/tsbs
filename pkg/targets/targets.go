@@ -1,6 +1,7 @@
 package targets
 
 import (
+	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/load"
 )
 
@@ -35,4 +36,5 @@ func SupportedFormats() []string {
 
 type ImplementedTarget interface {
 	Benchmark() load.Benchmark
+	ParseLoaderConfig(v *viper.Viper) (interface{}, error)
 }

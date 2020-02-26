@@ -5,12 +5,12 @@ import (
 	"github.com/timescale/tsbs/load"
 )
 
-func NewBenchmark(opts *ProgramOptions, loader *load.BenchmarkRunner) load.Benchmark {
+func NewBenchmark(opts *LoadingOptions, loader *load.BenchmarkRunner) load.Benchmark {
 	return &benchmark{opts, loader}
 }
 
 type benchmark struct {
-	opts   *ProgramOptions
+	opts   *LoadingOptions
 	loader *load.BenchmarkRunner
 }
 

@@ -3,6 +3,7 @@ package source
 import (
 	"errors"
 	"fmt"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -31,34 +32,32 @@ func validateSourceType(t string) error {
 	return errors.New(fmt.Sprintf("data source type '%s' unrecognized; allowed: %v", t, validDataSourceTypes))
 }
 
-// Validate a DataSourceConfig object returning the first problem
-// it encounters as an error.
-func (d *DataSourceConfig) Validate() error {
-	if err := validateSourceType(d.Type); err != nil {
-		return err
+func ParseDataSourceConfig(v *viper.Viper) (*DataSourceConfig, error) {
+	var conf DataSourceConfig
+	if err := v.UnmarshalExact(&conf); err != nil {
+		return nil, err
+	}
+	if err := validateSourceType(conf.Type); err != nil {
+		return nil, err
 	}
 
-	if d.Type == FileDataSourceType {
-		if d.File == nil {
+	if conf.Type == FileDataSourceType {
+		if conf.File == nil {
 			errStr := fmt.Sprintf(
 				"specified type %s, but no file data source config provided",
 				FileDataSourceType,
 			)
-			return errors.New(errStr)
+			return nil, errors.New(errStr)
 		}
-		return d.File.Validate()
+		return &conf, nil
 	}
 
-	if d.Simulator == nil {
+	if conf.Simulator == nil {
 		errStr := fmt.Sprintf(
 			"specified type %s, but no simulator data source config provided",
 			SimulatorDataSourceType,
 		)
-		return errors.New(errStr)
+		return nil, errors.New(errStr)
 	}
-	return d.Simulator.Validate()
-}
-
-func (f *SimulatorDataSourceConfig) Validate() error {
-	return nil
+	return &conf, nil
 }

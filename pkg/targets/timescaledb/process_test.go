@@ -186,7 +186,7 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 
 	for _, c := range cases {
 		p := &processor{
-			opts: &ProgramOptions{},
+			opts: &LoadingOptions{},
 		}
 		if c.shouldPanic {
 			defer func() {
