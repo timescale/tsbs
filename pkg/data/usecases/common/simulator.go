@@ -63,6 +63,12 @@ func (sc *BaseSimulatorConfig) NewSimulator(interval time.Duration, limit uint64
 	return sim
 }
 
+type GeneratedDataHeaders struct {
+	TagTypes  []string
+	TagKeys   []string
+	FieldKeys map[string][]string
+}
+
 // Simulator simulates a use case.
 type Simulator interface {
 	Finished() bool
