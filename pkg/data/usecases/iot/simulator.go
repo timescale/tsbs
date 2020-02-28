@@ -3,7 +3,6 @@ package iot
 import (
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"reflect"
 	"time"
 )
 
@@ -58,17 +57,17 @@ type Simulator struct {
 }
 
 // Fields returns the fields of an entry.
-func (s Simulator) Fields() map[string][][]byte {
+func (s Simulator) Fields() map[string][]string {
 	return s.base.Fields()
 }
 
 // TagKeys returns the tag keys of an entry.
-func (s Simulator) TagKeys() [][]byte {
+func (s Simulator) TagKeys() []string {
 	return s.base.TagKeys()
 }
 
 // TagTypes returns the data types for the tags of an entry.
-func (s Simulator) TagTypes() []reflect.Type {
+func (s Simulator) TagTypes() []string {
 	return s.base.TagTypes()
 }
 
@@ -92,6 +91,14 @@ func (s *Simulator) Next(p *data.Point) bool {
 	}
 
 	return false
+}
+
+func (s *Simulator) Headers() *common.GeneratedDataHeaders {
+	return &common.GeneratedDataHeaders{
+		TagTypes:  s.TagTypes(),
+		TagKeys:   s.TagKeys(),
+		FieldKeys: s.Fields(),
+	}
 }
 
 // pendingOutOfOrderItems returns whether the simulator has pending

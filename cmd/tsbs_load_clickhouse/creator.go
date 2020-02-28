@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -10,61 +11,16 @@ import (
 
 // loader.DBCreator interface implementation
 type dbCreator struct {
-	tags    string
-	cols    []string
+	ds      source.DataSource
+	headers *common.GeneratedDataHeaders
 	connStr string
 }
 
 // loader.DBCreator interface implementation
 func (d *dbCreator) Init() {
-	br := loader.GetBufferedReader()
-	d.readDataHeader(br)
-}
-
-// readDataHeader fills dbCreator struct with data structure (tables description)
-// specified at the beginning of the data file
-func (d *dbCreator) readDataHeader(br *bufio.Reader) {
-	// First N lines are header, describing data structure.
-	// The first line containing tags table name ('tags') followed by list of tags, comma-separated.
-	// Ex.: tags,hostname,region,datacenter,rack,os,arch,team,service,service_version
-	// The second through N-1 line containing table name (ex.: 'cpu') followed by list of column names,
-	// comma-separated. Ex.: cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq
-	// The last line being blank to separate from the data
-	//
-	// Header example:
-	// tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
-	// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-	// disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
-	// nginx,accepts,active,handled,reading,requests,waiting,writing
-
-	i := 0
-	for {
-		var err error
-		var line string
-
-		if i == 0 {
-			// read first line - list of tags
-			d.tags, err = br.ReadString('\n')
-			if err != nil {
-				fatal("input has wrong header format: %v", err)
-			}
-			d.tags = strings.TrimSpace(d.tags)
-		} else {
-			// read the second and further lines - metrics descriptions
-			line, err = br.ReadString('\n')
-			if err != nil {
-				fatal("input has wrong header format: %v", err)
-			}
-			line = strings.TrimSpace(line)
-			if len(line) == 0 {
-				// empty line - end of header
-				break
-			}
-			// append new table/columns set to the list of tables/columns set
-			d.cols = append(d.cols, line)
-		}
-		i++
-	}
+	// fills dbCreator struct with data structure (tables description)
+	// specified at the beginning of the data file
+	d.headers = d.ds.Headers()
 }
 
 // loader.DBCreator interface implementation
@@ -122,33 +78,15 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	db = sqlx.MustConnect(dbType, getConnectString(true))
 	defer db.Close()
 
-	// d.tags content:
-	//tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
-	//
-	// Parts would contain
-	// 0: tags - reserved word - tags mark
-	// 1:
-	// N: actual tags
-	// so we'll use tags[1:] for tags specification
-	parts := strings.Split(strings.TrimSpace(d.tags), ",")
-	if parts[0] != "tags" {
-		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", parts[0])
-	}
-	tagNames, tagTypes := extractTagNamesAndTypes(parts[1:])
-	createTagsTable(db, tagNames, tagTypes)
-	tableCols["tags"] = tagNames
-	tagColumnTypes = tagTypes
+	createTagsTable(db, d.headers.TagKeys, d.headers.TagTypes)
+	tableCols["tags"] = d.headers.TagKeys
+	tagColumnTypes = d.headers.TagTypes
 
-	// d.cols content are lines (metrics descriptions) as:
-	// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-	// disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
-	// nginx,accepts,active,handled,reading,requests,waiting,writing
-	// generalised description:
-	// tableName,fieldName1,...,fieldNameX
-	for _, cols := range d.cols {
-		// cols content:
-		// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-		createMetricsTable(db, strings.Split(strings.TrimSpace(cols), ","))
+	for tableName, fieldColumns := range d.headers.FieldKeys {
+		//tableName: cpu
+		// fieldColumns content:
+		// usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
+		createMetricsTable(db, tableName, fieldColumns)
 	}
 
 	return nil
@@ -196,15 +134,8 @@ func generateTagsTableQuery(tagNames, tagTypes []string) string {
 }
 
 // createMetricsTable builds CREATE TABLE SQL statement and runs it
-func createMetricsTable(db *sqlx.DB, tableSpec []string) {
-	// tableSpec contain
-	// 0: table name
-	// 1: table column name 1
-	// N: table column name N
-
-	// Ex.: cpu OR disk OR nginx
-	tableName := tableSpec[0]
-	tableCols[tableName] = tableSpec[1:]
+func createMetricsTable(db *sqlx.DB, tableName string, fieldColumns []string) {
+	tableCols[tableName] = fieldColumns
 
 	// We'll have some service columns in table to be created and columnNames contains all column names to be created
 	columnNames := []string{}
@@ -215,11 +146,11 @@ func createMetricsTable(db *sqlx.DB, tableSpec []string) {
 		columnNames = append(columnNames, partitioningColumn)
 	}
 
-	// Add all column names from tableSpec into columnNames
-	columnNames = append(columnNames, tableSpec[1:]...)
+	// Add all column names from fieldColumns into columnNames
+	columnNames = append(columnNames, fieldColumns[1:]...)
 
 	// columnsWithType - column specifications with type. Ex.: "cpu_usage Float64"
-	columnsWithType := []string{}
+	var columnsWithType []string
 	for _, column := range columnNames {
 		if len(column) == 0 {
 			// Skip nameless columns
@@ -260,21 +191,6 @@ func getConnectString(db bool) string {
 	}
 
 	return fmt.Sprintf("tcp://%s:%d?username=%s&password=%s", host, port, user, password)
-}
-
-func extractTagNamesAndTypes(tags []string) ([]string, []string) {
-	tagNames := make([]string, len(tags))
-	tagTypes := make([]string, len(tags))
-	for i, tagWithType := range tags {
-		tagAndType := strings.Split(tagWithType, " ")
-		if len(tagAndType) != 2 {
-			panic("tag header has invalid format")
-		}
-		tagNames[i] = tagAndType[0]
-		tagTypes[i] = tagAndType[1]
-	}
-
-	return tagNames, tagTypes
 }
 
 func serializedTypeToClickHouseType(serializedType string) string {

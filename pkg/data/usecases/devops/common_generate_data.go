@@ -3,7 +3,6 @@ package devops
 import (
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"reflect"
 	"time"
 )
 
@@ -65,31 +64,47 @@ func (s *commonDevopsSimulator) Finished() bool {
 	return s.madePoints >= s.maxPoints
 }
 
-func (s *commonDevopsSimulator) Fields() map[string][][]byte {
+func (s *commonDevopsSimulator) Fields() map[string][]string {
 	if len(s.hosts) <= 0 {
 		panic("cannot get fields because no hosts added")
 	}
 	return s.fields(s.hosts[0].SimulatedMeasurements)
 }
 
-func (s *commonDevopsSimulator) TagKeys() [][]byte {
-	return MachineTagKeys
+func (s *commonDevopsSimulator) TagKeys() []string {
+	tagKeysAsStr := make([]string, len(MachineTagKeys))
+	for i, t := range MachineTagKeys {
+		tagKeysAsStr[i] = string(t)
+	}
+	return tagKeysAsStr
 }
 
-func (s *commonDevopsSimulator) TagTypes() []reflect.Type {
-	types := make([]reflect.Type, len(MachineTagKeys))
+func (s *commonDevopsSimulator) TagTypes() []string {
+	types := make([]string, len(MachineTagKeys))
 	for i := 0; i < len(MachineTagKeys); i++ {
-		types[i] = machineTagType
+		types[i] = machineTagType.String()
 	}
 	return types
 }
 
-func (s *commonDevopsSimulator) fields(measurements []common.SimulatedMeasurement) map[string][][]byte {
-	fields := make(map[string][][]byte)
+func (d *commonDevopsSimulator) Headers() *common.GeneratedDataHeaders {
+	return &common.GeneratedDataHeaders{
+		TagTypes:  d.TagTypes(),
+		TagKeys:   d.TagKeys(),
+		FieldKeys: d.Fields(),
+	}
+}
+func (s *commonDevopsSimulator) fields(measurements []common.SimulatedMeasurement) map[string][]string {
+	fields := make(map[string][]string)
 	for _, sm := range measurements {
 		point := data.NewPoint()
 		sm.ToPoint(point)
-		fields[string(point.MeasurementName())] = point.FieldKeys()
+		fieldKeys := point.FieldKeys()
+		fieldKeysAsStr := make([]string, len(fieldKeys))
+		for i, k := range fieldKeys {
+			fieldKeysAsStr[i] = string(k)
+		}
+		fields[string(point.MeasurementName())] = fieldKeysAsStr
 	}
 
 	return fields

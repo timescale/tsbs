@@ -3,6 +3,7 @@ package load
 import (
 	"bufio"
 	"bytes"
+	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"testing"
@@ -15,7 +16,7 @@ type testBatch struct {
 
 func (b *testBatch) Len() int { return b.len }
 
-func (b *testBatch) Append(p *targets.Point) {
+func (b *testBatch) Append(p *data.LoadedPoint) {
 	b.len++
 	b.id = int(p.Data.(byte))
 }
@@ -139,7 +140,7 @@ func TestNewPoint(t *testing.T) {
 	// simple equality types
 	temp := []interface{}{64, 5.5, true, uint(5), "test string"}
 	for _, x := range temp {
-		p := targets.NewPoint(x)
+		p := data.NewLoadedPoint(x)
 		if p.Data != x {
 			t.Errorf("NewPoint did not have right data: got %v want %d", p.Data, x)
 		}
@@ -147,14 +148,14 @@ func TestNewPoint(t *testing.T) {
 
 	// with a byte arr
 	byteArr := []byte("test")
-	p := targets.NewPoint(byteArr)
+	p := data.NewLoadedPoint(byteArr)
 	if !bytes.Equal(p.Data.([]byte), byteArr) {
 		t.Errorf("NewPoint did not have right byte arr: got %v want %v", p.Data, byteArr)
 	}
 
 	// with a struct
 	batch := &testBatch{id: 101, len: 500}
-	p = targets.NewPoint(batch)
+	p = data.NewLoadedPoint(batch)
 	if got := p.Data.(*testBatch); got.id != 101 || got.len != 500 {
 		t.Errorf("NewPoint did not have right struct: got %v want %v", got, batch)
 	}
@@ -164,8 +165,8 @@ type testDecoder struct {
 	called uint64
 }
 
-func (d *testDecoder) Decode(br *bufio.Reader) *targets.Point {
-	ret := &targets.Point{}
+func (d *testDecoder) Decode(br *bufio.Reader) *data.LoadedPoint {
+	ret := &data.LoadedPoint{}
 	b, err := br.ReadByte()
 	if err != nil {
 		if err == io.EOF {

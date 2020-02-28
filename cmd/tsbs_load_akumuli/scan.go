@@ -4,15 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 )
 
-type decoder struct {
+type fileDataSource struct {
 	reader *bufio.Reader
 }
 
-func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
+func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	hdr, err := d.reader.Peek(6)
 	if err == io.EOF {
 		return nil
@@ -23,14 +25,17 @@ func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 	if err == io.EOF {
 		return nil
 	}
-	return targets.NewPoint(body)
+	return data.NewLoadedPoint(body)
 }
+
+// Cassandra doesn't serialize headers, no need to read them
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }
 
 type pointIndexer struct {
 	nchan uint
 }
 
-func (i *pointIndexer) GetIndex(p *targets.Point) int {
+func (i *pointIndexer) GetIndex(p *data.LoadedPoint) int {
 	hdr := p.Data.([]byte)
 	id := binary.LittleEndian.Uint32(hdr[0:4])
 	return int(id % uint32(i.nchan))
@@ -45,7 +50,7 @@ func (b *batch) Len() int {
 	return int(b.rows)
 }
 
-func (b *batch) Append(item *targets.Point) {
+func (b *batch) Append(item *data.LoadedPoint) {
 	payload := item.Data.([]byte)
 	b.buf.Write(payload)
 	b.rows++

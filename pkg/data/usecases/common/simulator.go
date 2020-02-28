@@ -63,13 +63,20 @@ func (sc *BaseSimulatorConfig) NewSimulator(interval time.Duration, limit uint64
 	return sim
 }
 
+type GeneratedDataHeaders struct {
+	TagTypes  []string
+	TagKeys   []string
+	FieldKeys map[string][]string
+}
+
 // Simulator simulates a use case.
 type Simulator interface {
 	Finished() bool
 	Next(*data.Point) bool
-	Fields() map[string][][]byte
-	TagKeys() [][]byte
-	TagTypes() []reflect.Type
+	Fields() map[string][]string
+	TagKeys() []string
+	TagTypes() []string
+	Headers() *GeneratedDataHeaders
 }
 
 // BaseSimulator generates data similar to truck readings.
@@ -131,49 +138,62 @@ func (s *BaseSimulator) Next(p *data.Point) bool {
 }
 
 // Fields returns all the simulated measurements for the device.
-func (s *BaseSimulator) Fields() map[string][][]byte {
+func (s *BaseSimulator) Fields() map[string][]string {
 	if len(s.generators) <= 0 {
 		panic("cannot get fields because no Generators added")
 	}
 
-	toReturn := make(map[string][][]byte, len(s.generators))
+	toReturn := make(map[string][]string, len(s.generators))
 	for _, sm := range s.generators[0].Measurements() {
 		point := data.NewPoint()
 		sm.ToPoint(point)
-		toReturn[string(point.MeasurementName())] = point.FieldKeys()
+		fieldKeys := point.FieldKeys()
+		fieldKeysAsStr := make([]string, len(fieldKeys))
+		for i, k := range fieldKeys {
+			fieldKeysAsStr[i] = string(k)
+		}
+		toReturn[string(point.MeasurementName())] = fieldKeysAsStr
 	}
 
 	return toReturn
 }
 
 // TagKeys returns all the tag keys for the device.
-func (s *BaseSimulator) TagKeys() [][]byte {
+func (s *BaseSimulator) TagKeys() []string {
 	if len(s.generators) <= 0 {
 		panic("cannot get tag keys because no Generators added")
 	}
 
 	tags := s.generators[0].Tags()
-	data := make([][]byte, len(tags))
+	tagKeys := make([]string, len(tags))
 	for i, tag := range tags {
-		data[i] = tag.Key
+		tagKeys[i] = string(tag.Key)
 	}
 
-	return data
+	return tagKeys
 }
 
 // TagTypes returns the type for each tag, extracted from the generated values.
-func (s *BaseSimulator) TagTypes() []reflect.Type {
+func (s *BaseSimulator) TagTypes() []string {
 	if len(s.generators) <= 0 {
 		panic("cannot get tag types because no Generators added")
 	}
 
 	tags := s.generators[0].Tags()
-	data := make([]reflect.Type, len(tags))
+	types := make([]string, len(tags))
 	for i, tag := range tags {
-		data[i] = reflect.TypeOf(tag.Value)
+		types[i] = reflect.TypeOf(tag.Value).String()
 	}
 
-	return data
+	return types
+}
+
+func (s *BaseSimulator) Headers() *GeneratedDataHeaders {
+	return &GeneratedDataHeaders{
+		TagTypes:  s.TagTypes(),
+		TagKeys:   s.TagKeys(),
+		FieldKeys: s.Fields(),
+	}
 }
 
 // TODO(rrk) - Can probably turn this logic into a separate interface and implement other

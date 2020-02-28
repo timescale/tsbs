@@ -60,7 +60,7 @@ func (c *GenericMetricsSimulatorConfig) NewSimulator(interval time.Duration, lim
 // Fields returns a map of subsystems to metrics collected
 // Since each host has different number of fields (we use zipf distribution to assign # fields) we search
 // for the host with the max number of fields
-func (gms *GenericMetricsSimulator) Fields() map[string][][]byte {
+func (gms *GenericMetricsSimulator) Fields() map[string][]string {
 	maxIndex := 0
 	for i, h := range gms.hosts {
 		if h.GenericMetricCount > gms.hosts[maxIndex].GenericMetricCount {
@@ -68,6 +68,14 @@ func (gms *GenericMetricsSimulator) Fields() map[string][][]byte {
 		}
 	}
 	return gms.fields(gms.hosts[maxIndex].SimulatedMeasurements[:1])
+}
+
+func (gms *GenericMetricsSimulator) Headers() *common.GeneratedDataHeaders {
+	return &common.GeneratedDataHeaders{
+		TagKeys:   gms.TagKeys(),
+		TagTypes:  gms.TagTypes(),
+		FieldKeys: gms.Fields(),
+	}
 }
 
 // Next advances a Point to the next state in the generator.

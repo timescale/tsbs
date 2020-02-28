@@ -157,3 +157,15 @@ func (p *Point) ClearTagValue(key []byte) {
 		}
 	}
 }
+
+// Point acts as a 'holder' for the internal representation of a point in a given load client.
+// Instead of using interface{} as a return type, we get compile safety by using Point
+type LoadedPoint struct {
+	Data interface{}
+}
+
+// NewPoint creates a Point with the provided data as the internal representation
+func NewLoadedPoint(data interface{}) *LoadedPoint {
+	return &LoadedPoint{Data: data}
+}
+

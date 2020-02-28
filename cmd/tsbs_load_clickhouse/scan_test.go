@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/data"
 	"log"
 	"testing"
 )
@@ -15,7 +15,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 0 {
 		t.Errorf("tableArr not initialized with count 0")
 	}
-	p := &targets.Point{
+	p := &data.LoadedPoint{
 		Data: &point{
 			table: "table1",
 			row: &insertData{
@@ -28,7 +28,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 1 {
 		t.Errorf("tableArr count is not 1 after first append")
 	}
-	p = &targets.Point{
+	p = &data.LoadedPoint{
 		Data: &point{
 			table: "table2",
 			row: &insertData{
@@ -46,7 +46,7 @@ func TestHypertableArr(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestNextItem(t *testing.T) {
 	cases := []struct {
 		desc        string
 		input       string
@@ -75,7 +75,7 @@ func TestDecode(t *testing.T) {
 	}
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
-		decoder := &decoder{scanner: bufio.NewScanner(br)}
+		dataSource := &fileDataSource{scanner: bufio.NewScanner(br)}
 		if c.shouldFatal {
 			fmt.Println(c.desc)
 			isCalled := false
@@ -83,12 +83,12 @@ func TestDecode(t *testing.T) {
 				isCalled = true
 				log.Printf(fmt, args...)
 			}
-			_ = decoder.Decode(br)
+			_ = dataSource.NextItem()
 			if !isCalled {
 				t.Errorf("%s: did not call fatal when it should", c.desc)
 			}
 		} else {
-			p := decoder.Decode(br)
+			p := dataSource.NextItem()
 			data := p.Data.(*point)
 			if data.table != c.wantPrefix {
 				t.Errorf("%s: incorrect prefix: got %s want %s", c.desc, data.table, c.wantPrefix)
@@ -106,11 +106,112 @@ func TestDecode(t *testing.T) {
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("tags,tag1text,tag2text\ncpu,140,0.0,0.0\n")
 	br := bufio.NewReader(bytes.NewReader([]byte(input)))
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	_ = decoder.Decode(br)
+	dataSource := &fileDataSource{scanner: bufio.NewScanner(br)}
+	_ = dataSource.NextItem()
 	// nothing left, should be EOF
-	p := decoder.Decode(br)
+	p := dataSource.NextItem()
 	if p != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
+}
+
+func TestHeaders(t *testing.T) {
+	cases := []struct {
+		desc         string
+		input        string
+		wantTags     []string
+		wantCols     map[string][]string
+		wantTypes    []string
+		shouldFatal  bool
+		wantBuffered int
+	}{
+		{
+			desc:         "min case: exactly three lines",
+			input:        "tags,tag1 string,tag2 float32\ncols,col1,col2\n\n",
+			wantTags:     []string{"tag1", "tag2"},
+			wantCols:     map[string][]string{"cols": {"col1", "col2"}},
+			wantTypes:    []string{"string", "float32"},
+			wantBuffered: 0,
+		},
+		{
+			desc:         "min case: more than the header 3 lines",
+			input:        "tags,tag1 string,tag2 string\ncols,col1,col2\n\nrow1\nrow2\n",
+			wantTags:     []string{"tag1", "tag2"},
+			wantTypes:    []string{"string", "string"},
+			wantCols:     map[string][]string{"cols": {"col1", "col2"}},
+			wantBuffered: len([]byte("row1\nrow2\n")),
+		},
+		{
+			desc:         "multiple tables: more than 3 lines for header",
+			input:        "tags,tag1 int32,tag2 int64\ncols,col1,col2\ncols2,col21,col22\n\n",
+			wantTags:     []string{"tag1", "tag2"},
+			wantTypes:    []string{"int32", "int64"},
+			wantCols:     map[string][]string{"cols": {"col1", "col2"}, "cols2": {"col21", "col22"}},
+			wantBuffered: 0,
+		},
+		{
+			desc:         "multiple tables: more than 3 lines for header w/ extra",
+			input:        "tags,tag1 tag,tag2 tag2\ncols,col1,col2\ncols2,col21,col22\n\nrow1\nrow2\n",
+			wantTags:     []string{"tag1", "tag2"},
+			wantTypes:    []string{"tag", "tag2"},
+			wantCols:     map[string][]string{"cols": {"col1", "col2"}, "cols2": {"col21", "col22"}},
+			wantBuffered: len([]byte("row1\nrow2\n")),
+		},
+		{
+			desc:        "too few lines",
+			input:       "tags\ncols\n",
+			shouldFatal: true,
+		},
+		{
+			desc:        "no line ender",
+			input:       "tags",
+			shouldFatal: true,
+		},
+	}
+
+	for _, c := range cases {
+		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
+		dataSource := &fileDataSource{bufio.NewScanner(br), nil}
+		if c.shouldFatal {
+			isCalled := false
+			fatal = func(fmt string, args ...interface{}) {
+				isCalled = true
+				log.Printf(fmt, args...)
+			}
+			dataSource.Headers()
+			if !isCalled {
+				t.Errorf("%s: did not call fatal when it should", c.desc)
+			}
+		} else {
+			headers := dataSource.Headers()
+			if !strArrEq(headers.TagKeys, c.wantTags) {
+				t.Errorf("%s: incorrect tags: got\n%v\nwant\n%v", c.desc, headers.TagKeys, c.wantTags)
+			}
+			if !strArrEq(headers.TagTypes, c.wantTypes) {
+				t.Errorf("%s: incorrect tag types: got\n%v\nwant\n%v", c.desc, headers.TagTypes, c.wantTypes)
+			}
+
+			if len(headers.FieldKeys) != len(c.wantCols) {
+				t.Errorf("%s: incorrect cols len: got %d want %d", c.desc, len(headers.FieldKeys), len(c.wantCols))
+			}
+			for key, got := range headers.FieldKeys {
+				want := c.wantCols[key]
+				if !strArrEq(got, want) {
+					t.Errorf("%s: cols row incorrect: got\n%v\nwant\n%v\n", c.desc, got, want)
+				}
+			}
+		}
+	}
+}
+
+func strArrEq(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, aa := range a {
+		if aa != b[i] {
+			return false
+		}
+	}
+	return true
 }

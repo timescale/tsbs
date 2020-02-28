@@ -1,8 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 	"sync"
@@ -29,23 +31,27 @@ func (pb *PrometheusBatch) Len() int {
 	return len(pb.series)
 }
 
-func (pb *PrometheusBatch) Append(item *targets.Point) {
+func (pb *PrometheusBatch) Append(item *data.LoadedPoint) {
 	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
 }
 
 // PrometheusDecoder implements scan.PointDecoder interface
-type PrometheusDecoder struct {
+type PrometheusFileDataSource struct {
 	iterator *prometheus.PrometheusIterator
 }
 
-func (pd *PrometheusDecoder) Decode(reader *bufio.Reader) *targets.Point {
+func (pd *PrometheusFileDataSource) NextItem() *data.LoadedPoint {
 	if pd.iterator.HasNext() {
 		ts, err := pd.iterator.Next()
 		if err != nil {
 			panic(err)
 		}
-		return targets.NewPoint(*ts)
+		return data.NewLoadedPoint(*ts)
 	}
+	return nil
+}
+
+func (pd *PrometheusFileDataSource) Headers() *common.GeneratedDataHeaders {
 	return nil
 }
 
@@ -82,12 +88,12 @@ func (pbf *PrometheusBatchFactory) New() targets.Batch {
 // PrometheusBenchmark implements Benchmark interface
 type PrometheusBenchmark struct{}
 
-func (pm *PrometheusBenchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
-	promIter, err := prometheus.NewPrometheusIterator(br)
+func (pm *PrometheusBenchmark) GetDataSource() source.DataSource {
+	promIter, err := prometheus.NewPrometheusIterator(load.GetBufferedReader(loader.FileName))
 	if err != nil {
 		panic(err)
 	}
-	return &PrometheusDecoder{iterator: promIter}
+	return &PrometheusFileDataSource{iterator: promIter}
 }
 
 func (pm *PrometheusBenchmark) GetBatchFactory() targets.BatchFactory {

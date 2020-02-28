@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"reflect"
 	"testing"
 	"time"
@@ -18,8 +19,8 @@ var (
 
 type mockBaseSimulator struct {
 	pending []*data.Point
-	fields  map[string][][]byte
-	tagKeys [][]byte
+	fields  map[string][]string
+	tagKeys []string
 	current int
 	now     *time.Time
 }
@@ -38,18 +39,25 @@ func (m *mockBaseSimulator) Next(p *data.Point) bool {
 	return true
 }
 
-func (m *mockBaseSimulator) Fields() map[string][][]byte {
+func (m *mockBaseSimulator) Fields() map[string][]string {
 	return m.fields
 }
 
-func (m *mockBaseSimulator) TagKeys() [][]byte {
+func (m *mockBaseSimulator) TagKeys() []string {
 	return m.tagKeys
 }
 
-func (m *mockBaseSimulator) TagTypes() []reflect.Type {
+func (m *mockBaseSimulator) TagTypes() []string {
 	return nil
 }
 
+func (m *mockBaseSimulator) Headers() *common.GeneratedDataHeaders{
+	return &common.GeneratedDataHeaders{
+		TagTypes:  m.TagTypes(),
+		TagKeys:   m.TagKeys(),
+		FieldKeys: m.Fields(),
+	}
+}
 func newMockBaseSimulator() *mockBaseSimulator {
 	fields := make(map[string][][]byte, fieldCount)
 	fieldKeys := make([][]byte, fieldCount)

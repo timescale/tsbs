@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"io"
@@ -13,14 +16,15 @@ import (
 	"github.com/timescale/tsbs/load"
 )
 
-type decoder struct {
+type fileDataSource struct {
 	lenBuf []byte
+	r      *bufio.Reader
 }
 
-func (d *decoder) Decode(r *bufio.Reader) *targets.Point {
+func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	item := &mongo.MongoPoint{}
 
-	_, err := r.Read(d.lenBuf)
+	_, err := d.r.Read(d.lenBuf)
 	if err == io.EOF {
 		return nil
 	}
@@ -35,7 +39,7 @@ func (d *decoder) Decode(r *bufio.Reader) *targets.Point {
 	// read the bytes and init the flatbuffer object
 	totRead := 0
 	for totRead < l {
-		m, err := r.Read(itemBuf[totRead:])
+		m, err := d.r.Read(itemBuf[totRead:])
 		// (EOF is also fatal)
 		if err != nil {
 			log.Fatal(err.Error())
@@ -48,7 +52,11 @@ func (d *decoder) Decode(r *bufio.Reader) *targets.Point {
 	n := flatbuffers.GetUOffsetT(itemBuf)
 	item.Init(itemBuf, n)
 
-	return targets.NewPoint(item)
+	return data.NewLoadedPoint(item)
+}
+
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
+	return nil
 }
 
 type batch struct {
@@ -59,7 +67,7 @@ func (b *batch) Len() int {
 	return len(b.arr)
 }
 
-func (b *batch) Append(item *targets.Point) {
+func (b *batch) Append(item *data.LoadedPoint) {
 	that := item.Data.(*mongo.MongoPoint)
 	b.arr = append(b.arr, that)
 }
@@ -75,8 +83,8 @@ type mongoBenchmark struct {
 	dbc *dbCreator
 }
 
-func (b *mongoBenchmark) GetPointDecoder(_ *bufio.Reader) targets.PointDecoder {
-	return &decoder{lenBuf: make([]byte, 8)}
+func (b *mongoBenchmark) GetDataSource() source.DataSource {
+	return &fileDataSource{lenBuf: make([]byte, 8), r: load.GetBufferedReader(loader.FileName)}
 }
 
 func (b *mongoBenchmark) GetBatchFactory() targets.BatchFactory {
