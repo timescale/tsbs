@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
@@ -94,12 +95,18 @@ func init() {
 }
 
 // loader.Benchmark interface implementation
-type benchmark struct{}
+type benchmark struct {
+	ds source.DataSource
+}
 
 // loader.Benchmark interface implementation
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
-	return &decoder{
-		scanner: bufio.NewScanner(br),
+func (b *benchmark) GetDataSource() source.DataSource {
+	if b.ds != nil {
+		return b.ds
+	}
+
+	return &fileDataSource{
+		scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName)),
 	}
 }
 
@@ -125,7 +132,7 @@ func (b *benchmark) GetProcessor() targets.Processor {
 
 // loader.Benchmark interface implementation
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{}
+	return &dbCreator{ds: b.GetDataSource()}
 }
 
 func main() {

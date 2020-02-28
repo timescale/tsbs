@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackc/pgconn"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
@@ -23,10 +24,11 @@ var fatal = log.Fatalf
 
 type benchmark struct {
 	dbc *dbCreator
+	ds  source.DataSource
 }
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() source.DataSource {
+	return b.ds
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {
@@ -92,9 +94,12 @@ func main() {
 	}
 
 	// TODO implement or check if anything has to be done to support WorkerPerQueue mode
-	loader.RunBenchmark(&benchmark{dbc: &dbCreator{
-		cfg:         connConfig,
-		numReplicas: *numReplicas,
-		numShards:   *numShards,
-	}}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{
+		dbc: &dbCreator{
+			cfg:         connConfig,
+			numReplicas: *numReplicas,
+			numShards:   *numShards,
+		},
+		ds: &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))},
+	}, load.SingleQueue)
 }

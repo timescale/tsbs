@@ -1,14 +1,12 @@
 package load
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"math"
 	"math/rand"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +18,6 @@ import (
 const (
 	// defaultBatchSize - default size of batches to be inserted
 	defaultBatchSize = 10000
-	defaultReadSize  = 4 << 20 // 4 MB
 
 	// WorkerPerQueue is the value for assigning each worker its own queue of batches
 	WorkerPerQueue = 0
@@ -68,7 +65,6 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 // flags across all database systems and ultimately running a supplied Benchmark
 type BenchmarkRunner struct {
 	BenchmarkRunnerConfig
-	br             *bufio.Reader
 	metricCnt      uint64
 	rowCnt         uint64
 	initialRand    *rand.Rand
@@ -118,8 +114,6 @@ func (l *BenchmarkRunner) DatabaseName() string {
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
 func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark, workQueues uint) {
-	l.br = l.GetBufferedReader()
-
 	// Create required DB
 	if b.GetDBCreator() != nil {
 		cleanupFn := l.useDBCreator(b.GetDBCreator())
@@ -153,25 +147,6 @@ func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark, workQueues uint) {
 	end := time.Now()
 
 	l.summary(end.Sub(start))
-}
-
-// GetBufferedReader returns the buffered Reader that should be used by the loader
-func (l *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
-	if l.br == nil {
-		if len(l.FileName) > 0 {
-			// Read from specified file
-			file, err := os.Open(l.FileName)
-			if err != nil {
-				fatal("cannot open file for read %s: %v", l.FileName, err)
-				return nil
-			}
-			l.br = bufio.NewReaderSize(file, defaultReadSize)
-		} else {
-			// Read from STDIN
-			l.br = bufio.NewReaderSize(os.Stdin, defaultReadSize)
-		}
-	}
-	return l.br
 }
 
 // useDBCreator handles a DBCreator by running it according to flags set by the
@@ -256,7 +231,7 @@ func (l *BenchmarkRunner) scan(b targets.Benchmark, channels []*duplexChannel) u
 	}
 
 	// Scan incoming data
-	return scanWithIndexer(channels, l.BatchSize, l.Limit, l.br, b.GetPointDecoder(l.br), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
+	return scanWithIndexer(channels, l.BatchSize, l.Limit, b.GetDataSource(), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
 }
 
 // work is the processing function for each worker in the loader

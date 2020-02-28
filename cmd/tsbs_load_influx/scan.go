@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 )
@@ -11,11 +13,11 @@ const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
 
 var newLine = []byte("\n")
 
-type decoder struct {
+type fileDataSource struct {
 	scanner *bufio.Scanner
 }
 
-func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
+func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
 		return nil
@@ -23,8 +25,10 @@ func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 		fatal("scan error: %v", d.scanner.Err())
 		return nil
 	}
-	return targets.NewPoint(d.scanner.Bytes())
+	return data.NewLoadedPoint(d.scanner.Bytes())
 }
+
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }
 
 type batch struct {
 	buf     *bytes.Buffer
@@ -36,7 +40,7 @@ func (b *batch) Len() int {
 	return int(b.rows)
 }
 
-func (b *batch) Append(item *targets.Point) {
+func (b *batch) Append(item *data.LoadedPoint) {
 	that := item.Data.([]byte)
 	thatStr := string(that)
 	b.rows++

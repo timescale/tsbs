@@ -1,22 +1,22 @@
 package timescaledb
 
 import (
-	"bufio"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
 func NewBenchmark(opts *LoadingOptions, loader *load.BenchmarkRunner) targets.Benchmark {
-	return &benchmark{opts, loader}
+	return &benchmark{opts, newFileDataSource(loader.FileName)}
 }
 
 type benchmark struct {
-	opts   *LoadingOptions
-	loader *load.BenchmarkRunner
+	opts *LoadingOptions
+	ds   source.DataSource
 }
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() source.DataSource {
+	return b.ds
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {
@@ -36,8 +36,8 @@ func (b *benchmark) GetProcessor() targets.Processor {
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{
-		br:      b.loader.GetBufferedReader(),
 		connStr: b.opts.GetConnectString(),
 		connDB:  b.opts.ConnDB,
+		ds:      b.ds,
 	}
 }

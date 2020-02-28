@@ -243,15 +243,15 @@ func (s *testSimulator) Next(p *data.Point) bool {
 	return ret
 }
 
-func (s *testSimulator) Fields() map[string][][]byte {
+func (s *testSimulator) Fields() map[string][]string {
 	return nil
 }
 
-func (s *testSimulator) TagKeys() [][]byte {
+func (s *testSimulator) TagKeys() []string {
 	return nil
 }
 
-func (s *testSimulator) TagTypes() []reflect.Type {
+func (s *testSimulator) TagTypes() []string {
 	return nil
 }
 

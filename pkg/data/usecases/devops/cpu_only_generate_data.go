@@ -13,10 +13,17 @@ type CPUOnlySimulator struct {
 }
 
 // Fields returns a map of subsystems to metrics collected
-func (d *CPUOnlySimulator) Fields() map[string][][]byte {
+func (d *CPUOnlySimulator) Fields() map[string][]string {
 	return d.fields(d.hosts[0].SimulatedMeasurements[:1])
 }
 
+func (d *CPUOnlySimulator) Headers() *common.GeneratedDataHeaders{
+	return &common.GeneratedDataHeaders{
+		TagTypes:  d.TagTypes(),
+		TagKeys:   d.TagKeys(),
+		FieldKeys: d.Fields(),
+	}
+}
 // Next advances a Point to the next state in the generator.
 func (d *CPUOnlySimulator) Next(p *data.Point) bool {
 	// Switch to the next metric if needed

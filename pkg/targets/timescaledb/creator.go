@@ -1,9 +1,9 @@
 package timescaledb
 
 import (
-	"bufio"
 	"database/sql"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"log"
 	"regexp"
 	"strings"
@@ -23,18 +23,18 @@ var fatal = log.Fatalf
 var tableCols = make(map[string][]string)
 
 type dbCreator struct {
-	br      *bufio.Reader
-	tags    string
-	cols    []string
+	ds      source.DataSource
 	connStr string
 	connDB  string
 	opts    *LoadingOptions
 }
 
 func (d *dbCreator) Init() {
-	d.readDataHeader(d.br)
+	// read the headers before all else
+	d.ds.Headers()
 	d.initConnectString()
 }
+
 func (d *dbCreator) initConnectString() {
 	// Needed to connect to user's database in order to drop/create db-name database
 	re := regexp.MustCompile(`(dbname)=\S*\b`)
@@ -42,35 +42,6 @@ func (d *dbCreator) initConnectString() {
 
 	if d.connDB != "" {
 		d.connStr = fmt.Sprintf("dbname=%s %s", d.connDB, d.connStr)
-	}
-}
-
-func (d *dbCreator) readDataHeader(br *bufio.Reader) {
-	// First N lines are header, with the first line containing the tags
-	// and their names, the second through N-1 line containing the column
-	// names, and last line being blank to separate from the data
-	i := 0
-	for {
-		var err error
-		var line string
-		if i == 0 {
-			d.tags, err = br.ReadString('\n')
-			if err != nil {
-				fatal("input has wrong header format: %v", err)
-			}
-			d.tags = strings.TrimSpace(d.tags)
-		} else {
-			line, err = br.ReadString('\n')
-			if err != nil {
-				fatal("input has wrong header format: %v", err)
-			}
-			line = strings.TrimSpace(line)
-			if len(line) == 0 {
-				break
-			}
-			d.cols = append(d.cols, line)
-		}
-		i++
 	}
 }
 
@@ -132,15 +103,13 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	return nil
 }
 
-func (d *dbCreator) PostCreateDB(dbName string) error {
+func (d *dbCreator) PostCreateDB(string) error {
 	dbBench := MustConnect(d.opts.Driver, d.opts.GetConnectString())
 	defer dbBench.Close()
 
-	tags := strings.Split(strings.TrimSpace(d.tags), ",")
-	if tags[0] != tagsKey {
-		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", tags[0])
-	}
-	tagNames, tagTypes := extractTagNamesAndTypes(tags[1:])
+	headers := d.ds.Headers()
+	tagNames := headers.TagKeys
+	tagTypes := headers.TagTypes
 	if d.opts.CreateMetricsTable {
 		createTagsTable(dbBench, tagNames, tagTypes, d.opts.UseJSON)
 	}
@@ -152,13 +121,10 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	// Each table is defined in the dbCreator 'cols' list. The definition consists of a
 	// comma separated list of the table name followed by its columns. Iterate over each
 	// definition to update our global cache and create the requisite tables and indexes
-	for _, tableDef := range d.cols {
-		columns := strings.Split(strings.TrimSpace(tableDef), ",")
-		tableName := columns[0]
+	for tableName, columns := range headers.FieldKeys {
 		// tableCols is a global map. Globally cache the available columns for the given table
-		tableCols[tableName] = columns[1:]
-
-		fieldDefs, indexDefs := d.getFieldAndIndexDefinitions(columns)
+		tableCols[tableName] = columns
+		fieldDefs, indexDefs := d.getFieldAndIndexDefinitions(tableName, columns)
 		if d.opts.CreateMetricsTable {
 			d.createTableAndIndexes(dbBench, tableName, fieldDefs, indexDefs)
 		}
@@ -168,20 +134,19 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 
 // getFieldAndIndexDefinitions iterates over a list of table columns, populating lists of
 // definitions for each desired field and index. Returns separate lists of fieldDefs and indexDefs
-func (d *dbCreator) getFieldAndIndexDefinitions(columns []string) ([]string, []string) {
+func (d *dbCreator) getFieldAndIndexDefinitions(tableName string, columns []string) ([]string, []string) {
 	var fieldDefs []string
 	var indexDefs []string
 	var allCols []string
 
 	partitioningField := tableCols[tagsKey][0]
-	tableName := columns[0]
 	// If the user has specified that we should partition on the primary tags key, we
 	// add that to the list of columns to create
 	if d.opts.InTableTag {
 		allCols = append(allCols, partitioningField)
 	}
 
-	allCols = append(allCols, columns[1:]...)
+	allCols = append(allCols, columns...)
 	extraCols := 0 // set to 1 when hostname is kept in-table
 	for idx, field := range allCols {
 		if len(field) == 0 {
@@ -239,7 +204,7 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 }
 
 func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string) []string {
-	ret := []string{}
+	var ret []string
 	for _, idx := range strings.Split(idxType, ",") {
 		if idx == "" {
 			continue

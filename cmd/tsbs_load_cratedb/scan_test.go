@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"log"
 	"reflect"
 	"testing"
@@ -17,7 +18,7 @@ func TestEventsBatch(t *testing.T) {
 	if eb.Len() != 0 {
 		t.Errorf("eventBatch must be empty")
 	}
-	points := []*targets.Point{
+	points := []*data.LoadedPoint{
 		{
 			Data: &point{
 				table: "type1",
@@ -116,7 +117,7 @@ func TestDecode(t *testing.T) {
 	}
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
-		decoder := &decoder{scanner: bufio.NewScanner(br)}
+		decoder := &fileDataSource{scanner: bufio.NewScanner(br)}
 		if c.expectedToFail {
 			fmt.Println(c.desc)
 			isCalled := false
@@ -124,22 +125,22 @@ func TestDecode(t *testing.T) {
 				isCalled = true
 				log.Printf(fmt, args...)
 			}
-			_ = decoder.Decode(br)
+			_ = decoder.NextItem()
 			if !isCalled {
 				t.Errorf("%s: did not call fatal when it should", c.desc)
 			}
 		} else {
-			p := decoder.Decode(br)
-			data := p.Data.(*point)
-			if data.table != c.expectedTable {
+			p := decoder.NextItem()
+			point := p.Data.(*point)
+			if point.table != c.expectedTable {
 				t.Errorf(
 					"%s: incorrect prefix: got %s want %s",
 					c.desc,
-					data.table,
+					point.table,
 					c.expectedTable,
 				)
 			}
-			for i, value := range data.row {
+			for i, value := range point.row {
 				if !reflect.DeepEqual(value, c.expectedRow[i]) {
 					t.Errorf(
 						"%s: incorrect fields: got %s want %s",
@@ -156,11 +157,102 @@ func TestDecode(t *testing.T) {
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("cpu\t{\"hostname\":\"host_0\"}\t1454608400000000000\t38.24311829\n")
 	br := bufio.NewReader(bytes.NewReader([]byte(input)))
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	_ = decoder.Decode(br)
+	decoder := &fileDataSource{scanner: bufio.NewScanner(br)}
+	_ = decoder.NextItem()
 	// nothing left, should be EOF
-	p := decoder.Decode(br)
+	p := decoder.NextItem()
 	if p != nil {
 		t.Errorf("expected p to be nil, got %v", p)
+	}
+}
+
+func TestDataSourceHeaders(t *testing.T) {
+	cases := []struct {
+		desc           string
+		input          string
+		expectedHeader *common.GeneratedDataHeaders
+		expectedToFail bool
+	}{
+		{
+			desc:  "min case: exactly three lines",
+			input: "tags,tag1,tag2\ncpu,col1,col2\n\n",
+			expectedHeader: &common.GeneratedDataHeaders{
+				TagTypes:  nil,
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
+			},
+		},
+		{
+			desc:
+			"min case: more than the header 3 lines",
+			input: "tags,tag1,tag2\ncpu,col1,col2\n\nrow1\nrow2\n",
+			expectedHeader: &common.GeneratedDataHeaders{
+				TagTypes:  nil,
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
+			},
+		},
+		{
+			desc:
+			"multiple tables: more than 3 lines for header",
+			input: "tags,tag1,tag2\ncpu,col1,col2\ndisk,col21,col22\n\n",
+			expectedHeader: &common.GeneratedDataHeaders{
+				TagTypes: nil,
+				TagKeys:  []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{
+					"cpu":  {"col1", "col2"},
+					"disk": {"col21", "col22"},
+				},
+			},
+		},
+		{
+			desc:
+			"multiple tables: more than 3 lines for header w/ extra",
+			input: "tags,tag1,tag2\ncpu,col1,col2\nmem,col21,col22\n\nrow1\nrow2\n",
+			expectedHeader: &common.GeneratedDataHeaders{
+				TagTypes: nil,
+				TagKeys:  []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{
+					"cpu":  {"col1", "col2"},
+					"mem": {"col21", "col22"},
+				},
+			},
+		},
+		{
+			desc:
+			"too few lines",
+			input:          "tags\ncols\n",
+			expectedToFail: true,
+		},
+		{
+			desc:
+			"too fee lines 2",
+			input:          "tags\n",
+			expectedToFail: true,
+		},
+	}
+
+	for _, c := range cases {
+		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
+		fds := &fileDataSource{scanner: bufio.NewScanner(br)}
+		if c.expectedToFail {
+			isCalled := false
+			fatal = func(fmt string, args ...interface{}) {
+				isCalled = true
+				log.Printf(fmt, args...)
+			}
+			fds.Headers()
+			if !isCalled {
+				t.Errorf("%s: incorrect header parsing must have failed", c.desc)
+			}
+		} else {
+			tableDefs := fds.Headers()
+			if fds.headers == nil {
+				t.Error("headers should be cached")
+			}
+			if !reflect.DeepEqual(tableDefs, c.expectedHeader) {
+				t.Errorf("incorrect header parsing, got %v; want %v", tableDefs, c.expectedHeader)
+			}
+		}
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/spf13/viper"
-	"github.com/timescale/tsbs/pkg/data/source"
 )
 
 func main() {
@@ -29,13 +28,10 @@ loader:
 		panic(err)
 	}
 	topLevel := viper.GetViper()
-	conf, target, err := ParseLoadConfig(topLevel)
+	_, target, err := ParseLoadConfig(topLevel)
 	if err != nil {
 		panic(err)
 	}
-	dataSource, err := source.NewDataSource(target, conf.DataSource)
-	if err != nil {
-		panic(err)
-	}
+	dataSource := target.Benchmark().GetDataSource()
 	fmt.Println(dataSource)
 }

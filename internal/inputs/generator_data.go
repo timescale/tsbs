@@ -274,12 +274,12 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 	case targets.FormatAkumuli:
 		ret = akumuli.NewAkumuliSerializer()
 	case targets.FormatCrateDB:
-		g.writeHeader(sim)
+		g.writeHeader(sim.Headers())
 		ret = &crate.Serializer{}
 	case targets.FormatClickhouse:
 		fallthrough
 	case targets.FormatTimescaleDB:
-		g.writeHeader(sim)
+		g.writeHeader(sim.Headers())
 		ret = &timescaledb.Serializer{}
 	case targets.FormatPrometheus:
 		ret, err = prometheus.NewPrometheusSerializer(g.bufOut)
@@ -290,19 +290,20 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 	return ret, err
 }
 
-func (g *DataGenerator) writeHeader(sim common.Simulator) {
+func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
-	types := sim.TagTypes()
-	for i, key := range sim.TagKeys() {
+
+	types := headers.TagTypes
+	for i, key := range headers.TagKeys {
 		g.bufOut.WriteString(",")
-		g.bufOut.Write(key)
+		g.bufOut.Write([]byte(key))
 		g.bufOut.WriteString(" ")
-		g.bufOut.WriteString(types[i].String())
+		g.bufOut.WriteString(types[i])
 	}
 	g.bufOut.WriteString("\n")
 	// sort the keys so the header is deterministic
 	keys := make([]string, 0)
-	fields := sim.Fields()
+	fields := headers.FieldKeys
 	for k := range fields {
 		keys = append(keys, k)
 	}
@@ -311,7 +312,7 @@ func (g *DataGenerator) writeHeader(sim common.Simulator) {
 		g.bufOut.WriteString(measurementName)
 		for _, field := range fields[measurementName] {
 			g.bufOut.WriteString(",")
-			g.bufOut.Write(field)
+			g.bufOut.Write([]byte(field))
 		}
 		g.bufOut.WriteString("\n")
 	}

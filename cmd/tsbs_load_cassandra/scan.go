@@ -3,20 +3,22 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strings"
 	"sync"
 )
 
-type decoder struct {
+type fileDataSource struct {
 	scanner *bufio.Scanner
 }
 
 // Reads and returns a CSV line that encodes a data point.
 // Since scanning happens in a single thread, we hold off on transforming it
 // to an INSERT statement until it's being processed concurrently by a worker.
-func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
+func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
 		return nil
@@ -24,7 +26,11 @@ func (d *decoder) Decode(_ *bufio.Reader) *targets.Point {
 		log.Fatalf("scan error: %v", d.scanner.Err())
 	}
 
-	return targets.NewPoint(d.scanner.Text())
+	return data.NewLoadedPoint(d.scanner.Text())
+}
+
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
+	return nil
 }
 
 // Transforms a CSV string encoding a single metric into a CQL INSERT statement.
@@ -54,7 +60,7 @@ func (eb *eventsBatch) Len() int {
 	return len(eb.rows)
 }
 
-func (eb *eventsBatch) Append(item *targets.Point) {
+func (eb *eventsBatch) Append(item *data.LoadedPoint) {
 	that := item.Data.(string)
 	eb.rows = append(eb.rows, that)
 }

@@ -1,8 +1,7 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"reflect"
 	"testing"
 )
@@ -10,14 +9,17 @@ import (
 func TestDBCreatorReadDataHeader(t *testing.T) {
 	cases := []struct {
 		desc           string
-		input          string
+		input          *common.GeneratedDataHeaders
 		expectedTables []tableDef
-		wantBuffered   int
 		expectedToFail bool
 	}{
 		{
-			desc:  "min case: exactly three lines",
-			input: "tags,tag1,tag2\ncpu,col1,col2\n\n",
+			desc: "min case",
+			input: &common.GeneratedDataHeaders{
+				TagTypes:  nil,
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
+			},
 			expectedTables: []tableDef{
 				{
 					name: "cpu",
@@ -25,23 +27,13 @@ func TestDBCreatorReadDataHeader(t *testing.T) {
 					cols: []string{"col1", "col2"},
 				},
 			},
-			wantBuffered: 0,
-		},
-		{
-			desc:  "min case: more than the header 3 lines",
-			input: "tags,tag1,tag2\ncpu,col1,col2\n\nrow1\nrow2\n",
-			expectedTables: []tableDef{
-				{
-					name: "cpu",
-					tags: []string{"tag1", "tag2"},
-					cols: []string{"col1", "col2"},
-				},
+		}, {
+			desc: "multiple tables",
+			input: &common.GeneratedDataHeaders{
+				TagTypes:  nil,
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}, "disk": {"col21", "col22"}},
 			},
-			wantBuffered: len([]byte("row1\nrow2\n")),
-		},
-		{
-			desc:  "multiple tables: more than 3 lines for header",
-			input: "tags,tag1,tag2\ncpu,col1,col2\ndisk,col21,col22\n\n",
 			expectedTables: []tableDef{
 				{
 					name: "cpu",
@@ -53,46 +45,28 @@ func TestDBCreatorReadDataHeader(t *testing.T) {
 					cols: []string{"col21", "col22"},
 				},
 			},
-			wantBuffered: 0,
 		},
 		{
-			desc:  "multiple tables: more than 3 lines for header w/ extra",
-			input: "tags,tag1,tag2\ncpu,col1,col2\nmem,col21,col22\n\nrow1\nrow2\n",
-			expectedTables: []tableDef{
-				{
-					name: "cpu",
-					tags: []string{"tag1", "tag2"},
-					cols: []string{"col1", "col2"},
-				}, {
-					name: "mem",
-					tags: []string{"tag1", "tag2"},
-					cols: []string{"col21", "col22"},
-				},
+			desc: "no field keys no table defs",
+			input: &common.GeneratedDataHeaders{
+				TagTypes:  nil,
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: nil,
 			},
-			wantBuffered: len([]byte("row1\nrow2\n")),
-		},
-		{
-			desc:           "too few lines",
-			input:          "tags\ncols\n",
-			expectedToFail: true,
-		},
-		{
-			desc:           "no line ender",
-			input:          "tags",
-			expectedToFail: true,
+			expectedToFail: false,
+			expectedTables: []tableDef{},
 		},
 	}
 
 	for _, c := range cases {
 		dbc := &dbCreator{}
-		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
 		if c.expectedToFail {
-			_, err := dbc.readDataHeader(br)
+			_, err := dbc.readDataHeader(c.input)
 			if err == nil {
-				t.Errorf("%s: incorrect header parsing must have failed", c.desc)
+				t.Errorf("%s: incorrect header, must have failed", c.desc)
 			}
 		} else {
-			tableDefs, err := dbc.readDataHeader(br)
+			tableDefs, err := dbc.readDataHeader(c.input)
 			if err != nil {
 				t.Errorf("%s: incorrect header: %v", c.desc, err)
 			}
@@ -110,10 +84,6 @@ func TestDBCreatorReadDataHeader(t *testing.T) {
 				if !reflect.DeepEqual(tableDef.cols, expectedTableDef.cols) {
 					t.Errorf("%s: incorrect cols: got\n%s\nwant\n%s\n",
 						c.desc, tableDef.cols, expectedTableDef.cols)
-				}
-				if br.Buffered() != c.wantBuffered {
-					t.Errorf("%s: incorrect amt buffered: got\n%d\nwant\n%d",
-						c.desc, br.Buffered(), c.wantBuffered)
 				}
 			}
 		}

@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strings"
@@ -90,8 +91,8 @@ func init() {
 
 type benchmark struct{}
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) targets.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() source.DataSource {
+	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))}
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {
