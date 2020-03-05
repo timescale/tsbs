@@ -3,41 +3,14 @@ package targets
 import (
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 )
-
-// Formats supported for generation
-const (
-	FormatCassandra   = "cassandra"
-	FormatClickhouse  = "clickhouse"
-	FormatInflux      = "influx"
-	FormatMongo       = "mongo"
-	FormatSiriDB      = "siridb"
-	FormatTimescaleDB = "timescaledb"
-	FormatAkumuli     = "akumuli"
-	FormatCrateDB     = "cratedb"
-	FormatPrometheus  = "prometheus"
-	FormatVictoriaMetrics = "victoriametrics"
-)
-
-func SupportedFormats() []string {
-	return []string{
-		FormatCassandra,
-		FormatClickhouse,
-		FormatInflux,
-		FormatMongo,
-		FormatSiriDB,
-		FormatTimescaleDB,
-		FormatAkumuli,
-		FormatCrateDB,
-		FormatPrometheus,
-		FormatVictoriaMetrics,
-	}
-}
 
 type ImplementedTarget interface {
-	Benchmark() Benchmark
-	ParseLoaderConfig(v *viper.Viper) (interface{}, error)
+	Benchmark(dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (Benchmark, error)
+	Serializer() serialize.PointSerializer
 }
 
 // Batch is an aggregate of points for a particular data system.
@@ -74,7 +47,7 @@ type BatchFactory interface {
 // needed to run an insert or load benchmark.
 type Benchmark interface {
 	// GetDataSource returns the DataSource to use for this Benchmark
-	GetDataSource() source.DataSource
+	GetDataSource() DataSource
 
 	// GetBatchFactory returns the BatchFactory to use for this Benchmark
 	GetBatchFactory() BatchFactory
@@ -88,3 +61,9 @@ type Benchmark interface {
 	// GetDBCreator returns the DBCreator to use for this Benchmark
 	GetDBCreator() DBCreator
 }
+
+type DataSource interface {
+	NextItem() *data.LoadedPoint
+	Headers() *common.GeneratedDataHeaders
+}
+

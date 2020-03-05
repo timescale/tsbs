@@ -1,4 +1,4 @@
-package main
+package akumuli
 
 import (
 	"bufio"
@@ -8,6 +8,7 @@ import (
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"io"
+	"sync"
 )
 
 type fileDataSource struct {
@@ -56,8 +57,10 @@ func (b *batch) Append(item *data.LoadedPoint) {
 	b.rows++
 }
 
-type factory struct{}
+type factory struct {
+	bufPool *sync.Pool
+}
 
 func (f *factory) New() targets.Batch {
-	return &batch{buf: bufPool.Get().(*bytes.Buffer)}
+	return &batch{buf: f.bufPool.Get().(*bytes.Buffer)}
 }

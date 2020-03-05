@@ -51,7 +51,7 @@ func (m *mockBaseSimulator) TagTypes() []string {
 	return nil
 }
 
-func (m *mockBaseSimulator) Headers() *common.GeneratedDataHeaders{
+func (m *mockBaseSimulator) Headers() *common.GeneratedDataHeaders {
 	return &common.GeneratedDataHeaders{
 		TagTypes:  m.TagTypes(),
 		TagKeys:   m.TagKeys(),

@@ -26,27 +26,30 @@ type void struct{}
 var supportedVersions = map[uint64]void{1: void{}}
 
 type Serializer struct {
-}
-
-// NewPrometheusSerializer creates serializer. The serializer is stateful and shouldn't
-// be reused across different writers
-func NewPrometheusSerializer(writer io.Writer) (*Serializer, error) {
-	ps := &Serializer{}
-	_, err := ps.writeHeader(writer)
-	if err != nil {
-		return nil, fmt.Errorf("error writing file headear: %v", err)
-	}
-	return ps, err
+	headerWritten bool
 }
 
 func (ps *Serializer) writeHeader(w io.Writer) (int, error) {
+	if ps.headerWritten {
+		return 0, nil
+	}
 	var versionBuf [binary.MaxVarintLen32]byte
 	bytesWritter := binary.PutUvarint(versionBuf[:], serializerVersion)
-	return w.Write(versionBuf[:bytesWritter])
+	x, err := w.Write(versionBuf[:bytesWritter])
+	if err != nil {
+		return 0, fmt.Errorf("error writing file headear: %v", err)
+	}
+	ps.headerWritten = true
+	return x, nil
 }
 
 // Serialize point into our custom binary format
 func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
+	if !ps.headerWritten {
+		if _, err := ps.writeHeader(w); err != nil {
+			return err
+		}
+	}
 	series := ps.convertToPromSeries(p)
 	for _, ts := range series {
 		protoBytes, err := proto.Marshal(ts)

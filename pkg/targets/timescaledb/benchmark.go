@@ -1,21 +1,35 @@
 package timescaledb
 
 import (
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/internal/inputs"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-func NewBenchmark(opts *LoadingOptions, loader *load.BenchmarkRunner) targets.Benchmark {
-	return &benchmark{opts, newFileDataSource(loader.FileName)}
+func newBenchmark(opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+	if dataSourceConfig.Type == source.FileDataSourceType {
+		return &benchmark{
+			opts: opts,
+			ds:   newFileDataSource(dataSourceConfig.File.Location),
+		}, nil
+	}
+
+	dataGenerator := &inputs.DataGenerator{}
+	simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
+	if err != nil {
+		return nil, err
+	}
+	return &benchmark{
+		opts: opts,
+		ds:   newSimulationDataSource(simulator)}, nil
 }
 
 type benchmark struct {
 	opts *LoadingOptions
-	ds   source.DataSource
+	ds   targets.DataSource
 }
 
-func (b *benchmark) GetDataSource() source.DataSource {
+func (b *benchmark) GetDataSource() targets.DataSource {
 	return b.ds
 }
 

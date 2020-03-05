@@ -6,7 +6,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
@@ -96,11 +95,11 @@ func init() {
 
 // loader.Benchmark interface implementation
 type benchmark struct {
-	ds source.DataSource
+	ds targets.DataSource
 }
 
 // loader.Benchmark interface implementation
-func (b *benchmark) GetDataSource() source.DataSource {
+func (b *benchmark) GetDataSource() targets.DataSource {
 	if b.ds != nil {
 		return b.ds
 	}

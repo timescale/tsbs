@@ -16,3 +16,21 @@ func RandomByteStringSliceChoice(s [][]byte) []byte {
 func RandomInt64SliceChoice(s []int64) int64 {
 	return s[rand.Intn(len(s))]
 }
+
+const (
+	// Use case choices (make sure to update TestGetConfig if adding a new one)
+	UseCaseCPUOnly       = "cpu-only"
+	UseCaseCPUSingle     = "cpu-single"
+	UseCaseDevops        = "devops"
+	UseCaseIoT           = "iot"
+	UseCaseDevopsGeneric = "devops-generic"
+)
+
+var UseCaseChoices = []string{
+	UseCaseCPUOnly,
+	UseCaseCPUSingle,
+	UseCaseDevops,
+	UseCaseIoT,
+	UseCaseDevopsGeneric,
+}
+

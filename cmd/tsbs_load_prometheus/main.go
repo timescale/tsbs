@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
@@ -88,7 +87,7 @@ func (pbf *PrometheusBatchFactory) New() targets.Batch {
 // PrometheusBenchmark implements Benchmark interface
 type PrometheusBenchmark struct{}
 
-func (pm *PrometheusBenchmark) GetDataSource() source.DataSource {
+func (pm *PrometheusBenchmark) GetDataSource() targets.DataSource {
 	promIter, err := prometheus.NewPrometheusIterator(load.GetBufferedReader(loader.FileName))
 	if err != nil {
 		panic(err)

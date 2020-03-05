@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -11,7 +11,7 @@ import (
 
 // loader.DBCreator interface implementation
 type dbCreator struct {
-	ds      source.DataSource
+	ds      targets.DataSource
 	headers *common.GeneratedDataHeaders
 	connStr string
 }

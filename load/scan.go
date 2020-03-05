@@ -1,7 +1,6 @@
 package load
 
 import (
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"reflect"
 )
@@ -41,7 +40,7 @@ func sendOrQueueBatch(ch *duplexChannel, count *int, batch targets.Batch, unsent
 // Data is decoded by PointDecoder decoder and then placed into appropriate batches, using the supplied PointIndexer,
 // which are then dispatched to workers (duplexChannel chosen by PointIndexer). Scan does flow control to make sure workers are not left idle for too long
 // and also that the scanning process  does not starve them of CPU.
-func scanWithIndexer(channels []*duplexChannel, batchSize uint, limit uint64, ds source.DataSource, factory targets.BatchFactory, indexer targets.PointIndexer) uint64 {
+func scanWithIndexer(channels []*duplexChannel, batchSize uint, limit uint64, ds targets.DataSource, factory targets.BatchFactory, indexer targets.PointIndexer) uint64 {
 	var itemsRead uint64
 	numChannels := len(channels)
 

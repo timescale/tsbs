@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strings"
 )
@@ -26,7 +26,7 @@ type dbCreator struct {
 	tableDefs []*tableDef
 	cfg       *pgx.ConnConfig
 	conn      *pgx.Conn
-	ds        source.DataSource
+	ds        targets.DataSource
 	// common parameters for all metrics table
 	numShards   int
 	numReplicas int
