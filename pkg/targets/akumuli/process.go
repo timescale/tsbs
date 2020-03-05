@@ -1,13 +1,15 @@
-package main
+package akumuli
 
 import (
 	"encoding/binary"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"net"
+	"sync"
 )
 
 type processor struct {
+	bufPool  *sync.Pool
 	endpoint string
 	conn     net.Conn
 	worker   int
@@ -46,6 +48,6 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) 
 		}
 	}
 	batch.buf.Reset()
-	bufPool.Put(batch.buf)
+	p.bufPool.Put(batch.buf)
 	return nmetrics, batch.rows
 }

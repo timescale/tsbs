@@ -16,6 +16,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"os"
 	"os/signal"
@@ -30,7 +32,7 @@ import (
 var (
 	profileFile string
 	dg          = &inputs.DataGenerator{}
-	config      = &inputs.DataGeneratorConfig{}
+	config      = &common.DataGeneratorConfig{}
 )
 
 // Parse args:
@@ -62,8 +64,8 @@ func main() {
 	if len(profileFile) > 0 {
 		defer startMemoryProfile(profileFile)()
 	}
-
-	err := dg.Generate(config)
+	target := initializers.GetTarget(config.Format)
+	err := dg.Generate(config, target)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 	}

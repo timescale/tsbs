@@ -7,8 +7,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/akumuli"
 	"log"
 	"sync"
 
@@ -25,8 +24,7 @@ var (
 
 // Global vars
 var (
-	loader  *load.BenchmarkRunner
-	bufPool sync.Pool
+	loader *load.BenchmarkRunner
 )
 
 // allows for testing
@@ -54,33 +52,12 @@ func init() {
 	loader = load.GetBenchmarkRunner(config)
 }
 
-type benchmark struct{}
-
-func (b *benchmark) GetDataSource() source.DataSource {
-	return &fileDataSource{reader: load.GetBufferedReader(loader.FileName)}
-}
-
-func (b *benchmark) GetBatchFactory() targets.BatchFactory {
-	return &factory{}
-}
-
-func (b *benchmark) GetPointIndexer(n uint) targets.PointIndexer {
-	return &pointIndexer{nchan: n}
-}
-
-func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{endpoint: endpoint}
-}
-
-func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{}
-}
-
 func main() {
-	bufPool = sync.Pool{
+	bufPool := sync.Pool{
 		New: func() interface{} {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
 		},
 	}
-	loader.RunBenchmark(&benchmark{}, load.WorkerPerQueue)
+	benchmark := akumuli.NewBenchmark(loader.FileName, endpoint, &bufPool)
+	loader.RunBenchmark(benchmark, load.WorkerPerQueue)
 }

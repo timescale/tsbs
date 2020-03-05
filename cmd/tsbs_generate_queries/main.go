@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	config2 "github.com/timescale/tsbs/pkg/query/config"
 	"os"
 
 	"github.com/spf13/pflag"
@@ -50,7 +51,7 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 }
 
-var config = &inputs.QueryGeneratorConfig{}
+var config = &config2.QueryGeneratorConfig{}
 
 // Parse args:
 func init() {

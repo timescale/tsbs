@@ -119,7 +119,7 @@ func main() {
 		go OutputReplicationStats(opts.GetConnectString(), opts.ReplicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	benchmark := timescaledb.NewBenchmark(opts, loader)
+	benchmark := timescaledb.Tasak(opts, loader)
 	if opts.HashWorkers {
 		loader.RunBenchmark(benchmark, load.WorkerPerQueue)
 	} else {

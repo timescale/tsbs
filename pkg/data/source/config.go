@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 )
 
 const (
@@ -16,12 +17,10 @@ var (
 )
 
 type DataSourceConfig struct {
-	Type      string                     `yaml:"type"`
-	File      *FileDataSourceConfig      `yaml:"file,omitempty"`
-	Simulator *SimulatorDataSourceConfig `yaml:"simulator,omitempty"`
+	Type      string                      `yaml:"type"`
+	File      *FileDataSourceConfig       `yaml:"file,omitempty"`
+	Simulator *common.DataGeneratorConfig `yaml:"simulator,omitempty"`
 }
-
-type SimulatorDataSourceConfig struct{}
 
 func validateSourceType(t string) error {
 	for _, validType := range validDataSourceTypes {
@@ -61,3 +60,4 @@ func ParseDataSourceConfig(v *viper.Viper) (*DataSourceConfig, error) {
 	}
 	return &conf, nil
 }
+

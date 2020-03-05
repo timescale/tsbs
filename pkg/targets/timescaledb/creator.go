@@ -3,7 +3,7 @@ package timescaledb
 import (
 	"database/sql"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"regexp"
 	"strings"
@@ -23,7 +23,7 @@ var fatal = log.Fatalf
 var tableCols = make(map[string][]string)
 
 type dbCreator struct {
-	ds      source.DataSource
+	ds      targets.DataSource
 	connStr string
 	connDB  string
 	opts    *LoadingOptions

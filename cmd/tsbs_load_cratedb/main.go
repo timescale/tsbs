@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackc/pgconn"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
@@ -24,10 +23,10 @@ var fatal = log.Fatalf
 
 type benchmark struct {
 	dbc *dbCreator
-	ds  source.DataSource
+	ds  targets.DataSource
 }
 
-func (b *benchmark) GetDataSource() source.DataSource {
+func (b *benchmark) GetDataSource() targets.DataSource {
 	return b.ds
 }
 

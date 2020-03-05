@@ -7,7 +7,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"os"
@@ -84,7 +83,7 @@ type benchmark struct {
 }
 
 
-func (b *benchmark) GetDataSource() source.DataSource {
+func (b *benchmark) GetDataSource() targets.DataSource {
 	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))}
 }
 

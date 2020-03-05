@@ -2,6 +2,8 @@ package timescaledb
 
 import (
 	"github.com/spf13/viper"
+	"github.com/timescale/tsbs/pkg/data/serialize"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
@@ -12,14 +14,14 @@ func NewTarget() targets.ImplementedTarget {
 type timescaleTarget struct {
 }
 
-func (t *timescaleTarget) Benchmark() targets.Benchmark {
-	return nil
+func (t *timescaleTarget) Serializer() serialize.PointSerializer {
+	return &Serializer{}
 }
 
-func (t *timescaleTarget) ParseLoaderConfig(v *viper.Viper) (interface{}, error) {
+func (t *timescaleTarget) Benchmark(dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (targets.Benchmark, error) {
 	var loadingOptions LoadingOptions
 	if err := v.UnmarshalExact(&loadingOptions); err != nil {
 		return nil, err
 	}
-	return &loadingOptions, nil
+	return newBenchmark(&loadingOptions, dataSourceConfig)
 }

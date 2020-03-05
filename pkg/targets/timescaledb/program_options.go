@@ -2,11 +2,15 @@ package timescaledb
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"regexp"
 	"strings"
 	"time"
 )
 
+func parseLoadingOptionsConfig(v *viper.Viper){
+
+}
 // Loading option vars:
 type LoadingOptions struct {
 	PostgresConnect string

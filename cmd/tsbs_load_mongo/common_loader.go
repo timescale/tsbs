@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
@@ -83,7 +82,7 @@ type mongoBenchmark struct {
 	dbc *dbCreator
 }
 
-func (b *mongoBenchmark) GetDataSource() source.DataSource {
+func (b *mongoBenchmark) GetDataSource() targets.DataSource {
 	return &fileDataSource{lenBuf: make([]byte, 8), r: load.GetBufferedReader(loader.FileName)}
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 
@@ -68,7 +67,7 @@ func init() {
 
 type benchmark struct{}
 
-func (b *benchmark) GetDataSource() source.DataSource {
+func (b *benchmark) GetDataSource() targets.DataSource {
 	return &fileDataSource{
 		buf: make([]byte, 0),
 		len: 0,

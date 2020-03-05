@@ -17,7 +17,7 @@ func (d *CPUOnlySimulator) Fields() map[string][]string {
 	return d.fields(d.hosts[0].SimulatedMeasurements[:1])
 }
 
-func (d *CPUOnlySimulator) Headers() *common.GeneratedDataHeaders{
+func (d *CPUOnlySimulator) Headers() *common.GeneratedDataHeaders {
 	return &common.GeneratedDataHeaders{
 		TagTypes:  d.TagTypes(),
 		TagKeys:   d.TagKeys(),
