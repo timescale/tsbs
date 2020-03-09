@@ -12,9 +12,10 @@ import (
 
 func Test_what(t *testing.T) {
 	testCases := map[string]struct {
-		fn       func(g *Devops, q *query.HTTP)
-		expQuery string
-		expStep  string
+		fn        func(g *Devops, q *query.HTTP)
+		expQuery  string
+		expStep   string
+		expToFail bool
 	}{
 		"GroupByTime_1_1": {
 			fn: func(g *Devops, q *query.HTTP) {
@@ -51,12 +52,35 @@ func Test_what(t *testing.T) {
 			expQuery: "max(max_over_time({__name__=~'cpu_(usage_user|usage_system|usage_idle|usage_nice|usage_iowait|usage_irq|usage_softirq|usage_steal|usage_guest|usage_guest_nice)', hostname=~'host_5|host_9|host_3|host_1|host_7'}[1h])) by (__name__)",
 			expStep:  "3600",
 		},
+		"GroupByOrderByLimit": {
+			fn: func(g *Devops, q *query.HTTP) {
+				g.GroupByOrderByLimit(q)
+			},
+			expToFail: true,
+		},
+		"LastPointPerHost": {
+			fn: func(g *Devops, q *query.HTTP) {
+				g.LastPointPerHost(q)
+			},
+			expToFail: true,
+		},
 		"HighCPUForHosts": {
 			fn: func(g *Devops, q *query.HTTP) {
-				g.HighCPUForHosts(q, 3)
+				g.HighCPUForHosts(q, 6)
 			},
-			expQuery: "max(max_over_time(cpu_usage_user{hostname=~'host_5|host_9|host_3'}[12h])) by (hostname) > 90",
-			expStep:  "43200", // 12h
+			expToFail: true,
+		},
+		"GroupByTime_negative_metrics": {
+			fn: func(g *Devops, q *query.HTTP) {
+				g.GroupByTime(q, 1, -1, time.Hour)
+			},
+			expToFail: true,
+		},
+		"GroupByTime_negative_hosts": {
+			fn: func(g *Devops, q *query.HTTP) {
+				g.GroupByTime(q, -1, 1, time.Hour)
+			},
+			expToFail: true,
 		},
 	}
 	g := acquireGenerator(t, time.Hour*24, 10)
@@ -64,6 +88,18 @@ func Test_what(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rand.Seed(123) // Setting seed for testing purposes.
 			q := g.GenerateEmptyQuery().(*query.HTTP)
+			if tc.expToFail {
+				func() {
+					defer func() {
+						if recover() == nil {
+							t.Errorf("expected to panice")
+						}
+					}()
+					tc.fn(g, q)
+				}()
+				return
+			}
+
 			tc.fn(g, q)
 			vals, err := url.ParseQuery(string(q.Path))
 			if err != nil {

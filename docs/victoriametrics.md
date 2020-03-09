@@ -2,7 +2,8 @@
 
 [VictoriaMetrics](https://github.com/VictoriaMetrics/VictoriaMetrics) is fast,
 cost-effective and scalable time-series database.
-It can be used as long-term remote storage for Prometheus.
+It supports InfluxDB, Graphite and OpenTSDB protocols for ingesting data
+and also can be used as long-term remote storage for Prometheus.
 This supplemental guide explains how the data generated for TSBS is stored,
 additional flags available when using the data importer (`tsbs_load_victoriametrics`),
 and additional flags available for the query runner (`tsbs_run_queries_victoriametrics`).
@@ -71,10 +72,14 @@ distributed in a round robin fashion across the URLs.
 
 ## Generating queries
 
-VictoriaMetrics supports PromQL which has some limitations comparing to SQL.
-Because of this VictoriaMetrics query generator lacks for implementation
-of query types `groupby-orderby-limit` and `lastpoint` for `devops` use-case
-and all queries for `iot` use-case.
+VictoriaMetrics query language MetricsQL has some limitations comparing to SQL.
+Because of this VictoriaMetrics query generator lacks for implementation of query 
+types for `devops` use-case: 
+* `groupby-orderby-limit` - results are always ordered by time and can't be limited;
+* `lastpoint` - can't be queried if datapoint is older than 5 minutes; 
+* `high-cpu` - can't be queried without grouping by step.
+
+The `iot` use-case wasn't implemented yet.
 
 Of of the ways to generate queries for VictoriaMetrics is to use `scripts/generate_queries.sh`:
 ```text

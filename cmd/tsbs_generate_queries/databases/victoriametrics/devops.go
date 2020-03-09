@@ -33,6 +33,10 @@ func (d *Devops) LastPointPerHost(qq query.Query) {
 	panic("LastPointPerHost not supported in PromQL")
 }
 
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	panic("HighCPUForHosts not supported in PromQL")
+}
+
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu'
 // per minute for nhosts hosts,
 // e.g. in pseudo-PromQL:
@@ -95,30 +99,6 @@ func (d *Devops) MaxAllCPU(qq query.Query, nHosts int) {
 		label:    devops.GetMaxAllLabel("VictoriaMetrics", nHosts),
 		interval: d.Interval.MustRandWindow(devops.MaxAllDuration),
 		step:     "3600",
-	}
-	d.fillInQuery(qq, qi)
-}
-
-// HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
-// usage between a time period for a number of hosts (if 0, it will search all hosts),
-// e.g. in pseudo-PromQL:
-//
-// max(
-//	max_over_time(
-// 		{__name__=~'cpu_.*', hostname=~"hostname1|hostname2...|hostnameN"}[12h]
-// 	)
-// ) by (hostname) > 90
-func (d *Devops) HighCPUForHosts(qq query.Query, nHosts int) {
-	var hostClause string
-	if nHosts > 0 {
-		hosts := d.mustGetRandomHosts(nHosts)
-		hostClause = getHostClause(hosts)
-	}
-	qi := &queryInfo{
-		query:    fmt.Sprintf("max(max_over_time(cpu_usage_user{%s}[12h])) by (hostname) > 90", hostClause),
-		label:    devops.GetMaxAllLabel("VictoriaMetrics", nHosts),
-		interval: d.Interval.MustRandWindow(devops.HighCPUDuration),
-		step:     fmt.Sprintf("%d", int(devops.HighCPUDuration.Seconds())),
 	}
 	d.fillInQuery(qq, qi)
 }
