@@ -35,16 +35,18 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName          string        `mapstructure:"db-name"`
-	BatchSize       uint          `mapstructure:"batch-size"`
-	Workers         uint          `mapstructure:"workers"`
-	Limit           uint64        `mapstructure:"limit"`
-	DoLoad          bool          `mapstructure:"do-load"`
-	DoCreateDB      bool          `mapstructure:"do-create-db"`
-	DoAbortOnExist  bool          `mapstructure:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `mapstructure:"reporting-period"`
-	FileName        string        `mapstructure:"file"`
-	Seed            int64         `mapstructure:"seed"`
+	DBName          string        `yaml:"db-name"`
+	BatchSize       uint          `yaml:"batch-size"`
+	Workers         uint          `yaml:"workers"`
+	Limit           uint64        `yaml:"limit"`
+	DoLoad          bool          `yaml:"do-load"`
+	DoCreateDB      bool          `yaml:"do-create-db"`
+	DoAbortOnExist  bool          `yaml:"do-abort-on-exist"`
+	ReportingPeriod time.Duration `yaml:"reporting-period"`
+	HashWorkers     bool          `yaml:"hash-workers"`
+	// deprecated, should not be used in other places other than tsbs_load_xx commands
+	FileName string `yaml:"file"`
+	Seed     int64  `yaml:"seed"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -59,6 +61,8 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
+	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
+	fs.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 }
 
 // BenchmarkRunner is responsible for initializing and storing common
@@ -113,7 +117,13 @@ func (l *BenchmarkRunner) DatabaseName() string {
 
 // RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
 // and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark, workQueues uint) {
+func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark) {
+	var workQueues uint
+	if l.HashWorkers {
+		workQueues = WorkerPerQueue
+	} else {
+		workQueues = SingleQueue
+	}
 	// Create required DB
 	if b.GetDBCreator() != nil {
 		cleanupFn := l.useDBCreator(b.GetDBCreator())
@@ -200,7 +210,7 @@ func (l *BenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 // multiple workers per channel
 func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
 	// Result - channels to be created
-	channels := []*duplexChannel{}
+	var channels []*duplexChannel
 
 	// How many work queues should be created?
 	workQueuesToCreate := int(workQueues)
@@ -239,7 +249,7 @@ func (l *BenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duple
 
 	// Prepare processor
 	proc := b.GetProcessor()
-	proc.Init(workerNum, l.DoLoad)
+	proc.Init(workerNum, l.DoLoad, l.HashWorkers)
 
 	// Process batches coming from duplexChannel.toWorker queue
 	// and send ACKs into duplexChannel.toScanner queue

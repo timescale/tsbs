@@ -58,6 +58,7 @@ func MustConnect(dbType, connStr string) *sql.DB {
 func MustExec(db *sql.DB, query string, args ...interface{}) sql.Result {
 	r, err := db.Exec(query, args...)
 	if err != nil {
+		fmt.Printf("could not execute sql: %s", query)
 		panic(err)
 	}
 	return r

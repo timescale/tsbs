@@ -33,13 +33,13 @@ const (
 // options that are specific to generating the data for database write operations,
 // such as the initial scale and how spaced apart data points should be in time.
 type DataGeneratorConfig struct {
-	BaseConfig
-	Limit                 uint64        `mapstructure:"max-data-points"`
-	InitialScale          uint64        `mapstructure:"initial-scale"`
-	LogInterval           time.Duration `mapstructure:"log-interval"`
-	InterleavedGroupID    uint          `mapstructure:"interleaved-generation-group-id"`
-	InterleavedNumGroups  uint          `mapstructure:"interleaved-generation-groups"`
-	MaxMetricCountPerHost uint64        `mapstructure:"max-metric-count"`
+	BaseConfig            `yaml:"base"`
+	Limit                 uint64        `yaml:"max-data-points" mapstructure:"max-data-points"`
+	InitialScale          uint64        `yaml:"initial-scale" mapstructure:"initial-scale" `
+	LogInterval           time.Duration `yaml:"log-interval" mapstructure:"log-interval"`
+	InterleavedGroupID    uint          `yaml:"interleaved-generation-group-id" mapstructure:"interleaved-generation-group-id"`
+	InterleavedNumGroups  uint          `yaml:"interleaved-generation-groups" mapstructure:"interleaved-generation-groups"`
+	MaxMetricCountPerHost uint64        `yaml:"max-metric-count" mapstructure:"max-metric-count"`
 }
 
 // Validate checks that the values of the DataGeneratorConfig are reasonable.
@@ -102,17 +102,17 @@ type GeneratorConfig interface {
 // options shared across different types of Generators. These include things like
 // the data format (i.e., which database system is this for), a PRNG seed, etc.
 type BaseConfig struct {
-	Format string `mapstructure:"format"`
-	Use    string `mapstructure:"use-case"`
+	Format string `yaml:"format,omitempty"`
+	Use    string `yaml:"use-case"`
 
-	Scale uint64 `mapstructure:"scale"`
+	Scale uint64 `yaml:"scale"`
 
-	TimeStart string `mapstructure:"timestamp-start"`
-	TimeEnd   string `mapstructure:"timestamp-end"`
+	TimeStart string `yaml:"timestamp-start"`
+	TimeEnd   string `yaml:"timestamp-end"`
 
-	Seed  int64  `mapstructure:"seed"`
-	Debug int    `mapstructure:"debug"`
-	File  string `mapstructure:"file"`
+	Seed  int64  `yaml:"seed"`
+	Debug int    `yaml:"debug,omitempty"`
+	File  string `yaml:"file,omitempty"`
 }
 
 func (c *BaseConfig) AddToFlagSet(fs *pflag.FlagSet) {
@@ -150,4 +150,3 @@ func (c *BaseConfig) Validate() error {
 }
 
 const ErrScaleIsZero = "scale cannot be 0"
-

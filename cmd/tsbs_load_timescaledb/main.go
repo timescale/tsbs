@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"sync"
 	"time"
@@ -39,8 +40,6 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 	pflag.Bool("use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
 	pflag.Bool("use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	pflag.Bool("in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
-	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
-	pflag.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 
 	pflag.Int("partitions", 1, "Number of partitions")
 	pflag.Duration("chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
@@ -81,7 +80,6 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 	opts.UseHypertable = viper.GetBool("use-hypertable")
 	opts.UseJSON = viper.GetBool("use-jsonb-tags")
 	opts.InTableTag = viper.GetBool("in-table-partition-tag")
-	opts.HashWorkers = viper.GetBool("hash-workers")
 
 	opts.NumberPartitions = viper.GetInt("partitions")
 	opts.ChunkTime = viper.GetDuration("chunk-time")
@@ -119,12 +117,17 @@ func main() {
 		go OutputReplicationStats(opts.GetConnectString(), opts.ReplicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	benchmark := timescaledb.Tasak(opts, loader)
-	if opts.HashWorkers {
-		loader.RunBenchmark(benchmark, load.WorkerPerQueue)
-	} else {
-		loader.RunBenchmark(benchmark, load.SingleQueue)
+	benchmark, err := timescaledb.NewTarget().Benchmark(
+		&source.DataSourceConfig{
+			Type: source.FileDataSourceType,
+			File: &source.FileDataSourceConfig{
+				Location: loader.FileName,
+			},
+		}, nil)
+	if err != nil {
+		panic(err)
 	}
+	loader.RunBenchmark(benchmark)
 
 	if len(opts.ReplicationStatsFile) > 0 {
 		replicationStatsWaitGroup.Wait()

@@ -15,7 +15,7 @@ type processor struct {
 	worker   int
 }
 
-func (p *processor) Init(numWorker int, _ bool) {
+func (p *processor) Init(numWorker int, _, _ bool) {
 	p.worker = numWorker
 	c, err := net.Dial("tcp", p.endpoint)
 	if err == nil {
