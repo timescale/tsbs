@@ -9,36 +9,35 @@ import (
 
 // Loading option vars:
 type LoadingOptions struct {
-	PostgresConnect string
-	Host            string
-	DBname          string
+	PostgresConnect string `yaml:"postgres" mapstructure:"postgres"`
+	Host            string `yaml:"host"`
+	DBname          string `yaml:"db-name" mapstructure:"db-name"`
 	User            string
 	Pass            string
 	Port            string
-	ConnDB          string
+	ConnDB          string `yaml:"admin-db-name" mapstructure:"admin-db-name"`
 	Driver          string // postgres or pgx
 
-	UseHypertable bool
-	LogBatches    bool
-	UseJSON       bool
-	InTableTag    bool
-	HashWorkers   bool
+	UseHypertable bool `yaml:"use-hypertable" mapstructure:"use-hypertable"`
+	LogBatches    bool `yaml:"log-batches" mapstructure:"log-batches"`
+	UseJSON       bool `yaml:"use-jsonb-tags" mapstructure:"use-jsonb-tags"`
+	InTableTag    bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
 
-	NumberPartitions int
-	ChunkTime        time.Duration
+	NumberPartitions int           `yaml:"partitions" mapstructure:"partitions"`
+	ChunkTime        time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
-	TimeIndex          bool
-	TimePartitionIndex bool
-	PartitionIndex     bool
-	FieldIndex         string
-	FieldIndexCount    int
+	TimeIndex          bool   `yaml:"time-index" mapstructure:"time-index"`
+	TimePartitionIndex bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`
+	PartitionIndex     bool   `yaml:"partition-index" mapstructure:"partition-index"`
+	FieldIndex         string `yaml:"field-index" mapstructure:"field-index"`
+	FieldIndexCount    int    `yaml:"field-index-count" mapstructure:"field-index-count"`
 
-	ProfileFile          string
-	ReplicationStatsFile string
+	ProfileFile          string `yaml:"write-profile" mapstructure:"write-profile"`
+	ReplicationStatsFile string `yaml:"write-replication-stats" mapstructure:"write-replication-stats"`
 
-	CreateMetricsTable bool
-	ForceTextFormat    bool
-	TagColumnTypes     []string
+	CreateMetricsTable bool     `yaml:"create-metrics-table" mapstructure:"create-metrics-table"`
+	ForceTextFormat    bool     `yaml:"force-text-format" mapstructure:"force-text-format"`
+	TagColumnTypes     []string `yaml:",omitempty" mapstructure:",omitempty"`
 }
 
 func (o *LoadingOptions) GetConnectString() string {

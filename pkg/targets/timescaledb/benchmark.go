@@ -38,18 +38,19 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 }
 
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if b.opts.HashWorkers {
+	if maxPartitions > 1 {
 		return &hostnameIndexer{partitions: maxPartitions}
 	}
 	return &targets.ConstantIndexer{}
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{}
+	return &processor{opts: b.opts}
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{
+		opts:    b.opts,
 		connStr: b.opts.GetConnectString(),
 		connDB:  b.opts.ConnDB,
 		ds:      b.ds,

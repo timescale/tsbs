@@ -262,21 +262,22 @@ type processor struct {
 	opts    *LoadingOptions
 }
 
-func (p *processor) Init(workerNum int, doLoad bool) {
-	if doLoad {
-		p.db = MustConnect(p.opts.Driver, p.opts.GetConnectString())
-		if p.opts.HashWorkers {
-			p.csi = newSyncCSI()
-		} else {
-			p.csi = globalSyncCSI
+func (p *processor) Init(_ int, doLoad, hashWorkers bool) {
+	if !doLoad {
+		return
+	}
+	p.db = MustConnect(p.opts.Driver, p.opts.GetConnectString())
+	if hashWorkers {
+		p.csi = newSyncCSI()
+	} else {
+		p.csi = globalSyncCSI
+	}
+	if !p.opts.ForceTextFormat {
+		conn, err := stdlib.AcquireConn(p.db)
+		if err != nil {
+			panic(err)
 		}
-		if !p.opts.ForceTextFormat {
-			conn, err := stdlib.AcquireConn(p.db)
-			if err != nil {
-				panic(err)
-			}
-			p.pgxConn = conn
-		}
+		p.pgxConn = conn
 	}
 }
 
