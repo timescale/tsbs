@@ -1,13 +1,12 @@
-package main
+package prometheus
 
 import (
+	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/tsbs/cmd/tsbs_load_prometheus/adapter/noop"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/timescale/tsbs/cmd/tsbs_load_prometheus/adapter/noop"
 )
 
 func TestPrometheusLoader(t *testing.T) {
@@ -17,10 +16,9 @@ func TestPrometheusLoader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapterWriteUrl = serverURL.String()
-	pb := PrometheusBenchmark{}
-	pp := pb.GetProcessor().(*PrometheusProcessor)
-	batch := &PrometheusBatch{series: []prompb.TimeSeries{prompb.TimeSeries{}}}
+	pb := Benchmark{AdapterWriteUrl: serverURL.String()}
+	pp := pb.GetProcessor().(*Processor)
+	batch := &Batch{series: []prompb.TimeSeries{{}}}
 	samples, _ := pp.ProcessBatch(batch, true)
 	if samples != 1 {
 		t.Error("wrong number of samples")
