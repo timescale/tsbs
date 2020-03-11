@@ -77,7 +77,7 @@ Because of this VictoriaMetrics query generator lacks for implementation of quer
 types for `devops` use-case: 
 * `groupby-orderby-limit` - results are always ordered by time and can't be limited;
 * `lastpoint` - can't be queried if datapoint is older than 5 minutes; 
-* `high-cpu` - can't be queried without grouping by step.
+* `high-cpu-1`, `high-cpu-all` - can't be queried without grouping by step.
 
 The `iot` use-case wasn't implemented yet.
 
