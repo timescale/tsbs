@@ -1,7 +1,8 @@
-// tsbs_run_queries_clickhouse speed tests ClickHouse using requests from stdin or file.
+// tsbs_run_queries_victoriametrics speed tests VictoriaMetrics using requests from stdin or file.
 //
-// It reads encoded Query objects from stdin or file, and makes concurrent requests to the provided ClickHouse endpoint.
-// This program has no knowledge of the internals of the endpoint.
+// It reads encoded Query objects from stdin, and makes concurrent requests
+// to the provided HTTP endpoint. This program has no knowledge of the
+// internals of the endpoint.
 package main
 
 import (
