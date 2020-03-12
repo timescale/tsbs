@@ -16,7 +16,7 @@ type processor struct {
 	connection *siridb.Connection
 }
 
-func (p *processor) Init(numWorker int, doLoad bool) {
+func (p *processor) Init(numWorker int, _, _ bool) {
 	hostlist := strings.Split(hosts, ",")
 	h := hostlist[numWorker%len(hostlist)]
 	x := strings.Split(h, ":")
@@ -61,7 +61,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			fmt.Printf("BATCH: batchsize %d insert rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
 		}
 	}
-	metricCount = uint64(batch.metricCnt)
+	metricCount = batch.metricCnt
 	batch.series = map[string][]byte{}
 	batch.batchCnt = 0
 	batch.metricCnt = 0

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 
 	"github.com/spf13/pflag"
@@ -35,5 +36,15 @@ func init() {
 }
 
 func main() {
-	loader.RunBenchmark(&prometheus.Benchmark{AdapterWriteUrl: adapterWriteUrl, FileNameToLoad: loader.FileName})
+	benchmark, err := prometheus.NewBenchmark(
+		&prometheus.SpecificConfig{AdapterWriteURL: adapterWriteUrl},
+		&source.DataSourceConfig{
+			Type: source.FileDataSourceType,
+			File: &source.FileDataSourceConfig{Location: loader.FileName},
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	loader.RunBenchmark(benchmark)
 }

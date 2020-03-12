@@ -28,11 +28,9 @@ var (
 	user     string
 	password string
 
-	logBatches  bool
-	inTableTag  bool
-	hashWorkers bool
-
-	debug int
+	logBatches bool
+	inTableTag bool
+	debug      int
 )
 
 // String values of tags and fields to insert - string representation
@@ -63,9 +61,6 @@ func init() {
 
 	pflag.Bool("log-batches", false, "Whether to time individual batches.")
 
-	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
-	pflag.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
-
 	pflag.Int("debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
 
 	pflag.Parse()
@@ -86,7 +81,6 @@ func init() {
 	password = viper.GetString("password")
 
 	logBatches = viper.GetBool("log-batches")
-	hashWorkers = viper.GetBool("hash-workers")
 	debug = viper.GetInt("debug")
 
 	loader = load.GetBenchmarkRunner(config)
@@ -95,7 +89,8 @@ func init() {
 
 // loader.Benchmark interface implementation
 type benchmark struct {
-	ds targets.DataSource
+	ds          targets.DataSource
+	hashWorkers bool
 }
 
 // loader.Benchmark interface implementation
@@ -116,7 +111,7 @@ func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 
 // loader.Benchmark interface implementation
 func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if hashWorkers {
+	if b.hashWorkers {
 		return &hostnameIndexer{
 			partitions: maxPartitions,
 		}
@@ -135,9 +130,5 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 }
 
 func main() {
-	if hashWorkers {
-		loader.RunBenchmark(&benchmark{}, load.WorkerPerQueue)
-	} else {
-		loader.RunBenchmark(&benchmark{}, load.SingleQueue)
-	}
+	loader.RunBenchmark(&benchmark{hashWorkers: loader.HashWorkers})
 }

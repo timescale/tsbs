@@ -61,7 +61,7 @@ func init() {
 	replica = viper.GetBool("replica")
 	logBatches = viper.GetBool("log-batches")
 	writeTimeout = viper.GetInt("write-timeout")
-
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 }
 
@@ -92,5 +92,5 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 }
 
 func main() {
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{})
 }

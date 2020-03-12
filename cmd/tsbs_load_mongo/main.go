@@ -59,20 +59,22 @@ func init() {
 	daemonURL = viper.GetString("url")
 	writeTimeout = viper.GetDuration("write-timeout")
 	documentPer = viper.GetBool("document-per-event")
+	if documentPer {
+		config.HashWorkers = false
+	} else {
+		config.HashWorkers = true
+	}
 
 	loader = load.GetBenchmarkRunner(config)
 }
 
 func main() {
 	var benchmark targets.Benchmark
-	var workQueues uint
 	if documentPer {
 		benchmark = newNaiveBenchmark(loader)
-		workQueues = load.SingleQueue
 	} else {
 		benchmark = newAggBenchmark(loader)
-		workQueues = load.WorkerPerQueue
 	}
 
-	loader.RunBenchmark(benchmark, workQueues)
+	loader.RunBenchmark(benchmark)
 }

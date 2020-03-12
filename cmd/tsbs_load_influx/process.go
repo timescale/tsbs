@@ -20,7 +20,7 @@ type processor struct {
 	httpWriter     *HTTPWriter
 }
 
-func (p *processor) Init(numWorker int, _ bool) {
+func (p *processor) Init(numWorker int, _, _ bool) {
 	daemonURL := daemonURLs[numWorker%len(daemonURLs)]
 	cfg := HTTPWriterConfig{
 		DebugInfo: fmt.Sprintf("worker #%d, dest url: %s", numWorker, daemonURL),

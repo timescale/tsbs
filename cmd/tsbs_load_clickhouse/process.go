@@ -218,7 +218,7 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			timeUTC,    // created_at
 			TimeUTCStr, // time
 			nil,        // tags_id
-			json)       // additional_tags
+			json) // additional_tags
 
 		if inTableTag {
 			r = append(r, tags[0]) // tags[0] = hostname
@@ -329,7 +329,7 @@ type processor struct {
 }
 
 // load.Processor interface implementation
-func (p *processor) Init(workerNum int, doLoad bool) {
+func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	if doLoad {
 		p.db = sqlx.MustConnect(dbType, getConnectString(true))
 		if hashWorkers {

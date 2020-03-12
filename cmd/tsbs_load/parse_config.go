@@ -73,8 +73,9 @@ func convertRunnerConfigToInternalRep(r *RunnerConfig) *load.BenchmarkRunnerConf
 		DoCreateDB:      r.DoCreateDB,
 		DoAbortOnExist:  r.DoAbortOnExist,
 		ReportingPeriod: r.ReportingPeriod,
-		FileName:        "",
 		Seed:            r.Seed,
+		HashWorkers:     r.HashWorkers,
+		InsertIntervals: r.InsertIntervals,
 	}
 }
 

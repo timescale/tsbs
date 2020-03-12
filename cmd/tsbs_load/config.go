@@ -25,13 +25,14 @@ type RunnerConfig struct {
 	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist"`
 	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period"`
 	Seed            int64
-	HashWorkers     bool `yaml:"hash-workers" mapstructure:"hash-workers"`
+	HashWorkers     bool   `yaml:"hash-workers" mapstructure:"hash-workers"`
+	InsertIntervals string `yaml:"insert-intervals" mapstructure:"insert-intervals"`
 }
 
 type DataSourceConfig struct {
 	Type      string
-	File      *FileDataSourceConfig
-	Simulator *SimulatorDataSourceConfig
+	File      *FileDataSourceConfig      `yaml:"file,omitempty"`
+	Simulator *SimulatorDataSourceConfig `yaml:"simulator,omitempty"`
 }
 
 type FileDataSourceConfig struct {
