@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -33,16 +35,15 @@ var (
 // Global vars
 var (
 	loader *load.BenchmarkRunner
+	target targets.ImplementedTarget
 )
 
 // Parse args:
 func init() {
+	target = initializers.GetTarget(constants.FormatMongo)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("url", "localhost:27017", "Mongo URL.")
-	pflag.Duration("write-timeout", 10*time.Second, "Write timeout.")
-	pflag.Bool("document-per-event", false, "Whether to use one document per event or aggregate by hour")
+	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
 

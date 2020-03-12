@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 
 	"github.com/spf13/pflag"
@@ -24,6 +26,7 @@ var (
 // Global vars
 var (
 	loader *load.BenchmarkRunner
+	target targets.ImplementedTarget
 )
 
 // allows for testing
@@ -31,17 +34,10 @@ var fatal = log.Fatal
 
 // Parse args:
 func init() {
+	target = initializers.GetTarget(constants.FormatSiriDB)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("dbuser", "iris", "Username to enter SiriDB")
-	pflag.String("dbpass", "siri", "Password to enter SiriDB")
-
-	pflag.String("hosts", "localhost:9000", "Provide 1 or 2 (comma seperated) SiriDB hosts. If 2 hosts are provided, 2 pools are created.")
-	pflag.Bool("replica", false, "Whether to create a replica instead of a second pool, when two hosts are provided.")
-
-	pflag.Bool("log-batches", false, "Whether to time individual batches.")
-	pflag.Int("write-timeout", 10, "Write timeout.")
+	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
 

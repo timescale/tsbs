@@ -30,6 +30,7 @@ var (
 // Global vars
 var (
 	loader *load.BenchmarkRunner
+	target targets.ImplementedTarget
 )
 
 // Map of user specified strings to gocql consistency settings
@@ -46,12 +47,7 @@ var consistencyMapping = map[string]gocql.Consistency{
 func init() {
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("hosts", "localhost:9042", "Comma separated list of Cassandra hosts in a cluster.")
-
-	pflag.Int("replication-factor", 1, "Number of nodes that must have a copy of each key.")
-	pflag.String("consistency", "ALL", "Desired write consistency level. See Cassandra consistency documentation. Default: ALL")
-	pflag.Duration("write-timeout", 10*time.Second, "Write timeout.")
+	target.TargetSpecificFlags("",pflag.CommandLine)
 
 	pflag.Parse()
 

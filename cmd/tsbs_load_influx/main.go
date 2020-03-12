@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"strings"
 	"sync"
@@ -34,6 +36,7 @@ var (
 var (
 	loader  *load.BenchmarkRunner
 	bufPool sync.Pool
+	target  targets.ImplementedTarget
 )
 
 var consistencyChoices = map[string]struct{}{
@@ -48,15 +51,11 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
+	target = initializers.GetTarget(constants.FormatInflux)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	var csvDaemonURLs string
-
-	pflag.String("urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
-	pflag.Int("replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
-	pflag.String("consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
-	pflag.Duration("backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
-	pflag.Bool("gzip", true, "Whether to gzip encode requests (default true).")
 
 	pflag.Parse()
 

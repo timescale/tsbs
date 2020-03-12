@@ -130,7 +130,6 @@ func config(cmd *cobra.Command, _ []string) {
 		exampleConfig = exampleConfigFromFile
 	}
 	dbSpecificConfig := getDBSpecificConfig(targetSelected)
-	exampleConfig.Format = targetSelected
 	exampleConfig.Loader.DBSpecific = dbSpecificConfig
 	serializedConfig, err := yaml.Marshal(&exampleConfig)
 	if err != nil {

@@ -8,7 +8,7 @@ type SpecificConfig struct {
 
 func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {
 	var conf SpecificConfig
-	if err := v.UnmarshalExact(&conf); err != nil {
+	if err := v.Unmarshal(&conf); err != nil {
 		return nil, err
 	}
 	return &conf, nil

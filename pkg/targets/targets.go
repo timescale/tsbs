@@ -1,6 +1,7 @@
 package targets
 
 import (
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
@@ -11,6 +12,14 @@ import (
 type ImplementedTarget interface {
 	Benchmark(dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (Benchmark, error)
 	Serializer() serialize.PointSerializer
+	// TargetSpecificFlags adds to the supplied flagSet a number of target-specific
+	// flags that will be enabled only when executing a command for this specific
+	// target database.
+	// flagPrefix is a string that should be concatenated with the names of all flags defined here
+	// it is needed to prevent namespace collisions and the ability to override properties
+	// defined in the yaml config
+	TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet)
+	TargetName() string
 }
 
 // Batch is an aggregate of points for a particular data system.
@@ -66,4 +75,3 @@ type DataSource interface {
 	NextItem() *data.LoadedPoint
 	Headers() *common.GeneratedDataHeaders
 }
-

@@ -1,10 +1,9 @@
-package main
+package clickhouse
 
 import (
 	"fmt"
 	"testing"
 )
-
 
 func TestGenerateTagsTableQuery(t *testing.T) {
 	testCases := []struct {

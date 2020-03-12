@@ -1,66 +1,11 @@
-package main
+package clickhouse
 
 import (
 	"bufio"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
-	"hash/fnv"
 	"strings"
 )
-
-// hostnameIndexer is used to consistently send the same hostnames to the same queue
-type hostnameIndexer struct {
-	partitions uint
-}
-
-// scan.PointIndexer interface implementation
-func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) int {
-	p := item.Data.(*point)
-	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
-	h := fnv.New32a()
-	h.Write([]byte(hostname))
-	return int(h.Sum32()) % int(i.partitions)
-}
-
-// Point is a single row of data keyed by which table it belongs
-// Ex.:
-// tags,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production
-// cpu,1451606400000000000,58,2,24,61,22,63,6,44,80,38
-type point struct {
-	table string
-	row   *insertData
-}
-
-// scan.Batch interface implementation
-type tableArr struct {
-	m   map[string][]*insertData
-	cnt int
-}
-
-// scan.Batch interface implementation
-func (ta *tableArr) Len() int {
-	return ta.cnt
-}
-
-// scan.Batch interface implementation
-func (ta *tableArr) Append(item *data.LoadedPoint) {
-	that := item.Data.(*point)
-	k := that.table
-	ta.m[k] = append(ta.m[k], that.row)
-	ta.cnt++
-}
-
-// scan.BatchFactory interface implementation
-type factory struct{}
-
-// scan.BatchFactory interface implementation
-func (f *factory) New() targets.Batch {
-	return &tableArr{
-		m:   map[string][]*insertData{},
-		cnt: 0,
-	}
-}
 
 // scan.PointDecoder interface implementation
 type fileDataSource struct {
@@ -68,8 +13,6 @@ type fileDataSource struct {
 	//cached headers (should be read only at start of file)
 	headers *common.GeneratedDataHeaders
 }
-
-const tagsPrefix = "tags"
 
 // scan.PointDecoder interface implementation
 func (d *fileDataSource) NextItem() *data.LoadedPoint {
@@ -216,3 +159,4 @@ func extractTagNamesAndTypes(tags []string) ([]string, []string) {
 
 	return tagNames, tagTypes
 }
+

@@ -1,4 +1,4 @@
-package main
+package clickhouse
 
 import (
 	"bufio"
@@ -8,6 +8,25 @@ import (
 	"log"
 	"testing"
 )
+
+func TestGetConnectString(t *testing.T) {
+	wantHost := "localhost"
+	wantUser := "default"
+	wantPassword := ""
+	wantDB := "benchmark"
+	want := fmt.Sprintf("tcp://%s:9000?username=%s&password=%s&database=%s", wantHost, wantUser, wantPassword, wantDB)
+
+	connStr := getConnectString(&ClickhouseConfig{
+		Host:     wantHost,
+		User:     wantUser,
+		Password: wantPassword,
+		DbName:   wantDB,
+	},
+		true)
+	if connStr != want {
+		t.Errorf("incorrect connect string: got %s want %s", connStr, want)
+	}
+}
 
 func TestHypertableArr(t *testing.T) {
 	f := &factory{}

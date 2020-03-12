@@ -8,12 +8,9 @@ import (
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
-func parseConfig(v *viper.Viper) (targets.Benchmark, *load.BenchmarkRunner, error) {
-	format := v.GetString("format")
-	target := initializers.GetTarget(format)
+func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benchmark, *load.BenchmarkRunner, error) {
 
 	dataSourceViper := v.Sub("data-source")
 	if dataSourceViper == nil {
@@ -23,7 +20,7 @@ func parseConfig(v *viper.Viper) (targets.Benchmark, *load.BenchmarkRunner, erro
 	if err != nil {
 		return nil, nil, err
 	}
-	dataSourceInternal := convertDataSourceConfigToInternalRepresentation(format, dataSource)
+	dataSourceInternal := convertDataSourceConfigToInternalRepresentation(target.TargetName(), dataSource)
 
 	loaderViper := v.Sub("loader")
 	if loaderViper == nil {

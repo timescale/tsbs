@@ -1,10 +1,12 @@
 package prometheus
 
 import (
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
 )
 
 func NewTarget() targets.ImplementedTarget {
@@ -12,6 +14,10 @@ func NewTarget() targets.ImplementedTarget {
 }
 
 type prometheusTarget struct {
+}
+
+func (t *prometheusTarget) TargetName() string {
+	return constants.FormatPrometheus
 }
 
 func (t *prometheusTarget) Serializer() serialize.PointSerializer {
@@ -23,5 +29,9 @@ func (t *prometheusTarget) Benchmark(dataSourceConfig *source.DataSourceConfig, 
 	if err != nil {
 		return nil, err
 	}
-	return NewBenchmark(promSpecificConfig,dataSourceConfig)
+	return NewBenchmark(promSpecificConfig, dataSourceConfig)
+}
+
+func (t *prometheusTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
+	flagSet.String(flagPrefix+"adapter-write-url", "", "Prometheus adapter url to send data to")
 }
