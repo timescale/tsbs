@@ -2,19 +2,47 @@ package prometheus
 
 import (
 	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/tsbs/internal/inputs"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
+	"log"
 	"sync"
 	"time"
 )
 
-var promBatchPool = sync.Pool{New: func() interface{} { return &Batch{} }}
+func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+	batchPool := &sync.Pool{New: func() interface{} { return &Batch{multipleSeriesPerItem: true} }}
+	var ds targets.DataSource
+	if dataSourceConfig.Type == source.FileDataSourceType {
+		promIter, err := NewPrometheusIterator(load.GetBufferedReader(dataSourceConfig.File.Location))
+		if err != nil {
+			log.Printf("could not create prometheus file data source; %v", err)
+			return nil, err
+		}
+		ds = &FileDataSource{iterator: promIter}
+	} else {
+		dataGenerator := &inputs.DataGenerator{}
+		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
+		if err != nil {
+			return nil, err
+		}
+		ds = newSimulationDataSource(simulator)
+	}
+
+	return &Benchmark{
+		dataSource:      ds,
+		batchPool:       batchPool,
+		adapterWriteUrl: promSpecificConfig.AdapterWriteURL,
+	}, nil
+}
 
 // Batch implements load.Batch interface
 type Batch struct {
-	series []prompb.TimeSeries
+	series                []prompb.TimeSeries
+	multipleSeriesPerItem bool
 }
 
 func (pb *Batch) Len() int {
@@ -22,12 +50,16 @@ func (pb *Batch) Len() int {
 }
 
 func (pb *Batch) Append(item *data.LoadedPoint) {
-	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
+	if pb.multipleSeriesPerItem {
+		pb.series = append(pb.series, item.Data.([]prompb.TimeSeries)...)
+	} else {
+		pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
+	}
 }
 
 // FileDataSource implements the source.DataSource interface
 type FileDataSource struct {
-	iterator *PrometheusIterator
+	iterator *Iterator
 }
 
 func (pd *FileDataSource) NextItem() *data.LoadedPoint {
@@ -47,7 +79,8 @@ func (pd *FileDataSource) Headers() *common.GeneratedDataHeaders {
 
 // PrometheusProcessor implements load.Processor interface
 type Processor struct {
-	client *Client
+	client    *Client
+	batchPool *sync.Pool
 }
 
 func (pp *Processor) Init(_ int, _, _ bool) {}
@@ -64,33 +97,34 @@ func (pp *Processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64)
 	}
 	// reset batch
 	promBatch.series = promBatch.series[:0]
-	promBatchPool.Put(promBatch)
+	pp.batchPool.Put(promBatch)
 	return nrSamples, nrSamples
 }
 
 // PrometheusBatchFactory implements Factory interface
-type BatchFactory struct{}
+type BatchFactory struct {
+	batchPool *sync.Pool
+}
 
 func (pbf *BatchFactory) New() targets.Batch {
-	return promBatchPool.Get().(*Batch)
+	return pbf.batchPool.Get().(*Batch)
 }
 
 // Benchmark implements targets.Benchmark interface
 type Benchmark struct {
-	AdapterWriteUrl string
-	FileNameToLoad  string
+	adapterWriteUrl string
+	dataSource      targets.DataSource
+	batchPool       *sync.Pool
 }
 
 func (pm *Benchmark) GetDataSource() targets.DataSource {
-	promIter, err := NewPrometheusIterator(load.GetBufferedReader(pm.FileNameToLoad))
-	if err != nil {
-		panic(err)
-	}
-	return &FileDataSource{iterator: promIter}
+	return pm.dataSource
 }
 
 func (pm *Benchmark) GetBatchFactory() targets.BatchFactory {
-	return &BatchFactory{}
+	return &BatchFactory{
+		batchPool: pm.batchPool,
+	}
 }
 
 func (pm *Benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
@@ -98,11 +132,11 @@ func (pm *Benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
 }
 
 func (pm *Benchmark) GetProcessor() targets.Processor {
-	client, err := NewClient(pm.AdapterWriteUrl, time.Second*30)
+	client, err := NewClient(pm.adapterWriteUrl, time.Second*30)
 	if err != nil {
 		panic(err)
 	}
-	return &Processor{client: client}
+	return &Processor{client: client, batchPool: pm.batchPool}
 }
 
 func (pm *Benchmark) GetDBCreator() targets.DBCreator {

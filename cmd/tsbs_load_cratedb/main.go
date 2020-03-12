@@ -80,7 +80,7 @@ func main() {
 
 	numReplicas := flag.Int("replicas", 0, "Number of replicas per a metric table")
 	numShards := flag.Int("shards", 5, "Number of shards per a metric table")
-
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 
 	connConfig := &pgx.ConnConfig{
@@ -100,5 +100,5 @@ func main() {
 			numShards:   *numShards,
 		},
 		ds: &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))},
-	}, load.SingleQueue)
+	})
 }

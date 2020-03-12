@@ -25,7 +25,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 }
 
-func runLoad(cmd *cobra.Command, args []string) {
+func runLoad(*cobra.Command, []string) {
 	bench, runner, err := parseConfig(viper.GetViper())
 	if err != nil {
 		panic(err)

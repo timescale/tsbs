@@ -19,5 +19,9 @@ func (t *prometheusTarget) Serializer() serialize.PointSerializer {
 }
 
 func (t *prometheusTarget) Benchmark(dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (targets.Benchmark, error) {
-	panic("not implemented")
+	promSpecificConfig, err := parseSpecificConfig(v)
+	if err != nil {
+		return nil, err
+	}
+	return NewBenchmark(promSpecificConfig,dataSourceConfig)
 }

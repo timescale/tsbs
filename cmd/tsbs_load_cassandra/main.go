@@ -74,14 +74,14 @@ func init() {
 		fmt.Println("Invalid consistency level.")
 		os.Exit(1)
 	}
-
-	loader = load.GetBenchmarkRunnerWithBatchSize(config, 100)
+	config.HashWorkers = false
+	config.BatchSize = 100
+	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct {
 	dbc *dbCreator
 }
-
 
 func (b *benchmark) GetDataSource() targets.DataSource {
 	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))}
@@ -104,14 +104,14 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 }
 
 func main() {
-	loader.RunBenchmark(&benchmark{dbc: &dbCreator{}}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{dbc: &dbCreator{}})
 }
 
 type processor struct {
 	dbc *dbCreator
 }
 
-func (p *processor) Init(_ int, _ bool) {}
+func (p *processor) Init(_ int, _, _ bool) {}
 
 // ProcessBatch reads eventsBatches which contain rows of CQL strings and
 // creates a gocql.LoggedBatch to insert

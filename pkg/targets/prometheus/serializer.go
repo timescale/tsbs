@@ -23,7 +23,7 @@ const serializerVersion uint64 = 1
 
 type void struct{}
 
-var supportedVersions = map[uint64]void{1: void{}}
+var supportedVersions = map[uint64]void{1: {}}
 
 type Serializer struct {
 	headerWritten bool
@@ -34,8 +34,8 @@ func (ps *Serializer) writeHeader(w io.Writer) (int, error) {
 		return 0, nil
 	}
 	var versionBuf [binary.MaxVarintLen32]byte
-	bytesWritter := binary.PutUvarint(versionBuf[:], serializerVersion)
-	x, err := w.Write(versionBuf[:bytesWritter])
+	bytesWriter := binary.PutUvarint(versionBuf[:], serializerVersion)
+	x, err := w.Write(versionBuf[:bytesWriter])
 	if err != nil {
 		return 0, fmt.Errorf("error writing file headear: %v", err)
 	}
@@ -50,9 +50,9 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			return err
 		}
 	}
-	series := ps.convertToPromSeries(p)
+	series := convertToPromSeries(p)
 	for _, ts := range series {
-		protoBytes, err := proto.Marshal(ts)
+		protoBytes, err := proto.Marshal(&ts)
 		if err != nil {
 			return err
 		}
@@ -71,13 +71,13 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 }
 
 // Each point field will become a new TimeSeries with added field key as a label
-func (ps *Serializer) convertToPromSeries(p *data.Point) []*prompb.TimeSeries {
+func convertToPromSeries(p *data.Point) []prompb.TimeSeries {
 	tagKeys := p.TagKeys()
 	tagValues := p.TagValues()
 	fieldKeys := p.FieldKeys()
 	fieldValues := p.FieldValues()
 	labels := make([]prompb.Label, len(tagKeys))
-	series := make([]*prompb.TimeSeries, len(fieldKeys))
+	series := make([]prompb.TimeSeries, len(fieldKeys))
 	for i := range tagKeys {
 		label := prompb.Label{
 			Name:  string(tagKeys[i]),
@@ -93,9 +93,9 @@ func (ps *Serializer) convertToPromSeries(p *data.Point) []*prompb.TimeSeries {
 		}
 		allLabels := append(labels, metricNameLabel)
 
-		ts := &prompb.TimeSeries{
+		ts := prompb.TimeSeries{
 			Labels:  allLabels,
-			Samples: []prompb.Sample{prompb.Sample{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
+			Samples: []prompb.Sample{{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
 		}
 		series[i] = ts
 	}
@@ -115,14 +115,14 @@ func getFloat64(fieldValue interface{}) float64 {
 	}
 }
 
-// PrometheusIterator iterates over binary data and enables lazy access over protobuf messages
-type PrometheusIterator struct {
+// Iterator iterates over binary data and enables lazy access over protobuf messages
+type Iterator struct {
 	reader    *bufio.Reader
 	processed uint64 // number of processed protobuf messages
 }
 
 // NewPrometheusIterator creates iterator and reads version information from underlying reader
-func NewPrometheusIterator(reader *bufio.Reader) (*PrometheusIterator, error) {
+func NewPrometheusIterator(reader *bufio.Reader) (*Iterator, error) {
 	version, err := binary.ReadUvarint(reader)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading file version: %v", err)
@@ -130,11 +130,11 @@ func NewPrometheusIterator(reader *bufio.Reader) (*PrometheusIterator, error) {
 	if _, exists := supportedVersions[version]; !exists {
 		return nil, fmt.Errorf("unsupported version number: %d", version)
 	}
-	return &PrometheusIterator{reader: reader}, nil
+	return &Iterator{reader: reader}, nil
 }
 
 // HasNext returns true if there are more protobuf messages to read
-func (pi *PrometheusIterator) HasNext() bool {
+func (pi *Iterator) HasNext() bool {
 	bytes, err := pi.reader.Peek(1)
 	if err != nil {
 		return false
@@ -143,7 +143,7 @@ func (pi *PrometheusIterator) HasNext() bool {
 }
 
 // Next returns next protobuf message
-func (pi *PrometheusIterator) Next() (*prompb.TimeSeries, error) {
+func (pi *Iterator) Next() (*prompb.TimeSeries, error) {
 	messageSize, err := binary.ReadUvarint(pi.reader)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading message size")

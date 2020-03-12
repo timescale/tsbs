@@ -84,7 +84,7 @@ func init() {
 	if len(daemonURLs) == 0 {
 		log.Fatal("missing 'urls' flag")
 	}
-
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 }
 
@@ -117,5 +117,5 @@ func main() {
 		},
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{})
 }

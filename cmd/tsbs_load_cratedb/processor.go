@@ -16,7 +16,7 @@ type processor struct {
 }
 
 // load.Processor interface implementation
-func (p *processor) Init(workerNum int, doLoad bool) {
+func (p *processor) Init(workerNum int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}

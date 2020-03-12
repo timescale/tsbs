@@ -16,7 +16,7 @@ func TestPrometheusLoader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pb := Benchmark{AdapterWriteUrl: serverURL.String()}
+	pb := Benchmark{adapterWriteUrl: serverURL.String()}
 	pp := pb.GetProcessor().(*Processor)
 	batch := &Batch{series: []prompb.TimeSeries{{}}}
 	samples, _ := pp.ProcessBatch(batch, true)

@@ -49,6 +49,7 @@ func init() {
 	}
 
 	endpoint = viper.GetString("endpoint")
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 }
 
@@ -59,5 +60,5 @@ func main() {
 		},
 	}
 	benchmark := akumuli.NewBenchmark(loader.FileName, endpoint, &bufPool)
-	loader.RunBenchmark(benchmark, load.WorkerPerQueue)
+	loader.RunBenchmark(benchmark)
 }

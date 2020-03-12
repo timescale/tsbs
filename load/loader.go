@@ -1,7 +1,6 @@
 package load
 
 import (
-	"flag"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
@@ -44,6 +43,7 @@ type BenchmarkRunnerConfig struct {
 	DoAbortOnExist  bool          `yaml:"do-abort-on-exist"`
 	ReportingPeriod time.Duration `yaml:"reporting-period"`
 	HashWorkers     bool          `yaml:"hash-workers"`
+	InsertIntervals string        `yaml:"insert-intervals"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
 	FileName string `yaml:"file"`
 	Seed     int64  `yaml:"seed"`
@@ -61,6 +61,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
+	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
 	fs.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 }
@@ -75,33 +76,24 @@ type BenchmarkRunner struct {
 	sleepRegulator insertstrategy.SleepRegulator
 }
 
-var loader = &BenchmarkRunner{}
-
-// GetBenchmarkRunner returns the singleton BenchmarkRunner for use in a benchmark program
-// with a default batch size
-func GetBenchmarkRunner(c BenchmarkRunnerConfig) *BenchmarkRunner {
-	return GetBenchmarkRunnerWithBatchSize(c, defaultBatchSize)
-}
-
 // GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
 // with specified batch size.
-func GetBenchmarkRunnerWithBatchSize(c BenchmarkRunnerConfig, batchSize uint) *BenchmarkRunner {
+func GetBenchmarkRunner(c BenchmarkRunnerConfig) *BenchmarkRunner {
+	loader := &BenchmarkRunner{}
 	loader.BenchmarkRunnerConfig = c
 
-	// If the configuration batch size is at default, we use the supplied batch size instead.
-	if c.BatchSize == defaultBatchSize {
-		c.BatchSize = batchSize
+	// If the configuration batch size is 0 use the default batch size.
+	if c.BatchSize == 0 {
+		c.BatchSize = defaultBatchSize
 	}
 
 	loader.initialRand = rand.New(rand.NewSource(loader.Seed))
 
-	var insertIntervals string
-	flag.StringVar(&insertIntervals, "insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
 	var err error
-	if insertIntervals == "" {
+	if c.InsertIntervals == "" {
 		loader.sleepRegulator = insertstrategy.NoWait()
 	} else {
-		loader.sleepRegulator, err = insertstrategy.NewSleepRegulator(insertIntervals, int(loader.Workers), loader.initialRand)
+		loader.sleepRegulator, err = insertstrategy.NewSleepRegulator(c.InsertIntervals, int(loader.Workers), loader.initialRand)
 		if err != nil {
 			panic(fmt.Sprintf("could not initialize BenchmarkRunner: %v", err))
 		}
@@ -279,7 +271,7 @@ func (l *BenchmarkRunner) timeToSleep(workerNum int, startedWorkAt time.Time) {
 
 // summary prints the summary of statistics from loading
 func (l *BenchmarkRunner) summary(took time.Duration) {
-	metricRate := float64(l.metricCnt) / float64(took.Seconds())
+	metricRate := float64(l.metricCnt) / took.Seconds()
 	printFn("\nSummary:\n")
 	printFn("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", l.metricCnt, took.Seconds(), l.Workers, metricRate)
 	if l.rowCnt > 0 {
