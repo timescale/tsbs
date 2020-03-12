@@ -11,7 +11,6 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "tsbs_load",
 		Short: "Load data inside a db",
-		Run:   runLoad,
 	}
 )
 
@@ -20,17 +19,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
 	rootCmd.PersistentFlags().Bool("viper", true, "use Viper for configuration")
 	viper.BindPFlag("useViper", rootCmd.PersistentFlags().Lookup("viper"))
-
-	configCmd := initConfigCMD()
-	rootCmd.AddCommand(configCmd)
-}
-
-func runLoad(*cobra.Command, []string) {
-	bench, runner, err := parseConfig(viper.GetViper())
+	loadCmd, err := initLoadCMD()
 	if err != nil {
 		panic(err)
 	}
-	runner.RunBenchmark(bench)
+	rootCmd.AddCommand(loadCmd)
+	configCmd := initConfigCMD()
+	rootCmd.AddCommand(configCmd)
 }
 
 func initConfig() {

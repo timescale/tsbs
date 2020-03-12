@@ -5,15 +5,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
-	"github.com/timescale/tsbs/pkg/targets/timescaledb"
-	"sync"
-	"time"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/timescaledb"
+	"sync"
 )
 
 const (
@@ -22,40 +21,11 @@ const (
 )
 
 // Parse args:
-func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
+func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner, targets.ImplementedTarget) {
+	target := timescaledb.NewTarget()
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("postgres", "sslmode=disable", "PostgreSQL connection string")
-	pflag.String("host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
-	pflag.String("port", "5432", "Which port to connect to on the database host")
-	pflag.String("user", "postgres", "User to connect to PostgreSQL as")
-	pflag.String("pass", "", "Password for user connecting to PostgreSQL (leave blank if not password protected)")
-	pflag.String("admin-db-name", "postgres", "Database to connect to in order to create additional benchmark databases.\n"+
-		"By default this is the same as the `user` (i.e., `postgres` if neither is set),\n"+
-		"but sometimes a user does not have its own database.")
-
-	pflag.Bool("log-batches", false, "Whether to time individual batches.")
-
-	pflag.Bool("use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
-	pflag.Bool("use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
-	pflag.Bool("in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
-
-	pflag.Int("partitions", 1, "Number of partitions")
-	pflag.Duration("chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
-
-	pflag.Bool("time-index", true, "Whether to build an index on the time dimension")
-	pflag.Bool("time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
-	pflag.Bool("partition-index", true, "Whether to build an index on the partition key")
-	pflag.String("field-index", timescaledb.ValueTimeIdx, "index types for tags (comma delimited)")
-	pflag.Int("field-index-count", 0, "Number of indexed fields (-1 for all)")
-
-	pflag.String("write-profile", "", "File to output CPU/memory profile to")
-	pflag.String("write-replication-stats", "", "File to output replication stats to")
-	pflag.Bool("create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
-
-	pflag.Bool("force-text-format", false, "Send/receive data in text format")
-
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -101,11 +71,11 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 		opts.Driver = pgxDriver
 	}
 	loader := load.GetBenchmarkRunner(config)
-	return &opts, loader
+	return &opts, loader, target
 }
 
 func main() {
-	opts, loader := initProgramOptions()
+	opts, loader, target := initProgramOptions()
 
 	// If specified, generate a performance profile
 	if len(opts.ProfileFile) > 0 {
@@ -117,7 +87,7 @@ func main() {
 		go OutputReplicationStats(opts.GetConnectString(), opts.ReplicationStatsFile, &replicationStatsWaitGroup)
 	}
 
-	benchmark, err := timescaledb.NewTarget().Benchmark(
+	benchmark, err := target.Benchmark(
 		&source.DataSourceConfig{
 			Type: source.FileDataSourceType,
 			File: &source.FileDataSourceConfig{

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/jackc/pgconn"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 
 	"github.com/jackc/pgx/v4"
@@ -16,7 +18,7 @@ import (
 )
 
 var loader *load.BenchmarkRunner
-
+var target targets.ImplementedTarget
 // the logger is used in implementations of interface methods that
 // do not return error on failures to allow testing such methods
 var fatal = log.Fatalf
@@ -50,17 +52,10 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 }
 
 func main() {
+	target = initializers.GetTarget(constants.FormatCrateDB)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("hosts", "localhost", "CrateDB hostnames")
-	pflag.Uint("port", 5432, "A port to connect to database instances")
-	pflag.String("user", "crate", "User to connect to CrateDB")
-	pflag.String("pass", "", "Password for user connecting to CrateDB")
-
-	pflag.Int("replicas", 0, "Number of replicas per a metric table")
-	pflag.Int("shards", 5, "Number of shards per a metric table")
-
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()

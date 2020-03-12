@@ -4,65 +4,34 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
-	"log"
-
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/clickhouse"
 )
 
 const (
-	dbType       = "clickhouse"
 	timeValueIdx = "TIME-VALUE"
 	valueTimeIdx = "VALUE-TIME"
 )
 
-// Program option vars:
-var (
-	host     string
-	port     int32
-	user     string
-	password string
-
-	logBatches bool
-	inTableTag bool
-	debug      int
-)
-
-// String values of tags and fields to insert - string representation
-type insertData struct {
-	tags   string // hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production
-	fields string // 1451606400000000000,58,2,24,61,22,63,6,44,80,38
-}
-
 // Global vars
 var (
-	loader         *load.BenchmarkRunner
-	tableCols      map[string][]string
-	tagColumnTypes []string
+	target targets.ImplementedTarget
 )
 
-// allows for testing
-var fatal = log.Fatalf
+var loader *load.BenchmarkRunner
+var conf *clickhouse.ClickhouseConfig
 
 // Parse args:
 func init() {
 	var config load.BenchmarkRunnerConfig
+	target := clickhouse.NewTarget()
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("host", "localhost", "Hostname of ClickHouse instance")
-	pflag.String("port", "9000", "Port of ClickHouse instance")
-	pflag.String("user", "default", "User to connect to ClickHouse as")
-	pflag.String("password", "", "Password to connect to ClickHouse")
-
-	pflag.Bool("log-batches", false, "Whether to time individual batches.")
-
-	pflag.Int("debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
-
+	target.TargetSpecificFlags("",pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -74,61 +43,18 @@ func init() {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-
-	host = viper.GetString("host")
-	port = viper.GetInt32("port")
-	user = viper.GetString("user")
-	password = viper.GetString("password")
-
-	logBatches = viper.GetBool("log-batches")
-	debug = viper.GetInt("debug")
+	conf = &clickhouse.ClickhouseConfig{
+		Host:       viper.GetString("host"),
+		User:       viper.GetString("user"),
+		Password:   viper.GetString("password"),
+		LogBatches: viper.GetBool("log-batches"),
+		Debug:      viper.GetInt("debug"),
+		DbName:     loader.DBName,
+	}
 
 	loader = load.GetBenchmarkRunner(config)
-	tableCols = make(map[string][]string)
-}
-
-// loader.Benchmark interface implementation
-type benchmark struct {
-	ds          targets.DataSource
-	hashWorkers bool
-}
-
-// loader.Benchmark interface implementation
-func (b *benchmark) GetDataSource() targets.DataSource {
-	if b.ds != nil {
-		return b.ds
-	}
-
-	return &fileDataSource{
-		scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName)),
-	}
-}
-
-// loader.Benchmark interface implementation
-func (b *benchmark) GetBatchFactory() targets.BatchFactory {
-	return &factory{}
-}
-
-// loader.Benchmark interface implementation
-func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if b.hashWorkers {
-		return &hostnameIndexer{
-			partitions: maxPartitions,
-		}
-	}
-	return &targets.ConstantIndexer{}
-}
-
-// loader.Benchmark interface implementation
-func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{}
-}
-
-// loader.Benchmark interface implementation
-func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{ds: b.GetDataSource()}
 }
 
 func main() {
-	loader.RunBenchmark(&benchmark{hashWorkers: loader.HashWorkers})
+	loader.RunBenchmark(clickhouse.NewBenchmark(loader.FileName, loader.HashWorkers, conf))
 }

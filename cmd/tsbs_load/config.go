@@ -5,9 +5,8 @@ import (
 )
 
 type LoadConfig struct {
-	Format     string
-	DataSource *DataSourceConfig `yaml:"data-source,omitempty" mapstructure:"data-source"`
-	Loader     *LoaderConfig     `yaml:"loader,omitempty"`
+	DataSource *DataSourceConfig `yaml:"data-source" mapstructure:"data-source"`
+	Loader     *LoaderConfig     `yaml:"loader"`
 }
 
 type LoaderConfig struct {

@@ -5,6 +5,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/akumuli"
 	"github.com/timescale/tsbs/pkg/targets/cassandra"
+	"github.com/timescale/tsbs/pkg/targets/clickhouse"
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"github.com/timescale/tsbs/pkg/targets/crate"
 	"github.com/timescale/tsbs/pkg/targets/influx"
@@ -22,6 +23,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return akumuli.NewTarget()
 	case constants.FormatCassandra:
 		return cassandra.NewTarget()
+	case constants.FormatClickhouse:
+		return clickhouse.NewTarget()
 	case constants.FormatCrateDB:
 		return crate.NewTarget()
 	case constants.FormatInflux:

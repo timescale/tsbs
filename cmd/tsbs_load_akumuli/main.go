@@ -7,7 +7,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/akumuli"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"sync"
 
@@ -29,15 +32,16 @@ var (
 
 // allows for testing
 var fatal = log.Fatalf
+var target targets.ImplementedTarget
 
 // Parse args:
 func init() {
+	target = initializers.GetTarget(constants.FormatAkumuli)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
+	target.TargetSpecificFlags("",pflag.CommandLine)
 
-	pflag.StringVar(&endpoint, "endpoint", "http://localhost:8282", "Akumuli RESP endpoint IP address.")
 	pflag.Parse()
-
 	err := utils.SetupConfigFile()
 
 	if err != nil {
