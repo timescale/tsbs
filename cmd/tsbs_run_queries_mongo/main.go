@@ -13,7 +13,7 @@ import (
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
 )

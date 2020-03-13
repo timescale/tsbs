@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
