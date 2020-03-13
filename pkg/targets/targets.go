@@ -1,8 +1,8 @@
 package targets
 
 import (
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
@@ -10,7 +10,7 @@ import (
 )
 
 type ImplementedTarget interface {
-	Benchmark(dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (Benchmark, error)
+	Benchmark(targetDB string, dataSourceConfig *source.DataSourceConfig, v *viper.Viper) (Benchmark, error)
 	Serializer() serialize.PointSerializer
 	// TargetSpecificFlags adds to the supplied flagSet a number of target-specific
 	// flags that will be enabled only when executing a command for this specific

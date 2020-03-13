@@ -32,6 +32,6 @@ func (t *cassandraTarget) Serializer() serialize.PointSerializer {
 	return &Serializer{}
 }
 
-func (t *cassandraTarget) Benchmark(*source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
+func (t *cassandraTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
 	panic("not implemented")
 }
