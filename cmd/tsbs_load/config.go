@@ -10,6 +10,7 @@ type LoadConfig struct {
 }
 
 type LoaderConfig struct {
+	Target     string
 	Runner     *RunnerConfig
 	DBSpecific interface{} `yaml:"db-specific" mapstructure:"db-specific"`
 }

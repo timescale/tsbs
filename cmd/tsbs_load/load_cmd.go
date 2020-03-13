@@ -2,26 +2,30 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"github.com/blagojts/viper"
-	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"github.com/timescale/tsbs/pkg/targets/initializers"
-	"strings"
-	"time"
 )
 
 type cmdRunner func(*cobra.Command, []string)
 
 func initLoadCMD() (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:   "load",
-		Short: "Load data into a specified target database",
+		Use:    "load",
+		Short:  "Load data into a specified target database",
+		PreRun: initViperConfig,
 	}
-	err := addFlagsToLoadCommand(cmd)
+	loadCmdFlagSet := loadCmdFlags()
+	cmd.PersistentFlags().AddFlagSet(loadCmdFlagSet)
+	err := viper.BindPFlags(cmd.PersistentFlags())
+	// don't bind --config which specifies the file from where to read config
+	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not bind flags to configuration: %v", err)
 	}
 
 	subCommands := initLoadSubCommands()
@@ -29,60 +33,11 @@ func initLoadCMD() (*cobra.Command, error) {
 	return cmd, nil
 }
 
-func addFlagsToLoadCommand(cmd *cobra.Command) error {
-	fs := cmd.PersistentFlags()
-	fs.String(
-		"data-source.type",
-		source.SimulatorDataSourceType,
-		"Where to load the data from. Valid: "+strings.Join(source.ValidDataSourceTypes, ", "),
-	)
-	fs.String(
-		"data-source.file.location",
-		"./file-from-tsbs-generate-data",
-		"If data-source.type=FILE, load the data from this file location",
-	)
-	fs.String("loader.runner.db-name", "benchmark", "Name of database")
-	fs.Uint(
-		"loader.runner.batch-size",
-		10000,
-		"Number of items to batch together in a single insert",
-	)
-	fs.Uint("loader.runner.workers", 1, "Number of parallel clients inserting")
-	fs.Uint64("loader.runner.limit", 0, "Number of items to insert (0 = all of them).")
-	fs.Bool(
-		"loader.runner.do-load",
-		true,
-		"Whether to write data. Set this flag to false to check input read speed.",
-	)
-	fs.Bool(
-		"loader.runner.do-create-db",
-		true,
-		"Whether to create the database. Disable on all but one client if running on a multi client setup.",
-	)
-	fs.Bool(
-		"loader.runner.do-abort-on-exist",
-		false,
-		"Whether to abort if a database with the given name already exists.",
-	)
-	fs.Duration("loader.runner.reporting-period", 10*time.Second, "Period to report write stats")
-	fs.String("loader.runner.file", "", "File name to read data from")
-	fs.Int64("loader.runner.seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
-	fs.String(
-		"loader.runner.insert-intervals",
-		"",
-		"Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s "+
-			"between inserts, worker 2 and others wait 2s",
-	)
-	fs.Bool(
-		"loader.runner.hash-workers",
-		false,
-		"Whether to consistently hash insert data to the same workers (i.e., the data for a particular host "+
-			"always goes to the same worker)")
-	err := viper.BindPFlags(cmd.PersistentFlags())
-	if err != nil {
-		return fmt.Errorf("could not bind flags to configuration: %v", err)
-	}
-	return nil
+func loadCmdFlags() *pflag.FlagSet {
+	fs := pflag.NewFlagSet("", pflag.ContinueOnError)
+	addDataSourceFlags(fs)
+	addLoaderRunnerFlags(fs)
+	return fs
 }
 
 func initLoadSubCommands() []*cobra.Command {
@@ -116,5 +71,21 @@ func createRunLoad(target targets.ImplementedTarget) cmdRunner {
 			panic(err)
 		}
 		runner.RunBenchmark(bench)
+	}
+}
+
+func initViperConfig(*cobra.Command, []string) {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Search config in execution directory with name "cobra.yaml" (without extension).
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+	}
+
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 }
