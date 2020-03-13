@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
-	serialize2 "github.com/timescale/tsbs/pkg/data/serialize"
+	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/data/usecases/devops"
 	"github.com/timescale/tsbs/pkg/data/usecases/iot"
@@ -168,7 +168,7 @@ func (g *DataGenerator) Generate(config GeneratorConfig) error {
 	return g.runSimulator(sim, serializer, g.config)
 }
 
-func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize2.PointSerializer, dgc *DataGeneratorConfig) error {
+func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *DataGeneratorConfig) error {
 	defer g.bufOut.Flush()
 
 	currGroupID := uint(0)
@@ -256,8 +256,8 @@ func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.Sim
 	return ret, err
 }
 
-func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (serialize2.PointSerializer, error) {
-	var ret serialize2.PointSerializer
+func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (serialize.PointSerializer, error) {
+	var ret serialize.PointSerializer
 	var err error
 
 	switch format {
