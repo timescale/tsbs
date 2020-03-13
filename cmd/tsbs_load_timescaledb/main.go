@@ -5,19 +5,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"sync"
-)
-
-const (
-	pgxDriver = "pgx"
-	pqDriver  = "postgres"
 )
 
 // Parse args:
@@ -40,7 +35,6 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner, t
 	opts := timescaledb.LoadingOptions{}
 	opts.PostgresConnect = viper.GetString("postgres")
 	opts.Host = viper.GetString("host")
-	opts.DBname = viper.GetString("db-name")
 	opts.Port = viper.GetString("port")
 	opts.User = viper.GetString("user")
 	opts.Pass = viper.GetString("pass")
@@ -65,11 +59,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner, t
 	opts.CreateMetricsTable = viper.GetBool("create-metrics-table")
 
 	opts.ForceTextFormat = viper.GetBool("force-text-format")
-	if opts.ForceTextFormat {
-		opts.Driver = pqDriver
-	} else {
-		opts.Driver = pgxDriver
-	}
+
 	loader := load.GetBenchmarkRunner(config)
 	return &opts, loader, target
 }
@@ -84,7 +74,9 @@ func main() {
 
 	var replicationStatsWaitGroup sync.WaitGroup
 	if len(opts.ReplicationStatsFile) > 0 {
-		go OutputReplicationStats(opts.GetConnectString(), opts.ReplicationStatsFile, &replicationStatsWaitGroup)
+		go OutputReplicationStats(
+			opts.GetConnectString(loader.DatabaseName()), opts.ReplicationStatsFile, &replicationStatsWaitGroup,
+		)
 	}
 
 	benchmark, err := target.Benchmark(

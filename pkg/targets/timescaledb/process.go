@@ -186,28 +186,28 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 
 	// Check if any of these tags has yet to be inserted
 	newTags := make([][]string, 0, len(rows))
-	p.csi.mutex.RLock()
+	p._csi.mutex.RLock()
 	for _, cols := range tagRows {
-		if _, ok := p.csi.m[cols[0]]; !ok {
+		if _, ok := p._csi.m[cols[0]]; !ok {
 			newTags = append(newTags, cols)
 		}
 	}
-	p.csi.mutex.RUnlock()
+	p._csi.mutex.RUnlock()
 	if len(newTags) > 0 {
-		p.csi.mutex.Lock()
-		res := p.insertTags(p.db, newTags, true)
+		p._csi.mutex.Lock()
+		res := p.insertTags(p._db, newTags, true)
 		for k, v := range res {
-			p.csi.m[k] = v
+			p._csi.m[k] = v
 		}
-		p.csi.mutex.Unlock()
+		p._csi.mutex.Unlock()
 	}
 
-	p.csi.mutex.RLock()
+	p._csi.mutex.RLock()
 	for i := range dataRows {
 		tagKey := tagRows[i][0]
-		dataRows[i][1] = p.csi.m[tagKey]
+		dataRows[i][1] = p._csi.m[tagKey]
 	}
-	p.csi.mutex.RUnlock()
+	p._csi.mutex.RUnlock()
 
 	cols := make([]string, 0, colLen)
 	cols = append(cols, "time", "tags_id", "additional_tags")
@@ -217,7 +217,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	cols = append(cols, tableCols[hypertable]...)
 
 	if p.opts.ForceTextFormat {
-		tx := MustBegin(p.db)
+		tx := MustBegin(p._db)
 		stmt, err := tx.Prepare(pq.CopyIn(hypertable, cols...))
 		if err != nil {
 			panic(err)
@@ -242,7 +242,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 		}
 	} else {
 		rows := pgx.CopyFromRows(dataRows)
-		inserted, err := p.pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
+		inserted, err := p._pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
 		if err != nil {
 			panic(err)
 		}
@@ -255,38 +255,48 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	return numMetrics
 }
 
+func newProcessor(opts *LoadingOptions, driver, dbName string) *processor {
+	return &processor{
+		opts:   opts,
+		driver: driver,
+		dbName: dbName,
+	}
+}
+
 type processor struct {
-	db      *sql.DB
-	csi     *syncCSI
-	pgxConn *pgx.Conn
-	opts    *LoadingOptions
+	_db      *sql.DB
+	_csi     *syncCSI
+	_pgxConn *pgx.Conn
+	opts     *LoadingOptions
+	driver   string
+	dbName   string
 }
 
 func (p *processor) Init(_ int, doLoad, hashWorkers bool) {
 	if !doLoad {
 		return
 	}
-	p.db = MustConnect(p.opts.Driver, p.opts.GetConnectString())
+	p._db = MustConnect(p.driver, p.opts.GetConnectString(p.dbName))
 	if hashWorkers {
-		p.csi = newSyncCSI()
+		p._csi = newSyncCSI()
 	} else {
-		p.csi = globalSyncCSI
+		p._csi = globalSyncCSI
 	}
 	if !p.opts.ForceTextFormat {
-		conn, err := stdlib.AcquireConn(p.db)
+		conn, err := stdlib.AcquireConn(p._db)
 		if err != nil {
 			panic(err)
 		}
-		p.pgxConn = conn
+		p._pgxConn = conn
 	}
 }
 
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
-		p.db.Close()
+		p._db.Close()
 	}
-	if p.pgxConn != nil {
-		err := stdlib.ReleaseConn(p.db, p.pgxConn)
+	if p._pgxConn != nil {
+		err := stdlib.ReleaseConn(p._db, p._pgxConn)
 		if err != nil {
 			panic(err)
 		}

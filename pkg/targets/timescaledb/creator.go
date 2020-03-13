@@ -23,6 +23,7 @@ var fatal = log.Fatalf
 var tableCols = make(map[string][]string)
 
 type dbCreator struct {
+	driver  string
 	ds      targets.DataSource
 	connStr string
 	connDB  string
@@ -83,7 +84,7 @@ func MustBegin(db *sql.DB) *sql.Tx {
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	db := MustConnect(d.opts.Driver, d.connStr)
+	db := MustConnect(d.driver, d.connStr)
 	defer db.Close()
 	r := MustQuery(db, "SELECT 1 from pg_database WHERE datname = $1", dbName)
 	defer r.Close()
@@ -91,21 +92,21 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	db := MustConnect(d.opts.Driver, d.connStr)
+	db := MustConnect(d.driver, d.connStr)
 	defer db.Close()
 	MustExec(db, "DROP DATABASE IF EXISTS "+dbName)
 	return nil
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	db := MustConnect(d.opts.Driver, d.connStr)
+	db := MustConnect(d.driver, d.connStr)
 	MustExec(db, "CREATE DATABASE "+dbName)
 	db.Close()
 	return nil
 }
 
-func (d *dbCreator) PostCreateDB(string) error {
-	dbBench := MustConnect(d.opts.Driver, d.opts.GetConnectString())
+func (d *dbCreator) PostCreateDB(dbName string) error {
+	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
 
 	headers := d.ds.Headers()

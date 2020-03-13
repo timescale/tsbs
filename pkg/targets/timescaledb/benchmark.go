@@ -6,27 +6,33 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-func newBenchmark(opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+const pgxDriver = "pgx"
+const pqDriver = "postgres"
+
+func newBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
-		return &benchmark{
-			opts: opts,
-			ds:   newFileDataSource(dataSourceConfig.File.Location),
-		}, nil
+		ds = newFileDataSource(dataSourceConfig.File.Location)
+	} else {
+		dataGenerator := &inputs.DataGenerator{}
+		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
+		if err != nil {
+			return nil, err
+		}
+		ds = newSimulationDataSource(simulator)
 	}
 
-	dataGenerator := &inputs.DataGenerator{}
-	simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
-	if err != nil {
-		return nil, err
-	}
 	return &benchmark{
-		opts: opts,
-		ds:   newSimulationDataSource(simulator)}, nil
+		opts:   opts,
+		ds:     ds,
+		dbName: dbName,
+	}, nil
 }
 
 type benchmark struct {
-	opts *LoadingOptions
-	ds   targets.DataSource
+	opts   *LoadingOptions
+	ds     targets.DataSource
+	dbName string
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
@@ -45,14 +51,23 @@ func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{opts: b.opts}
+	return newProcessor(b.opts, getDriver(b.opts.ForceTextFormat), b.dbName)
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{
 		opts:    b.opts,
-		connStr: b.opts.GetConnectString(),
 		connDB:  b.opts.ConnDB,
 		ds:      b.ds,
+		driver:  getDriver(b.opts.ForceTextFormat),
+		connStr: b.opts.GetConnectString(b.dbName),
+	}
+}
+
+func getDriver(forceTextFormat bool) string {
+	if forceTextFormat {
+		return pqDriver
+	} else {
+		return pgxDriver
 	}
 }

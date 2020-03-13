@@ -31,6 +31,6 @@ func (t *mongoTarget) Serializer() serialize.PointSerializer {
 	return &Serializer{}
 }
 
-func (t *mongoTarget) Benchmark(*source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
+func (t *mongoTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
 	panic("not implemented")
 }

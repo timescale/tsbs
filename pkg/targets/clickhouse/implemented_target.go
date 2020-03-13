@@ -15,7 +15,7 @@ func NewTarget() targets.ImplementedTarget {
 
 type clickhouseTarget struct{}
 
-func (c clickhouseTarget) Benchmark(*source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
+func (c clickhouseTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
 	panic("implement me")
 }
 

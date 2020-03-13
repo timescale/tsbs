@@ -35,6 +35,6 @@ func (t *siriTarget) Serializer() serialize.PointSerializer {
 	return &Serializer{}
 }
 
-func (t *siriTarget) Benchmark(*source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
+func (t *siriTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
 	panic("not implemented")
 }

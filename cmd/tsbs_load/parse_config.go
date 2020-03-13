@@ -43,7 +43,7 @@ func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benc
 		return nil, nil, fmt.Errorf("config file didn't have loader.db-specific specified")
 	}
 
-	benchmark, err := target.Benchmark(dataSourceInternal, dbSpecificViper)
+	benchmark, err := target.Benchmark(loaderConfigInternal.DBName, dataSourceInternal, dbSpecificViper)
 	if err != nil {
 		return nil, nil, err
 	}

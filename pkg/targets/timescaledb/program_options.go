@@ -11,12 +11,10 @@ import (
 type LoadingOptions struct {
 	PostgresConnect string `yaml:"postgres" mapstructure:"postgres"`
 	Host            string `yaml:"host"`
-	DBname          string `yaml:"db-name" mapstructure:"db-name"`
 	User            string
 	Pass            string
 	Port            string
 	ConnDB          string `yaml:"admin-db-name" mapstructure:"admin-db-name"`
-	Driver          string // postgres or pgx
 
 	UseHypertable bool `yaml:"use-hypertable" mapstructure:"use-hypertable"`
 	LogBatches    bool `yaml:"log-batches" mapstructure:"log-batches"`
@@ -40,12 +38,12 @@ type LoadingOptions struct {
 	TagColumnTypes     []string `yaml:",omitempty" mapstructure:",omitempty"`
 }
 
-func (o *LoadingOptions) GetConnectString() string {
+func (o *LoadingOptions) GetConnectString(dbName string) string {
 	// User might be passing in host=hostname the connect string out of habit which may override the
 	// multi host configuration. Same for dbname= and user=. This sanitizes that.
 	re := regexp.MustCompile(`(host|dbname|user)=\S*\b`)
 	connectString := strings.TrimSpace(re.ReplaceAllString(o.PostgresConnect, ""))
-	connectString = fmt.Sprintf("host=%s dbname=%s user=%s %s", o.Host, o.DBname, o.User, connectString)
+	connectString = fmt.Sprintf("host=%s dbname=%s user=%s %s", o.Host, dbName, o.User, connectString)
 
 	// For optional parameters, ensure they exist then interpolate them into the connectString
 	if len(o.Port) > 0 {
