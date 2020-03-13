@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
@@ -11,7 +11,6 @@ import (
 )
 
 func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benchmark, *load.BenchmarkRunner, error) {
-
 	dataSourceViper := v.Sub("data-source")
 	if dataSourceViper == nil {
 		return nil, nil, fmt.Errorf("config file didn't have a top-level 'data-source' object")
@@ -54,7 +53,7 @@ func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benc
 
 func parseRunnerConfig(v *viper.Viper) (*RunnerConfig, error) {
 	var runnerConfig RunnerConfig
-	if err := v.UnmarshalExact(&runnerConfig); err != nil {
+	if err := v.Unmarshal(&runnerConfig); err != nil {
 		return nil, err
 	}
 	return &runnerConfig, nil

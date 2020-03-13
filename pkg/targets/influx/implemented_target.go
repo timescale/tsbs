@@ -2,7 +2,7 @@ package influx
 
 import (
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"

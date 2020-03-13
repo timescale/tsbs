@@ -2,7 +2,7 @@ package utils
 
 import (
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 )
 
 // SetupConfigFile defines the settings for the configuration file support.

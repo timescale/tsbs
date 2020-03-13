@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"

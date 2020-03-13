@@ -9,7 +9,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	"github.com/blagojts/viper"
 )
 
 // runs the benchmark
