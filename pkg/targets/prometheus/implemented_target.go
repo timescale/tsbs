@@ -33,5 +33,5 @@ func (t *prometheusTarget) Benchmark(dataSourceConfig *source.DataSourceConfig, 
 }
 
 func (t *prometheusTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
-	flagSet.String(flagPrefix+"adapter-write-url", "", "Prometheus adapter url to send data to")
+	flagSet.String(flagPrefix+"adapter-write-url", "http://localhost:9201", "Prometheus adapter url to send data to")
 }

@@ -1,92 +1,30 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/blagojts/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/constants"
-	"github.com/timescale/tsbs/pkg/targets/prometheus"
-	"github.com/timescale/tsbs/pkg/targets/timescaledb"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"strings"
-	"time"
 )
 
 const (
 	dataSourceFlag = "data-source"
 	targetDbFlag   = "target"
-	useCaseFlag    = "use-case"
-)
 
-var (
-	exampleTimescaleLoadOptions = &timescaledb.LoadingOptions{
-		PostgresConnect:    "sslmode=disable",
-		Host:               "localhost",
-		DBname:             "benchmark",
-		User:               "postgres",
-		Pass:               "postgres",
-		Port:               "5432",
-		ConnDB:             "postgres",
-		Driver:             "pgx",
-		UseHypertable:      true,
-		LogBatches:         true,
-		UseJSON:            false,
-		InTableTag:         true,
-		NumberPartitions:   1,
-		ChunkTime:          10 * time.Hour,
-		TimeIndex:          false,
-		TimePartitionIndex: true,
-		PartitionIndex:     false,
-		CreateMetricsTable: true,
-		ForceTextFormat:    false,
-	}
-	examplePromLoadOptions = &prometheus.SpecificConfig{AdapterWriteURL: "http://localhost:9201/write"}
-	exampleLoaderConfig    = LoaderConfig{
-		Runner: &RunnerConfig{
-			DBName:          "benchmark",
-			BatchSize:       10000,
-			Workers:         8,
-			Limit:           0,
-			DoLoad:          true,
-			DoCreateDB:      true,
-			DoAbortOnExist:  true,
-			ReportingPeriod: 10 * time.Second,
-			Seed:            1234,
-			HashWorkers:     true,
-		},
-	}
-	exampleConfigFromSimulator = LoadConfig{
-		DataSource: &DataSourceConfig{
-			Type: source.SimulatorDataSourceType,
-			Simulator: &SimulatorDataSourceConfig{
-				Use:                   "devops",
-				Scale:                 10,
-				Seed:                  1234,
-				TimeEnd:               "2020-01-02T00:00:00Z",
-				TimeStart:             "2020-01-01T00:00:00Z",
-				Limit:                 0,
-				LogInterval:           10 * time.Second,
-				Debug:                 0,
-				MaxMetricCountPerHost: 10,
-			},
-		},
-		Loader: &exampleLoaderConfig,
-	}
-
-	exampleConfigFromFile = LoadConfig{
-		DataSource: &DataSourceConfig{
-			Type: source.FileDataSourceType,
-			File: &FileDataSourceConfig{Location: "some/location/to/file/generated/with/tsbs_generate_data"},
-		},
-		Loader: &exampleLoaderConfig,
-	}
+	writeConfigTo = "./config.yaml"
 )
 
 func initConfigCMD() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Generate example config yaml file and print it to STDOUT",
+		Short: "Generate example config yaml file and save it to" + writeConfigTo,
 		Run:   config,
 	}
 
@@ -100,53 +38,96 @@ func initConfigCMD() *cobra.Command {
 		constants.FormatPrometheus,
 		"specify target db, valid: "+strings.Join(constants.SupportedFormats(), ", "),
 	)
-	cmd.PersistentFlags().String(
-		useCaseFlag,
-		"devops-generic",
-		"specify use case to be simulated, only valid with SIMULATOR data source",
-	)
 	return cmd
 }
 
 func config(cmd *cobra.Command, _ []string) {
-	dataSourceSelected, err := cmd.PersistentFlags().GetString(dataSourceFlag)
+	dataSourceSelected := readFlag(cmd, dataSourceFlag)
+	targetSelected := readFlag(cmd, targetDbFlag)
+
+	exampleConfig := getEmptyConfigWithoutDbSpecifics(targetSelected, dataSourceSelected)
+	target := initializers.GetTarget(targetSelected)
+	v := setExampleConfigInViper(exampleConfig, target)
+
+	if err := v.WriteConfigAs(writeConfigTo); err != nil {
+		panic(fmt.Errorf("could not write sample config to file %s: %v", writeConfigTo, err))
+	}
+	fmt.Printf("Wrote example config to %s", writeConfigTo)
+}
+func getEmptyConfigWithoutDbSpecifics(target, dataSource string) *LoadConfig {
+	loadConfig := &LoadConfig{
+		Loader: &LoaderConfig{
+			Target: target,
+			Runner: &RunnerConfig{},
+		},
+	}
+	switch dataSource {
+	case source.FileDataSourceType:
+		loadConfig.DataSource = &DataSourceConfig{
+			Type: source.FileDataSourceType,
+			File: &FileDataSourceConfig{},
+		}
+	case source.SimulatorDataSourceType:
+		loadConfig.DataSource = &DataSourceConfig{
+			Type:      source.SimulatorDataSourceType,
+			Simulator: &SimulatorDataSourceConfig{},
+		}
+	}
+	return loadConfig
+}
+
+func readFlag(cmd *cobra.Command, flag string) string {
+	val, err := cmd.PersistentFlags().GetString(flag)
 	if err != nil {
 		panic(fmt.Sprintf("could not read value for %s flag: %v", dataSourceFlag, err))
 	}
-	targetSelected, err := cmd.PersistentFlags().GetString(targetDbFlag)
-	if err != nil {
-		panic(fmt.Sprintf("could not read value for %s flag; %v", targetDbFlag, err))
-	}
-
-	useCaseSelected, err := cmd.PersistentFlags().GetString(useCaseFlag)
-	if err != nil {
-		panic(fmt.Sprintf("could not read value for %s flag; %v", useCaseFlag, err))
-	}
-	var exampleConfig LoadConfig
-	if dataSourceSelected == source.SimulatorDataSourceType {
-		exampleConfig = exampleConfigFromSimulator
-		exampleConfig.DataSource.Simulator.Use = useCaseSelected
-	} else {
-		exampleConfig = exampleConfigFromFile
-	}
-	dbSpecificConfig := getDBSpecificConfig(targetSelected)
-	exampleConfig.Loader.DBSpecific = dbSpecificConfig
-	serializedConfig, err := yaml.Marshal(&exampleConfig)
-	if err != nil {
-		panic(err)
-	}
-	if err := ioutil.WriteFile("./config.yaml", serializedConfig, 0644); err != nil {
-		fmt.Printf("could not write example config in ./config.yaml: %v", err)
-	} else {
-		fmt.Println("Example config written in ./config.yaml")
-	}
+	return val
 }
 
-func getDBSpecificConfig(target string) interface{} {
-	if target == constants.FormatPrometheus {
-		return examplePromLoadOptions
-	} else if target == constants.FormatTimescaleDB {
-		return exampleTimescaleLoadOptions
+func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.ImplementedTarget) *viper.Viper {
+	v := viper.New()
+	v.SetConfigType("yaml")
+
+	// convert LoaderConfig to yaml to load into viper
+	configInBytes, err := yaml.Marshal(confWithoutDBSpecifics)
+	if err != nil {
+		panic(fmt.Errorf("could not convert example config to yaml: %v", err))
 	}
-	panic("no example loader config for format:" + target + "; only for timescaledb and prometheus")
+
+	// get target specific flags
+	flagSet := pflag.NewFlagSet("", pflag.ContinueOnError)
+	t.TargetSpecificFlags("loader.db-specific.", flagSet)
+
+	if err := v.ReadConfig(bytes.NewBuffer(configInBytes)); err != nil {
+		panic(fmt.Errorf("could not load example config in viper: %v", err))
+	}
+
+	// get loader.runner and data-source flags
+	// and remove either data-source.file or data-source.simulator depending on selected
+	// data source type
+	loadCmdFlagSet := cleanDataSourceFlags(confWithoutDBSpecifics.DataSource.Type, loadCmdFlags())
+	// bind loader.runner and data-source flags
+	if err := v.BindPFlags(loadCmdFlagSet); err != nil {
+		panic(fmt.Errorf("could not bind loader.runner and data-source flags in viper: %v", err))
+	}
+	// bind target specific flags
+	if err := v.BindPFlags(flagSet); err != nil {
+		panic(fmt.Errorf("could not bind target specific config flags in viper: %v", err))
+	}
+
+	return v
+}
+
+func cleanDataSourceFlags(dataSource string, fs *pflag.FlagSet) *pflag.FlagSet {
+	prefix := "data-source.file"
+	if dataSource == source.SimulatorDataSourceType {
+		prefix = "data-source.simulator"
+	}
+	reducedFs := pflag.NewFlagSet("", pflag.ContinueOnError)
+	fs.VisitAll(func(f *pflag.Flag) {
+		if strings.HasPrefix(f.Name, prefix) {
+			reducedFs.AddFlag(f)
+		}
+	})
+	return reducedFs
 }
