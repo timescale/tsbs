@@ -58,19 +58,16 @@ func getEmptyConfigWithoutDbSpecifics(target, dataSource string) *LoadConfig {
 	loadConfig := &LoadConfig{
 		Loader: &LoaderConfig{
 			Target: target,
-			Runner: &RunnerConfig{},
 		},
 	}
 	switch dataSource {
 	case source.FileDataSourceType:
 		loadConfig.DataSource = &DataSourceConfig{
 			Type: source.FileDataSourceType,
-			File: &FileDataSourceConfig{},
 		}
 	case source.SimulatorDataSourceType:
 		loadConfig.DataSource = &DataSourceConfig{
-			Type:      source.SimulatorDataSourceType,
-			Simulator: &SimulatorDataSourceConfig{},
+			Type: source.SimulatorDataSourceType,
 		}
 	}
 	return loadConfig
@@ -94,10 +91,6 @@ func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.Imple
 		panic(fmt.Errorf("could not convert example config to yaml: %v", err))
 	}
 
-	// get target specific flags
-	flagSet := pflag.NewFlagSet("", pflag.ContinueOnError)
-	t.TargetSpecificFlags("loader.db-specific.", flagSet)
-
 	if err := v.ReadConfig(bytes.NewBuffer(configInBytes)); err != nil {
 		panic(fmt.Errorf("could not load example config in viper: %v", err))
 	}
@@ -110,6 +103,10 @@ func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.Imple
 	if err := v.BindPFlags(loadCmdFlagSet); err != nil {
 		panic(fmt.Errorf("could not bind loader.runner and data-source flags in viper: %v", err))
 	}
+
+	// get target specific flags
+	flagSet := pflag.NewFlagSet("", pflag.ContinueOnError)
+	t.TargetSpecificFlags("loader.db-specific.", flagSet)
 	// bind target specific flags
 	if err := v.BindPFlags(flagSet); err != nil {
 		panic(fmt.Errorf("could not bind target specific config flags in viper: %v", err))
@@ -119,13 +116,13 @@ func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.Imple
 }
 
 func cleanDataSourceFlags(dataSource string, fs *pflag.FlagSet) *pflag.FlagSet {
-	prefix := "data-source.file"
-	if dataSource == source.SimulatorDataSourceType {
-		prefix = "data-source.simulator"
+	unwantedPrefix := "data-source.file"
+	if dataSource == source.FileDataSourceType {
+		unwantedPrefix = "data-source.simulator"
 	}
 	reducedFs := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fs.VisitAll(func(f *pflag.Flag) {
-		if strings.HasPrefix(f.Name, prefix) {
+		if !strings.HasPrefix(f.Name, unwantedPrefix) {
 			reducedFs.AddFlag(f)
 		}
 	})

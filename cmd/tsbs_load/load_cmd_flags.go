@@ -33,7 +33,6 @@ func addLoaderRunnerFlags(fs *pflag.FlagSet) {
 		"Whether to abort if a database with the given name already exists.",
 	)
 	fs.Duration("loader.runner.reporting-period", 10*time.Second, "Period to report write stats")
-	fs.String("loader.runner.file", "", "File name to read data from")
 	fs.Int64("loader.runner.seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	fs.Bool(
 		"loader.runner.do-load",
