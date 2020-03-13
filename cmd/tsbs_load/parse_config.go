@@ -86,7 +86,7 @@ func validateSourceType(t string) error {
 
 func parseDataSourceConfig(v *viper.Viper) (*DataSourceConfig, error) {
 	var conf DataSourceConfig
-	if err := v.UnmarshalExact(&conf); err != nil {
+	if err := v.Unmarshal(&conf); err != nil {
 		return nil, err
 	}
 	if err := validateSourceType(conf.Type); err != nil {

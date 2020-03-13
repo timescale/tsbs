@@ -14,8 +14,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
@@ -39,7 +39,7 @@ func init() {
 	target = initializers.GetTarget(constants.FormatAkumuli)
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
-	target.TargetSpecificFlags("",pflag.CommandLine)
+	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
 	err := utils.SetupConfigFile()
@@ -53,7 +53,7 @@ func init() {
 	}
 
 	endpoint = viper.GetString("endpoint")
-	config.HashWorkers = false
+	config.HashWorkers = true
 	loader = load.GetBenchmarkRunner(config)
 }
 
