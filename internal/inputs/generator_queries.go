@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
-	utils2 "github.com/timescale/tsbs/internal/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	config2 "github.com/timescale/tsbs/pkg/query/config"
+	"github.com/timescale/tsbs/pkg/query/config"
 	"github.com/timescale/tsbs/pkg/query/factories"
 	"io"
 	"math/rand"
@@ -14,7 +14,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 )
 
 // Error messages when using a QueryGenerator
@@ -32,12 +32,12 @@ const (
 
 // DevopsGeneratorMaker creates a query generator for devops use case
 type DevopsGeneratorMaker interface {
-	NewDevops(start, end time.Time, scale int) (utils.QueryGenerator, error)
+	NewDevops(start, end time.Time, scale int) (queryUtils.QueryGenerator, error)
 }
 
 // IoTGeneratorMaker creates a quert generator for iot use case
 type IoTGeneratorMaker interface {
-	NewIoT(start, end time.Time, scale int) (utils.QueryGenerator, error)
+	NewIoT(start, end time.Time, scale int) (queryUtils.QueryGenerator, error)
 }
 
 // QueryGenerator is a type of Generator for creating queries to test against a
@@ -53,8 +53,8 @@ type QueryGenerator struct {
 	// will be os.Stderr.
 	DebugOut io.Writer
 
-	config        *config2.QueryGeneratorConfig
-	useCaseMatrix map[string]map[string]utils.QueryFillerMaker
+	conf          *config.QueryGeneratorConfig
+	useCaseMatrix map[string]map[string]queryUtils.QueryFillerMaker
 	// factories contains all the database implementations which can create
 	// devops query generators.
 	factories map[string]interface{}
@@ -69,7 +69,7 @@ type QueryGenerator struct {
 // NewQueryGenerator returns a QueryGenerator that is set up to work with a given
 // useCaseMatrix, which tells it how to generate the given query type for a use
 // case.
-func NewQueryGenerator(useCaseMatrix map[string]map[string]utils.QueryFillerMaker) *QueryGenerator {
+func NewQueryGenerator(useCaseMatrix map[string]map[string]queryUtils.QueryFillerMaker) *QueryGenerator {
 	return &QueryGenerator{
 		useCaseMatrix: useCaseMatrix,
 		factories:     make(map[string]interface{}),
@@ -82,28 +82,28 @@ func (g *QueryGenerator) Generate(config common.GeneratorConfig) error {
 		return err
 	}
 
-	useGen, err := g.getUseCaseGenerator(g.config)
+	useGen, err := g.getUseCaseGenerator(g.conf)
 	if err != nil {
 		return err
 	}
 
-	filler := g.useCaseMatrix[g.config.Use][g.config.QueryType](useGen)
+	filler := g.useCaseMatrix[g.conf.Use][g.conf.QueryType](useGen)
 
-	return g.runQueryGeneration(useGen, filler, g.config)
+	return g.runQueryGeneration(useGen, filler, g.conf)
 }
 
-func (g *QueryGenerator) init(config common.GeneratorConfig) error {
-	if config == nil {
+func (g *QueryGenerator) init(conf common.GeneratorConfig) error {
+	if conf == nil {
 		return fmt.Errorf(ErrNoConfig)
 	}
-	switch config.(type) {
-	case *config2.QueryGeneratorConfig:
+	switch conf.(type) {
+	case *config.QueryGeneratorConfig:
 	default:
 		return fmt.Errorf(ErrInvalidDataConfig)
 	}
-	g.config = config.(*config2.QueryGeneratorConfig)
+	g.conf = conf.(*config.QueryGeneratorConfig)
 
-	err := g.config.Validate()
+	err := g.conf.Validate()
 	if err != nil {
 		return err
 	}
@@ -112,27 +112,27 @@ func (g *QueryGenerator) init(config common.GeneratorConfig) error {
 		return err
 	}
 
-	if _, ok := g.useCaseMatrix[g.config.Use]; !ok {
-		return fmt.Errorf(errBadUseFmt, g.config.Use)
+	if _, ok := g.useCaseMatrix[g.conf.Use]; !ok {
+		return fmt.Errorf(errBadUseFmt, g.conf.Use)
 	}
 
-	if _, ok := g.useCaseMatrix[g.config.Use][g.config.QueryType]; !ok {
-		return fmt.Errorf(errBadQueryTypeFmt, g.config.Use, g.config.QueryType)
+	if _, ok := g.useCaseMatrix[g.conf.Use][g.conf.QueryType]; !ok {
+		return fmt.Errorf(errBadQueryTypeFmt, g.conf.Use, g.conf.QueryType)
 	}
 
-	g.tsStart, err = utils2.ParseUTCTime(g.config.TimeStart)
+	g.tsStart, err = internalUtils.ParseUTCTime(g.conf.TimeStart)
 	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeStart, err)
+		return fmt.Errorf(errCannotParseTimeFmt, g.conf.TimeStart, err)
 	}
-	g.tsEnd, err = utils2.ParseUTCTime(g.config.TimeEnd)
+	g.tsEnd, err = internalUtils.ParseUTCTime(g.conf.TimeEnd)
 	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeEnd, err)
+		return fmt.Errorf(errCannotParseTimeFmt, g.conf.TimeEnd, err)
 	}
 
 	if g.Out == nil {
 		g.Out = os.Stdout
 	}
-	g.bufOut, err = getBufferedWriter(g.config.File, g.Out)
+	g.bufOut, err = getBufferedWriter(g.conf.File, g.Out)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (g *QueryGenerator) init(config common.GeneratorConfig) error {
 }
 
 func (g *QueryGenerator) initFactories() error {
-	factoryMap := factories.InitQueryFactories(g.config)
+	factoryMap := factories.InitQueryFactories(g.conf)
 	for db, fac := range factoryMap {
 		if err := g.addFactory(db, fac); err != nil {
 			return err
@@ -171,7 +171,7 @@ func (g *QueryGenerator) addFactory(database string, factory interface{}) error 
 	return nil
 }
 
-func (g *QueryGenerator) getUseCaseGenerator(c *config2.QueryGeneratorConfig) (utils.QueryGenerator, error) {
+func (g *QueryGenerator) getUseCaseGenerator(c *config.QueryGeneratorConfig) (queryUtils.QueryGenerator, error) {
 	scale := int(c.Scale) // TODO: make all the Devops constructors use a uint64
 	var factory interface{}
 	var ok bool
@@ -201,16 +201,16 @@ func (g *QueryGenerator) getUseCaseGenerator(c *config2.QueryGeneratorConfig) (u
 	}
 }
 
-func (g *QueryGenerator) runQueryGeneration(useGen utils.QueryGenerator, filler utils.QueryFiller, c *config2.QueryGeneratorConfig) error {
+func (g *QueryGenerator) runQueryGeneration(useGen queryUtils.QueryGenerator, filler queryUtils.QueryFiller, c *config.QueryGeneratorConfig) error {
 	stats := make(map[string]int64)
 	currentGroup := uint(0)
 	enc := gob.NewEncoder(g.bufOut)
 	defer g.bufOut.Flush()
 
-	rand.Seed(g.config.Seed)
+	rand.Seed(g.conf.Seed)
 	//fmt.Println(g.config.Seed)
-	if g.config.Debug > 0 {
-		_, err := fmt.Fprintf(g.DebugOut, "using random seed %d\n", g.config.Seed)
+	if g.conf.Debug > 0 {
+		_, err := fmt.Fprintf(g.DebugOut, "using random seed %d\n", g.conf.Seed)
 		if err != nil {
 			return fmt.Errorf(errCouldNotDebugFmt, err)
 		}

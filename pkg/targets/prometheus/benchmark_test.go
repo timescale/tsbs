@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 )
 
@@ -16,7 +17,10 @@ func TestPrometheusLoader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pb := Benchmark{adapterWriteUrl: serverURL.String()}
+	pb := Benchmark{
+		adapterWriteUrl: serverURL.String(),
+		batchPool:       &sync.Pool{},
+	}
 	pp := pb.GetProcessor().(*Processor)
 	batch := &Batch{series: []prompb.TimeSeries{{}}}
 	samples, _ := pp.ProcessBatch(batch, true)

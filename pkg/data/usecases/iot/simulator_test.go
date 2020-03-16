@@ -94,10 +94,23 @@ func newMockBaseSimulator() *mockBaseSimulator {
 		}
 	}
 
+	fieldsAsStr := make(map[string][]string, fieldCount)
+	for k := range fields {
+		fieldValsAsBytes := fields[k]
+		fieldValsAsStr := make([]string, len(fieldValsAsBytes))
+		for i, x := range fieldValsAsBytes {
+			fieldValsAsStr[i] = string(x)
+		}
+		fieldsAsStr[k] = fieldValsAsStr
+	}
+	tagKeysAsStr := make([]string, tagCount)
+	for i, tagKey := range tagKeys {
+		tagKeysAsStr[i] = string(tagKey)
+	}
 	return &mockBaseSimulator{
 		pending: pending,
-		fields:  fields,
-		tagKeys: tagKeys,
+		fields:  fieldsAsStr,
+		tagKeys: tagKeysAsStr,
 		now:     &now,
 	}
 }
@@ -560,7 +573,7 @@ func TestSimulatorTagTypes(t *testing.T) {
 	for i, pointTagKey := range p.TagKeys() {
 		value := p.GetTagValue(pointTagKey)
 		tagType := reflect.TypeOf(value)
-		if tagType != tagTypes[i] {
+		if tagType.String() != tagTypes[i] {
 			t.Errorf("incorrect tag type. expected %v, got %v", tagTypes[i], tagType)
 		}
 	}

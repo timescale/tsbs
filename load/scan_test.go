@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"io"
 	"testing"
@@ -161,13 +162,14 @@ func TestNewPoint(t *testing.T) {
 	}
 }
 
-type testDecoder struct {
+type testDataSource struct {
+	br     *bufio.Reader
 	called uint64
 }
 
-func (d *testDecoder) Decode(br *bufio.Reader) *data.LoadedPoint {
+func (d *testDataSource) NextItem() *data.LoadedPoint {
 	ret := &data.LoadedPoint{}
-	b, err := br.ReadByte()
+	b, err := d.br.ReadByte()
 	if err != nil {
 		if err == io.EOF {
 			return nil
@@ -178,6 +180,10 @@ func (d *testDecoder) Decode(br *bufio.Reader) *data.LoadedPoint {
 	d.called++
 
 	return ret
+}
+
+func (d *testDataSource) Headers() *common.GeneratedDataHeaders {
+	panic("implement me")
 }
 
 type testFactory struct{}
@@ -196,13 +202,13 @@ func _checkScan(t *testing.T, desc string, called, read, want uint64) {
 }
 
 func _boringWorker(c *duplexChannel) {
-	for _ = range c.toWorker {
+	for range c.toWorker {
 		c.sendToScanner()
 	}
 }
 
 func TestScanWithIndexer(t *testing.T) {
-	data := []byte{0x00, 0x01, 0x02}
+	testData := []byte{0x00, 0x01, 0x02}
 
 	cases := []struct {
 		desc        string
@@ -215,7 +221,7 @@ func TestScanWithIndexer(t *testing.T) {
 			desc:      "scan w/ zero limit",
 			batchSize: 1,
 			limit:     0,
-			wantCalls: uint64(len(data)),
+			wantCalls: uint64(len(testData)),
 		},
 		{
 			desc:      "scan w/ one limit",
@@ -227,14 +233,14 @@ func TestScanWithIndexer(t *testing.T) {
 			desc:      "scan w/ over limit",
 			batchSize: 1,
 			limit:     4,
-			wantCalls: uint64(len(data)),
+			wantCalls: uint64(len(testData)),
 		},
 
 		{
 			desc:      "scan w/ leftover batches",
 			batchSize: 2,
 			limit:     4,
-			wantCalls: uint64(len(data)),
+			wantCalls: uint64(len(testData)),
 		},
 		{
 			desc:        "batchSize = 0 is panic",
@@ -244,9 +250,9 @@ func TestScanWithIndexer(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		br := bufio.NewReader(bytes.NewReader(data))
+		br := bufio.NewReader(bytes.NewReader(testData))
 		channels := []*duplexChannel{newDuplexChannel(1)}
-		decoder := &testDecoder{0}
+		testDataSource := &testDataSource{called: 0, br: br}
 		indexer := &targets.ConstantIndexer{}
 		if c.shouldPanic {
 			func() {
@@ -255,13 +261,13 @@ func TestScanWithIndexer(t *testing.T) {
 						t.Errorf("%s: did not panic when should", c.desc)
 					}
 				}()
-				scanWithIndexer(channels, c.batchSize, c.limit, br, decoder, &testFactory{}, indexer)
+				scanWithIndexer(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
 			}()
 			continue
 		} else {
 			go _boringWorker(channels[0])
-			read := scanWithIndexer(channels, c.batchSize, c.limit, br, decoder, &testFactory{}, indexer)
-			_checkScan(t, c.desc, decoder.called, read, c.wantCalls)
+			read := scanWithIndexer(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
+			_checkScan(t, c.desc, testDataSource.called, read, c.wantCalls)
 		}
 	}
 }

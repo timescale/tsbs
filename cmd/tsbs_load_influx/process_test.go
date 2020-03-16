@@ -19,7 +19,7 @@ func TestProcessorInit(t *testing.T) {
 	daemonURLs = []string{"url1", "url2"}
 	printFn = emptyLog
 	p := &processor{}
-	p.Init(0, false)
+	p.Init(0, false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[0] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[0])
@@ -29,14 +29,14 @@ func TestProcessorInit(t *testing.T) {
 	}
 
 	p = &processor{}
-	p.Init(1, false)
+	p.Init(1, false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[1] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[1])
 	}
 
 	p = &processor{}
-	p.Init(len(daemonURLs), false)
+	p.Init(len(daemonURLs), false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[0] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[0])

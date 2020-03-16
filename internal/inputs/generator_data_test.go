@@ -11,10 +11,20 @@ import (
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/data/usecases/devops"
+	"github.com/timescale/tsbs/pkg/data/usecases/iot"
+	"github.com/timescale/tsbs/pkg/targets/cassandra"
 	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/crate"
+	"github.com/timescale/tsbs/pkg/targets/influx"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
+	"github.com/timescale/tsbs/pkg/targets/prometheus"
+	"github.com/timescale/tsbs/pkg/targets/siridb"
+	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"io"
 	"os"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -337,6 +347,7 @@ func TestGetSerializer(t *testing.T) {
 	checkWriteHeader(constants.FormatCrateDB, true)
 	checkWriteHeader(constants.FormatPrometheus, false)
 	checkWriteHeader(constants.FormatTimescaleDB, true)
+	checkWriteHeader(constants.FormatVictoriaMetrics, false)
 }
 
 type mockSerializer struct {

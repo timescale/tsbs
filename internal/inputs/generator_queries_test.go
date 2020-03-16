@@ -5,8 +5,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	utils2 "github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/data/source"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/query/config"
 	"github.com/timescale/tsbs/pkg/targets/constants"
@@ -27,8 +26,13 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/pkg/query"
+)
+
+const (
+	errTotalGroupsZero  = "incorrect interleaved groups configuration: total groups = 0"
+	errInvalidGroupsFmt = "incorrect interleaved groups configuration: id %d >= total groups %d"
 )
 
 func TestQueryGeneratorConfigValidate(t *testing.T) {
@@ -80,7 +84,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for group id > num groups")
 	} else {
-		want := fmt.Sprintf(utils2.errInvalidGroupsFmt, 2, 1)
+		want := fmt.Sprintf(errInvalidGroupsFmt, 2, 1)
 		if got := err.Error(); got != want {
 			t.Errorf("incorrect error for group id > num groups: got\n%s\nwant\n%s", got, want)
 		}
@@ -88,7 +92,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 }
 
 func TestNewQueryGenerator(t *testing.T) {
-	m := map[string]map[string]utils.QueryFillerMaker{
+	m := map[string]map[string]queryUtils.QueryFillerMaker{
 		"foo": {
 			"bar": nil,
 			"baz": nil,
@@ -106,7 +110,7 @@ func TestNewQueryGenerator(t *testing.T) {
 func TestQueryGeneratorInit(t *testing.T) {
 	const okQueryType = "single-groupby-1-1-1"
 	g := &QueryGenerator{
-		useCaseMatrix: map[string]map[string]utils.QueryFillerMaker{
+		useCaseMatrix: map[string]map[string]queryUtils.QueryFillerMaker{
 			common.UseCaseDevops: {
 				okQueryType: nil,
 			},
@@ -147,7 +151,7 @@ func TestQueryGeneratorInit(t *testing.T) {
 
 	// Test use case not in matrix
 	err = g.init(c)
-	want := fmt.Sprintf(source.errBadUseFmt, common.UseCaseCPUOnly)
+	want := fmt.Sprintf(errBadUseFmt, common.UseCaseCPUOnly)
 	if err == nil {
 		t.Errorf("unexpected lack of error with bad use case")
 	} else if got := err.Error(); got != want {
@@ -215,14 +219,14 @@ func TestQueryGeneratorInit(t *testing.T) {
 }
 
 func TestGetUseCaseGenerator(t *testing.T) {
-	var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
+	var useCaseMatrix = map[string]map[string]queryUtils.QueryFillerMaker{
 		"devops": {
 			devops.LabelLastpoint: devops.NewLastPointPerHost,
 		},
 	}
 	const scale = 10
-	tsStart, _ := utils2.ParseUTCTime(defaultTimeStart)
-	tsEnd, _ := utils2.ParseUTCTime(defaultTimeEnd)
+	tsStart, _ := internalUtils.ParseUTCTime(defaultTimeStart)
+	tsEnd, _ := internalUtils.ParseUTCTime(defaultTimeEnd)
 	c := &config.QueryGeneratorConfig{
 		BaseConfig: common.BaseConfig{
 			Scale:     scale,
@@ -231,14 +235,14 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		},
 	}
 	g := &QueryGenerator{
-		config:        c,
+		conf:          c,
 		tsStart:       tsStart,
 		tsEnd:         tsEnd,
 		factories:     make(map[string]interface{}),
 		useCaseMatrix: useCaseMatrix,
 	}
 
-	checkType := func(format string, want utils.QueryGenerator) utils.QueryGenerator {
+	checkType := func(format string, want queryUtils.QueryGenerator) queryUtils.QueryGenerator {
 		wantType := reflect.TypeOf(want)
 		c.Format = format
 		c.Use = common.UseCaseDevops
@@ -301,7 +305,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating naive mongodb query generator")
 	}
-	g.config.MongoUseNaive = true
+	g.conf.MongoUseNaive = true
 	checkType(constants.FormatMongo, nmongo)
 
 	bcc := clickhouse.BaseGenerator{}
@@ -336,9 +340,9 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	bt.UseTags = true
 	bt.UseTimeBucket = true
 	tts, err := bt.NewDevops(tsStart, tsEnd, scale)
-	g.config.TimescaleUseJSON = true
-	g.config.TimescaleUseTags = true
-	g.config.TimescaleUseTimeBucket = true
+	g.conf.TimescaleUseJSON = true
+	g.conf.TimescaleUseTags = true
+	g.conf.TimescaleUseTimeBucket = true
 	checkType(constants.FormatTimescaleDB, tts)
 	if got := tts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
@@ -398,8 +402,8 @@ var wantQueries = []query.TimescaleDB{
 
 func getTestConfigAndGenerator() (*config.QueryGeneratorConfig, *QueryGenerator) {
 	const scale = 10
-	tsStart, _ := utils2.ParseUTCTime(defaultTimeStart)
-	tsEnd, _ := utils2.ParseUTCTime(defaultTimeEnd)
+	tsStart, _ := internalUtils.ParseUTCTime(defaultTimeStart)
+	tsEnd, _ := internalUtils.ParseUTCTime(defaultTimeEnd)
 	tsEnd = tsEnd.Add(time.Second)
 	c := &config.QueryGeneratorConfig{
 		BaseConfig: common.BaseConfig{
@@ -417,12 +421,12 @@ func getTestConfigAndGenerator() (*config.QueryGeneratorConfig, *QueryGenerator)
 		InterleavedNumGroups:   1,
 	}
 	g := &QueryGenerator{
-		useCaseMatrix: map[string]map[string]utils.QueryFillerMaker{
+		useCaseMatrix: map[string]map[string]queryUtils.QueryFillerMaker{
 			common.UseCaseCPUOnly: {
 				"single-groupby-1-1-1": devops.NewSingleGroupby(1, 1, 1),
 			},
 		},
-		config:    c,
+		conf:      c,
 		tsStart:   tsStart,
 		tsEnd:     tsEnd,
 		DebugOut:  os.Stderr,

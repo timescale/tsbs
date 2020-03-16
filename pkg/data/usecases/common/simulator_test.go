@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -136,7 +135,7 @@ func TestBaseSimulatorTagTypes(t *testing.T) {
 		t.Fatalf("tag key count incorrect, got %d want 1", got)
 	}
 
-	if got := tagTypes[0]; got != reflect.TypeOf("string") {
+	if got := tagTypes[0]; got != "string" {
 		t.Errorf("tag type incorrect, got %s want string", got)
 	}
 }
