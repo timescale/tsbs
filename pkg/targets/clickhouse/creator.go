@@ -210,4 +210,3 @@ func serializedTypeToClickHouseType(serializedType string) string {
 		panic(fmt.Sprintf("unrecognized type %s", serializedType))
 	}
 }
-

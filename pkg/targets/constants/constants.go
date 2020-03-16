@@ -28,4 +28,3 @@ func SupportedFormats() []string {
 		FormatVictoriaMetrics,
 	}
 }
-

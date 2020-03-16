@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 )
 
 // SetupConfigFile defines the settings for the configuration file support.
@@ -21,4 +21,3 @@ func SetupConfigFile() error {
 
 	return nil
 }
-

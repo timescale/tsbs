@@ -19,4 +19,3 @@ func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) int {
 	h.Write([]byte(hostname))
 	return int(h.Sum32()) % int(i.partitions)
 }
-

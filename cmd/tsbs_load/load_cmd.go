@@ -14,8 +14,8 @@ type cmdRunner func(*cobra.Command, []string)
 
 func initLoadCMD() (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:    "load",
-		Short:  "Load data into a specified target database",
+		Use:              "load",
+		Short:            "Load data into a specified target database",
 		PersistentPreRun: initViperConfig,
 	}
 	loadCmdFlagSet := loadCmdFlags()

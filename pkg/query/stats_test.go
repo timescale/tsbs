@@ -100,9 +100,9 @@ func TestStateGroupMedian(t *testing.T) {
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		lowerLimit := c.want - (c.want*errorMargin)
-		upperLimit := c.want + (c.want*errorMargin)
-		if got := sg.Median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+		lowerLimit := c.want - (c.want * errorMargin)
+		upperLimit := c.want + (c.want * errorMargin)
+		if got := sg.Median(); ((lowerLimit > got) && (got > upperLimit) && got != 0) || got == 0 && got != c.want {
 			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
@@ -145,9 +145,9 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 		for i := uint64(0); i < c.len; i++ {
 			sg.push(1 + float64(i)*2)
 		}
-		lowerLimit := c.want - (c.want*errorMargin)
-		upperLimit := c.want + (c.want*errorMargin)
-		if got := sg.Median(); ( (lowerLimit > got) && ( got > upperLimit )  && got != 0 ) || got == 0 && got!=c.want {
+		lowerLimit := c.want - (c.want * errorMargin)
+		upperLimit := c.want + (c.want * errorMargin)
+		if got := sg.Median(); ((lowerLimit > got) && (got > upperLimit) && got != 0) || got == 0 && got != c.want {
 			t.Errorf("got: %v want C [ %v,%v ]\n", got, lowerLimit, upperLimit)
 		}
 	}
@@ -155,59 +155,59 @@ func TestStatGroupMedian0InitialSize(t *testing.T) {
 
 func TestStatGroupPush(t *testing.T) {
 	cases := []struct {
-		desc      string
-		vals      []float64
-		wantMin   float64
-		wantMax   float64
-		wantMean  float64
-		wantMedian  float64
-		wantStdDev  float64
-		wantCount int64
-		wantSum   float64
+		desc       string
+		vals       []float64
+		wantMin    float64
+		wantMax    float64
+		wantMean   float64
+		wantMedian float64
+		wantStdDev float64
+		wantCount  int64
+		wantSum    float64
 	}{
 		{
-			desc:      "ordered smallest to largest",
-			vals:      []float64{2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0},
-			wantMin:   2.0,
-			wantMax:   9.0,
-			wantMean:  5.0,
-			wantMedian:  4.0,
-			wantStdDev:  2.0,
-			wantCount: 8,
-			wantSum:   40.0,
+			desc:       "ordered smallest to largest",
+			vals:       []float64{2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0},
+			wantMin:    2.0,
+			wantMax:    9.0,
+			wantMean:   5.0,
+			wantMedian: 4.0,
+			wantStdDev: 2.0,
+			wantCount:  8,
+			wantSum:    40.0,
 		},
 		{
-			desc:      "ordered largest to smallest",
-			vals:      []float64{9.0, 7.0, 5.0, 5.0, 4.0, 4.0, 4.0, 2.0},
-			wantMin:   2.0,
-			wantMax:   9.0,
-			wantMean:  5.0,
-			wantMedian:  4.0,
-			wantStdDev:  2.0,
-			wantCount: 8,
-			wantSum:   40.0,
+			desc:       "ordered largest to smallest",
+			vals:       []float64{9.0, 7.0, 5.0, 5.0, 4.0, 4.0, 4.0, 2.0},
+			wantMin:    2.0,
+			wantMax:    9.0,
+			wantMean:   5.0,
+			wantMedian: 4.0,
+			wantStdDev: 2.0,
+			wantCount:  8,
+			wantSum:    40.0,
 		},
 		{
-			desc:      "no variance",
-			vals:      []float64{10.0, 10.0, 10.0},
-			wantMin:   10.0,
-			wantMax:   10.0,
-			wantMean:  10.0,
-			wantMedian:  10.0,
-			wantStdDev:  0.0,
-			wantCount: 3,
-			wantSum:   30.0,
+			desc:       "no variance",
+			vals:       []float64{10.0, 10.0, 10.0},
+			wantMin:    10.0,
+			wantMax:    10.0,
+			wantMean:   10.0,
+			wantMedian: 10.0,
+			wantStdDev: 0.0,
+			wantCount:  3,
+			wantSum:    30.0,
 		},
 		{
-			desc:      "out of order",
-			vals:      []float64{12.0, 10.0, 10.0, 10.0, 8.0, 10.0,10.0, 10.0},
-			wantMin:   8.0,
-			wantMax:   12.0,
-			wantMean:  10.0,
-			wantMedian:  10.0,
-			wantStdDev:  1.0,
-			wantCount: 8,
-			wantSum:   80.0,
+			desc:       "out of order",
+			vals:       []float64{12.0, 10.0, 10.0, 10.0, 8.0, 10.0, 10.0, 10.0},
+			wantMin:    8.0,
+			wantMax:    12.0,
+			wantMean:   10.0,
+			wantMedian: 10.0,
+			wantStdDev: 1.0,
+			wantCount:  8,
+			wantSum:    80.0,
 		},
 	}
 

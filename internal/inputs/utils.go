@@ -25,4 +25,3 @@ func getBufferedWriter(filename string, fallback io.Writer) (*bufio.Writer, erro
 
 	return bufio.NewWriterSize(fallback, defaultWriteSize), nil
 }
-

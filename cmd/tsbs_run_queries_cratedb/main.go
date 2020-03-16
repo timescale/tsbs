@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
-	"github.com/blagojts/viper"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
