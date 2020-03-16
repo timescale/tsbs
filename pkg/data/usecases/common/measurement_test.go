@@ -1,13 +1,8 @@
 package common
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets/influx"
 	"math"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 )
@@ -18,20 +13,6 @@ func ldmToFieldLabels(ldm []LabeledDistributionMaker) [][]byte {
 		ret = append(ret, l.Label)
 	}
 	return ret
-}
-
-// testDistributionsAreDifferent is used to check that the field values for a
-// measurement have changed after a call to Tick.
-func testDistributionsAreDifferent(oldVals map[string]float64, m *SubsystemMeasurement, fields [][]byte) error {
-	for i, f := range fields {
-		k := string(f)
-		curr := m.Distributions[i].Get()
-		if oldVals[k] == curr {
-			return fmt.Errorf("value for %s unexpectedly the same: got %f", k, curr)
-		}
-		oldVals[k] = curr
-	}
-	return nil
 }
 
 // monotonicDistribution simply increases the state by 1 every time Advance is
@@ -152,28 +133,27 @@ func setupToPoint(start time.Time) (*SubsystemMeasurement, []LabeledDistribution
 }
 
 func testCommonToPoint(t *testing.T, p *data.Point, fieldVal float64) {
-	// serialize the point to check output
-	b := new(bytes.Buffer)
-	serializer := &influx.Serializer{}
-	serializer.Serialize(p, b)
-
 	if got := string(p.MeasurementName()); got != toPointLabel {
 		t.Errorf("measurement name incorrect: got %s want %s", got, toPointLabel)
 	}
 
-	output := b.String()
-
-	args := strings.Split(output, " ")
-	fieldArgs := strings.Split(args[1], "=")
-	fieldArgs[1] = strings.Replace(fieldArgs[1], "i", "", -1)
-	if got := fieldArgs[0]; got != toPointFieldLabel {
-		t.Errorf("incorrect field label: got %s want %s", got, toPointFieldLabel)
+	for _, pointFieldVal := range p.FieldValues() {
+		switch pointFieldVal.(type) {
+		case int64:
+			if fieldVal != float64(pointFieldVal.(int64)) {
+				t.Errorf("incorrect field value: got %f want %f", pointFieldVal, fieldVal)
+			}
+		case float64:
+			if fieldVal != pointFieldVal.(float64) {
+				t.Errorf("incorrect field value: got %f want %f", pointFieldVal, fieldVal)
+			}
+		default:
+			t.Errorf("wrong point field val sent, unexpected type")
+		}
 	}
-	if got, err := strconv.ParseFloat(fieldArgs[1], 64); err != nil || got != fieldVal {
-		if err != nil {
-			t.Errorf("could not parse field value as float64: %v", err)
-		} else {
-			t.Errorf("incorrect field value: got %f want %f", got, fieldVal)
+	for _, pointFieldLabel := range p.FieldKeys() {
+		if toPointFieldLabel != string(pointFieldLabel) {
+			t.Errorf("incorrect field label: got %s want %s", pointFieldLabel, toPointFieldLabel)
 		}
 	}
 }

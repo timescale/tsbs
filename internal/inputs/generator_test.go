@@ -2,10 +2,13 @@ package inputs
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"testing"
+)
+
+const (
+	errBadFormatFmt = "invalid format specified: '%v'"
 )
 
 func TestBaseConfigValidate(t *testing.T) {
@@ -61,7 +64,7 @@ func TestBaseConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for incorrect format")
 	} else {
-		want := fmt.Sprintf(source.errBadFormatFmt, "unknown type")
+		want := fmt.Sprintf(errBadFormatFmt, "unknown type")
 		if got := err.Error(); got != want {
 			t.Errorf("incorrect error for incorrect format: got\n%v\nwant\n%v", got, want)
 		}
@@ -80,7 +83,7 @@ func TestBaseConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for incorrect use")
 	} else {
-		want := fmt.Sprintf(source.errBadUseFmt, "bad use")
+		want := fmt.Sprintf(errBadUseFmt, "bad use")
 		if got := err.Error(); got != want {
 			t.Errorf("incorrect error for incorrect format: got\n%v\nwant\n%v", got, want)
 		}

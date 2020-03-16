@@ -44,7 +44,7 @@ type naiveProcessor struct {
 	pvs []interface{}
 }
 
-func (p *naiveProcessor) Init(workerNUm int, doLoad bool) {
+func (p *naiveProcessor) Init(_ int, doLoad, _ bool) {
 	if doLoad {
 		sess := p.dbc.session.Copy()
 		db := sess.DB(loader.DatabaseName())

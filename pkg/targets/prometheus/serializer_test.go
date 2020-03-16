@@ -11,11 +11,8 @@ import (
 
 func TestPrometheusSerializer(t *testing.T) {
 	var buffer bytes.Buffer
-	ser, err := NewPrometheusSerializer(&buffer)
-	if err != nil {
-		t.Errorf("failed to create prometheus serializer: %v", err)
-	}
-	err = ser.Serialize(serialize.TestPointDefault(), &buffer)
+	ser := Serializer{}
+	err := ser.Serialize(serialize.TestPointDefault(), &buffer)
 	if err != nil {
 		t.Errorf("error while serializing point: %v", err)
 	}
@@ -46,7 +43,7 @@ func TestPrometheusSerializer(t *testing.T) {
 	// Lets test point with multiple fields. We generate new TimeSeries for each field
 	buffer.Reset()
 	series = nil
-	ser, err = NewPrometheusSerializer(&buffer)
+	ser = Serializer{}
 	err = ser.Serialize(serialize.TestPointMultiField(), &buffer)
 	if err != nil {
 		t.Errorf("error while serializing: %v", err)
@@ -67,7 +64,11 @@ func TestPrometheusSerializer(t *testing.T) {
 
 	assertEqual(len(serialize.TestPointMultiField().FieldKeys()), len(series), t, "wrong number of series")
 	assertEqual(len(serialize.TestPointMultiField().FieldKeys()), int(promIter.processed), t, "wrong iterator state")
-	assertEqual(float64(serialize.TestInt64), series[0].Samples[0].GetValue(), t, "wrong sample value")
+	if series == nil {
+		t.Errorf("expected series to != nil")
+	} else {
+		assertEqual(float64(serialize.TestInt64), series[0].Samples[0].GetValue(), t, "wrong sample value")
+	}
 }
 
 func assertEqual(expected, got interface{}, t *testing.T, msg string) {

@@ -80,7 +80,7 @@ func (g *DataGenerator) Generate(config common.GeneratorConfig, target targets.I
 	}
 
 	sim := scfg.NewSimulator(g.config.LogInterval, g.config.Limit)
-	serializer, err := g.getSerializer(sim, g.config.Format, target)
+	serializer, err := g.getSerializer(sim, target)
 	if err != nil {
 		return err
 	}
@@ -128,8 +128,8 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 	return nil
 }
 
-func (g *DataGenerator) getSerializer(sim common.Simulator, format string, target targets.ImplementedTarget) (serialize.PointSerializer, error) {
-	switch format {
+func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.ImplementedTarget) (serialize.PointSerializer, error) {
+	switch target.TargetName() {
 	case constants.FormatCrateDB:
 		fallthrough
 	case constants.FormatClickhouse:
@@ -140,6 +140,7 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string, targe
 	return target.Serializer(), nil
 }
 
+//TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -300,8 +299,8 @@ func TestAdjustNumHostsForEpoch(t *testing.T) {
 func TestCommonDevopsSimulatorTagTypes(t *testing.T) {
 	s := &commonDevopsSimulator{}
 	for _, tagType := range s.TagTypes() {
-		if tagType.Kind() != reflect.String {
-			t.Errorf("tag type incorrect. expected %v, got %v", reflect.String, tagType.Kind())
+		if tagType != "string" {
+			t.Errorf("tag type incorrect. expected 'string', got %s", tagType)
 		}
 	}
 }

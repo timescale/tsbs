@@ -84,7 +84,7 @@ type aggProcessor struct {
 	createQueue []interface{}
 }
 
-func (p *aggProcessor) Init(workerNum int, doLoad bool) {
+func (p *aggProcessor) Init(_ int, doLoad, _ bool) {
 	if doLoad {
 		sess := p.dbc.session.Copy()
 		db := sess.DB(loader.DatabaseName())

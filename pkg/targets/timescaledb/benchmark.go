@@ -9,7 +9,7 @@ import (
 const pgxDriver = "pgx"
 const pqDriver = "postgres"
 
-func newBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+func NewBenchmark(dbName string, opts *LoadingOptions, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
 	var ds targets.DataSource
 	if dataSourceConfig.Type == source.FileDataSourceType {
 		ds = newFileDataSource(dataSourceConfig.File.Location)

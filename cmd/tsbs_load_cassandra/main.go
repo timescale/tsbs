@@ -8,13 +8,15 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"os"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/gocql/gocql"
 	"github.com/spf13/pflag"
-	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
@@ -46,8 +48,9 @@ var consistencyMapping = map[string]gocql.Consistency{
 // Parse args:
 func init() {
 	var config load.BenchmarkRunnerConfig
+	target = initializers.GetTarget(constants.FormatCassandra)
 	config.AddToFlagSet(pflag.CommandLine)
-	target.TargetSpecificFlags("",pflag.CommandLine)
+	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
 

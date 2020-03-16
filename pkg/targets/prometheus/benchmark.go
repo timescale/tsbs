@@ -14,9 +14,10 @@ import (
 )
 
 func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
-	batchPool := &sync.Pool{New: func() interface{} { return &Batch{multipleSeriesPerItem: true} }}
 	var ds targets.DataSource
+	var multipleSeriesPerItem bool
 	if dataSourceConfig.Type == source.FileDataSourceType {
+		multipleSeriesPerItem = false
 		promIter, err := NewPrometheusIterator(load.GetBufferedReader(dataSourceConfig.File.Location))
 		if err != nil {
 			log.Printf("could not create prometheus file data source; %v", err)
@@ -24,6 +25,7 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 		}
 		ds = &FileDataSource{iterator: promIter}
 	} else {
+		multipleSeriesPerItem = true
 		dataGenerator := &inputs.DataGenerator{}
 		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
 		if err != nil {
@@ -31,6 +33,10 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 		}
 		ds = newSimulationDataSource(simulator)
 	}
+
+	batchPool := &sync.Pool{New: func() interface{} {
+		return &Batch{multipleSeriesPerItem: multipleSeriesPerItem}
+	}}
 
 	return &Benchmark{
 		dataSource:      ds,

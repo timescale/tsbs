@@ -61,7 +61,7 @@ func TestBatch(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestFileDataSourceNextItem(t *testing.T) {
 	cases := []struct {
 		desc        string
 		input       string
@@ -82,8 +82,8 @@ func TestDecode(t *testing.T) {
 
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
-		decoder := &decoder{scanner: bufio.NewScanner(br)}
-		p := decoder.Decode(br)
+		ds := &fileDataSource{scanner: bufio.NewScanner(br)}
+		p := ds.NextItem()
 		data := p.Data.([]byte)
 		if !bytes.Equal(data, c.result) {
 			t.Errorf("%s: incorrect result: got\n%v\nwant\n%v", c.desc, data, c.result)
@@ -94,10 +94,10 @@ func TestDecode(t *testing.T) {
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("cpu,tag1=tag1text,tag2=tag2text col1=0.0,col2=0.0 140")
 	br := bufio.NewReader(bytes.NewReader([]byte(input)))
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	_ = decoder.Decode(br)
+	ds := &fileDataSource{scanner: bufio.NewScanner(br)}
+	_ = ds.NextItem()
 	// nothing left, should be EOF
-	p := decoder.Decode(br)
+	p := ds.NextItem()
 	if p != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}

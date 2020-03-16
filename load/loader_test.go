@@ -1,7 +1,6 @@
 package load
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
@@ -17,11 +16,11 @@ type testProcessor struct {
 	closed bool
 }
 
-func (p *testProcessor) Init(workerNum int, _ bool) {
+func (p *testProcessor) Init(workerNum int, _, _ bool) {
 	p.worker = workerNum
 }
 
-func (p *testProcessor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
+func (p *testProcessor) ProcessBatch(targets.Batch, bool) (metricCount, rowCount uint64) {
 	return 1, 0
 }
 
@@ -44,17 +43,17 @@ type testCreator struct {
 func (c *testCreator) Init() {
 	c.initCalled = true
 }
-func (c *testCreator) DBExists(dbName string) bool {
+func (c *testCreator) DBExists(string) bool {
 	return c.exists
 }
-func (c *testCreator) CreateDB(dbName string) error {
+func (c *testCreator) CreateDB(string) error {
 	c.createCalled = true
 	if c.errCreate {
 		return fmt.Errorf("create error")
 	}
 	return nil
 }
-func (c *testCreator) RemoveOldDB(dbName string) error {
+func (c *testCreator) RemoveOldDB(string) error {
 	c.removeCalled = true
 	if c.errRemove {
 		return fmt.Errorf("remove error")
@@ -66,7 +65,7 @@ type testCreatorPost struct {
 	testCreator
 }
 
-func (c *testCreatorPost) PostCreateDB(dbName string) error {
+func (c *testCreatorPost) PostCreateDB(string) error {
 	c.postCalled = true
 	return nil
 }
@@ -84,9 +83,14 @@ type testBenchmark struct {
 	offset     int64
 }
 
-func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) targets.PointDecoder { return nil }
-func (b *testBenchmark) GetBatchFactory() targets.BatchFactory                { return nil }
-func (b *testBenchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer { return &targets.ConstantIndexer{} }
+func (b *testBenchmark) GetDataSource() targets.DataSource {
+	return nil
+}
+
+func (b *testBenchmark) GetBatchFactory() targets.BatchFactory { return nil }
+func (b *testBenchmark) GetPointIndexer(uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
+}
 func (b *testBenchmark) GetProcessor() targets.Processor {
 	idx := atomic.AddInt64(&b.offset, 1)
 	idx--
@@ -101,62 +105,10 @@ type testSleepRegulator struct {
 	lock        sync.Mutex
 }
 
-func (sr *testSleepRegulator) Sleep(workerNum int, startedWorkAt time.Time) {
+func (sr *testSleepRegulator) Sleep(int, time.Time) {
 	sr.lock.Lock()
 	sr.calledTimes++
 	sr.lock.Unlock()
-}
-
-func TestGetBufferedReader(t *testing.T) {
-	r := &BenchmarkRunner{}
-	br := r.br
-	if br != nil {
-		t.Errorf("initial buffered reader is non-nil")
-	}
-
-	oldFatal := fatal
-	fatalCalled := false
-	fatal = func(format string, args ...interface{}) {
-		fatalCalled = true
-	}
-
-	// Should give a nil bufio.Reader
-	fatalCalled = false
-	r.FileName = "foo"
-	br = r.GetBufferedReader()
-	if br != nil {
-		t.Errorf("filename returned not nil buffered reader for nonexistent file")
-	}
-
-	if !fatalCalled {
-		t.Errorf("fatal not called when it should have been")
-	}
-
-	// Should give a non-nil bufio.Reader
-	fatalCalled = false
-	r.FileName = "/dev/null"
-	br = r.GetBufferedReader()
-	if br == nil {
-		t.Errorf("filename returned nil buffered reader for /dev/null")
-	}
-
-	// Should give a non-nil bufio.Reader
-	fatalCalled = false
-	r.FileName = ""
-	br = r.GetBufferedReader()
-	if br == nil {
-		t.Errorf("STDOUT returned a nil buffered reader")
-	}
-
-	// Test that it returns same bufio.Reader as before
-	fatalCalled = false
-	old := br
-	br = r.GetBufferedReader()
-	if br != old {
-		t.Errorf("different buffered reader returned after previously set")
-	}
-
-	fatal = oldFatal
 }
 
 func TestUseDBCreator(t *testing.T) {
@@ -385,7 +337,7 @@ func TestCreateChannelsAndPartitions(t *testing.T) {
 }
 
 func TestWork(t *testing.T) {
-	br := loader
+	br := &BenchmarkRunner{}
 	b := &testBenchmark{}
 	for i := 0; i < 2; i++ {
 		b.processors = append(b.processors, &testProcessor{})

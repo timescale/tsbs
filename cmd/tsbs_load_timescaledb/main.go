@@ -10,13 +10,12 @@ import (
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
-	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"sync"
 )
 
 // Parse args:
-func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner, targets.ImplementedTarget) {
+func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 	target := timescaledb.NewTarget()
 	var config load.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
@@ -61,11 +60,11 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner, t
 	opts.ForceTextFormat = viper.GetBool("force-text-format")
 
 	loader := load.GetBenchmarkRunner(config)
-	return &opts, loader, target
+	return &opts, loader
 }
 
 func main() {
-	opts, loader, target := initProgramOptions()
+	opts, loader := initProgramOptions()
 
 	// If specified, generate a performance profile
 	if len(opts.ProfileFile) > 0 {
@@ -79,13 +78,10 @@ func main() {
 		)
 	}
 
-	benchmark, err := target.Benchmark(
-		&source.DataSourceConfig{
-			Type: source.FileDataSourceType,
-			File: &source.FileDataSourceConfig{
-				Location: loader.FileName,
-			},
-		}, nil)
+	benchmark, err := timescaledb.NewBenchmark(loader.DBName, opts, &source.DataSourceConfig{
+		Type: source.FileDataSourceType,
+		File: &source.FileDataSourceConfig{Location: loader.FileName},
+	})
 	if err != nil {
 		panic(err)
 	}
