@@ -24,6 +24,7 @@ func (d *CPUOnlySimulator) Headers() *common.GeneratedDataHeaders {
 		FieldKeys: d.Fields(),
 	}
 }
+
 // Next advances a Point to the next state in the generator.
 func (d *CPUOnlySimulator) Next(p *data.Point) bool {
 	// Switch to the next metric if needed

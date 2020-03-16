@@ -158,7 +158,7 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			timeUTC,    // created_at
 			TimeUTCStr, // time
 			nil,        // tags_id
-			json) // additional_tags
+			json)       // additional_tags
 
 		if p.conf.InTableTag {
 			r = append(r, tags[0]) // tags[0] = hostname
@@ -410,4 +410,3 @@ func subsystemTagsToJSON(tags []string) string {
 	json += "}"
 	return json
 }
-

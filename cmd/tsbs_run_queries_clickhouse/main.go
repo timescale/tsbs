@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/kshvakov/clickhouse"
 	"github.com/spf13/pflag"
-	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
 )

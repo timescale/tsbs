@@ -69,10 +69,10 @@ func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
 	runner := &BenchmarkRunner{BenchmarkRunnerConfig: config}
 	runner.scanner = newScanner(&runner.Limit)
 	spArgs := &statProcessorArgs{
-		limit:          &runner.Limit,
-		printInterval:  runner.PrintInterval,
-		prewarmQueries: runner.PrewarmQueries,
-		burnIn:         runner.BurnIn,
+		limit:            &runner.Limit,
+		printInterval:    runner.PrintInterval,
+		prewarmQueries:   runner.PrewarmQueries,
+		burnIn:           runner.BurnIn,
 		hdrLatenciesFile: runner.HDRLatenciesFile,
 	}
 
@@ -147,7 +147,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	// Launch the stats processor:
 	go b.sp.process(b.Workers)
 
-	rateLimiter := getRateLimiter(b.LimitRPS,b.Workers)
+	rateLimiter := getRateLimiter(b.LimitRPS, b.Workers)
 
 	// Launch query processors
 	var wg sync.WaitGroup

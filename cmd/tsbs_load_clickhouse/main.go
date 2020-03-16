@@ -5,8 +5,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/targets"
@@ -31,7 +31,7 @@ func init() {
 	var config load.BenchmarkRunnerConfig
 	target := clickhouse.NewTarget()
 	config.AddToFlagSet(pflag.CommandLine)
-	target.TargetSpecificFlags("",pflag.CommandLine)
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()

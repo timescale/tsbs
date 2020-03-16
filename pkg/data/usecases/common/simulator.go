@@ -216,9 +216,3 @@ type SimulatedMeasurement interface {
 	Tick(time.Duration)
 	ToPoint(*data.Point)
 }
-
-type GeneratedDataHeaders struct {
-	TagTypes  []string
-	TagKeys   []string
-	FieldKeys map[string][]string
-}

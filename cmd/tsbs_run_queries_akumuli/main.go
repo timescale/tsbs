@@ -8,8 +8,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/spf13/pflag"
 	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
 )

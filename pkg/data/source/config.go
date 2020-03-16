@@ -18,4 +18,3 @@ type DataSourceConfig struct {
 	File      *FileDataSourceConfig       `yaml:"file,omitempty"`
 	Simulator *common.DataGeneratorConfig `yaml:"simulator,omitempty"`
 }
-

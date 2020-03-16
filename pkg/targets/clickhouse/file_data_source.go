@@ -159,4 +159,3 @@ func extractTagNamesAndTypes(tags []string) ([]string, []string) {
 
 	return tagNames, tagTypes
 }
-

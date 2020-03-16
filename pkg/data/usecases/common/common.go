@@ -33,4 +33,3 @@ var UseCaseChoices = []string{
 	UseCaseIoT,
 	UseCaseDevopsGeneric,
 }
-

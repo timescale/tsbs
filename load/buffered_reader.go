@@ -24,4 +24,3 @@ func GetBufferedReader(fileName string) *bufio.Reader {
 	}
 	return bufio.NewReaderSize(file, defaultReadSize)
 }
-

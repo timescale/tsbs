@@ -183,8 +183,7 @@ func TestDataSourceHeaders(t *testing.T) {
 			},
 		},
 		{
-			desc:
-			"min case: more than the header 3 lines",
+			desc:  "min case: more than the header 3 lines",
 			input: "tags,tag1,tag2\ncpu,col1,col2\n\nrow1\nrow2\n",
 			expectedHeader: &common.GeneratedDataHeaders{
 				TagTypes:  nil,
@@ -193,8 +192,7 @@ func TestDataSourceHeaders(t *testing.T) {
 			},
 		},
 		{
-			desc:
-			"multiple tables: more than 3 lines for header",
+			desc:  "multiple tables: more than 3 lines for header",
 			input: "tags,tag1,tag2\ncpu,col1,col2\ndisk,col21,col22\n\n",
 			expectedHeader: &common.GeneratedDataHeaders{
 				TagTypes: nil,
@@ -206,27 +204,24 @@ func TestDataSourceHeaders(t *testing.T) {
 			},
 		},
 		{
-			desc:
-			"multiple tables: more than 3 lines for header w/ extra",
+			desc:  "multiple tables: more than 3 lines for header w/ extra",
 			input: "tags,tag1,tag2\ncpu,col1,col2\nmem,col21,col22\n\nrow1\nrow2\n",
 			expectedHeader: &common.GeneratedDataHeaders{
 				TagTypes: nil,
 				TagKeys:  []string{"tag1", "tag2"},
 				FieldKeys: map[string][]string{
-					"cpu":  {"col1", "col2"},
+					"cpu": {"col1", "col2"},
 					"mem": {"col21", "col22"},
 				},
 			},
 		},
 		{
-			desc:
-			"too few lines",
+			desc:           "too few lines",
 			input:          "tags\ncols\n",
 			expectedToFail: true,
 		},
 		{
-			desc:
-			"too fee lines 2",
+			desc:           "too fee lines 2",
 			input:          "tags\n",
 			expectedToFail: true,
 		},

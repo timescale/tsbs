@@ -81,4 +81,3 @@ func GetSimulatorConfig(dgc *common.DataGeneratorConfig) (common.SimulatorConfig
 	}
 	return ret, err
 }
-

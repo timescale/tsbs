@@ -10,15 +10,16 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 
+	"github.com/blagojts/viper"
 	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
-	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 )
 
 var loader *load.BenchmarkRunner
 var target targets.ImplementedTarget
+
 // the logger is used in implementations of interface methods that
 // do not return error on failures to allow testing such methods
 var fatal = log.Fatalf

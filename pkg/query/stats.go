@@ -2,10 +2,10 @@ package query
 
 import (
 	"fmt"
+	"github.com/filipecosta90/hdrhistogram"
 	"io"
 	"sort"
 	"sync"
-	"github.com/filipecosta90/hdrhistogram"
 )
 
 var (
@@ -62,8 +62,8 @@ func (s *Stat) reset() *Stat {
 // statGroup collects simple streaming statistics.
 type statGroup struct {
 	latencyHDRHistogram *hdrhistogram.Histogram
-	sum    float64
-	count int64
+	sum                 float64
+	count               int64
 }
 
 // newStatGroup returns a new StatGroup with an initial size
@@ -77,7 +77,7 @@ func newStatGroup(size uint64) *statGroup {
 	//   - 1 second (or better) from 10 second up to 3600 seconds,
 	lH := hdrhistogram.New(1, 3600000000, 4)
 	return &statGroup{
-		count:  0,
+		count:               0,
 		latencyHDRHistogram: lH,
 	}
 }
@@ -108,27 +108,27 @@ func (s *statGroup) write(w io.Writer) error {
 
 // Median returns the Median value of the StatGroup in milliseconds
 func (s *statGroup) Median() float64 {
-	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0))/ hdrScaleFactor
+	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0)) / hdrScaleFactor
 }
 
 // Mean returns the Mean value of the StatGroup in milliseconds
 func (s *statGroup) Mean() float64 {
-	return float64(s.latencyHDRHistogram.Mean())/ hdrScaleFactor
+	return float64(s.latencyHDRHistogram.Mean()) / hdrScaleFactor
 }
 
 // Max returns the Max value of the StatGroup in milliseconds
 func (s *statGroup) Max() float64 {
-	return float64(s.latencyHDRHistogram.Max())/ hdrScaleFactor
+	return float64(s.latencyHDRHistogram.Max()) / hdrScaleFactor
 }
 
 // Min returns the Min value of the StatGroup in milliseconds
 func (s *statGroup) Min() float64 {
-	return float64(s.latencyHDRHistogram.Min())/ hdrScaleFactor
+	return float64(s.latencyHDRHistogram.Min()) / hdrScaleFactor
 }
 
 // StdDev returns the StdDev value of the StatGroup in milliseconds
 func (s *statGroup) StdDev() float64 {
-	return float64(s.latencyHDRHistogram.StdDev())/ hdrScaleFactor
+	return float64(s.latencyHDRHistogram.StdDev()) / hdrScaleFactor
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by

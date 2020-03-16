@@ -168,4 +168,3 @@ type LoadedPoint struct {
 func NewLoadedPoint(data interface{}) *LoadedPoint {
 	return &LoadedPoint{Data: data}
 }
-
