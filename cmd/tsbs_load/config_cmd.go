@@ -116,9 +116,14 @@ func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.Imple
 }
 
 func cleanDataSourceFlags(dataSource string, fs *pflag.FlagSet) *pflag.FlagSet {
-	unwantedPrefix := "data-source.file"
-	if dataSource == source.FileDataSourceType {
+	var unwantedPrefix string
+	switch dataSource {
+	case source.FileDataSourceType:
 		unwantedPrefix = "data-source.simulator"
+	case source.SimulatorDataSourceType:
+		unwantedPrefix = "data-source.file"
+	default:
+		panic("unsupported data source type: " + dataSource)
 	}
 	reducedFs := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fs.VisitAll(func(f *pflag.Flag) {
