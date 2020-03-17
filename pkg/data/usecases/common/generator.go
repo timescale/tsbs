@@ -102,17 +102,17 @@ type GeneratorConfig interface {
 // options shared across different types of Generators. These include things like
 // the data format (i.e., which database system is this for), a PRNG seed, etc.
 type BaseConfig struct {
-	Format string `yaml:"format,omitempty"`
-	Use    string `yaml:"use-case"`
+	Format string `yaml:"format,omitempty" mapstructure:"format,omitempty"`
+	Use    string `yaml:"use-case" mapstructure:"use-case"`
 
-	Scale uint64 `yaml:"scale"`
+	Scale uint64
 
-	TimeStart string `yaml:"timestamp-start"`
-	TimeEnd   string `yaml:"timestamp-end"`
+	TimeStart string `yaml:"timestamp-start" mapstructure:"timestamp-start"`
+	TimeEnd   string `yaml:"timestamp-end" mapstructure:"timestamp-end"`
 
-	Seed  int64  `yaml:"seed"`
-	Debug int    `yaml:"debug,omitempty"`
-	File  string `yaml:"file,omitempty"`
+	Seed  int64
+	Debug int    `yaml:"debug,omitempty" mapstructure:"debug,omitempty"`
+	File  string `yaml:"file,omitempty" mapstructure:"file,omitempty"`
 }
 
 func (c *BaseConfig) AddToFlagSet(fs *pflag.FlagSet) {
