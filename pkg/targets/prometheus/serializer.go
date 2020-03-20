@@ -10,8 +10,8 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
 	"io"
+	"sort"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/common/model"
@@ -95,6 +95,9 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries) error {
 		}
 		labels[i] = label
 	}
+	sort.Slice(labels, func(i, j int) bool {
+		return labels[i].Name < labels[j].Name
+	})
 	tsMs := p.Timestamp().UnixNano() / 1000000
 	for i := range fieldKeys {
 		metricNameLabel := prompb.Label{
@@ -102,7 +105,9 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries) error {
 			Value: string(fieldKeys[i]),
 		}
 		allLabels := append(labels, metricNameLabel)
-
+		sort.Slice(allLabels, func(i, j int) bool {
+			return allLabels[i].Name < allLabels[j].Name
+		})
 		ts := prompb.TimeSeries{
 			Labels:  allLabels,
 			Samples: []prompb.Sample{{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
