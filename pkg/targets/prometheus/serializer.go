@@ -50,7 +50,11 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			return err
 		}
 	}
-	series := convertToPromSeries(p)
+	series := make([]prompb.TimeSeries, len(p.FieldKeys()))
+	err := convertToPromSeries(p, series)
+	if err != nil {
+		return fmt.Errorf("could not serialize point\n%v", err)
+	}
 	for _, ts := range series {
 		protoBytes, err := proto.Marshal(&ts)
 		if err != nil {
@@ -71,13 +75,19 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 }
 
 // Each point field will become a new TimeSeries with added field key as a label
-func convertToPromSeries(p *data.Point) []prompb.TimeSeries {
+func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries) error {
+	bufLen := len(buffer)
+	requiredPlaces := len(p.FieldKeys())
+	if requiredPlaces > bufLen {
+		return fmt.Errorf("supplied buffer has insufficient space; need %d; got %d",
+			requiredPlaces, bufLen,
+		)
+	}
 	tagKeys := p.TagKeys()
 	tagValues := p.TagValues()
 	fieldKeys := p.FieldKeys()
 	fieldValues := p.FieldValues()
 	labels := make([]prompb.Label, len(tagKeys))
-	series := make([]prompb.TimeSeries, len(fieldKeys))
 	for i := range tagKeys {
 		label := prompb.Label{
 			Name:  string(tagKeys[i]),
@@ -97,9 +107,9 @@ func convertToPromSeries(p *data.Point) []prompb.TimeSeries {
 			Labels:  allLabels,
 			Samples: []prompb.Sample{{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
 		}
-		series[i] = ts
+		buffer[i] = ts
 	}
-	return series
+	return nil
 }
 
 func getFloat64(fieldValue interface{}) float64 {

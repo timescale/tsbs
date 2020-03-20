@@ -15,9 +15,7 @@ import (
 
 func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
 	var ds targets.DataSource
-	var multipleSeriesPerItem bool
 	if dataSourceConfig.Type == source.FileDataSourceType {
-		multipleSeriesPerItem = false
 		promIter, err := NewPrometheusIterator(load.GetBufferedReader(dataSourceConfig.File.Location))
 		if err != nil {
 			log.Printf("could not create prometheus file data source; %v", err)
@@ -25,7 +23,6 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 		}
 		ds = &FileDataSource{iterator: promIter}
 	} else {
-		multipleSeriesPerItem = true
 		dataGenerator := &inputs.DataGenerator{}
 		simulator, err := dataGenerator.CreateSimulator(dataSourceConfig.Simulator)
 		if err != nil {
@@ -35,7 +32,7 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 	}
 
 	batchPool := &sync.Pool{New: func() interface{} {
-		return &Batch{multipleSeriesPerItem: multipleSeriesPerItem}
+		return &Batch{}
 	}}
 
 	return &Benchmark{
@@ -47,8 +44,7 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 
 // Batch implements load.Batch interface
 type Batch struct {
-	series                []prompb.TimeSeries
-	multipleSeriesPerItem bool
+	series []prompb.TimeSeries
 }
 
 func (pb *Batch) Len() int {
@@ -56,11 +52,7 @@ func (pb *Batch) Len() int {
 }
 
 func (pb *Batch) Append(item *data.LoadedPoint) {
-	if pb.multipleSeriesPerItem {
-		pb.series = append(pb.series, item.Data.([]prompb.TimeSeries)...)
-	} else {
-		pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
-	}
+	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
 }
 
 // FileDataSource implements the source.DataSource interface
