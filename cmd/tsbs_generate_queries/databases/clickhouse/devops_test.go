@@ -33,13 +33,13 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 			desc:      "single host - w/ tags",
 			hostnames: []string{"foo1"},
 			useTags:   true,
-			want:      "tags_id IN (SELECT id FROM tags WHERE hostname IN ('foo1'))",
+			want:      "(hostname = 'foo1')",
 		},
 		{
 			desc:      "multi host - w/ tags",
 			hostnames: []string{"foo1", "foo2"},
 			useTags:   true,
-			want:      "tags_id IN (SELECT id FROM tags WHERE hostname IN ('foo1','foo2'))",
+			want:      "(hostname = 'foo1' OR hostname = 'foo2')",
 		},
 	}
 
@@ -50,7 +50,6 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 			t.Fatalf("Error while creating devops generator")
 		}
 		d := dg.(*Devops)
-		d.UseTags = c.useTags
 
 		if got := d.getHostWhereWithHostnames(c.hostnames); got != c.want {
 			t.Errorf("%s: incorrect output: got %s want %s", c.desc, got, c.want)
@@ -121,10 +120,10 @@ func TestMaxAllCPU(t *testing.T) {
 				"random 8h0m0s by 1h: 1970-01-01T00:47:30Z",
 			expectedQuery: `
         SELECT
-            toStartOfHour(created_at) AS hour,
+            toStartOfHour(time) AS hour,
             max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice
-        FROM cpu
-        WHERE (hostname = 'host_5') AND (created_at >= '1970-01-01 00:47:30') AND (created_at < '1970-01-01 08:47:30')
+        FROM cpu_tags_metrics
+        WHERE (hostname = 'host_5') AND (time >= '1970-01-01 00:47:30') AND (time < '1970-01-01 08:47:30')
         GROUP BY hour
         ORDER BY hour
         `,
@@ -136,10 +135,10 @@ func TestMaxAllCPU(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse max of all CPU metrics, random    5 hosts, random 8h0m0s by 1h: 1970-01-01T00:17:45Z",
 			expectedQuery: `
         SELECT
-            toStartOfHour(created_at) AS hour,
+            toStartOfHour(time) AS hour,
             max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice
-        FROM cpu
-        WHERE (hostname = 'host_9' OR hostname = 'host_5' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2') AND (created_at >= '1970-01-01 00:17:45') AND (created_at < '1970-01-01 08:17:45')
+        FROM cpu_tags_metrics
+        WHERE (hostname = 'host_9' OR hostname = 'host_5' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2') AND (time >= '1970-01-01 00:17:45') AND (time < '1970-01-01 08:17:45')
         GROUP BY hour
         ORDER BY hour
         `,
@@ -185,22 +184,14 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
 			expectedQuery: `
         SELECT
-            hour,
+            toStartOfHour(time) AS hour,
             hostname,
-            mean_usage_user
-        FROM
-        (
-            SELECT
-                toStartOfHour(created_at) AS hour,
-                tags_id AS id,
-                avg(usage_user) AS mean_usage_user
-            FROM cpu
-            WHERE (created_at >= '1970-01-01 00:16:22') AND (created_at < '1970-01-01 12:16:22')
-            GROUP BY
-                hour,
-                id
-        ) AS cpu_avg
-        
+            avg(usage_user) AS mean_usage_user
+        FROM cpu_tags_metrics
+        WHERE (time >= '1970-01-01 00:16:22') AND (time < '1970-01-01 12:16:22')
+		GROUP BY
+            hour,
+            hostname
         ORDER BY
             hour ASC,
             hostname
@@ -213,51 +204,14 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:54:10Z",
 			expectedQuery: `
         SELECT
-            hour,
+            toStartOfHour(time) AS hour,
             hostname,
-            mean_usage_user, mean_usage_system, mean_usage_idle, mean_usage_nice, mean_usage_iowait
-        FROM
-        (
-            SELECT
-                toStartOfHour(created_at) AS hour,
-                tags_id AS id,
-                avg(usage_user) AS mean_usage_user, avg(usage_system) AS mean_usage_system, avg(usage_idle) AS mean_usage_idle, avg(usage_nice) AS mean_usage_nice, avg(usage_iowait) AS mean_usage_iowait
-            FROM cpu
-            WHERE (created_at >= '1970-01-01 00:54:10') AND (created_at < '1970-01-01 12:54:10')
-            GROUP BY
-                hour,
-                id
-        ) AS cpu_avg
-        
-        ORDER BY
-            hour ASC,
+            avg(usage_user) AS mean_usage_user, avg(usage_system) AS mean_usage_system, avg(usage_idle) AS mean_usage_idle, avg(usage_nice) AS mean_usage_nice, avg(usage_iowait) AS mean_usage_iowait
+        FROM cpu_tags_metrics
+        WHERE (time >= '1970-01-01 00:54:10') AND (time < '1970-01-01 12:54:10')
+		GROUP BY
+            hour,
             hostname
-        `,
-		},
-		{
-			desc:               "use tags",
-			input:              5,
-			devopsUseTags:      true,
-			expectedHumanLabel: "ClickHouse mean of 5 metrics, all hosts, random 12h0m0s by 1h",
-			expectedHumanDesc:  "ClickHouse mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:47:30Z",
-			expectedQuery: `
-        SELECT
-            hour,
-            hostname,
-            mean_usage_user, mean_usage_system, mean_usage_idle, mean_usage_nice, mean_usage_iowait
-        FROM
-        (
-            SELECT
-                toStartOfHour(created_at) AS hour,
-                tags_id AS id,
-                avg(usage_user) AS mean_usage_user, avg(usage_system) AS mean_usage_system, avg(usage_idle) AS mean_usage_idle, avg(usage_nice) AS mean_usage_nice, avg(usage_iowait) AS mean_usage_iowait
-            FROM cpu
-            WHERE (created_at >= '1970-01-01 00:47:30') AND (created_at < '1970-01-01 12:47:30')
-            GROUP BY
-                hour,
-                id
-        ) AS cpu_avg
-        ANY INNER JOIN tags USING (id)
         ORDER BY
             hour ASC,
             hostname
@@ -291,10 +245,10 @@ func TestGroupByOrderByLimit(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse max cpu over last 5 min-intervals (random end): 1970-01-01T01:16:22Z",
 			expectedQuery: `
         SELECT
-            toStartOfMinute(created_at) AS minute,
+            toStartOfMinute(time) AS minute,
             max(usage_user)
-        FROM cpu
-        WHERE created_at < '1970-01-01 01:16:22'
+        FROM cpu_tags_metrics
+        WHERE time < '1970-01-01 01:16:22'
         GROUP BY minute
         ORDER BY minute DESC
         LIMIT 5
@@ -329,8 +283,8 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse CPU over threshold, all hosts: 1970-01-01T00:16:22Z",
 			expectedQuery: `
         SELECT *
-        FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:16:22') AND (created_at <  '1970-01-01 12:16:22') 
+        FROM cpu_tags_metrics
+        PREWHERE (usage_user > 90.0) AND (time >= '1970-01-01 00:16:22') AND (time <  '1970-01-01 12:16:22') 
         `,
 		},
 		{
@@ -340,8 +294,8 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse CPU over threshold, 1 host(s): 1970-01-01T00:47:30Z",
 			expectedQuery: `
         SELECT *
-        FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:47:30') AND (created_at <  '1970-01-01 12:47:30') AND ((hostname = 'host_9'))
+        FROM cpu_tags_metrics
+        PREWHERE (usage_user > 90.0) AND (time >= '1970-01-01 00:47:30') AND (time <  '1970-01-01 12:47:30') AND ((hostname = 'host_9'))
         `,
 		},
 		{
@@ -351,8 +305,8 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse CPU over threshold, 5 host(s): 1970-01-01T00:08:59Z",
 			expectedQuery: `
         SELECT *
-        FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:08:59') AND (created_at <  '1970-01-01 12:08:59') AND ((hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2'))
+        FROM cpu_tags_metrics
+        PREWHERE (usage_user > 90.0) AND (time >= '1970-01-01 00:08:59') AND (time <  '1970-01-01 12:08:59') AND ((hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2'))
         `,
 		},
 		{
@@ -383,36 +337,10 @@ func TestLastPointPerHost(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse last row per host",
 			expectedQuery: `
             SELECT DISTINCT(hostname), *
-            FROM cpu
+            FROM cpu_tags_metrics
             ORDER BY
                 hostname ASC,
-                created_at DESC
-            `,
-		},
-		{
-			desc:               "use tags",
-			devopsUseTags:      true,
-			expectedHumanLabel: "ClickHouse last row per host",
-			expectedHumanDesc:  "ClickHouse last row per host",
-			expectedQuery: `
-            SELECT *
-            FROM
-            (
-                SELECT *
-                FROM cpu
-                WHERE (tags_id, created_at) IN
-                (
-                    SELECT
-                        tags_id,
-                        max(created_at)
-                    FROM cpu
-                    GROUP BY tags_id
-                )
-            ) AS c
-            ANY INNER JOIN tags AS t ON c.tags_id = t.id
-            ORDER BY
-                t.hostname ASC,
-                c.time DESC
+                time DESC
             `,
 		},
 	}
@@ -437,10 +365,10 @@ func TestGroupByTime(t *testing.T) {
 			expectedHumanDesc:  "ClickHouse 1 cpu metric(s), random    1 hosts, random 1s by 1m: 1970-01-01T01:09:26Z",
 			expectedQuery: `
         SELECT
-            toStartOfMinute(created_at) AS minute,
+            toStartOfMinute(time) AS minute,
             max(usage_user) AS max_usage_user
-        FROM cpu
-        WHERE (hostname = 'host_9') AND (created_at >= '1970-01-01 01:09:26') AND (created_at < '1970-01-01 01:09:27')
+        FROM cpu_tags_metrics
+        WHERE (hostname = 'host_9') AND (time >= '1970-01-01 01:09:26') AND (time < '1970-01-01 01:09:27')
         GROUP BY minute
         ORDER BY minute ASC
         `,
@@ -481,7 +409,6 @@ func runTestCases(t *testing.T, testFunc func(*Devops, testCase) query.Query, s 
 				t.Fatalf("Error while creating devops generator")
 			}
 			d := dg.(*Devops)
-			d.UseTags = c.devopsUseTags
 
 			if c.fail {
 				func() {

@@ -20,20 +20,20 @@ type statProcessor interface {
 }
 
 type statProcessorArgs struct {
-	prewarmQueries bool    // PrewarmQueries tells the StatProcessor whether we're running each query twice to prewarm the cache
-	limit          *uint64 // limit is the number of statistics to analyze before stopping
-	burnIn         uint64  // burnIn is the number of statistics to ignore before analyzing
-	printInterval  uint64  // printInterval is how often print intermediate stats (number of queries)
-	hdrLatenciesFile string // hdrLatenciesFile is the filename to Write the High Dynamic Range (HDR) Histogram of Response Latencies to
+	prewarmQueries   bool    // PrewarmQueries tells the StatProcessor whether we're running each query twice to prewarm the cache
+	limit            *uint64 // limit is the number of statistics to analyze before stopping
+	burnIn           uint64  // burnIn is the number of statistics to ignore before analyzing
+	printInterval    uint64  // printInterval is how often print intermediate stats (number of queries)
+	hdrLatenciesFile string  // hdrLatenciesFile is the filename to Write the High Dynamic Range (HDR) Histogram of Response Latencies to
 
 }
 
 // statProcessor is used to collect, analyze, and print query execution statistics.
 type defaultStatProcessor struct {
-	args *statProcessorArgs
-	wg   sync.WaitGroup
-	c    chan *Stat // c is the channel for Stats to be sent for processing
-	opsCount 	uint64
+	args     *statProcessorArgs
+	wg       sync.WaitGroup
+	c        chan *Stat // c is the channel for Stats to be sent for processing
+	opsCount uint64
 }
 
 func newStatProcessor(args *statProcessorArgs) statProcessor {
@@ -159,7 +159,7 @@ func (sp *defaultStatProcessor) process(workers uint) {
 	sinceStart := time.Now().Sub(start)
 	overallQueryRate := float64(sp.opsCount) / float64(sinceStart.Seconds())
 	// the final stats output goes to stdout:
-	_, err := fmt.Printf("Run complete after %d queries with %d workers (Overall query rate %0.2f queries/sec):\n", i-sp.args.burnIn, workers,overallQueryRate)
+	_, err := fmt.Printf("Run complete after %d queries with %d workers (Overall query rate %0.2f queries/sec):\n", i-sp.args.burnIn, workers, overallQueryRate)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func (sp *defaultStatProcessor) process(workers uint) {
 		log.Fatal(err)
 	}
 
-	if len(sp.args.hdrLatenciesFile) > 0  {
+	if len(sp.args.hdrLatenciesFile) > 0 {
 		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", sp.args.hdrLatenciesFile)
 
 		d1 := []byte(statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(10, 1000.0))

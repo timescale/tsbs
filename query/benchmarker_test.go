@@ -157,8 +157,6 @@ func TestBenchmarkRunnerGetBufferedReaderCached(t *testing.T) {
 	b.GetBufferedReader()
 }
 
-
-
 func TestBenchmarkRunnerRunPanicOnNoWorkers(t *testing.T) {
 	runner := &BenchmarkRunner{}
 	defer func() {
@@ -343,13 +341,13 @@ func TestGetRateLimiter(t *testing.T) {
 		workers  uint
 	}
 	tests := []struct {
-		name 	   string
-		args 	   args
-		wantLimit  float64
-		wantBurst  int
+		name      string
+		args      args
+		wantLimit float64
+		wantBurst int
 	}{
-	{"zero limit", args{0,8}, math.MaxFloat64,0 },
-	{"8 burst", args{300,8}, 300.0,8 },
+		{"zero limit", args{0, 8}, math.MaxFloat64, 0},
+		{"8 burst", args{300, 8}, 300.0, 8},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

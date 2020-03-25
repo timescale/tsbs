@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/spf13/pflag"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
@@ -62,8 +62,6 @@ type QueryGeneratorConfig struct {
 	TimescaleUseTags       bool `mapstructure:"timescale-use-tags"`
 	TimescaleUseTimeBucket bool `mapstructure:"timescale-use-time-bucket"`
 
-	ClickhouseUseTags bool `mapstructure:"clickhouse-use-tags"`
-
 	MongoUseNaive bool `mapstructure:"mongo-use-native"`
 }
 
@@ -86,13 +84,11 @@ func (c *QueryGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	c.BaseConfig.AddToFlagSet(fs)
 	fs.Uint64("queries", 1000, "Number of queries to generate.")
 	fs.String("query-type", "", "Query type. (Choices are in the use case matrix.)")
-
 	fs.Uint("interleaved-generation-group-id", 0,
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	fs.Uint("interleaved-generation-groups", 1,
 		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
 
-	fs.Bool("clickhouse-use-tags", true, "ClickHouse only: Use separate tags table when querying")
 	fs.Bool("mongo-use-naive", true, "MongoDB only: Generate queries for the 'naive' data storage format for Mongo")
 	fs.Bool("timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
 	fs.Bool("timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
@@ -209,9 +205,7 @@ func (g *QueryGenerator) initFactories() error {
 		return err
 	}
 
-	clickhouse := &clickhouse.BaseGenerator{
-		UseTags: g.config.ClickhouseUseTags,
-	}
+	clickhouse := &clickhouse.BaseGenerator{}
 	if err := g.addFactory(FormatClickhouse, clickhouse); err != nil {
 		return err
 	}

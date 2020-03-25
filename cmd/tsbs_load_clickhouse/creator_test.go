@@ -90,35 +90,36 @@ func TestDBCreatorReadDataHeader(t *testing.T) {
 	}
 }
 
-func TestGenerateTagsTableQuery(t *testing.T) {
+func TestGenerateCreateTableQuery(t *testing.T) {
 	testCases := []struct {
-		inTagNames []string
-		inTagTypes []string
-		out        string
+		inMetricNames []string
+		inTagNames    []string
+		inTagTypes    []string
+		out           string
 	}{{
-		inTagNames: []string{"tag1"},
-		inTagTypes: []string{"string"},
-		out: "CREATE TABLE tags(\n" +
-			"created_date Date     DEFAULT today(),\n" +
-			"created_at   DateTime DEFAULT now(),\n" +
-			"id           UInt32,\n" +
-			"tag1 Nullable(String)" +
-			") ENGINE = MergeTree(created_date, (id), 8192)"}, {
-		inTagNames: []string{"tag1", "tag2", "tag3", "tag4"},
-		inTagTypes: []string{"int32", "int64", "float32", "float64"},
-		out: "CREATE TABLE tags(\n" +
-			"created_date Date     DEFAULT today(),\n" +
-			"created_at   DateTime DEFAULT now(),\n" +
-			"id           UInt32,\n" +
+		inMetricNames: []string{"metric1"},
+		inTagNames:    []string{"tag1"},
+		inTagTypes:    []string{"string"},
+		out: "CREATE TABLE benchmark.cpu_tags_metrics(\n" +
+			"time DateTime DEFAULT now(),\n" +
+			"tag1 LowCardinality(String),\n" +
+			"metric1 Nullable(Float64)) ENGINE = MergeTree() PARTITION BY toYYYYMM(time) ORDER BY (tag1)"}, {
+		inMetricNames: []string{"metric1", "metric2", "metric3"},
+		inTagNames:    []string{"tag1", "tag2", "tag3", "tag4"},
+		inTagTypes:    []string{"int32", "int64", "float32", "float64"},
+		out: "CREATE TABLE benchmark.cpu_tags_metrics(\n" +
+			"time DateTime DEFAULT now(),\n" +
 			"tag1 Nullable(Int32),\n" +
 			"tag2 Nullable(Int64),\n" +
 			"tag3 Nullable(Float32),\n" +
-			"tag4 Nullable(Float64)" +
-			") ENGINE = MergeTree(created_date, (id), 8192)"},
+			"tag4 Nullable(Float64),\n" +
+			"metric1 Nullable(Float64),\n" +
+			"metric2 Nullable(Float64),\n" +
+			"metric3 Nullable(Float64)) ENGINE = MergeTree() PARTITION BY toYYYYMM(time) ORDER BY (tag1,tag2,tag3,tag4)"},
 	}
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("tags table for %v", tc.inTagNames), func(t *testing.T) {
-			res := generateTagsTableQuery(tc.inTagNames, tc.inTagTypes)
+		t.Run(fmt.Sprintf("tags and metrics table for %v and %v", tc.inTagNames, tc.inMetricNames), func(t *testing.T) {
+			res := generateCreateTableQuery(tc.inMetricNames, tc.inTagNames, tc.inTagTypes)
 			if res != tc.out {
 				t.Errorf("unexpected result.\nexpected: %s\ngot: %s", tc.out, res)
 			}
@@ -126,7 +127,7 @@ func TestGenerateTagsTableQuery(t *testing.T) {
 	}
 }
 
-func TestGenerateTagsTableQueryPanicOnWrongFormat(t *testing.T) {
+func TestGenerateCreateTableQueryPanicOnWrongFormat(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -134,12 +135,12 @@ func TestGenerateTagsTableQueryPanicOnWrongFormat(t *testing.T) {
 		}
 	}()
 
-	generateTagsTableQuery([]string{"tag"}, []string{})
+	generateCreateTableQuery([]string{"metric"}, []string{"tag"}, []string{})
 
 	t.Fatalf("test should have stopped at this point")
 }
 
-func TestGenerateTagsTableQueryPanicOnWrongType(t *testing.T) {
+func TestGenerateCreateTableQueryPanicOnWrongType(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -147,7 +148,7 @@ func TestGenerateTagsTableQueryPanicOnWrongType(t *testing.T) {
 		}
 	}()
 
-	generateTagsTableQuery([]string{"unknownType"}, []string{"uint32"})
+	generateCreateTableQuery([]string{""}, []string{"unknownType"}, []string{"uint32"})
 
 	t.Fatalf("test should have stopped at this point")
 }

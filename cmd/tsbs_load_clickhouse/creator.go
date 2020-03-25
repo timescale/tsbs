@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/mailru/go-clickhouse" // _ "github.com/mailru/go-clickhouse"
 )
 
 // loader.DBCreator interface implementation
@@ -110,17 +111,12 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 func (d *dbCreator) CreateDB(dbName string) error {
 	// Connect to ClickHouse in general and CREATE DATABASE
 	db := sqlx.MustConnect(dbType, getConnectString(false))
-	sql := fmt.Sprintf("CREATE DATABASE %s", dbName)
+	defer db.Close()
+	sql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", dbName)
 	_, err := db.Exec(sql)
 	if err != nil {
 		panic(err)
 	}
-	db.Close()
-	db = nil
-
-	// Connect to specified database within ClickHouse
-	db = sqlx.MustConnect(dbType, getConnectString(true))
-	defer db.Close()
 
 	// d.tags content:
 	//tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
@@ -135,123 +131,104 @@ func (d *dbCreator) CreateDB(dbName string) error {
 		return fmt.Errorf("input header in wrong format. got '%s', expected 'tags'", parts[0])
 	}
 	tagNames, tagTypes := extractTagNamesAndTypes(parts[1:])
-	createTagsTable(db, tagNames, tagTypes)
-	tableCols["tags"] = tagNames
-	tagColumnTypes = tagTypes
 
-	// d.cols content are lines (metrics descriptions) as:
+	// d.Cols content are lines (metrics descriptions) as:
 	// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
 	// disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
 	// nginx,accepts,active,handled,reading,requests,waiting,writing
 	// generalised description:
 	// tableName,fieldName1,...,fieldNameX
-	for _, cols := range d.cols {
-		// cols content:
-		// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-		createMetricsTable(db, strings.Split(strings.TrimSpace(cols), ","))
+
+	// cpu content:
+	// cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
+	cpu_content := d.cols[0]
+	cpu_infos := strings.Split(strings.TrimSpace(cpu_content), ",")
+	cpuMetricNames := []string{}
+	cpuMetricNames = append(cpuMetricNames, cpu_infos[1:]...)
+	cpuMetricTypes := make([]string, len(cpuMetricNames))
+
+	for i := 0; i < len(cpuMetricNames); i++ {
+		cpuMetricTypes[i] = "Nullable(Float64)"
 	}
+
+	createCpuTagMetricTable(db, cpuMetricNames, tagNames, tagTypes)
+
+	tagCols["cpu_tags_metrics"] = tagNames
+	tagColumnTypes = tagTypes
+	metricCols["cpu_tags_metrics"] = cpuMetricNames
+	tableCols["cpu_tags_metrics"] = append(tagNames, cpuMetricNames...)
+	tableColumnTypes["cpu_tags_metrics"] = append(tagTypes, cpuMetricTypes...)
 
 	return nil
 }
 
-// createTagsTable builds CREATE TABLE SQL statement and runs it
-func createTagsTable(db *sqlx.DB, tagNames, tagTypes []string) {
-	sql := generateTagsTableQuery(tagNames, tagTypes)
+func createCpuTagMetricTable(db *sqlx.DB, metricColNames []string, tagNames, tagTypes []string) {
+	localTableQuery := generateCreateTableQuery(metricColNames, tagNames, tagTypes)
 	if debug > 0 {
-		fmt.Printf(sql)
+		fmt.Println(localTableQuery)
 	}
-	_, err := db.Exec(sql)
+
+	_, err := db.Exec(localTableQuery)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func generateTagsTableQuery(tagNames, tagTypes []string) string {
-	// prepare COLUMNs specification for CREATE TABLE statement
-	// all columns would be of the type specified in the tags header
-	// e.g. tags, tag2 string,tag2 int32...
+func generateCreateTableQuery(metricColNames []string, tagNames, tagTypes []string) string {
 	if len(tagNames) != len(tagTypes) {
 		panic("wrong number of tag names and tag types")
 	}
 
+	// tags info
 	tagColumnDefinitions := make([]string, len(tagNames))
+	tagColumnName := make([]string, len(tagNames))
 	for i, tagName := range tagNames {
 		tagType := serializedTypeToClickHouseType(tagTypes[i])
 		tagColumnDefinitions[i] = fmt.Sprintf("%s %s", tagName, tagType)
+		tagColumnName[i] = fmt.Sprintf("%s", tagName)
 	}
 
-	cols := strings.Join(tagColumnDefinitions, ",\n")
+	tagsCols := strings.Join(tagColumnDefinitions, ",\n")
+	key := strings.Join(tagColumnName, ",")
 
-	index := "id"
-
-	return fmt.Sprintf(
-		"CREATE TABLE tags(\n"+
-			"created_date Date     DEFAULT today(),\n"+
-			"created_at   DateTime DEFAULT now(),\n"+
-			"id           UInt32,\n"+
-			"%s"+
-			") ENGINE = MergeTree(created_date, (%s), 8192)",
-		cols,
-		index)
-}
-
-// createMetricsTable builds CREATE TABLE SQL statement and runs it
-func createMetricsTable(db *sqlx.DB, tableSpec []string) {
-	// tableSpec contain
-	// 0: table name
-	// 1: table column name 1
-	// N: table column name N
-
-	// Ex.: cpu OR disk OR nginx
-	tableName := tableSpec[0]
-	tableCols[tableName] = tableSpec[1:]
-
-	// We'll have some service columns in table to be created and columnNames contains all column names to be created
-	columnNames := []string{}
-
-	if inTableTag {
-		// First column in the table - service column - partitioning field
-		partitioningColumn := tableCols["tags"][0] // would be 'hostname'
-		columnNames = append(columnNames, partitioningColumn)
-	}
-
-	// Add all column names from tableSpec into columnNames
-	columnNames = append(columnNames, tableSpec[1:]...)
-
-	// columnsWithType - column specifications with type. Ex.: "cpu_usage Float64"
-	columnsWithType := []string{}
-	for _, column := range columnNames {
-		if len(column) == 0 {
+	// metricColsWithType - metricColName specifications with type. Ex.: "cpu_usage Nullable(Float64)"
+	metricColsWithType := []string{}
+	for _, metricColName := range metricColNames {
+		if len(metricColName) == 0 {
 			// Skip nameless columns
 			continue
 		}
-		columnsWithType = append(columnsWithType, fmt.Sprintf("%s Nullable(Float64)", column))
+		metricColsWithType = append(metricColsWithType, fmt.Sprintf("%s Nullable(Float64)", metricColName))
 	}
 
-	sql := fmt.Sprintf(`
-			CREATE TABLE %s (
-				created_date    Date     DEFAULT today(),
-				created_at      DateTime DEFAULT now(),
-				time            String,
-				tags_id         UInt32,
-				%s,
-				additional_tags String   DEFAULT ''
-			) ENGINE = MergeTree(created_date, (tags_id, created_at), 8192)
-			`,
-		tableName,
-		strings.Join(columnsWithType, ","))
-	if debug > 0 {
-		fmt.Printf(sql)
-	}
-	_, err := db.Exec(sql)
-	if err != nil {
-		panic(err)
-	}
+	metricCols := strings.Join(metricColsWithType, ",\n")
+
+	localTable := fmt.Sprintf(
+		"CREATE TABLE %s.cpu_tags_metrics(\n"+
+			"time DateTime DEFAULT now(),\n"+
+			"%s,\n"+
+			"%s"+
+			") ENGINE = MergeTree() PARTITION BY toYYYYMM(time) ORDER BY (%s)",
+		loader.DBName,
+		tagsCols,
+		metricCols,
+		key)
+
+	return localTable
 }
 
-// getConnectString() builds connect string to ClickHouse
+// getConnectString() builds HTTP/TCP connect string to ClickHouse
 // db - whether database specification should be added to the connection string
 func getConnectString(db bool) string {
+	// ClickHouse ex.:
+	// http://default:passwd@127.0.0.1:8123/default
+	if useHTTP {
+		if db {
+			fmt.Sprintf("http://%s:%s@%s:8123/%s", user, password, host, loader.DatabaseName())
+		}
+		return fmt.Sprintf("http://%s:%s@%s:8123", user, password, host)
+	}
+
 	// connectString: tcp://127.0.0.1:9000?debug=true
 	// ClickHouse ex.:
 	// tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
@@ -280,7 +257,7 @@ func extractTagNamesAndTypes(tags []string) ([]string, []string) {
 func serializedTypeToClickHouseType(serializedType string) string {
 	switch serializedType {
 	case "string":
-		return "Nullable(String)"
+		return "LowCardinality(String)"
 	case "float32":
 		return "Nullable(Float32)"
 	case "float64":

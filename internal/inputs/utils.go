@@ -17,7 +17,7 @@ const (
 	FormatSiriDB      = "siridb"
 	FormatTimescaleDB = "timescaledb"
 	FormatAkumuli     = "akumuli"
-	FormatCrateDB 	  = "cratedb"
+	FormatCrateDB     = "cratedb"
 )
 
 const (

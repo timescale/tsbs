@@ -26,6 +26,7 @@ var (
 	user     string
 	password string
 
+	useHTTP     bool
 	logBatches  bool
 	inTableTag  bool
 	hashWorkers bool
@@ -41,9 +42,12 @@ type insertData struct {
 
 // Global vars
 var (
-	loader         *load.BenchmarkRunner
-	tableCols      map[string][]string
-	tagColumnTypes []string
+	loader           *load.BenchmarkRunner
+	tagCols          map[string][]string
+	tagColumnTypes   []string
+	metricCols       map[string][]string
+	tableCols        map[string][]string
+	tableColumnTypes map[string][]string
 )
 
 // allows for testing
@@ -58,6 +62,7 @@ func init() {
 	pflag.String("user", "default", "User to connect to ClickHouse as")
 	pflag.String("password", "", "Password to connect to ClickHouse")
 
+	pflag.Bool("use-http", false, "Whether to use http driver.")
 	pflag.Bool("log-batches", false, "Whether to time individual batches.")
 
 	// TODO - This flag could potentially be done as a string/enum with other options besides no-hash, round-robin, etc
@@ -81,12 +86,17 @@ func init() {
 	user = viper.GetString("user")
 	password = viper.GetString("password")
 
+	useHTTP = viper.GetBool("use-http")
 	logBatches = viper.GetBool("log-batches")
 	hashWorkers = viper.GetBool("hash-workers")
 	debug = viper.GetInt("debug")
 
 	loader = load.GetBenchmarkRunner(config)
 	tableCols = make(map[string][]string)
+	tagCols = make(map[string][]string)
+	metricCols = make(map[string][]string)
+	tableCols = make(map[string][]string)
+	tableColumnTypes = make(map[string][]string)
 }
 
 // loader.Benchmark interface implementation
