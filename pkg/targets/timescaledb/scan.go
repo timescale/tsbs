@@ -16,12 +16,12 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) int {
+func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) uint {
 	p := item.Data.(*point)
 	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
 	h := fnv.New32a()
 	h.Write([]byte(hostname))
-	return int(h.Sum32()) % int(i.partitions)
+	return uint(h.Sum32()) % i.partitions
 }
 
 // point is a single row of data keyed by which hypertable it belongs

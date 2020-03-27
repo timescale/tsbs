@@ -36,10 +36,10 @@ type pointIndexer struct {
 	nchan uint
 }
 
-func (i *pointIndexer) GetIndex(p *data.LoadedPoint) int {
+func (i *pointIndexer) GetIndex(p *data.LoadedPoint) uint {
 	hdr := p.Data.([]byte)
 	id := binary.LittleEndian.Uint32(hdr[0:4])
-	return int(id % uint32(i.nchan))
+	return uint(id) % i.nchan
 }
 
 type batch struct {

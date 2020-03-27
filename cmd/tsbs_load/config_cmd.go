@@ -52,8 +52,9 @@ func config(cmd *cobra.Command, _ []string) {
 	if err := v.WriteConfigAs(writeConfigTo); err != nil {
 		panic(fmt.Errorf("could not write sample config to file %s: %v", writeConfigTo, err))
 	}
-	fmt.Printf("Wrote example config to %s", writeConfigTo)
+	fmt.Printf("Wrote example config to: %s\n", writeConfigTo)
 }
+
 func getEmptyConfigWithoutDbSpecifics(target, dataSource string) *LoadConfig {
 	loadConfig := &LoadConfig{
 		Loader: &LoaderConfig{
@@ -99,6 +100,7 @@ func setExampleConfigInViper(confWithoutDBSpecifics *LoadConfig, t targets.Imple
 	// and remove either data-source.file or data-source.simulator depending on selected
 	// data source type
 	loadCmdFlagSet := cleanDataSourceFlags(confWithoutDBSpecifics.DataSource.Type, loadCmdFlags())
+
 	// bind loader.runner and data-source flags
 	if err := v.BindPFlags(loadCmdFlagSet); err != nil {
 		panic(fmt.Errorf("could not bind loader.runner and data-source flags in viper: %v", err))

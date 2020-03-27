@@ -81,9 +81,9 @@ func assertEqual(expected, got interface{}, t *testing.T, msg string) {
 }
 
 func TestConvertToPromSeries(t *testing.T) {
-	now := time.Now()
+	someTimeAgo := time.Now().Add(-time.Second)
 	oneFieldPoint := data.NewPoint()
-	oneFieldPoint.SetTimestamp(&now)
+	oneFieldPoint.SetTimestamp(&someTimeAgo)
 	oneFieldPoint.AppendField([]byte("f"), 1)
 	ofTS := prompb.TimeSeries{
 		Labels:  []prompb.Label{{Name: "__name__", Value: "f"}},
@@ -91,7 +91,7 @@ func TestConvertToPromSeries(t *testing.T) {
 	}
 
 	twoFieldPoint := data.NewPoint()
-	twoFieldPoint.SetTimestamp(&now)
+	twoFieldPoint.SetTimestamp(&someTimeAgo)
 	twoFieldPoint.AppendField([]byte("f"), 1)
 	twoFieldPoint.AppendField([]byte("g"), 2)
 	twoFieldPoint.AppendTag([]byte("b"), "t1")

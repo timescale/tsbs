@@ -33,7 +33,7 @@ func (d *simulationDataSource) Headers() *common.GeneratedDataHeaders {
 func (d *simulationDataSource) NextItem() *data.LoadedPoint {
 	if d.generatedSeries.HasNext() {
 		next := d.generatedSeries.Next()
-		return &data.LoadedPoint{Data: *next}
+		return &data.LoadedPoint{Data: next}
 	}
 
 	newSimulatorPoint := data.NewPoint()
@@ -51,7 +51,7 @@ func (d *simulationDataSource) NextItem() *data.LoadedPoint {
 
 	d.generatedSeries.Set(newSimulatorPoint)
 	next := d.generatedSeries.Next()
-	return &data.LoadedPoint{Data: *next}
+	return &data.LoadedPoint{Data: next}
 }
 
 type timeSeriesIterator struct {

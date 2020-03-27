@@ -78,7 +78,7 @@ func addDataSourceFlags(fs *pflag.FlagSet) {
 	)
 	fs.Uint64(
 		"data-source.simulator.max-metric-count",
-		0,
+		100,
 		"Max number of metric fields to generate per host. Used only in devops-generic use-case",
 	)
 	fs.Uint64(

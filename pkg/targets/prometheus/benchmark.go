@@ -52,7 +52,9 @@ func (pb *Batch) Len() int {
 }
 
 func (pb *Batch) Append(item *data.LoadedPoint) {
-	pb.series = append(pb.series, item.Data.(prompb.TimeSeries))
+	var ts prompb.TimeSeries
+	ts = *item.Data.(*prompb.TimeSeries)
+	pb.series = append(pb.series, ts)
 }
 
 // FileDataSource implements the source.DataSource interface
@@ -66,7 +68,7 @@ func (pd *FileDataSource) NextItem() *data.LoadedPoint {
 		if err != nil {
 			panic(err)
 		}
-		return data.NewLoadedPoint(*ts)
+		return data.NewLoadedPoint(ts)
 	}
 	return nil
 }
@@ -125,7 +127,10 @@ func (pm *Benchmark) GetBatchFactory() targets.BatchFactory {
 	}
 }
 
-func (pm *Benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+func (pm *Benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
+	if maxPartitions > 1{
+		return newSeriesIDPointIndexer(maxPartitions)
+	}
 	return &targets.ConstantIndexer{}
 }
 
