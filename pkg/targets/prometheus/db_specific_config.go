@@ -4,6 +4,7 @@ import "github.com/blagojts/viper"
 
 type SpecificConfig struct {
 	AdapterWriteURL string `yaml:"adapter-write-url" mapstructure:"adapter-write-url"`
+	UseCurrentTime bool `yaml:"use-current-time" mapstructure:"use-current-time"`
 }
 
 func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {

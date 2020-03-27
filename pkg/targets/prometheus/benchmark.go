@@ -28,7 +28,7 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 		if err != nil {
 			return nil, err
 		}
-		ds = newSimulationDataSource(simulator)
+		ds = newSimulationDataSource(simulator, promSpecificConfig.UseCurrentTime)
 	}
 
 	batchPool := &sync.Pool{New: func() interface{} {

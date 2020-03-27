@@ -76,7 +76,7 @@ func (c *DataGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
 	fs.Uint("interleaved-generation-groups", 1,
 		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
-	fs.Uint64("max-metric-count", 0, "Max number of metric fields to generate per host. Used only in devops-generic use-case")
+	fs.Uint64("max-metric-count", 100, "Max number of metric fields to generate per host. Used only in devops-generic use-case")
 }
 
 const defaultTimeStart = "2016-01-01T00:00:00Z"
