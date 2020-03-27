@@ -34,7 +34,7 @@ type Batch interface {
 // that a particular point belongs to
 type PointIndexer interface {
 	// GetIndex returns a partition for the given Point
-	GetIndex(*data.LoadedPoint) int
+	GetIndex(*data.LoadedPoint) uint
 }
 
 // ConstantIndexer always puts the item on a single channel. This is the typical
@@ -42,7 +42,7 @@ type PointIndexer interface {
 type ConstantIndexer struct{}
 
 // GetIndex returns a constant index (0) regardless of Point
-func (i *ConstantIndexer) GetIndex(_ *data.LoadedPoint) int {
+func (i *ConstantIndexer) GetIndex(_ *data.LoadedPoint) uint {
 	return 0
 }
 

@@ -19,7 +19,7 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) int {
+func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) uint {
 	p := item.Data.(*mongo.MongoPoint)
 	t := &mongo.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
@@ -30,7 +30,7 @@ func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) int {
 			// the truck name is the defacto index for iot tags
 			h := fnv.New32a()
 			h.Write([]byte(string(t.Value())))
-			return int(h.Sum32()) % int(i.partitions)
+			return uint(h.Sum32()) % i.partitions
 		}
 	}
 	// name tag may be skipped in iot use-case
