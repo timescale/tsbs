@@ -7,11 +7,11 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-func newSimulationDataSource(sim common.Simulator) targets.DataSource {
+func newSimulationDataSource(sim common.Simulator, useCurrentTime bool) targets.DataSource {
 	return &simulationDataSource{
 		simulator:       sim,
 		headers:         sim.Headers(),
-		generatedSeries: &timeSeriesIterator{},
+		generatedSeries: &timeSeriesIterator{useCurrentTime: useCurrentTime},
 	}
 }
 
@@ -55,6 +55,7 @@ func (d *simulationDataSource) NextItem() *data.LoadedPoint {
 }
 
 type timeSeriesIterator struct {
+	useCurrentTime  bool
 	generatedSeries []prompb.TimeSeries
 	currentInd      int
 }
@@ -76,7 +77,7 @@ func (t *timeSeriesIterator) Set(p *data.Point) {
 	// reset state of iterator
 	t.currentInd = 0
 	t.resetBuffer(len(p.FieldKeys()))
-	convertToPromSeries(p, t.generatedSeries)
+	convertToPromSeries(p, t.generatedSeries, t.useCurrentTime)
 }
 
 func (t *timeSeriesIterator) resetBuffer(requiredLength int) {
