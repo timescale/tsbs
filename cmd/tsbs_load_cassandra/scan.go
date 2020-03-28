@@ -56,8 +56,8 @@ type eventsBatch struct {
 	rows []string
 }
 
-func (eb *eventsBatch) Len() int {
-	return len(eb.rows)
+func (eb *eventsBatch) Len() uint {
+	return uint(len(eb.rows))
 }
 
 func (eb *eventsBatch) Append(item *data.LoadedPoint) {

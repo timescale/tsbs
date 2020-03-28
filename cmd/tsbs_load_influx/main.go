@@ -34,7 +34,8 @@ var (
 
 // Global vars
 var (
-	loader  *load.BenchmarkRunner
+	loader  load.BenchmarkRunner
+	config  *load.BenchmarkRunnerConfig
 	bufPool sync.Pool
 	target  targets.ImplementedTarget
 )
@@ -52,7 +53,7 @@ var fatal = log.Fatalf
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatInflux)
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	var csvDaemonURLs string
@@ -90,7 +91,7 @@ func init() {
 type benchmark struct{}
 
 func (b *benchmark) GetDataSource() targets.DataSource {
-	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))}
+	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {

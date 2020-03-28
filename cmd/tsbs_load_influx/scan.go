@@ -32,12 +32,12 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }
 
 type batch struct {
 	buf     *bytes.Buffer
-	rows    uint64
+	rows    uint
 	metrics uint64
 }
 
-func (b *batch) Len() int {
-	return int(b.rows)
+func (b *batch) Len() uint {
+	return b.rows
 }
 
 func (b *batch) Append(item *data.LoadedPoint) {

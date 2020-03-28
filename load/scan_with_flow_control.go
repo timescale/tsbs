@@ -36,12 +36,12 @@ func sendOrQueueBatch(ch *duplexChannel, count *int, batch targets.Batch, unsent
 	return unsent
 }
 
-// ScanWithIndexer reads data from the DataSource ds until a limit is reached (if -1, all items are read).
+// scanWithFlowControl reads data from the DataSource ds until a limit is reached (if -1, all items are read).
 // Data is then placed into appropriate batches, using the supplied PointIndexer,
 // which are then dispatched to workers (duplexChannel chosen by PointIndexer).
 // Scan does flow control to make sure workers are not left idle for too long
 // and also that the scanning process does not starve them of CPU.
-func scanWithIndexer(
+func scanWithFlowControl(
 	channels []*duplexChannel, batchSize uint, limit uint64,
 	ds targets.DataSource, factory targets.BatchFactory, indexer targets.PointIndexer,
 ) uint64 {
@@ -124,7 +124,7 @@ func scanWithIndexer(
 		idx := indexer.GetIndex(item)
 		fillingBatches[idx].Append(item)
 
-		if fillingBatches[idx].Len() >= int(batchSize) {
+		if fillingBatches[idx].Len() >= batchSize {
 			// Batch is full (contains at least batchSize items) - ready to be sent to worker,
 			// or moved to outstanding, in case no workers available atm.
 			unsentBatches[idx] = sendOrQueueBatch(channels[idx], &ocnt, fillingBatches[idx], unsentBatches[idx])

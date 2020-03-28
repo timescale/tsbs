@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
 	"log"
-	"math"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -16,14 +15,10 @@ import (
 
 const (
 	// defaultBatchSize - default size of batches to be inserted
-	defaultBatchSize = 10000
-
-	// WorkerPerQueue is the value for assigning each worker its own queue of batches
-	WorkerPerQueue = 0
-	// SingleQueue is the value for using a single shared queue across all workers
-	SingleQueue = 1
-
-	errDBExistsFmt = "database \"%s\" exists: aborting."
+	defaultBatchSize                = 10000
+	defaultChannelCapacityFlagVal   = 0
+	defaultChannelCapacityPerWorker = 5
+	errDBExistsFmt                  = "database \"%s\" exists: aborting."
 )
 
 // change for more useful testing
@@ -43,6 +38,8 @@ type BenchmarkRunnerConfig struct {
 	DoAbortOnExist  bool          `yaml:"do-abort-on-exist"`
 	ReportingPeriod time.Duration `yaml:"reporting-period"`
 	HashWorkers     bool          `yaml:"hash-workers"`
+	NoFlowControl   bool          `yaml:"no-flow-control"`
+	ChannelCapacity uint          `yaml:"channel-capacity"`
 	InsertIntervals string        `yaml:"insert-intervals"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
 	FileName string `yaml:"file"`
@@ -65,9 +62,14 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 }
 
-// BenchmarkRunner is responsible for initializing and storing common
+type BenchmarkRunner interface {
+	DatabaseName() string
+	RunBenchmark(b targets.Benchmark)
+}
+
+// CommonBenchmarkRunner is responsible for initializing and storing common
 // flags across all database systems and ultimately running a supplied Benchmark
-type BenchmarkRunner struct {
+type CommonBenchmarkRunner struct {
 	BenchmarkRunnerConfig
 	metricCnt      uint64
 	rowCnt         uint64
@@ -75,11 +77,11 @@ type BenchmarkRunner struct {
 	sleepRegulator insertstrategy.SleepRegulator
 }
 
-// GetBenchmarkRunnerWithBatchSize returns the singleton BenchmarkRunner for use in a benchmark program
+// GetBenchmarkRunnerWithBatchSize returns the singleton CommonBenchmarkRunner for use in a benchmark program
 // with specified batch size.
-func GetBenchmarkRunner(c BenchmarkRunnerConfig) *BenchmarkRunner {
-	loader := &BenchmarkRunner{}
-	loader.BenchmarkRunnerConfig = c
+func GetBenchmarkRunner(c *BenchmarkRunnerConfig) BenchmarkRunner {
+	loader := CommonBenchmarkRunner{}
+	loader.BenchmarkRunnerConfig = *c
 
 	// If the configuration batch size is 0 use the default batch size.
 	if c.BatchSize == 0 {
@@ -97,45 +99,70 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) *BenchmarkRunner {
 			panic(fmt.Sprintf("could not initialize BenchmarkRunner: %v", err))
 		}
 	}
+	if !c.NoFlowControl {
+		return &loader
+	}
 
-	return loader
+	if c.ChannelCapacity == defaultChannelCapacityFlagVal {
+		if c.HashWorkers {
+			loader.ChannelCapacity = defaultChannelCapacityPerWorker
+		} else {
+			loader.ChannelCapacity = c.Workers * defaultChannelCapacityPerWorker
+		}
+	}
+
+	return &noFlowBenchmarkRunner{loader}
 }
 
 // DatabaseName returns the value of the --db-name flag (name of the database to store data)
-func (l *BenchmarkRunner) DatabaseName() string {
+func (l *CommonBenchmarkRunner) DatabaseName() string {
 	return l.DBName
 }
 
-// RunBenchmark takes in a Benchmark b, a bufio.Reader br, and holders for number of metrics and rows
-// and uses those to run the load benchmark
-func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark) {
-	var workQueues uint
-	if l.HashWorkers {
-		workQueues = WorkerPerQueue
-	} else {
-		workQueues = SingleQueue
-	}
+func (l *CommonBenchmarkRunner) preRun(b targets.Benchmark) (*sync.WaitGroup, *time.Time) {
 	// Create required DB
 	if b.GetDBCreator() != nil {
 		cleanupFn := l.useDBCreator(b.GetDBCreator())
 		defer cleanupFn()
 	}
 
-	channels := l.createChannels(workQueues)
+	if l.ReportingPeriod.Nanoseconds() > 0 {
+		go l.report(l.ReportingPeriod)
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(int(l.Workers))
+	start := time.Now()
+	return wg, &start
+}
+
+func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
+	// Wait for all workers to finish
+	wg.Wait()
+	end := time.Now()
+	l.summary(end.Sub(*start))
+}
+
+// RunBenchmark takes in a Benchmark b and uses it to run the load benchmark
+func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
+	wg, start := l.preRun(b)
+	var numChannels, capacity uint
+	if l.HashWorkers {
+		numChannels = l.Workers
+		capacity = 1
+	} else {
+		numChannels = 1
+		capacity = l.Workers
+	}
+
+	channels := l.createChannels(numChannels, capacity)
 
 	// Launch all worker processes in background
-	var wg sync.WaitGroup
-	numChannels := len(channels)
-	for i := 0; i < int(l.Workers); i++ {
-		wg.Add(1)
-
-		go l.work(b, &wg, channels[i%numChannels], i)
+	for i := uint(0); i < l.Workers; i++ {
+		go l.work(b, wg, channels[i%numChannels], i)
 	}
 
 	// Start scan process - actual data read process
-	start := time.Now()
-	l.scan(b, channels)
-
+	scanWithFlowControl(channels, l.BatchSize, l.Limit, b.GetDataSource(), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
 	// After scan process completed (no more data to come) - begin shutdown process
 
 	// Close all communication channels to/from workers
@@ -143,17 +170,13 @@ func (l *BenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		c.close()
 	}
 
-	// Wait for all workers to finish
-	wg.Wait()
-	end := time.Now()
-
-	l.summary(end.Sub(start))
+	l.postRun(wg, start)
 }
 
 // useDBCreator handles a DBCreator by running it according to flags set by the
 // user. The function returns a function that the caller should defer or run
 // when the benchmark is finished
-func (l *BenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
+func (l *CommonBenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 	// Empty function to 'defer' from caller
 	closeFn := func() {}
 
@@ -197,50 +220,23 @@ func (l *BenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 }
 
 // createChannels create channels from which workers would receive tasks
-// Number of workers may be different from number of channels, thus we may have
-// multiple workers per channel
-func (l *BenchmarkRunner) createChannels(workQueues uint) []*duplexChannel {
+func (l *CommonBenchmarkRunner) createChannels(numChannels, capacity uint) []*duplexChannel {
 	// Result - channels to be created
 	var channels []*duplexChannel
-
-	// How many work queues should be created?
-	workQueuesToCreate := int(workQueues)
-	if workQueues == WorkerPerQueue {
-		workQueuesToCreate = int(l.Workers)
-	} else if workQueues > l.Workers {
-		panic(fmt.Sprintf("cannot have more work queues (%d) than workers (%d)", workQueues, l.Workers))
-	}
-
-	// How many workers would be served by each queue?
-	workersPerQueue := int(math.Ceil(float64(l.Workers) / float64(workQueuesToCreate)))
-
 	// Create duplex communication channels
-	for i := 0; i < workQueuesToCreate; i++ {
-		channels = append(channels, newDuplexChannel(workersPerQueue))
+	for i := uint(0); i < numChannels; i++ {
+		channels = append(channels, newDuplexChannel(int(capacity)))
 	}
 
 	return channels
 }
 
-// scan launches any needed reporting mechanism and proceeds to scan input data
-// to distribute to workers
-func (l *BenchmarkRunner) scan(b targets.Benchmark, channels []*duplexChannel) uint64 {
-	// Start background reporting process
-	// TODO why it is here? May be it could be moved one level up?
-	if l.ReportingPeriod.Nanoseconds() > 0 {
-		go l.report(l.ReportingPeriod)
-	}
-
-	// Scan incoming data
-	return scanWithIndexer(channels, l.BatchSize, l.Limit, b.GetDataSource(), b.GetBatchFactory(), b.GetPointIndexer(uint(len(channels))))
-}
-
 // work is the processing function for each worker in the loader
-func (l *BenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum int) {
+func (l *CommonBenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duplexChannel, workerNum uint) {
 
 	// Prepare processor
 	proc := b.GetProcessor()
-	proc.Init(workerNum, l.DoLoad, l.HashWorkers)
+	proc.Init(int(workerNum), l.DoLoad, l.HashWorkers)
 
 	// Process batches coming from duplexChannel.toWorker queue
 	// and send ACKs into duplexChannel.toScanner queue
@@ -262,14 +258,14 @@ func (l *BenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c *duple
 	wg.Done()
 }
 
-func (l *BenchmarkRunner) timeToSleep(workerNum int, startedWorkAt time.Time) {
+func (l *CommonBenchmarkRunner) timeToSleep(workerNum uint, startedWorkAt time.Time) {
 	if l.sleepRegulator != nil {
-		l.sleepRegulator.Sleep(workerNum, startedWorkAt)
+		l.sleepRegulator.Sleep(int(workerNum), startedWorkAt)
 	}
 }
 
 // summary prints the summary of statistics from loading
-func (l *BenchmarkRunner) summary(took time.Duration) {
+func (l *CommonBenchmarkRunner) summary(took time.Duration) {
 	metricRate := float64(l.metricCnt) / took.Seconds()
 	printFn("\nSummary:\n")
 	printFn("loaded %d metrics in %0.3fsec with %d workers (mean rate %0.2f metrics/sec)\n", l.metricCnt, took.Seconds(), l.Workers, metricRate)
@@ -280,7 +276,7 @@ func (l *BenchmarkRunner) summary(took time.Duration) {
 }
 
 // report handles periodic reporting of loading stats
-func (l *BenchmarkRunner) report(period time.Duration) {
+func (l *CommonBenchmarkRunner) report(period time.Duration) {
 	start := time.Now()
 	prevTime := start
 	prevColCount := uint64(0)

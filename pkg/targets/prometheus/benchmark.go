@@ -47,8 +47,8 @@ type Batch struct {
 	series []prompb.TimeSeries
 }
 
-func (pb *Batch) Len() int {
-	return len(pb.series)
+func (pb *Batch) Len() uint {
+	return uint(len(pb.series))
 }
 
 func (pb *Batch) Append(item *data.LoadedPoint) {

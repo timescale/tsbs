@@ -25,7 +25,8 @@ var (
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
+	loader load.BenchmarkRunner
+	config *load.BenchmarkRunnerConfig
 	target targets.ImplementedTarget
 )
 
@@ -35,7 +36,7 @@ var fatal = log.Fatal
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatSiriDB)
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 
@@ -67,7 +68,7 @@ func (b *benchmark) GetDataSource() targets.DataSource {
 	return &fileDataSource{
 		buf: make([]byte, 0),
 		len: 0,
-		br:  load.GetBufferedReader(loader.FileName),
+		br:  load.GetBufferedReader(config.FileName),
 	}
 }
 

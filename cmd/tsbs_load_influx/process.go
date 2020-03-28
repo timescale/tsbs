@@ -79,7 +79,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) 
 	// Return the batch buffer to the pool.
 	batch.buf.Reset()
 	bufPool.Put(batch.buf)
-	return metricCnt, rowCnt
+	return metricCnt, uint64(rowCnt)
 }
 
 func (p *processor) processBackoffMessages(workerID int) {

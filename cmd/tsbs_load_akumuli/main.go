@@ -27,7 +27,8 @@ var (
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
+	loader     load.BenchmarkRunner
+	loaderConf *load.BenchmarkRunnerConfig
 )
 
 // allows for testing
@@ -37,8 +38,8 @@ var target targets.ImplementedTarget
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatAkumuli)
-	var config load.BenchmarkRunnerConfig
-	config.AddToFlagSet(pflag.CommandLine)
+	loaderConf = &load.BenchmarkRunnerConfig{}
+	loaderConf.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
@@ -48,13 +49,13 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 
 	endpoint = viper.GetString("endpoint")
-	config.HashWorkers = true
-	loader = load.GetBenchmarkRunner(config)
+	loaderConf.HashWorkers = true
+	loader = load.GetBenchmarkRunner(loaderConf)
 }
 
 func main() {
@@ -63,6 +64,6 @@ func main() {
 			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
 		},
 	}
-	benchmark := akumuli.NewBenchmark(loader.FileName, endpoint, &bufPool)
+	benchmark := akumuli.NewBenchmark(loaderConf.FileName, endpoint, &bufPool)
 	loader.RunBenchmark(benchmark)
 }

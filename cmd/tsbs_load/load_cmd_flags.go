@@ -52,6 +52,20 @@ func addLoaderRunnerFlags(fs *pflag.FlagSet) {
 		10000,
 		"Number of items to batch together in a single insert",
 	)
+	fs.Bool(
+		"flow-control",
+		false,
+		"Whether to use flow-control when scanning the data and sending to the workers",
+	)
+	fs.Int(
+		"channel-capacity",
+		-1,
+		"(Used only when flow-control=false) Capacity of the channel holding the ready batches.\nIf "+
+			"hash-workers=false, one channel is used. If hash-workers=true a channel is created for each worker.\n"+
+			"If one channel is full scanning stops until the worker whose channel was full completes a batch.\n"+
+			"Default -1 means that:\n\tif hash-workers=false then capacity = 5 * number of workers\n\t"+
+			"if hash-workers=true, then capacity = 5 for each worker",
+	)
 }
 
 func addDataSourceFlags(fs *pflag.FlagSet) {

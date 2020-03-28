@@ -15,10 +15,10 @@ import (
 )
 
 // Parse args:
-func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
+func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *load.BenchmarkRunnerConfig) {
 	target := timescaledb.NewTarget()
-	var config load.BenchmarkRunnerConfig
-	config.AddToFlagSet(pflag.CommandLine)
+	loaderConf := &load.BenchmarkRunnerConfig{}
+	loaderConf.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
@@ -28,7 +28,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 	opts := timescaledb.LoadingOptions{}
@@ -59,12 +59,12 @@ func initProgramOptions() (*timescaledb.LoadingOptions, *load.BenchmarkRunner) {
 
 	opts.ForceTextFormat = viper.GetBool("force-text-format")
 
-	loader := load.GetBenchmarkRunner(config)
-	return &opts, loader
+	loader := load.GetBenchmarkRunner(loaderConf)
+	return &opts, loader, loaderConf
 }
 
 func main() {
-	opts, loader := initProgramOptions()
+	opts, loader, loaderConf := initProgramOptions()
 
 	// If specified, generate a performance profile
 	if len(opts.ProfileFile) > 0 {
@@ -78,9 +78,9 @@ func main() {
 		)
 	}
 
-	benchmark, err := timescaledb.NewBenchmark(loader.DBName, opts, &source.DataSourceConfig{
+	benchmark, err := timescaledb.NewBenchmark(loaderConf.DBName, opts, &source.DataSourceConfig{
 		Type: source.FileDataSourceType,
-		File: &source.FileDataSourceConfig{Location: loader.FileName},
+		File: &source.FileDataSourceConfig{Location: loaderConf.FileName},
 	})
 	if err != nil {
 		panic(err)

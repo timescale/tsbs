@@ -32,10 +32,10 @@ type point struct {
 
 type hypertableArr struct {
 	m   map[string][]*insertData
-	cnt int
+	cnt uint
 }
 
-func (ha *hypertableArr) Len() int {
+func (ha *hypertableArr) Len() uint {
 	return ha.cnt
 }
 

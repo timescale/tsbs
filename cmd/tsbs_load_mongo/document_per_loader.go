@@ -16,8 +16,8 @@ type naiveBenchmark struct {
 	mongoBenchmark
 }
 
-func newNaiveBenchmark(l *load.BenchmarkRunner) *naiveBenchmark {
-	return &naiveBenchmark{mongoBenchmark{l, &dbCreator{}}}
+func newNaiveBenchmark(l load.BenchmarkRunner, loaderConf *load.BenchmarkRunnerConfig) *naiveBenchmark {
+	return &naiveBenchmark{mongoBenchmark{loaderConf.FileName, l, &dbCreator{}}}
 }
 
 func (b *naiveBenchmark) GetProcessor() targets.Processor {

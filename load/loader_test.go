@@ -185,7 +185,7 @@ func TestUseDBCreator(t *testing.T) {
 			shouldPanic: true,
 		},
 	}
-	testPanic := func(r *BenchmarkRunner, dbc targets.DBCreator, desc string) {
+	testPanic := func(r *CommonBenchmarkRunner, dbc targets.DBCreator, desc string) {
 		defer func() {
 			if re := recover(); re == nil {
 				t.Errorf("%s: did not panic when should", desc)
@@ -194,7 +194,7 @@ func TestUseDBCreator(t *testing.T) {
 		_ = r.useDBCreator(dbc)
 	}
 	for _, c := range cases {
-		r := &BenchmarkRunner{
+		r := &CommonBenchmarkRunner{
 			BenchmarkRunnerConfig: BenchmarkRunnerConfig{
 				DoLoad:         c.doLoad,
 				DoCreateDB:     c.doCreate,
@@ -267,77 +267,46 @@ func TestUseDBCreator(t *testing.T) {
 
 func TestCreateChannelsAndPartitions(t *testing.T) {
 	cases := []struct {
-		desc           string
-		queues         uint
-		workers        uint
-		wantPartitions uint
-		wantChanLen    int
-		shouldPanic    bool
+		desc        string
+		wantChanLen int
+		wantChanCap int
 	}{
 		{
-			desc:           "single queue",
-			queues:         SingleQueue,
-			workers:        2,
-			wantPartitions: 1,
-			wantChanLen:    2,
+			desc:        "single queue",
+			wantChanLen: 1,
+			wantChanCap: 1,
 		},
 		{
-			desc:           "worker per queue",
-			queues:         WorkerPerQueue,
-			workers:        2,
-			wantPartitions: 2,
-			wantChanLen:    1,
+			desc:        "worker per queue",
+			wantChanLen: 2,
+			wantChanCap: 1,
+		}, {
+			desc:        "worker per queue, larger cap",
+			wantChanLen: 2,
+			wantChanCap: 5,
 		},
-		{
-			desc:           "workers divide evenly into queues",
-			queues:         3,
-			workers:        6,
-			wantPartitions: 3,
-			wantChanLen:    2,
-		},
-		{
-			desc:           "workers do not divide evenly into queues",
-			queues:         3,
-			workers:        7,
-			wantPartitions: 3,
-			wantChanLen:    3,
-		},
-		{
-			desc:           "too many queues for workers, panic",
-			queues:         3,
-			workers:        2,
-			wantPartitions: 0,
-			wantChanLen:    0,
-			shouldPanic:    true,
-		},
-	}
-	testPanic := func(br *BenchmarkRunner, queues uint, desc string) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("%s: did not panic when should", desc)
-			}
-		}()
-		_ = br.createChannels(queues)
 	}
 	for _, c := range cases {
-		br := &BenchmarkRunner{}
-		br.Workers = c.workers
-		if c.shouldPanic {
-			testPanic(br, c.queues, c.desc)
-		} else {
-			channels := br.createChannels(c.queues)
-			if got := uint(len(channels)); got != c.wantPartitions {
-				t.Errorf("%s: incorrect number of partitions: got %d want %d", c.desc, got, c.wantPartitions)
+		br := &CommonBenchmarkRunner{}
+		t.Run(c.desc, func(t *testing.T) {
+			channels := br.createChannels(uint(c.wantChanLen), uint(c.wantChanCap))
+			if got := len(channels); got != c.wantChanLen {
+				t.Errorf("incorrect number of channels: got %d want %d", got, c.wantChanLen)
 			}
-			if got := cap(channels[0].toWorker); got != c.wantChanLen {
-				t.Errorf("%s: incorrect channel length: got %d want %d", c.desc, got, c.wantChanLen)
+			for _, ch := range channels {
+				if got := cap(ch.toWorker); got != c.wantChanCap {
+					t.Errorf("incorrect toWorker channel cap: got %d want %d", got, c.wantChanCap)
+				}
+				if got := cap(ch.toScanner); got != c.wantChanCap {
+					t.Errorf("incorrect toScanner channel cap: got %d want %d", got, c.wantChanCap)
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestWork(t *testing.T) {
-	br := &BenchmarkRunner{}
+	br := &CommonBenchmarkRunner{}
 	b := &testBenchmark{}
 	for i := 0; i < 2; i++ {
 		b.processors = append(b.processors, &testProcessor{})
@@ -377,7 +346,7 @@ func TestWork(t *testing.T) {
 }
 
 func TestWorkWithSleep(t *testing.T) {
-	br := &BenchmarkRunner{
+	br := &CommonBenchmarkRunner{
 		sleepRegulator: &testSleepRegulator{lock: sync.Mutex{}},
 	}
 	b := &testBenchmark{}
@@ -448,7 +417,7 @@ func TestSummary(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		br := &BenchmarkRunner{}
+		br := &CommonBenchmarkRunner{}
 		br.metricCnt = c.metrics
 		br.rowCnt = c.rows
 		var b bytes.Buffer
@@ -472,7 +441,7 @@ func TestReport(t *testing.T) {
 		defer m.Unlock()
 		return fmt.Fprintf(&b, s, args...)
 	}
-	br := &BenchmarkRunner{}
+	br := &CommonBenchmarkRunner{}
 	duration := 200 * time.Millisecond
 	go br.report(duration)
 

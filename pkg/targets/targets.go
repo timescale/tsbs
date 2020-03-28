@@ -26,7 +26,7 @@ type ImplementedTarget interface {
 // It needs to have a way to measure it's size to make sure
 // it does not get too large and it needs a way to append a point
 type Batch interface {
-	Len() int
+	Len() uint
 	Append(*data.LoadedPoint)
 }
 

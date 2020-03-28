@@ -12,10 +12,10 @@ import (
 
 type testBatch struct {
 	id  int
-	len int
+	len uint
 }
 
-func (b *testBatch) Len() int { return b.len }
+func (b *testBatch) Len() uint { return b.len }
 
 func (b *testBatch) Append(p *data.LoadedPoint) {
 	b.len++
@@ -194,7 +194,7 @@ func (f *testFactory) New() targets.Batch {
 
 func _checkScan(t *testing.T, desc string, called, read, want uint64) {
 	if called != want {
-		t.Errorf("%s: decoder not called enough: got %d want %d", desc, called, want)
+		t.Errorf("%s: data source not called enough: got %d want %d", desc, called, want)
 	}
 	if read != want {
 		t.Errorf("%s: read incorrect: got %d want %d", desc, read, want)
@@ -261,12 +261,12 @@ func TestScanWithIndexer(t *testing.T) {
 						t.Errorf("%s: did not panic when should", c.desc)
 					}
 				}()
-				scanWithIndexer(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
+				scanWithFlowControl(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
 			}()
 			continue
 		} else {
 			go _boringWorker(channels[0])
-			read := scanWithIndexer(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
+			read := scanWithFlowControl(channels, c.batchSize, c.limit, testDataSource, &testFactory{}, indexer)
 			_checkScan(t, c.desc, testDataSource.called, read, c.wantCalls)
 		}
 	}

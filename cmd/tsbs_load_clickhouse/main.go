@@ -13,24 +13,20 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/clickhouse"
 )
 
-const (
-	timeValueIdx = "TIME-VALUE"
-	valueTimeIdx = "VALUE-TIME"
-)
-
 // Global vars
 var (
 	target targets.ImplementedTarget
 )
 
-var loader *load.BenchmarkRunner
+var loader load.BenchmarkRunner
+var loaderConf *load.BenchmarkRunnerConfig
 var conf *clickhouse.ClickhouseConfig
 
 // Parse args:
 func init() {
-	var config load.BenchmarkRunnerConfig
+	loaderConf = &load.BenchmarkRunnerConfig{}
 	target := clickhouse.NewTarget()
-	config.AddToFlagSet(pflag.CommandLine)
+	loaderConf.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
@@ -40,7 +36,7 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 	conf = &clickhouse.ClickhouseConfig{
@@ -49,12 +45,12 @@ func init() {
 		Password:   viper.GetString("password"),
 		LogBatches: viper.GetBool("log-batches"),
 		Debug:      viper.GetInt("debug"),
-		DbName:     loader.DBName,
+		DbName:     loaderConf.DBName,
 	}
 
-	loader = load.GetBenchmarkRunner(config)
+	loader = load.GetBenchmarkRunner(loaderConf)
 }
 
 func main() {
-	loader.RunBenchmark(clickhouse.NewBenchmark(loader.FileName, loader.HashWorkers, conf))
+	loader.RunBenchmark(clickhouse.NewBenchmark(loaderConf.FileName, loaderConf.HashWorkers, conf))
 }
