@@ -22,11 +22,11 @@ type point struct {
 // scan.Batch interface implementation
 type eventsBatch struct {
 	batches map[string][]*row
-	rowCnt  int
+	rowCnt  uint
 }
 
 // scan.Batch interface implementation
-func (eb *eventsBatch) Len() int {
+func (eb *eventsBatch) Len() uint {
 	return eb.rowCnt
 }
 

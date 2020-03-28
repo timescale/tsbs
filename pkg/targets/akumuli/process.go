@@ -49,5 +49,5 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) 
 	}
 	batch.buf.Reset()
 	p.bufPool.Put(batch.buf)
-	return nmetrics, batch.rows
+	return nmetrics, uint64(batch.rows)
 }

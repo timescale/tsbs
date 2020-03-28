@@ -31,7 +31,8 @@ var (
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
+	loader load.BenchmarkRunner
+	config *load.BenchmarkRunnerConfig
 	target targets.ImplementedTarget
 )
 
@@ -47,7 +48,7 @@ var consistencyMapping = map[string]gocql.Consistency{
 
 // Parse args:
 func init() {
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	target = initializers.GetTarget(constants.FormatCassandra)
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
@@ -83,7 +84,7 @@ type benchmark struct {
 }
 
 func (b *benchmark) GetDataSource() targets.DataSource {
-	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))}
+	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
 }
 
 func (b *benchmark) GetBatchFactory() targets.BatchFactory {

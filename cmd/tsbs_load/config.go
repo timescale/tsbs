@@ -27,6 +27,7 @@ type RunnerConfig struct {
 	Seed            int64
 	HashWorkers     bool   `yaml:"hash-workers" mapstructure:"hash-workers"`
 	InsertIntervals string `yaml:"insert-intervals" mapstructure:"insert-intervals"`
+	FlowControl     bool   `yaml:"flow-control" mapstructure:"flow-control"`
 }
 
 type DataSourceConfig struct {

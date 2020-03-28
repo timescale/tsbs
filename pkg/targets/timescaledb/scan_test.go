@@ -34,15 +34,15 @@ func TestHostnameIndexer(t *testing.T) {
 	// multiple partition check
 	cases := []uint{2, 10, 100}
 	for _, n := range cases {
-		parts := uint(n)
+		parts := n
 		indexer = &hostnameIndexer{parts}
 		counts := make([]int, parts, parts)
-		verifier := make(map[string]int)
+		verifier := make(map[string]uint)
 		for _, r := range tagRows {
 			p.row.tags = r
 			idx := indexer.GetIndex(data.NewLoadedPoint(p))
 			// check that the partition is not out of bounds
-			if idx >= int(parts) {
+			if idx >= parts {
 				t.Errorf("got too large a partition: got %d want %d", idx, parts)
 			}
 			counts[idx]++

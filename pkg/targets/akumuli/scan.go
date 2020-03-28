@@ -44,11 +44,11 @@ func (i *pointIndexer) GetIndex(p *data.LoadedPoint) uint {
 
 type batch struct {
 	buf  *bytes.Buffer
-	rows uint64
+	rows uint
 }
 
-func (b *batch) Len() int {
-	return int(b.rows)
+func (b *batch) Len() uint {
+	return b.rows
 }
 
 func (b *batch) Append(item *data.LoadedPoint) {

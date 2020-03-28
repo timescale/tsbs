@@ -38,14 +38,14 @@ func TestSeriesIDPointIndexer(t *testing.T) {
 	if !exists {
 		t.Fatalf("cache not properly populated, val for %s is missing", t1CacheKey)
 	}
-	if cachedIndex.(int) != t1Index {
+	if cachedIndex.(uint) != t1Index {
 		t.Fatalf("cache not properly populated, expected val %d, got %d", t1Index, cachedIndex.(int))
 	}
 
 	// test cache is used
 	//// will change cached value, if changed value is returned, then it means
 	//// the correct value is not calculated and stored
-	modifiedIndex := cachedIndex.(int) + 1
+	modifiedIndex := cachedIndex.(uint) + 1
 	piCasted.indexCache.Store(t1CacheKey, modifiedIndex)
 	if modifiedIndex != pi.GetIndex(data.NewLoadedPoint(t1)) {
 		t.Fatal("cached index value not used")

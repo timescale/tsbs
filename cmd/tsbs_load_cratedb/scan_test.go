@@ -63,7 +63,7 @@ func TestEventsBatch(t *testing.T) {
 	for _, p := range points {
 		eb.Append(p)
 	}
-	if eb.Len() != len(points) {
+	if eb.Len() != uint(len(points)) {
 		t.Errorf(fmt.Sprintf("eventsBatch must have %d points", len(points)))
 	}
 	if len(eb.batches) != 2 {

@@ -43,11 +43,11 @@ type aggBenchmark struct {
 	mongoBenchmark
 }
 
-func newAggBenchmark(l *load.BenchmarkRunner) *aggBenchmark {
+func newAggBenchmark(l load.BenchmarkRunner, conf *load.BenchmarkRunnerConfig) *aggBenchmark {
 	// Pre-create the needed empty subdoc for new aggregate docs
 	generateEmptyHourDoc()
 
-	return &aggBenchmark{mongoBenchmark{l, &dbCreator{}}}
+	return &aggBenchmark{mongoBenchmark{conf.FileName, l, &dbCreator{}}}
 }
 
 func (b *aggBenchmark) GetProcessor() targets.Processor {

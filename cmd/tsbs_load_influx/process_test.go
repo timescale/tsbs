@@ -164,7 +164,7 @@ func TestProcessorProcessBatch(t *testing.T) {
 			if mCnt != b.metrics {
 				t.Errorf("process batch returned less metrics than batch: got %d want %d", mCnt, b.metrics)
 			}
-			if rCnt != b.rows {
+			if rCnt != uint64(b.rows) {
 				t.Errorf("process batch returned less rows than batch: got %d want %d", rCnt, b.rows)
 			}
 			p.Close(true)

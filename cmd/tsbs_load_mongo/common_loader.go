@@ -62,8 +62,8 @@ type batch struct {
 	arr []*mongo.MongoPoint
 }
 
-func (b *batch) Len() int {
-	return len(b.arr)
+func (b *batch) Len() uint {
+	return uint(len(b.arr))
 }
 
 func (b *batch) Append(item *data.LoadedPoint) {
@@ -78,12 +78,13 @@ func (f *factory) New() targets.Batch {
 }
 
 type mongoBenchmark struct {
-	l   *load.BenchmarkRunner
-	dbc *dbCreator
+	loaderFileName string
+	l              load.BenchmarkRunner
+	dbc            *dbCreator
 }
 
 func (b *mongoBenchmark) GetDataSource() targets.DataSource {
-	return &fileDataSource{lenBuf: make([]byte, 8), r: load.GetBufferedReader(loader.FileName)}
+	return &fileDataSource{lenBuf: make([]byte, 8), r: load.GetBufferedReader(b.loaderFileName)}
 }
 
 func (b *mongoBenchmark) GetBatchFactory() targets.BatchFactory {

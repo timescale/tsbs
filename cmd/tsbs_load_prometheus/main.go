@@ -13,14 +13,16 @@ import (
 )
 
 // runs the benchmark
-var target targets.ImplementedTarget
-var loader *load.BenchmarkRunner
-
+var (
+	target targets.ImplementedTarget
+	loader load.BenchmarkRunner
+	config *load.BenchmarkRunnerConfig
+)
 var adapterWriteUrl string
 
 func init() {
 	target = prometheus.NewTarget()
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
@@ -41,7 +43,7 @@ func main() {
 		&prometheus.SpecificConfig{AdapterWriteURL: adapterWriteUrl},
 		&source.DataSourceConfig{
 			Type: source.FileDataSourceType,
-			File: &source.FileDataSourceConfig{Location: loader.FileName},
+			File: &source.FileDataSourceConfig{Location: config.FileName},
 		},
 	)
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benchmark, *load.BenchmarkRunner, error) {
+func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benchmark, load.BenchmarkRunner, error) {
 	dataSourceViper := v.Sub("data-source")
 	if dataSourceViper == nil {
 		return nil, nil, fmt.Errorf("config file didn't have a top-level 'data-source' object")
@@ -48,7 +48,7 @@ func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benc
 		return nil, nil, err
 	}
 
-	return benchmark, load.GetBenchmarkRunner(*loaderConfigInternal), nil
+	return benchmark, load.GetBenchmarkRunner(loaderConfigInternal), nil
 }
 
 func parseRunnerConfig(v *viper.Viper) (*RunnerConfig, error) {
@@ -72,6 +72,7 @@ func convertRunnerConfigToInternalRep(r *RunnerConfig) *load.BenchmarkRunnerConf
 		Seed:            r.Seed,
 		HashWorkers:     r.HashWorkers,
 		InsertIntervals: r.InsertIntervals,
+		NoFlowControl:   !r.FlowControl,
 	}
 }
 

@@ -34,14 +34,15 @@ var (
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
+	loader load.BenchmarkRunner
+	config *load.BenchmarkRunnerConfig
 	target targets.ImplementedTarget
 )
 
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatMongo)
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 
@@ -72,9 +73,9 @@ func init() {
 func main() {
 	var benchmark targets.Benchmark
 	if documentPer {
-		benchmark = newNaiveBenchmark(loader)
+		benchmark = newNaiveBenchmark(loader, config)
 	} else {
-		benchmark = newAggBenchmark(loader)
+		benchmark = newAggBenchmark(loader, config)
 	}
 
 	loader.RunBenchmark(benchmark)

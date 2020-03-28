@@ -17,11 +17,11 @@ type point struct {
 
 type batch struct {
 	series    map[string][]byte
-	batchCnt  int
+	batchCnt  uint
 	metricCnt uint64
 }
 
-func (b *batch) Len() int {
+func (b *batch) Len() uint {
 	return b.batchCnt
 }
 

@@ -60,11 +60,11 @@ type point struct {
 // scan.Batch interface implementation
 type tableArr struct {
 	m   map[string][]*insertData
-	cnt int
+	cnt uint
 }
 
 // scan.Batch interface implementation
-func (ta *tableArr) Len() int {
+func (ta *tableArr) Len() uint {
 	return ta.cnt
 }
 

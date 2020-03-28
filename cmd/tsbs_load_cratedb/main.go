@@ -17,7 +17,8 @@ import (
 	"github.com/timescale/tsbs/load"
 )
 
-var loader *load.BenchmarkRunner
+var loader load.BenchmarkRunner
+var config *load.BenchmarkRunnerConfig
 var target targets.ImplementedTarget
 
 // the logger is used in implementations of interface methods that
@@ -54,7 +55,7 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 
 func main() {
 	target = initializers.GetTarget(constants.FormatCrateDB)
-	var config load.BenchmarkRunnerConfig
+	config = &load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
@@ -95,6 +96,6 @@ func main() {
 			numReplicas: *numReplicas,
 			numShards:   *numShards,
 		},
-		ds: &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(loader.FileName))},
+		ds: &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))},
 	})
 }
