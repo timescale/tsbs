@@ -8,6 +8,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/mailru/go-clickhouse"
+	"github.com/timescale/tsbs/load"
 )
 
 // load.Processor interface implementation
@@ -29,13 +32,65 @@ func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	}
 }
 
+<<<<<<< HEAD:pkg/targets/clickhouse/processor.go
 // load.ProcessorCloser interface implementation
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
 		p.db.Close()
+=======
+// insertTags fills tags table with values
+func insertTags(db *sqlx.DB, startID int, rows [][]string, returnResults bool) map[string]int64 {
+	// Map hostname to tags_id
+	ret := make(map[string]int64)
+
+	// reflect tags table structure which is
+	// CREATE TABLE tags(
+	//	 created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	//	 id,
+	//   %s
+	// ) engine=MergeTree(created_at, (%s), 8192)
+
+	// build insert-multiple-rows INSERT statement like:
+	// INSERT INTO tags (
+	//   ... list of column names ...
+	// ) VALUES
+	// ( ... row 1 values ... ),
+	// ( ... row 2 values ... ),
+	// ...
+	// ( ... row N values ... ),
+
+	// Columns. Ex.:
+	// hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
+	cols := tableCols["tags"]
+	// Add id column to prepared statement
+	sql := fmt.Sprintf(`
+		INSERT INTO %s.tags(
+			id,%s
+		) VALUES (
+			?%s
+		)
+		`,
+		loader.DBName,
+		strings.Join(cols, ","),
+		strings.Repeat(",?", len(cols)))
+	if debug > 0 {
+		fmt.Printf(sql)
+	}
+
+	// In a single transaction insert tags row-by-row
+	// ClickHouse driver accumulates all rows inside a transaction into one batch
+	tx, err := db.Begin()
+	if err != nil {
+		panic(err)
+	}
+	stmt, err := tx.Prepare(sql)
+	if err != nil {
+		panic(err)
+>>>>>>> add IoT case for ClickHouse:cmd/tsbs_load_clickhouse/process.go
 	}
 }
 
+<<<<<<< HEAD:pkg/targets/clickhouse/processor.go
 // load.Processor interface implementation
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*tableArr)
@@ -46,6 +101,14 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) 
 		if doLoad {
 			start := time.Now()
 			metricCnt += p.processCSI(tableName, rows)
+=======
+		fmt.Println(variadicArgs)
+		// And now expand []interface{} with the same data as 'row' contains (plus 'id') in Exec(args ...interface{})
+		_, err := stmt.Exec(variadicArgs...)
+		if err != nil {
+			panic(err)
+		}
+>>>>>>> add IoT case for ClickHouse:cmd/tsbs_load_clickhouse/process.go
 
 			if p.conf.LogBatches {
 				now := time.Now()
@@ -154,11 +217,11 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 		// additional_tags
 		tagsIdPosition = 3 // what is the position of the tags_id in the row - nil value
 		r = append(r,
-			timeUTC,    // created_date
-			timeUTC,    // created_at
-			TimeUTCStr, // time
-			nil,        // tags_id
-			json)       // additional_tags
+			strings.Fields(TimeUTCStr)[0], // created_date
+			timeUTC,                       // created_at
+			TimeUTCStr,                    // time
+			nil,                           // tags_id
+			json)                          // additional_tags
 
 		if p.conf.InTableTag {
 			r = append(r, tags[0]) // tags[0] = hostname
@@ -253,11 +316,11 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			panic(err)
 		}
 	}
-	err = stmt.Close()
+	err = tx.Commit()
 	if err != nil {
 		panic(err)
 	}
-	err = tx.Commit()
+	err = stmt.Close()
 	if err != nil {
 		panic(err)
 	}
