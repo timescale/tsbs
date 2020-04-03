@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/pflag"
+	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"strings"
 	"time"
@@ -53,17 +54,17 @@ func addLoaderRunnerFlags(fs *pflag.FlagSet) {
 		"Number of items to batch together in a single insert",
 	)
 	fs.Bool(
-		"flow-control",
+		"loader.runner.flow-control",
 		false,
 		"Whether to use flow-control when scanning the data and sending to the workers",
 	)
-	fs.Int(
-		"channel-capacity",
-		-1,
+	fs.Uint(
+		"loader.runner.channel-capacity",
+		load.DefaultChannelCapacityFlagVal,
 		"(Used only when flow-control=false) Capacity of the channel holding the ready batches.\nIf "+
 			"hash-workers=false, one channel is used. If hash-workers=true a channel is created for each worker.\n"+
 			"If one channel is full scanning stops until the worker whose channel was full completes a batch.\n"+
-			"Default -1 means that:\n\tif hash-workers=false then capacity = 5 * number of workers\n\t"+
+			"Default 0 means that:\n\tif hash-workers=false then capacity = 5 * number of workers\n\t"+
 			"if hash-workers=true, then capacity = 5 for each worker",
 	)
 }

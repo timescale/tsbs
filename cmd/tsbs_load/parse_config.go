@@ -73,6 +73,7 @@ func convertRunnerConfigToInternalRep(r *RunnerConfig) *load.BenchmarkRunnerConf
 		HashWorkers:     r.HashWorkers,
 		InsertIntervals: r.InsertIntervals,
 		NoFlowControl:   !r.FlowControl,
+		ChannelCapacity: r.ChannelCapacity,
 	}
 }
 
