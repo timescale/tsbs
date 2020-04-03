@@ -16,7 +16,7 @@ import (
 const (
 	// defaultBatchSize - default size of batches to be inserted
 	defaultBatchSize                = 10000
-	defaultChannelCapacityFlagVal   = 0
+	DefaultChannelCapacityFlagVal   = 0
 	defaultChannelCapacityPerWorker = 5
 	errDBExistsFmt                  = "database \"%s\" exists: aborting."
 )
@@ -103,7 +103,7 @@ func GetBenchmarkRunner(c *BenchmarkRunnerConfig) BenchmarkRunner {
 		return &loader
 	}
 
-	if c.ChannelCapacity == defaultChannelCapacityFlagVal {
+	if c.ChannelCapacity == DefaultChannelCapacityFlagVal {
 		if c.HashWorkers {
 			loader.ChannelCapacity = defaultChannelCapacityPerWorker
 		} else {

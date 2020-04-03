@@ -28,6 +28,7 @@ type RunnerConfig struct {
 	HashWorkers     bool   `yaml:"hash-workers" mapstructure:"hash-workers"`
 	InsertIntervals string `yaml:"insert-intervals" mapstructure:"insert-intervals"`
 	FlowControl     bool   `yaml:"flow-control" mapstructure:"flow-control"`
+	ChannelCapacity uint   `yaml:"channel-capacity" mapstructure:"channel-capacity"`
 }
 
 type DataSourceConfig struct {
