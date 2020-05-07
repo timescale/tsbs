@@ -23,7 +23,7 @@ const (
 // Program option vars:
 var (
 	host     string
-	port     string
+	port     int32
 	user     string
 	password string
 
@@ -80,7 +80,7 @@ func init() {
 	}
 
 	host = viper.GetString("host")
-	port = viper.GetString("port")
+	port = viper.GetInt32("port")
 	user = viper.GetString("user")
 	password = viper.GetString("password")
 
