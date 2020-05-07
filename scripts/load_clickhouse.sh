@@ -21,6 +21,7 @@ source ${EXE_DIR}/load_common.sh
 
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --host=${DATABASE_HOST} \
+                                --port=${DATABASE_PORT} \
                                 --user=${DATABASE_USER} \
                                 --password=${DATABASE_PASSWORD} \
                                 --db-name=${DATABASE_NAME} \

@@ -23,6 +23,7 @@ const (
 // Program option vars:
 var (
 	host     string
+	port     string
 	user     string
 	password string
 
@@ -55,6 +56,7 @@ func init() {
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("host", "localhost", "Hostname of ClickHouse instance")
+	pflag.String("port", "9000", "Port of ClickHouse instance")
 	pflag.String("user", "default", "User to connect to ClickHouse as")
 	pflag.String("password", "", "Password to connect to ClickHouse")
 
@@ -78,6 +80,7 @@ func init() {
 	}
 
 	host = viper.GetString("host")
+	port = viper.GetString("port")
 	user = viper.GetString("user")
 	password = viper.GetString("password")
 
