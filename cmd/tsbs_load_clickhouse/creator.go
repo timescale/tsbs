@@ -256,10 +256,10 @@ func getConnectString(db bool) string {
 	// ClickHouse ex.:
 	// tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 	if db {
-		return fmt.Sprintf("tcp://%s:9000?username=%s&password=%s&database=%s", host, user, password, loader.DatabaseName())
+		return fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s", host, port, user, password, loader.DatabaseName())
 	}
 
-	return fmt.Sprintf("tcp://%s:9000?username=%s&password=%s", host, user, password)
+	return fmt.Sprintf("tcp://%s:%d?username=%s&password=%s", host, port, user, password)
 }
 
 func extractTagNamesAndTypes(tags []string) ([]string, []string) {
