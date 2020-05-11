@@ -14,6 +14,7 @@ Current databases supported:
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
++ VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
 
 ## Overview
 
@@ -75,8 +76,10 @@ cases are implemented for each database:
 |MongoDB|X|
 |SiriDB|X|
 |TimescaleDB|X|X|
+|VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
+² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
 
 ## What the TSBS tests
 
@@ -140,7 +143,7 @@ Variables needed:
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
  (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `siridb`,
-  or `timescaledb`)
+  `timescaledb` or `victoriametrics`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can

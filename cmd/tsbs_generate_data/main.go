@@ -6,6 +6,7 @@
 // InfluxDB bulk load format
 // MongoDB BSON format
 // TimescaleDB pseudo-CSV format (the same as for ClickHouse)
+// VictoriaMetrics bulk load format (the same as for InfluxDB)
 
 // Supported use cases:
 // devops: scale is the number of hosts to simulate, with log messages

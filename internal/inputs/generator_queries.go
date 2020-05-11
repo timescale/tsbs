@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/spf13/pflag"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
@@ -19,6 +19,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/victoriametrics"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 )
 
@@ -244,6 +245,11 @@ func (g *QueryGenerator) initFactories() error {
 		UseNaive: g.config.MongoUseNaive,
 	}
 	if err := g.addFactory(FormatMongo, mongo); err != nil {
+		return err
+	}
+
+	victoriametrics := &victoriametrics.BaseGenerator{}
+	if err := g.addFactory(FormatVictoriaMetrics, victoriametrics); err != nil {
 		return err
 	}
 
