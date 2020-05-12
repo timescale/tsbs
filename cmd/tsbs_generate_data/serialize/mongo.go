@@ -23,7 +23,7 @@ func (s *MongoSerializer) Serialize(p *Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.timestamp.UTC().UnixNano()
-	tags := []flatbuffers.UOffsetT{}
+	var tags []flatbuffers.UOffsetT
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	for i := len(p.tagKeys); i > 0; i-- {
