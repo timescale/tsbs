@@ -77,6 +77,10 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
+	}
+
 	daemonURL = viper.GetString("host")
 	aggrPlanLabel = viper.GetString("aggregation-plan")
 	requestTimeout = viper.GetDuration("read-timeout")
