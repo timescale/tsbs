@@ -41,7 +41,10 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 		return err
 	}
 	for _, name := range collections {
-		d.session.DB(dbName).C(name).DropCollection()
+		err := d.session.DB(dbName).C(name).DropCollection()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -49,11 +52,11 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 
 func (d *dbCreator) CreateDB(dbName string) error {
 	cmd := make(bson.D, 0, 4)
-	cmd = append(cmd, bson.DocElem{"create", collectionName})
+	cmd = append(cmd, bson.DocElem{Name: "create", Value: collectionName})
 
 	// wiredtiger settings
 	cmd = append(cmd, bson.DocElem{
-		"storageEngine", map[string]interface{}{
+		Name: "storageEngine", Value: map[string]interface{}{
 			"wiredTiger": map[string]interface{}{
 				"configString": "block_compressor=snappy",
 			},
