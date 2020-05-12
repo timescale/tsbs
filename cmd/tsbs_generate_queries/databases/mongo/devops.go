@@ -343,7 +343,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 
 	pipelineQuery = append(pipelineQuery, []bson.M{
 		match,
-		bson.M{
+		{
 			"$project": bson.M{
 				"_id":    0,
 				"events": 1,
@@ -443,7 +443,7 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 	q.HumanLabel = []byte(humanLabel)
 	q.BsonDoc = pipelineQuery
 	q.CollectionName = []byte("point_data")
-	q.HumanDescription = []byte(fmt.Sprintf("%s", humanLabel))
+	q.HumanDescription = []byte(humanLabel)
 }
 
 // GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
