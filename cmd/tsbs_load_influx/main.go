@@ -36,10 +36,10 @@ var (
 )
 
 var consistencyChoices = map[string]struct{}{
-	"any":    struct{}{},
-	"one":    struct{}{},
-	"quorum": struct{}{},
-	"all":    struct{}{},
+	"any":    {},
+	"one":    {},
+	"quorum": {},
+	"all":    {},
 }
 
 // allows for testing
