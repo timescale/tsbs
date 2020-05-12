@@ -18,7 +18,7 @@ func profileCPUAndMem(file string) {
 	defer f.Close()
 
 	var proc *process.Process
-	for _ = range time.NewTicker(1 * time.Second).C {
+	for range time.NewTicker(1 * time.Second).C {
 		if proc == nil {
 			procs, err := process.Processes()
 			if err != nil {
