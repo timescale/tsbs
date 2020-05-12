@@ -37,9 +37,7 @@ func (p *processor) createInsertStmt(table *tableDef) (string, error) {
 	var cols []string
 	cols = append(cols, "tags", "ts")
 
-	for _, col := range table.cols {
-		cols = append(cols, col)
-	}
+	cols = append(cols, table.cols...)
 
 	stmt := fmt.Sprintf(
 		InsertStmt,
