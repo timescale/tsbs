@@ -10,9 +10,8 @@ import (
 
 // loader.DBCreator interface implementation
 type dbCreator struct {
-	tags    string
-	cols    []string
-	connStr string
+	tags string
+	cols []string
 }
 
 // loader.DBCreator interface implementation
@@ -74,7 +73,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 
 	sql := fmt.Sprintf("SELECT name, engine FROM system.databases WHERE name = '%s'", dbName)
 	if debug > 0 {
-		fmt.Printf(sql)
+		fmt.Print(sql)
 	}
 	var rows []struct {
 		Name   string `db:"name"`
@@ -115,7 +114,11 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if err != nil {
 		panic(err)
 	}
-	db.Close()
+	err = db.Close()
+	if err != nil {
+		return err
+	}
+
 	db = nil
 
 	// Connect to specified database within ClickHouse
@@ -158,7 +161,7 @@ func (d *dbCreator) CreateDB(dbName string) error {
 func createTagsTable(db *sqlx.DB, tagNames, tagTypes []string) {
 	sql := generateTagsTableQuery(tagNames, tagTypes)
 	if debug > 0 {
-		fmt.Printf(sql)
+		fmt.Print(sql)
 	}
 	_, err := db.Exec(sql)
 	if err != nil {
@@ -241,7 +244,7 @@ func createMetricsTable(db *sqlx.DB, tableSpec []string) {
 		tableName,
 		strings.Join(columnsWithType, ","))
 	if debug > 0 {
-		fmt.Printf(sql)
+		fmt.Print(sql)
 	}
 	_, err := db.Exec(sql)
 	if err != nil {

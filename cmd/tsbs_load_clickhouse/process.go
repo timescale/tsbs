@@ -81,7 +81,7 @@ func insertTags(db *sqlx.DB, startID int, rows [][]string, returnResults bool) m
 		strings.Join(cols, ","),
 		strings.Repeat(",?", len(cols)))
 	if debug > 0 {
-		fmt.Printf(sql)
+		fmt.Print(sql)
 	}
 
 	// In a single transaction insert tags row-by-row
@@ -175,7 +175,7 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			tags[i] = strings.Split(tags[i], "=")[1]
 		}
 		// prepare JSON for tags that are not common
-		var json interface{} = nil
+		var json interface{}
 		if len(tags) > commonTagsLen {
 			// Join additional tags into JSON string
 			json = subsystemTagsToJSON(strings.Split(tags[commonTagsLen], ","))
@@ -304,6 +304,9 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 
 	tx := p.db.MustBegin()
 	stmt, err := tx.Prepare(sql)
+	if err != nil {
+		panic(err)
+	}
 	for _, r := range dataRows {
 		_, err := stmt.Exec(r...)
 		if err != nil {
