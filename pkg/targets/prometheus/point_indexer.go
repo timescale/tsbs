@@ -5,6 +5,7 @@ import (
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
 	"hash/fnv"
+	"math/rand"
 	"strings"
 	"sync"
 )
@@ -16,9 +17,17 @@ func newSeriesIDPointIndexer(maxIndex uint) targets.PointIndexer {
 	}
 }
 
+func newRandomPointIndexer(numPartitions uint) targets.PointIndexer {
+	return &randomPointIndexer{int(numPartitions)}
+}
+
 type seriesIDPointIndexer struct {
 	maxIndex   uint
 	indexCache *sync.Map
+}
+
+type randomPointIndexer struct {
+	numPartitions int
 }
 
 func (s *seriesIDPointIndexer) GetIndex(item *data.LoadedPoint) uint {
@@ -37,6 +46,11 @@ func (s *seriesIDPointIndexer) GetIndex(item *data.LoadedPoint) uint {
 	newIndex := uint(hasher.Sum32()) % s.maxIndex
 	s.indexCache.Store(labelString, newIndex)
 	return newIndex
+}
+
+func (s *randomPointIndexer) GetIndex(*data.LoadedPoint) uint {
+	newIndex := rand.Intn(s.numPartitions)
+	return uint(newIndex)
 }
 
 // {key1=val1, key2=val2} => (key<nil>val<nil><nil>key<nil>val)?
