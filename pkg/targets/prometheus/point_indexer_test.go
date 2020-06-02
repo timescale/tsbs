@@ -3,8 +3,27 @@ package prometheus
 import (
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/timescale/tsbs/pkg/data"
+	"math/rand"
 	"testing"
 )
+
+func TestRandomPointIndexer(t *testing.T) {
+	rand.Seed(0)
+	var expected []uint
+	pointsToIndex := 10
+	numPartitions := 100
+	for i := 0; i < pointsToIndex; i++ {
+		expected = append(expected, uint(rand.Intn(numPartitions)))
+	}
+	rand.Seed(0)
+	indexer := randomPointIndexer{numPartitions}
+	for i := 0; i < pointsToIndex; i++ {
+		index := indexer.GetIndex(nil)
+		if index != expected[i] {
+			t.Errorf("expected: %d, got: %d", expected[i], index)
+		}
+	}
+}
 
 func TestSeriesIDPointIndexer(t *testing.T) {
 	oneLabel := []prompb.Label{{

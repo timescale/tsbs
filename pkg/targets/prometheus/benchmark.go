@@ -129,7 +129,7 @@ func (pm *Benchmark) GetBatchFactory() targets.BatchFactory {
 
 func (pm *Benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 	if maxPartitions > 1{
-		return newSeriesIDPointIndexer(maxPartitions)
+		return newRandomPointIndexer(maxPartitions)
 	}
 	return &targets.ConstantIndexer{}
 }
