@@ -88,7 +88,8 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries, useCurrentTi
 	tagValues := p.TagValues()
 	fieldKeys := p.FieldKeys()
 	fieldValues := p.FieldValues()
-	labels := make([]prompb.Label, len(tagKeys))
+	// length is number of tagKeys plus the metric name
+	labels := make([]prompb.Label, len(tagKeys)+1)
 	for i := range tagKeys {
 		label := prompb.Label{
 			Name:  string(tagKeys[i]),
@@ -96,8 +97,15 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries, useCurrentTi
 		}
 		labels[i] = label
 	}
+	labels[len(labels)-1] = prompb.Label{
+		Name:  model.MetricNameLabel,
+		Value: "",
+	}
 	sort.Slice(labels, func(i, j int) bool {
 		return labels[i].Name < labels[j].Name
+	})
+	metricIndex := sort.Search(len(labels), func(i int) bool {
+		return labels[i].Name >= model.MetricNameLabel
 	})
 	var tsMs int64
 	if useCurrentTime {
@@ -106,16 +114,17 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries, useCurrentTi
 		tsMs = p.Timestamp().UnixNano() / 1000000
 	}
 	for i := range fieldKeys {
-		metricNameLabel := prompb.Label{
+		myLabels := labels
+		if i+1 < len(fieldKeys) {
+			myLabels = make([]prompb.Label, len(labels))
+			copy(myLabels, labels)
+		}
+		myLabels[metricIndex] = prompb.Label{
 			Name:  model.MetricNameLabel,
 			Value: string(fieldKeys[i]),
 		}
-		allLabels := append(labels, metricNameLabel)
-		sort.Slice(allLabels, func(i, j int) bool {
-			return allLabels[i].Name < allLabels[j].Name
-		})
 		ts := prompb.TimeSeries{
-			Labels:  allLabels,
+			Labels:  myLabels,
 			Samples: []prompb.Sample{{Value: getFloat64(fieldValues[i]), Timestamp: tsMs}},
 		}
 		buffer[i] = ts
