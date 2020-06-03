@@ -2,9 +2,10 @@ package clickhouse
 
 import (
 	"bufio"
+	"strings"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"strings"
 )
 
 // scan.PointDecoder interface implementation
@@ -15,7 +16,7 @@ type fileDataSource struct {
 }
 
 // scan.PointDecoder interface implementation
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	// Data Point Example
 	// tags,hostname=host_0,region=eu-west-1,datacenter=eu-west-1b,rack=67,os=Ubuntu16.10,arch=x86,team=NYC,service=7,service_version=0,service_environment=production
 	// cpu,1451606400000000000,58,2,24,61,22,63,6,44,80,38
@@ -24,10 +25,10 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{nil}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"
@@ -37,7 +38,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	prefix := parts[0]
 	if prefix != tagsPrefix {
 		fatal("data file in invalid format; got %s expected %s", prefix, tagsPrefix)
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	newPoint.tags = parts[1]
 
@@ -46,7 +47,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	ok = d.scanner.Scan()
 	if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	parts = strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix = parts[0]

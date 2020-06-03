@@ -1,13 +1,14 @@
 package prometheus
 
 import (
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
 	"hash/fnv"
 	"math/rand"
 	"strings"
 	"sync"
+
+	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 func newSeriesIDPointIndexer(maxIndex uint) targets.PointIndexer {
@@ -30,7 +31,7 @@ type randomPointIndexer struct {
 	numPartitions int
 }
 
-func (s *seriesIDPointIndexer) GetIndex(item *data.LoadedPoint) uint {
+func (s *seriesIDPointIndexer) GetIndex(item data.LoadedPoint) uint {
 	var ts prompb.TimeSeries
 	ts = *item.Data.(*prompb.TimeSeries)
 
@@ -48,7 +49,7 @@ func (s *seriesIDPointIndexer) GetIndex(item *data.LoadedPoint) uint {
 	return newIndex
 }
 
-func (s *randomPointIndexer) GetIndex(*data.LoadedPoint) uint {
+func (s *randomPointIndexer) GetIndex(data.LoadedPoint) uint {
 	newIndex := rand.Intn(s.numPartitions)
 	return uint(newIndex)
 }

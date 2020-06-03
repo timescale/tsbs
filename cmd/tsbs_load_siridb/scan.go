@@ -3,11 +3,12 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"io"
+	"log"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"io"
-	"log"
 )
 
 type point struct {
@@ -25,7 +26,7 @@ func (b *batch) Len() uint {
 	return b.batchCnt
 }
 
-func (b *batch) Append(item *data.LoadedPoint) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.(*point)
 	for k, v := range that.data {
 		if len(b.series[k]) == 0 {
@@ -72,10 +73,10 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 	return nil
 }
 
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	if d.len < 8 {
 		if n := d.Read(); n == 0 {
-			return nil
+			return data.LoadedPoint{nil}
 		}
 	}
 	valueCnt := binary.LittleEndian.Uint32(d.buf[:4])
@@ -86,7 +87,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 
 	if d.len < nameCnt {
 		if n := d.Read(); n == 0 {
-			return nil
+			return data.LoadedPoint{nil}
 		}
 	}
 
@@ -99,7 +100,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	for i := 0; uint32(i) < valueCnt; i++ {
 		if d.len < 8 {
 			if n := d.Read(); n == 0 {
-				return nil
+				return data.LoadedPoint{nil}
 			}
 		}
 		lengthKey := binary.LittleEndian.Uint32(d.buf[:4])
@@ -108,7 +109,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 		total := lengthData + lengthKey + 8
 		for d.len < total {
 			if n := d.Read(); n == 0 {
-				return nil
+				return data.LoadedPoint{nil}
 			}
 		}
 

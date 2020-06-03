@@ -2,6 +2,7 @@ package timescaledb
 
 import (
 	"fmt"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
@@ -29,10 +30,10 @@ func (d *simulationDataSource) Headers() *common.GeneratedDataHeaders {
 	return d.headers
 }
 
-func (d *simulationDataSource) NextItem() *data.LoadedPoint {
+func (d *simulationDataSource) NextItem() data.LoadedPoint {
 	if d.headers == nil {
 		fatal("headers not read before starting to read points")
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	newSimulatorPoint := data.NewPoint()
 	var write bool
@@ -44,7 +45,7 @@ func (d *simulationDataSource) NextItem() *data.LoadedPoint {
 		newSimulatorPoint.Reset()
 	}
 	if d.simulator.Finished() || !write {
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	newLoadPoint := &insertData{}
 	tagValues := newSimulatorPoint.TagValues()

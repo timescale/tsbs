@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
 	"log"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestGetConnectString(t *testing.T) {
@@ -34,7 +35,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 0 {
 		t.Errorf("tableArr not initialized with count 0")
 	}
-	p := &data.LoadedPoint{
+	p := data.LoadedPoint{
 		Data: &point{
 			table: "table1",
 			row: &insertData{
@@ -47,7 +48,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 1 {
 		t.Errorf("tableArr count is not 1 after first append")
 	}
-	p = &data.LoadedPoint{
+	p = data.LoadedPoint{
 		Data: &point{
 			table: "table2",
 			row: &insertData{
@@ -129,7 +130,7 @@ func TestDecodeEOF(t *testing.T) {
 	_ = dataSource.NextItem()
 	// nothing left, should be EOF
 	p := dataSource.NextItem()
-	if p != nil {
+	if p.Data != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
 }

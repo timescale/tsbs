@@ -1,6 +1,10 @@
 package prometheus
 
 import (
+	"log"
+	"sync"
+	"time"
+
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/timescale/tsbs/internal/inputs"
 	"github.com/timescale/tsbs/load"
@@ -8,9 +12,6 @@ import (
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"log"
-	"sync"
-	"time"
 )
 
 func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
@@ -51,7 +52,7 @@ func (pb *Batch) Len() uint {
 	return uint(len(pb.series))
 }
 
-func (pb *Batch) Append(item *data.LoadedPoint) {
+func (pb *Batch) Append(item data.LoadedPoint) {
 	var ts prompb.TimeSeries
 	ts = *item.Data.(*prompb.TimeSeries)
 	pb.series = append(pb.series, ts)
@@ -62,7 +63,7 @@ type FileDataSource struct {
 	iterator *Iterator
 }
 
-func (pd *FileDataSource) NextItem() *data.LoadedPoint {
+func (pd *FileDataSource) NextItem() data.LoadedPoint {
 	if pd.iterator.HasNext() {
 		ts, err := pd.iterator.Next()
 		if err != nil {
@@ -70,7 +71,7 @@ func (pd *FileDataSource) NextItem() *data.LoadedPoint {
 		}
 		return data.NewLoadedPoint(ts)
 	}
-	return nil
+	return data.LoadedPoint{nil}
 }
 
 func (pd *FileDataSource) Headers() *common.GeneratedDataHeaders {
@@ -128,7 +129,7 @@ func (pm *Benchmark) GetBatchFactory() targets.BatchFactory {
 }
 
 func (pm *Benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
-	if maxPartitions > 1{
+	if maxPartitions > 1 {
 		return newRandomPointIndexer(maxPartitions)
 	}
 	return &targets.ConstantIndexer{}

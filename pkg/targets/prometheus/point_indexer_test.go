@@ -1,10 +1,11 @@
 package prometheus
 
 import (
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/timescale/tsbs/pkg/data"
 	"math/rand"
 	"testing"
+
+	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestRandomPointIndexer(t *testing.T) {
@@ -18,7 +19,7 @@ func TestRandomPointIndexer(t *testing.T) {
 	rand.Seed(0)
 	indexer := randomPointIndexer{numPartitions}
 	for i := 0; i < pointsToIndex; i++ {
-		index := indexer.GetIndex(nil)
+		index := indexer.GetIndex(data.LoadedPoint{})
 		if index != expected[i] {
 			t.Errorf("expected: %d, got: %d", expected[i], index)
 		}

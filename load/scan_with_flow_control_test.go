@@ -3,11 +3,12 @@ package load
 import (
 	"bufio"
 	"bytes"
+	"io"
+	"testing"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"io"
-	"testing"
 )
 
 type testBatch struct {
@@ -17,7 +18,7 @@ type testBatch struct {
 
 func (b *testBatch) Len() uint { return b.len }
 
-func (b *testBatch) Append(p *data.LoadedPoint) {
+func (b *testBatch) Append(p data.LoadedPoint) {
 	b.len++
 	b.id = int(p.Data.(byte))
 }
@@ -167,12 +168,12 @@ type testDataSource struct {
 	called uint64
 }
 
-func (d *testDataSource) NextItem() *data.LoadedPoint {
-	ret := &data.LoadedPoint{}
+func (d *testDataSource) NextItem() data.LoadedPoint {
+	ret := data.LoadedPoint{}
 	b, err := d.br.ReadByte()
 	if err != nil {
 		if err == io.EOF {
-			return nil
+			return data.LoadedPoint{nil}
 		}
 		panic(err)
 	}

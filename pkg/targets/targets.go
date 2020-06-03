@@ -27,14 +27,14 @@ type ImplementedTarget interface {
 // it does not get too large and it needs a way to append a point
 type Batch interface {
 	Len() uint
-	Append(*data.LoadedPoint)
+	Append(data.LoadedPoint)
 }
 
 // PointIndexer determines the index of the Batch (and subsequently the channel)
 // that a particular point belongs to
 type PointIndexer interface {
 	// GetIndex returns a partition for the given Point
-	GetIndex(*data.LoadedPoint) uint
+	GetIndex(data.LoadedPoint) uint
 }
 
 // ConstantIndexer always puts the item on a single channel. This is the typical
@@ -42,7 +42,7 @@ type PointIndexer interface {
 type ConstantIndexer struct{}
 
 // GetIndex returns a constant index (0) regardless of Point
-func (i *ConstantIndexer) GetIndex(_ *data.LoadedPoint) uint {
+func (i *ConstantIndexer) GetIndex(_ data.LoadedPoint) uint {
 	return 0
 }
 
@@ -72,6 +72,6 @@ type Benchmark interface {
 }
 
 type DataSource interface {
-	NextItem() *data.LoadedPoint
+	NextItem() data.LoadedPoint
 	Headers() *common.GeneratedDataHeaders
 }

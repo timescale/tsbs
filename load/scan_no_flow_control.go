@@ -28,7 +28,7 @@ func scanWithoutFlowControl(
 			break
 		}
 		item := ds.NextItem()
-		if item == nil {
+		if item.Data == nil {
 			// Nothing to scan any more - input is empty or failed
 			// Time to exit
 			break

@@ -3,11 +3,12 @@ package load
 import (
 	"bufio"
 	"bytes"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 func TestScanWithoutFlowControl(t *testing.T) {
@@ -124,7 +125,7 @@ type modIndexer struct {
 	mod uint
 }
 
-func (m *modIndexer) GetIndex(*data.LoadedPoint) uint {
+func (m *modIndexer) GetIndex(data.LoadedPoint) uint {
 	tmp := m.cnt
 	m.cnt++
 	return tmp % m.mod

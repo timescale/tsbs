@@ -2,13 +2,14 @@ package main
 
 import (
 	"bufio"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type row = []interface{}
@@ -31,7 +32,7 @@ func (eb *eventsBatch) Len() uint {
 }
 
 // scan.Batch interface implementation
-func (eb *eventsBatch) Append(item *data.LoadedPoint) {
+func (eb *eventsBatch) Append(item data.LoadedPoint) {
 	p := item.Data.(*point)
 	table := p.table
 	eb.batches[table] = append(eb.batches[table], &p.row)
@@ -63,14 +64,14 @@ type fileDataSource struct {
 //
 // Converts metric values to double-precision floating-point number, timestamp
 // to time.Time and tags to bytes array.
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{nil}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	// split a point record into a measurement type, timestamp, tags,
@@ -78,7 +79,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	parts := strings.SplitN(d.scanner.Text(), "\t", 4)
 	if len(parts) != 4 {
 		fatal("incorrect point format, some fields are missing")
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	table := parts[0]
 	tags := []byte(parts[1])
@@ -86,13 +87,13 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	metrics, err := parseMetrics(strings.Split(parts[3], "\t"))
 	if err != nil {
 		fatal("cannot parse metrics: %v", err)
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	ts, err := parseTime(parts[2])
 	if err != nil {
 		fatal("cannot parse timestamp: %v", err)
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	row := append(row{tags, ts}, metrics...)

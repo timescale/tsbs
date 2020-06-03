@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
 	"sync"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestBatch(t *testing.T) {
@@ -20,7 +21,7 @@ func TestBatch(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("batch not initialized with count 0")
 	}
-	p := &data.LoadedPoint{
+	p := data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(p)
@@ -34,7 +35,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &data.LoadedPoint{
+	p = data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=1.0,col2=1.0 190"),
 	}
 	b.Append(p)
@@ -48,7 +49,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &data.LoadedPoint{
+	p = data.LoadedPoint{
 		Data: []byte("bad_point"),
 	}
 	errMsg := ""
@@ -98,7 +99,7 @@ func TestDecodeEOF(t *testing.T) {
 	_ = ds.NextItem()
 	// nothing left, should be EOF
 	p := ds.NextItem()
-	if p != nil {
+	if p.Data != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
 }

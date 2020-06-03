@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/timescale/tsbs/pkg/data"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestBatch(t *testing.T) {
@@ -11,7 +12,7 @@ func TestBatch(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("batch not initialized with count 0")
 	}
-	p := &data.LoadedPoint{
+	p := data.LoadedPoint{
 		Data: &point{
 			data: map[string][]byte{
 				"measurementName|tag1=val1,tag2=val2|fieldKey1": []byte{1, 2},
@@ -28,7 +29,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &data.LoadedPoint{
+	p = data.LoadedPoint{
 		Data: &point{
 			data: map[string][]byte{
 				"measurementName|tag1=val1,tag2=val2|fieldKey3": []byte{3, 4},

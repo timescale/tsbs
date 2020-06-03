@@ -30,10 +30,10 @@ func (d *simulationDataSource) Headers() *common.GeneratedDataHeaders {
 	return d.headers
 }
 
-func (d *simulationDataSource) NextItem() *data.LoadedPoint {
+func (d *simulationDataSource) NextItem() data.LoadedPoint {
 	if d.generatedSeries.HasNext() {
 		next := d.generatedSeries.Next()
-		return &data.LoadedPoint{Data: next}
+		return data.LoadedPoint{Data: next}
 	}
 
 	newSimulatorPoint := data.NewPoint()
@@ -46,12 +46,12 @@ func (d *simulationDataSource) NextItem() *data.LoadedPoint {
 		newSimulatorPoint.Reset()
 	}
 	if d.simulator.Finished() || !write {
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	d.generatedSeries.Set(newSimulatorPoint)
 	next := d.generatedSeries.Next()
-	return &data.LoadedPoint{Data: next}
+	return data.LoadedPoint{Data: next}
 }
 
 type timeSeriesIterator struct {
