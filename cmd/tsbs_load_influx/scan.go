@@ -3,10 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"strings"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"strings"
 )
 
 const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
@@ -17,13 +18,13 @@ type fileDataSource struct {
 	scanner *bufio.Scanner
 }
 
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{nil}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	return data.NewLoadedPoint(d.scanner.Bytes())
 }
@@ -40,7 +41,7 @@ func (b *batch) Len() uint {
 	return b.rows
 }
 
-func (b *batch) Append(item *data.LoadedPoint) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.([]byte)
 	thatStr := string(that)
 	b.rows++

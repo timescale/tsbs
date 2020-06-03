@@ -1,10 +1,11 @@
 package timescaledb
 
 import (
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
 	"hash/fnv"
 	"strings"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 const (
@@ -16,7 +17,7 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) uint {
+func (i *hostnameIndexer) GetIndex(item data.LoadedPoint) uint {
 	p := item.Data.(*point)
 	hostname := strings.SplitN(p.row.tags, ",", 2)[0]
 	h := fnv.New32a()
@@ -39,7 +40,7 @@ func (ha *hypertableArr) Len() uint {
 	return ha.cnt
 }
 
-func (ha *hypertableArr) Append(item *data.LoadedPoint) {
+func (ha *hypertableArr) Append(item data.LoadedPoint) {
 	that := item.Data.(*point)
 	k := that.hypertable
 	ha.m[k] = append(ha.m[k], that.row)

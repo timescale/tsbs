@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"log"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
-	"io"
-	"log"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/timescale/tsbs/load"
@@ -20,12 +21,12 @@ type fileDataSource struct {
 	r      *bufio.Reader
 }
 
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	item := &mongo.MongoPoint{}
 
 	_, err := d.r.Read(d.lenBuf)
 	if err == io.EOF {
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	if err != nil {
 		log.Fatal(err.Error())
@@ -66,7 +67,7 @@ func (b *batch) Len() uint {
 	return uint(len(b.arr))
 }
 
-func (b *batch) Append(item *data.LoadedPoint) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.(*mongo.MongoPoint)
 	b.arr = append(b.arr, that)
 }

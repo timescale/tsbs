@@ -165,6 +165,6 @@ type LoadedPoint struct {
 }
 
 // NewPoint creates a Point with the provided data as the internal representation
-func NewLoadedPoint(data interface{}) *LoadedPoint {
-	return &LoadedPoint{Data: data}
+func NewLoadedPoint(data interface{}) LoadedPoint {
+	return LoadedPoint{Data: data}
 }

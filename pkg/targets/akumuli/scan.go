@@ -4,27 +4,28 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"io"
+	"sync"
+
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"io"
-	"sync"
 )
 
 type fileDataSource struct {
 	reader *bufio.Reader
 }
 
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	hdr, err := d.reader.Peek(6)
 	if err == io.EOF {
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	nbytes := binary.LittleEndian.Uint16(hdr[4:6])
 	body := make([]byte, nbytes)
 	_, err = io.ReadFull(d.reader, body)
 	if err == io.EOF {
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	return data.NewLoadedPoint(body)
 }
@@ -36,7 +37,7 @@ type pointIndexer struct {
 	nchan uint
 }
 
-func (i *pointIndexer) GetIndex(p *data.LoadedPoint) uint {
+func (i *pointIndexer) GetIndex(p data.LoadedPoint) uint {
 	hdr := p.Data.([]byte)
 	id := binary.LittleEndian.Uint32(hdr[0:4])
 	return uint(id) % i.nchan
@@ -51,7 +52,7 @@ func (b *batch) Len() uint {
 	return b.rows
 }
 
-func (b *batch) Append(item *data.LoadedPoint) {
+func (b *batch) Append(item data.LoadedPoint) {
 	payload := item.Data.([]byte)
 	b.buf.Write(payload)
 	b.rows++

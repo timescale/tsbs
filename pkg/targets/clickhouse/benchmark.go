@@ -3,10 +3,11 @@ package clickhouse
 import (
 	"bufio"
 	"fmt"
+	"log"
+
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
-	"log"
 )
 
 const dbType = "clickhouse"
@@ -69,7 +70,7 @@ func (ta *tableArr) Len() uint {
 }
 
 // scan.Batch interface implementation
-func (ta *tableArr) Append(item *data.LoadedPoint) {
+func (ta *tableArr) Append(item data.LoadedPoint) {
 	that := item.Data.(*point)
 	k := that.table
 	ta.m[k] = append(ta.m[k], that.row)

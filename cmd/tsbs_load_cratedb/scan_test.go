@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 )
 
 func TestEventsBatch(t *testing.T) {
@@ -18,7 +19,7 @@ func TestEventsBatch(t *testing.T) {
 	if eb.Len() != 0 {
 		t.Errorf("eventBatch must be empty")
 	}
-	points := []*data.LoadedPoint{
+	points := []data.LoadedPoint{
 		{
 			Data: &point{
 				table: "type1",
@@ -161,7 +162,7 @@ func TestDecodeEOF(t *testing.T) {
 	_ = decoder.NextItem()
 	// nothing left, should be EOF
 	p := decoder.NextItem()
-	if p != nil {
+	if p.Data != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
 }

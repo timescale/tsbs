@@ -1,8 +1,9 @@
 package load
 
 import (
-	"github.com/timescale/tsbs/pkg/targets"
 	"reflect"
+
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 // ackAndMaybeSend adjust the unsent batches count
@@ -113,7 +114,7 @@ func scanWithFlowControl(
 
 		// Prepare new batch - decode new item and append it to batch
 		item := ds.NextItem()
-		if item == nil {
+		if item.Data == nil {
 			// Nothing to scan any more - input is empty or failed
 			// Time to exit
 			break

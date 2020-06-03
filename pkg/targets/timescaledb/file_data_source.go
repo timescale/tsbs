@@ -2,11 +2,12 @@ package timescaledb
 
 import (
 	"bufio"
+	"strings"
+
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"strings"
 )
 
 func newFileDataSource(fileName string) targets.DataSource {
@@ -76,18 +77,18 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 	return d.headers
 }
 
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	if d.headers == nil {
 		fatal("headers not read before starting to decode points")
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	newPoint := &insertData{}
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{nil}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"
@@ -95,7 +96,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	prefix := parts[0]
 	if prefix != tagsPrefix {
 		fatal("data file in invalid format; got %s expected %s", prefix, tagsPrefix)
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	newPoint.tags = parts[1]
 
@@ -103,7 +104,7 @@ func (d *fileDataSource) NextItem() *data.LoadedPoint {
 	ok = d.scanner.Scan()
 	if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{nil}
 	}
 	parts = strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix = parts[0]

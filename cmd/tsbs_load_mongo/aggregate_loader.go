@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"hash/fnv"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
@@ -19,7 +20,7 @@ type hostnameIndexer struct {
 	partitions uint
 }
 
-func (i *hostnameIndexer) GetIndex(item *data.LoadedPoint) uint {
+func (i *hostnameIndexer) GetIndex(item data.LoadedPoint) uint {
 	p := item.Data.(*mongo.MongoPoint)
 	t := &mongo.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {

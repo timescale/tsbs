@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"log"
 	"strings"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 )
 
 func TestHostnameIndexer(t *testing.T) {
@@ -71,7 +72,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 0 {
 		t.Errorf("hypertableArr not initialized with count 0")
 	}
-	p := &data.LoadedPoint{
+	p := data.LoadedPoint{
 		Data: &point{
 			hypertable: "table1",
 			row: &insertData{
@@ -84,7 +85,7 @@ func TestHypertableArr(t *testing.T) {
 	if ha.Len() != 1 {
 		t.Errorf("hypertableArr count is not 1 after first append")
 	}
-	p = &data.LoadedPoint{
+	p = data.LoadedPoint{
 		Data: &point{
 			hypertable: "table2",
 			row: &insertData{
@@ -169,7 +170,7 @@ func TestDecodeEOF(t *testing.T) {
 	_ = decoder.NextItem()
 	// nothing left, should be EOF
 	p := decoder.NextItem()
-	if p != nil {
+	if p.Data != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
 }

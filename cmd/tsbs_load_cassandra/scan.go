@@ -3,12 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type fileDataSource struct {
@@ -18,10 +19,10 @@ type fileDataSource struct {
 // Reads and returns a CSV line that encodes a data point.
 // Since scanning happens in a single thread, we hold off on transforming it
 // to an INSERT statement until it's being processed concurrently by a worker.
-func (d *fileDataSource) NextItem() *data.LoadedPoint {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{nil}
 	} else if !ok {
 		log.Fatalf("scan error: %v", d.scanner.Err())
 	}
@@ -60,7 +61,7 @@ func (eb *eventsBatch) Len() uint {
 	return uint(len(eb.rows))
 }
 
-func (eb *eventsBatch) Append(item *data.LoadedPoint) {
+func (eb *eventsBatch) Append(item data.LoadedPoint) {
 	that := item.Data.(string)
 	eb.rows = append(eb.rows, that)
 }
