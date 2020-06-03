@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -31,17 +32,37 @@ func NewClient(urlStr string, timeout time.Duration) (*Client, error) {
 	return &Client{url: url, httpClient: httpClient}, nil
 }
 
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(proto.Buffer)
+	},
+}
+
+var noBytes = []byte{}
+
+var snappyPool = sync.Pool{
+	New: func() interface{} {
+		return noBytes
+	},
+}
+
 // Post sends POST request to Prometheus adapter
 func (c *Client) Post(series []prompb.TimeSeries) error {
 	wr := &prompb.WriteRequest{
 		Timeseries: series,
 	}
 
-	data, err := proto.Marshal(wr)
+	buffer := bufferPool.Get().(*proto.Buffer)
+	buffer.Reset()
+	err := buffer.Marshal(wr)
 	if err != nil {
 		return err
 	}
-	compressed := snappy.Encode(nil, data)
+	compressed := snappyPool.Get().([]byte)
+	compressed = compressed[:cap(compressed)]
+	compressed = snappy.Encode(compressed, buffer.Bytes())
+	bufferPool.Put(buffer)
+
 	httpReq, err := http.NewRequest("POST", c.url.String(), bytes.NewReader(compressed))
 	if err != nil {
 		return err
@@ -50,6 +71,7 @@ func (c *Client) Post(series []prompb.TimeSeries) error {
 	httpReq.Header.Set("Content-Type", "application/x-protobuf")
 	httpReq.Header.Set("X-Prometheus-Remote-Write-Version", "0.1.0")
 	httpResp, err := c.httpClient.Do(httpReq)
+	snappyPool.Put(compressed)
 	if err != nil {
 		return err
 	}
