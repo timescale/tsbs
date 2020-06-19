@@ -158,7 +158,8 @@ $ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
 
 # Each additional database would be a separate call.
 ```
-_Note: We pipe the output to gzip to reduce on-disk space._
+_Note: We pipe the output to gzip to reduce on-disk space. This also requires
+you to pipe through gunzip when you run your tests._
 
 The example above will generate a pseudo-CSV file that can be used to
 bulk load data into TimescaleDB. Each database has it's own format of how
@@ -199,6 +200,8 @@ $ tsbs_generate_queries --use-case="iot" --seed=123 --scale=4000 \
     --queries=1000 --query-type="breakdown-frequency" --format="timescaledb" \
     | gzip > /tmp/timescaledb-queries-breakdown-frequency.gz
 ```
+_Note: We pipe the output to gzip to reduce on-disk space. This also requires
+you to pipe through gunzip when you run your tests._
 
 For generating sets of queries for multiple types:
 ```bash
@@ -225,7 +228,19 @@ details (host & ports), etc -- but they also have database-specific tuning
 flags. To find the flags for a particular database, use the `-help` flag
 (e.g., `tsbs_load_timescaledb -help`).
 
-Instead of calling these binaries directly, we also supply
+Here's an example of loading data to a remote timescaledb instance with SSL
+required, with a gzipped data set as created in the instructions above:
+
+```bash
+cat /tmp/timescaledb-data.gz | gunzip | tsbs_load_timescaledb \
+--postgres="sslmode=require" --host="my.tsdb.host" --port=5432 --pass="password" \
+--user="benchmarkuser" --admin-db-name=defaultdb --workers=8  \
+--in-table-partition-tag=true --partitions=1 --chunk-time=8h --write-profile= \
+--field-index-count=1 --do-create-db=true --force-text-format=false \
+--do-abort-on-exist=false
+```
+
+For simpler testing, especially locally, we also supply
 `scripts/load_<database>.sh` for convenience with many of the flags set
 to a reasonable default for some of the databases.
 So for loading into TimescaleDB, ensure that TimescaleDB is running and
@@ -241,6 +256,15 @@ This will create a new database called `benchmark` where the data is
 stored. It **will overwrite** the database if it exists; if you don't
 want that to happen, supply a different `DATABASE_NAME` to the above
 command.
+
+Example for writing to remote host using `load_timescaledb.sh`:
+```bash
+# Will insert using 2 clients, batch sizes of 10k, from a file
+# named `timescaledb-data.gz` in directory `/tmp`
+$ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp DATABASE_HOST=remotehostname
+DATABASE_USER=user DATABASE \
+    scripts/load_timescaledb.sh
+```
 
 ---
 
