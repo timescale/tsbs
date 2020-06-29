@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 	"log"
 )
 

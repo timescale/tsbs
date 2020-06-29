@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/load/insertstrategy"
+	"github.com/iznauy/tsbs/load/insertstrategy"
 )
 
 const (

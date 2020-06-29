@@ -13,7 +13,7 @@ To install all required tools pls do following:
 # Install desired binaries. At a minimum this includes tsbs_generate_data,
 # tsbs_generate_queries, one tsbs_load_* binary, and one tsbs_run_queries_*
 # binary:
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
+$ cd $GOPATH/src/github.com/iznauy/tsbs/cmd
 $ cd tsbs_generate_data && go install
 $ cd ../tsbs_generate_queries && go install
 $ cd ../tsbs_load_victoriametrics && go install

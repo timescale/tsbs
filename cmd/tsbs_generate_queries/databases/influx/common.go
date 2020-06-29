@@ -5,10 +5,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/query"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/iznauy/tsbs/query"
 )
 
 // BaseGenerator contains settings specific for Influx database.

@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/internal/inputs"
-	internalutils "github.com/timescale/tsbs/internal/utils"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/iznauy/tsbs/internal/inputs"
+	internalutils "github.com/iznauy/tsbs/internal/utils"
 )
 
 var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{

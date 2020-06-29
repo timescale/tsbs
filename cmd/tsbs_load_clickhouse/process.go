@@ -9,7 +9,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/kshvakov/clickhouse"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 )
 
 type syncCSI struct {

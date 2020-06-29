@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 )
 
 type point struct {

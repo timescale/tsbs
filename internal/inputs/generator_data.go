@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/common"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/devops"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/iot"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // Error messages when using a DataGenerator

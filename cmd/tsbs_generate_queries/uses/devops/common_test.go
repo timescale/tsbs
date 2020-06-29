@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/internal/utils"
+	"github.com/iznauy/tsbs/internal/utils"
 )
 
 func TestNewCore(t *testing.T) {

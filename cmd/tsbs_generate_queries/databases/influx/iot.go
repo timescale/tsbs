@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
-	"github.com/timescale/tsbs/query"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/iznauy/tsbs/query"
 )
 
 // IoT produces Influx-specific queries for all the iot query types.

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 )
 
 type processor struct {

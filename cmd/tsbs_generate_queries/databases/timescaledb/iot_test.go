@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
-	"github.com/timescale/tsbs/query"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/iot"
+	"github.com/iznauy/tsbs/query"
 )
 
 const (

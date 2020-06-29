@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 	"strings"
 )
 

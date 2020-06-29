@@ -7,7 +7,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 )
 
 func TestHostnameIndexer(t *testing.T) {

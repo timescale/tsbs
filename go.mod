@@ -1,4 +1,4 @@
-module github.com/timescale/tsbs
+module github.com/iznauy/tsbs
 
 go 1.12
 

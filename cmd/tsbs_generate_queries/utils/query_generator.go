@@ -1,6 +1,6 @@
 package utils
 
-import "github.com/timescale/tsbs/query"
+import "github.com/iznauy/tsbs/query"
 
 // QueryGenerator is an interface that a database-specific implementation of a
 // use case implements to set basic configuration that can then be used by

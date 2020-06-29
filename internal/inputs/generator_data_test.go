@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/common"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/devops"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/iot"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 func TestDataGeneratorConfigValidate(t *testing.T) {

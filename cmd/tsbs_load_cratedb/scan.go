@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/load"
 )
 
 type row = []interface{}

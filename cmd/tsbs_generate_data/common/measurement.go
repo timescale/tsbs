@@ -3,7 +3,7 @@ package common
 import (
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 // SubsystemMeasurement represents a collection of measurement distributions and a start time.

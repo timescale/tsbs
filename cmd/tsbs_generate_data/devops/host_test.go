@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/common"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 func TestNewHostMeasurements(t *testing.T) {

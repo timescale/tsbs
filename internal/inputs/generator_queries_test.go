@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/query"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/influx"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/mongo"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/siridb"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_queries/utils"
+	"github.com/iznauy/tsbs/query"
 )
 
 func TestQueryGeneratorConfigValidate(t *testing.T) {

@@ -21,10 +21,10 @@ import (
 	"os/signal"
 	"runtime/pprof"
 
+	"github.com/iznauy/tsbs/internal/inputs"
+	"github.com/iznauy/tsbs/internal/utils"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/timescale/tsbs/internal/inputs"
-	"github.com/timescale/tsbs/internal/utils"
 )
 
 var (

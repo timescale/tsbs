@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
 )
 
 const testGeneratorScale = 100

@@ -9,8 +9,8 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/load"
 )
 
 type hostnameIndexer struct {

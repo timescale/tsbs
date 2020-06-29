@@ -8,8 +8,8 @@ import (
 	"log"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/iznauy/tsbs/load"
 )
 
 type decoder struct {

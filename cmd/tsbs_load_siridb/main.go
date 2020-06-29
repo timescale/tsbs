@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/load"
+	"github.com/iznauy/tsbs/internal/utils"
+	"github.com/iznauy/tsbs/load"
 )
 
 // Program option vars:

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/timescale/tsbs/internal/utils"
+	"github.com/iznauy/tsbs/internal/utils"
 )
 
 // A QueryPlan is a strategy used to fulfill an HLQuery.
