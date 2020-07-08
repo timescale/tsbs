@@ -22,9 +22,9 @@ func (s *BTrDBSerializer) Serialize(p *Point, w io.Writer) error {
 		prefix = append(prefix, []byte(fmt.Sprint(p.tagValues[i]))...)
 	}
 
-	prefix = append(prefix, ' ')
+	prefix = append(prefix, '\t')
 	prefix = fastFormatAppend(p.timestamp.UTC().UnixNano(), prefix)
-	prefix = append(prefix, ' ')
+	prefix = append(prefix, '\t')
 
 	buf := make([]byte, 0, 64)
 	// 把一个点拆分成多个数据对象

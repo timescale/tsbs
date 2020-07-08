@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/spf13/pflag"
 	"github.com/iznauy/tsbs/load/insertstrategy"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -150,7 +150,7 @@ func (l *BenchmarkRunner) RunBenchmark(b Benchmark, workQueues uint) {
 	for i := 0; i < int(l.Workers); i++ {
 		wg.Add(1)
 
-		go l.work(b, &wg, channels[i%numChannels], i)
+		go l.work (b, &wg, channels[i%numChannels], i)
 	}
 
 	// Start scan process - actual data read process

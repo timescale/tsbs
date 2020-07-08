@@ -12,6 +12,7 @@ require (
 	github.com/gocql/gocql v0.0.0-20190810123941-df4b9cc33030
 	github.com/google/flatbuffers v1.11.0
 	github.com/google/go-cmp v0.3.1
+	github.com/google/uuid v1.1.1
 	github.com/jackc/pgconn v1.1.0
 	github.com/jackc/pgx/v4 v4.1.1
 	github.com/jmoiron/sqlx v1.2.0
