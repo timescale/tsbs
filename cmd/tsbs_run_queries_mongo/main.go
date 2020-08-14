@@ -37,6 +37,7 @@ func init() {
 	gob.Register(map[string]interface{}{})
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
+	gob.Register(bson.D{})
 	gob.Register([]bson.M{})
 
 	var config query.BenchmarkRunnerConfig

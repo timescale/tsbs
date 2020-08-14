@@ -24,6 +24,7 @@ func init() {
 	gob.Register(map[string]interface{}{})
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
+	gob.Register(bson.D{})
 	gob.Register([]bson.M{})
 }
 
@@ -297,10 +298,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	pipelineQuery = append(pipelineQuery, group)
 
 	// Add sort operators
-	pipelineQuery = append(pipelineQuery, []bson.M{
-		{"$sort": bson.M{"_id.hostname": 1}},
-		{"$sort": bson.M{"_id.time": 1}},
-	}...)
+	sort := bson.M{"$sort": bson.D{{ "_id.time",1}, {"_id.hostname", 1}}}
+	pipelineQuery = append(pipelineQuery, sort)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Mongo", numMetrics)
 	q := qi.(*query.Mongo)
@@ -396,7 +395,7 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 								"$and": []bson.M{
 									{"$in": []interface{}{"$tags.hostname", "$$hostnames"}},
 									{"$eq": []interface{}{"$key_id", "$$key_id"}},
-									{"$eq": []interface{}{"$measurement", "$$measurement"}},
+									{"$eq": []interface{}{"$measurement", "cpu"}},
 								},
 							},
 						},
