@@ -9,6 +9,7 @@ fi
 
 # Load parameters - common
 DATA_FILE_NAME=${DATA_FILE_NAME:-mongo-data.gz}
+MONGO_URL=${MONGO_URL:-"mongodb://username:password@localhost:27017/admin"}
 
 # Load parameters - personal
 PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-10s}
@@ -16,8 +17,12 @@ PROGRESS_INTERVAL=${PROGRESS_INTERVAL:-10s}
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
 
+DOC_PER=${DOC_PER:-false}
+
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --db-name=${DATABASE_NAME} \
+                                --url=${MONGO_URL} \
                                 --batch-size=${BATCH_SIZE} \
                                 --workers=${NUM_WORKERS} \
+                                --document-per-event=${DOC_PER} \
                                 --reporting-period=${PROGRESS_INTERVAL}

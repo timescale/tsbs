@@ -320,8 +320,6 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
-	hostnames, err := d.GetRandomHosts(nHosts)
-	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
 
 	pipelineQuery := []bson.M{}
@@ -337,6 +335,8 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 		},
 	}
 	if nHosts > 0 {
+		hostnames, err := d.GetRandomHosts(nHosts)
+		panicIfErr(err)
 		matchMap := match["$match"].(bson.M)
 		matchMap["tags.hostname"] = bson.M{"$in": hostnames}
 	}
