@@ -53,7 +53,7 @@ func (a *AggregatorMin) Get() float64 {
 	return a.value
 }
 
-// AggregatorMax aggregates the average of a stream of values.
+// AggregatorAvg aggregates the average of a stream of values.
 type AggregatorAvg struct {
 	value float64
 	count int64
@@ -73,6 +73,21 @@ func (a *AggregatorAvg) Get() float64 {
 	return a.value / float64(a.count)
 }
 
+// AggregatorCount counts number of values
+type AggregatorCount struct {
+	count float64
+}
+
+// Put increments count.
+func (a *AggregatorCount) Put(n float64) {
+	a.count += 1
+}
+
+// Get returns count.
+func (a *AggregatorCount) Get() float64 {
+	return a.count
+}
+
 // GetConstantSpaceAggr translates a label into a new ConstantSpaceAggr.
 func GetAggregator(label string) (Aggregator, error) {
 	// TODO(rw): fewer heap allocations here.
@@ -83,6 +98,8 @@ func GetAggregator(label string) (Aggregator, error) {
 		return &AggregatorMax{}, nil
 	case "avg":
 		return &AggregatorAvg{}, nil
+	case "count":
+		return &AggregatorCount{}, nil
 	default:
 		return nil, fmt.Errorf("invalid aggregation specifier")
 	}
