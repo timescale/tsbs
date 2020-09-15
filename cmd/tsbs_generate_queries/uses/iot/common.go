@@ -81,8 +81,14 @@ func (c *Core) GetRandomTrucks(nTrucks int) ([]string, error) {
 // Ex.: truck_12, truck_7, truck_25 for numTrucks=3 and totalTrucks=30 (3 out of 30)
 func getRandomTrucks(numTrucks int, totalTrucks int) ([]string, error) {
 	if numTrucks < 1 {
-		return nil, fmt.Errorf("number of trucks cannot be < 1; got %d", numTrucks)
+		//if less than 1, return the total number of trucks
+		truckNames := []string{}
+		for i := 1; i <= totalTrucks; i++ {
+			truckNames = append(truckNames, fmt.Sprintf("truck_%d", i))
+		}
+		return truckNames, nil
 	}
+
 	if numTrucks > totalTrucks {
 		return nil, fmt.Errorf("number of trucks (%d) larger than total trucks. See --scale (%d)", numTrucks, totalTrucks)
 	}

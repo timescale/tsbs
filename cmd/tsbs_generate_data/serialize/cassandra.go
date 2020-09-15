@@ -26,8 +26,18 @@ func (s *CassandraSerializer) Serialize(p *Point, w io.Writer) (err error) {
 			seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
 			seriesIDPrefix = append(seriesIDPrefix, '=')
 			seriesIDPrefix = append(seriesIDPrefix, []byte(t)...)
+		case float32:
+			seriesIDPrefix = append(seriesIDPrefix, ',')
+			seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
+			seriesIDPrefix = append(seriesIDPrefix, '=')
+			seriesIDPrefix = append(seriesIDPrefix, []byte(fmt.Sprintf("%f", t))...)
+		case nil:
+			seriesIDPrefix = append(seriesIDPrefix, ',')
+			seriesIDPrefix = append(seriesIDPrefix, p.tagKeys[i]...)
+			seriesIDPrefix = append(seriesIDPrefix, '=')
+			seriesIDPrefix = append(seriesIDPrefix, []byte("null")...)
 		default:
-			panic("non-string tags not implemented for cassandra")
+			panic(fmt.Sprintf("non-string tag %s not implemented for cassandra\n", t))
 		}
 	}
 

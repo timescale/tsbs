@@ -69,7 +69,7 @@ cases are implemented for each database:
 |Database|Dev ops|IoT|
 |:---|:---:|:---:|
 |Akumuli|X¹||
-|Cassandra|X||
+|Cassandra|X|X|
 |ClickHouse|X||
 |CrateDB|X||
 |InfluxDB|X|X|
