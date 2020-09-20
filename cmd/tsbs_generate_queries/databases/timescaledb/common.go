@@ -1,6 +1,7 @@
 package timescaledb
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
@@ -9,13 +10,28 @@ import (
 	"github.com/timescale/tsbs/query"
 )
 
-const goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
+const (
+	goTimeFmt = "2006-01-02 15:04:05.999999 -0700"
+
+	oneMinute = 60
+	oneHour   = oneMinute * 60
+
+	timeBucketFmt    = "time_bucket('%d seconds', %s)"
+	nonTimeBucketFmt = "to_timestamp(((extract(epoch from %s)::int)/%d)*%d)"
+)
 
 // BaseGenerator contains settings specific for TimescaleDB
 type BaseGenerator struct {
 	UseJSON       bool
 	UseTags       bool
 	UseTimeBucket bool
+}
+
+func (g *BaseGenerator) getTimeBucket(seconds int, column string) string {
+	if g.UseTimeBucket {
+		return fmt.Sprintf(timeBucketFmt, seconds, column)
+	}
+	return fmt.Sprintf(nonTimeBucketFmt, column, seconds, seconds)
 }
 
 // GenerateEmptyQuery returns an empty query.TimescaleDB.

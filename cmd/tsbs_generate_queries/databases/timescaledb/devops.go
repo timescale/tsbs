@@ -20,14 +20,6 @@ func panicIfErr(err error) {
 	}
 }
 
-const (
-	oneMinute = 60
-	oneHour   = oneMinute * 60
-
-	timeBucketFmt    = "time_bucket('%d seconds', time)"
-	nonTimeBucketFmt = "to_timestamp(((extract(epoch from time)::int)/%d)*%d)"
-)
-
 // Devops produces TimescaleDB-specific queries for all the devops query types.
 type Devops struct {
 	*BaseGenerator
@@ -65,13 +57,6 @@ func (d *Devops) getHostWhereString(nHosts int) string {
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
-func (d *Devops) getTimeBucket(seconds int) string {
-	if d.UseTimeBucket {
-		return fmt.Sprintf(timeBucketFmt, seconds)
-	}
-	return fmt.Sprintf(nonTimeBucketFmt, seconds, seconds)
-}
-
 func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []string {
 	selectClauses := make([]string, len(metrics))
 	for i, m := range metrics {
@@ -104,7 +89,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
         FROM cpu
         WHERE %s AND time >= '%s' AND time < '%s'
         GROUP BY minute ORDER BY minute ASC`,
-		d.getTimeBucket(oneMinute),
+		d.getTimeBucket(oneMinute, "time"),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
 		interval.Start().Format(goTimeFmt),
@@ -128,7 +113,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
         GROUP BY minute
         ORDER BY minute DESC
         LIMIT 5`,
-		d.getTimeBucket(oneMinute),
+		d.getTimeBucket(oneMinute, "time"),
 		interval.End().Format(goTimeFmt))
 
 	humanLabel := "TimescaleDB max cpu over last 5 min-intervals (random end)"
@@ -178,7 +163,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
         FROM cpu_avg
         %s
         ORDER BY hour, %s`,
-		d.getTimeBucket(oneHour),
+		d.getTimeBucket(oneHour, "time"),
 		strings.Join(selectClauses, ", "),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
@@ -207,7 +192,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
         FROM cpu
         WHERE %s AND time >= '%s' AND time < '%s'
         GROUP BY hour ORDER BY hour`,
-		d.getTimeBucket(oneHour),
+		d.getTimeBucket(oneHour, "time"),
 		strings.Join(selectClauses, ", "),
 		d.getHostWhereString(nHosts),
 		interval.Start().Format(goTimeFmt),

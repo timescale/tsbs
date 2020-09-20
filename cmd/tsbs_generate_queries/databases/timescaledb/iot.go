@@ -194,7 +194,7 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 	sql := fmt.Sprintf(`SELECT t.%s, t.%s
 		FROM tags t 
 		INNER JOIN LATERAL 
-			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
+			(SELECT %s AS ten_minutes, tags_id  
 			FROM readings 
 			WHERE time >= '%s' AND time < '%s'
 			GROUP BY ten_minutes, tags_id  
@@ -206,6 +206,7 @@ func (i *IoT) TrucksWithLongDrivingSessions(qi query.Query) {
 		HAVING count(r.ten_minutes) > %d`,
 		i.withAlias(name),
 		i.withAlias(driver),
+		i.getTimeBucket(10*oneMinute, "time"),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
 		i.columnSelect(name),
@@ -228,7 +229,7 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 	sql := fmt.Sprintf(`SELECT t.%s, t.%s
 		FROM tags t 
 		INNER JOIN LATERAL 
-			(SELECT  time_bucket('10 minutes', time) AS ten_minutes, tags_id  
+			(SELECT %s AS ten_minutes, tags_id  
 			FROM readings 
 			WHERE time >= '%s' AND time < '%s'
 			GROUP BY ten_minutes, tags_id  
@@ -240,6 +241,7 @@ func (i *IoT) TrucksWithLongDailySessions(qi query.Query) {
 		HAVING count(r.ten_minutes) > %d`,
 		i.withAlias(name),
 		i.withAlias(driver),
+		i.getTimeBucket(10*oneMinute, "time"),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
 		i.columnSelect(name),
@@ -284,13 +286,13 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 
 	sql := fmt.Sprintf(`WITH ten_minute_driving_sessions
 		AS (
-			SELECT time_bucket('10 minutes', TIME) AS ten_minutes, tags_id
+			SELECT %s AS ten_minutes, tags_id
 			FROM readings r
 			GROUP BY tags_id, ten_minutes
 			HAVING avg(velocity) > 1
 			), daily_total_session
 		AS (
-			SELECT time_bucket('24 hours', ten_minutes) AS day, tags_id, count(*) / 6 AS hours
+			SELECT %s AS day, tags_id, count(*) / 6 AS hours
 			FROM ten_minute_driving_sessions
 			GROUP BY day, tags_id
 			)
@@ -298,6 +300,8 @@ func (i *IoT) AvgDailyDrivingDuration(qi query.Query) {
 		FROM daily_total_session d
 		INNER JOIN tags t ON t.id = d.tags_id
 		GROUP BY fleet, name, driver`,
+		i.getTimeBucket(10*oneMinute, "TIME"),
+		i.getTimeBucket(24*oneHour, "ten_minutes"),
 		i.withAlias(fleet),
 		i.withAlias(name),
 		i.withAlias(driver))
@@ -314,7 +318,7 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 
 	sql := fmt.Sprintf(`WITH driver_status
 		AS (
-			SELECT tags_id, time_bucket('10 mins', TIME) AS ten_minutes, avg(velocity) > 5 AS driving
+			SELECT tags_id, %s AS ten_minutes, avg(velocity) > 5 AS driving
 			FROM readings
 			GROUP BY tags_id, ten_minutes
 			ORDER BY tags_id, ten_minutes
@@ -327,14 +331,16 @@ func (i *IoT) AvgDailyDrivingSession(qi query.Query) {
 				) x
 			WHERE x.driving <> x.prev_driving
 			)
-		SELECT t.%s, time_bucket('24 hours', start) AS day, avg(age(stop, start)) AS duration
+		SELECT t.%s, %s AS day, avg(age(stop, start)) AS duration
 		FROM tags t
 		INNER JOIN driver_status_change d ON t.id = d.tags_id
 		WHERE t.%s IS NOT NULL
 		AND d.driving = true
 		GROUP BY name, day
 		ORDER BY name, day`,
+		i.getTimeBucket(10*oneMinute, "TIME"),
 		i.withAlias(name),
+		i.getTimeBucket(24*oneHour, "start"),
 		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB average driver driving session without stopping per day"
@@ -375,7 +381,7 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 	sql := fmt.Sprintf(`SELECT t.%s, t.%s, y.day, sum(y.ten_mins_per_day) / 144 AS daily_activity
 		FROM tags t
 		INNER JOIN (
-			SELECT time_bucket('24 hours', TIME) AS day, time_bucket('10 minutes', TIME) AS ten_minutes, tags_id, count(*) AS ten_mins_per_day
+			SELECT %s AS day, %s AS ten_minutes, tags_id, count(*) AS ten_mins_per_day
 			FROM diagnostics
 			GROUP BY day, ten_minutes, tags_id
 			HAVING avg(STATUS) < 1
@@ -385,6 +391,8 @@ func (i *IoT) DailyTruckActivity(qi query.Query) {
 		ORDER BY y.day`,
 		i.withAlias(fleet),
 		i.withAlias(model),
+		i.getTimeBucket(24*oneHour, "time"),
+		i.getTimeBucket(10*oneMinute, "time"),
 		i.columnSelect(name))
 
 	humanLabel := "TimescaleDB daily truck activity per fleet per model"
@@ -399,7 +407,7 @@ func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
 
 	sql := fmt.Sprintf(`WITH breakdown_per_truck_per_ten_minutes
 		AS (
-			SELECT time_bucket('10 minutes', TIME) AS ten_minutes, tags_id, count(STATUS = 0) / count(*) >= 0.5 AS broken_down
+			SELECT %s AS ten_minutes, tags_id, count(STATUS = 0) / count(*) >= 0.5 AS broken_down
 			FROM diagnostics
 			GROUP BY ten_minutes, tags_id
 			), breakdowns_per_truck
@@ -415,6 +423,7 @@ func (i *IoT) TruckBreakdownFrequency(qi query.Query) {
 		WHERE t.%s IS NOT NULL
 		AND broken_down = false AND next_broken_down = true
 		GROUP BY model`,
+		i.getTimeBucket(10*oneMinute, "time"),
 		i.withAlias(model),
 		i.columnSelect(name))
 
