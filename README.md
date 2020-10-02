@@ -161,6 +161,11 @@ $ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
 _Note: We pipe the output to gzip to reduce on-disk space. This also requires
 you to pipe through gunzip when you run your tests._
 
+_Note: Timescale provides several [sample
+datasets](https://docs.timescale.com/latest/tutorials/other-sample-datasets)
+for **timescaledb** (both `devops` and `iot`). If you are looking for a simple
+bench you can use those samples._
+
 The example above will generate a pseudo-CSV file that can be used to
 bulk load data into TimescaleDB. Each database has it's own format of how
 it stores the data to make it easiest for its corresponding loader to
