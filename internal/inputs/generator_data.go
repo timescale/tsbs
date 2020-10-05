@@ -242,6 +242,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 	case FormatCrateDB:
 		g.writeHeader(sim)
 		ret = &serialize.CrateDBSerializer{}
+	case FormatHyprcubd:
+		fallthrough
 	case FormatClickhouse:
 		fallthrough
 	case FormatTimescaleDB:
