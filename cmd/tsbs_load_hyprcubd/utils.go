@@ -77,12 +77,8 @@ retry:
 
 	if resp.StatusCode != 200 {
 		log.Println("Got status ", resp.StatusCode)
-		if resp.StatusCode == 502 {
-			goto retry
-		}
 		log.Println(string(out))
 		goto retry
-		// return nil, fmt.Errorf("received %d", resp.StatusCode)
 	}
 
 	var qresp QueryResponse
