@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/common/model"
@@ -52,7 +51,7 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		}
 	}
 	series := make([]prompb.TimeSeries, len(p.FieldKeys()))
-	err := convertToPromSeries(p, series, false)
+	err := convertToPromSeries(p, series)
 	if err != nil {
 		return fmt.Errorf("could not serialize point\n%v", err)
 	}
@@ -76,7 +75,7 @@ func (ps *Serializer) Serialize(p *data.Point, w io.Writer) error {
 }
 
 // Each point field will become a new TimeSeries with added field key as a label
-func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries, useCurrentTime bool) error {
+func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries) error {
 	bufLen := len(buffer)
 	requiredPlaces := len(p.FieldKeys())
 	if requiredPlaces > bufLen {
@@ -107,12 +106,8 @@ func convertToPromSeries(p *data.Point, buffer []prompb.TimeSeries, useCurrentTi
 	metricIndex := sort.Search(len(labels), func(i int) bool {
 		return labels[i].Name >= model.MetricNameLabel
 	})
-	var tsMs int64
-	if useCurrentTime {
-		tsMs = time.Now().UnixNano() / 1000000
-	} else {
-		tsMs = p.Timestamp().UnixNano() / 1000000
-	}
+
+	tsMs := p.TimestampInUnixMs()
 	for i := range fieldKeys {
 		myLabels := labels
 		if i+1 < len(fieldKeys) {
