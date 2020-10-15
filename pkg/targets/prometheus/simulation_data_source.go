@@ -1,6 +1,9 @@
 package prometheus
 
 import (
+	"log"
+	"time"
+
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
@@ -49,7 +52,10 @@ func (d *simulationDataSource) NextItem() data.LoadedPoint {
 		return data.LoadedPoint{nil}
 	}
 
-	d.generatedSeries.Set(newSimulatorPoint)
+	err := d.generatedSeries.Set(newSimulatorPoint)
+	if err != nil {
+		log.Printf("Couldn't convert simulated point to Prometheus TimeSeries: %v", err)
+	}
 	next := d.generatedSeries.Next()
 	return data.LoadedPoint{Data: next}
 }
@@ -58,6 +64,7 @@ type timeSeriesIterator struct {
 	useCurrentTime  bool
 	generatedSeries []prompb.TimeSeries
 	currentInd      int
+	lastTsUsed      int64
 }
 
 func (t *timeSeriesIterator) HasNext() bool {
@@ -73,19 +80,37 @@ func (t *timeSeriesIterator) Next() *prompb.TimeSeries {
 	return &t.generatedSeries[tmp]
 }
 
-func (t *timeSeriesIterator) Set(p *data.Point) {
+// Set converts the simulated point to []prompb.TimeSeries.
+// Each point can contain N different metrics with the same
+// label set and a single value for each metric. This is converted
+// to N time series with a single sample.
+func (t *timeSeriesIterator) Set(p *data.Point) error {
 	// reset state of iterator
 	t.currentInd = 0
-	t.resetBuffer(len(p.FieldKeys()))
-	convertToPromSeries(p, t.generatedSeries, t.useCurrentTime)
+	t.generatedSeries = make([]prompb.TimeSeries, len(p.FieldKeys()))
+	err := convertToPromSeries(p, t.generatedSeries)
+	if err != nil {
+		return err
+	}
+	if t.useCurrentTime {
+		t.updateTimestamps()
+	}
+
+	return nil
 }
 
-func (t *timeSeriesIterator) resetBuffer(requiredLength int) {
-	if t.generatedSeries == nil {
-		t.generatedSeries = make([]prompb.TimeSeries, requiredLength)
-		return
+// updateTimestamps makes sure that two subsequent simulated points don't have
+// the same timestamp (as represented in unix ms)
+func (t *timeSeriesIterator) updateTimestamps() {
+	currentTimeMs := time.Now().UnixNano() / 1000000
+	if currentTimeMs > t.lastTsUsed {
+		t.lastTsUsed = currentTimeMs
+	} else {
+		t.lastTsUsed++
 	}
-	if len(t.generatedSeries) < requiredLength {
-		t.generatedSeries = make([]prompb.TimeSeries, requiredLength)
+	for _, sample := range t.generatedSeries {
+		// prometheus always generates single sample series
+		// for remote_write endpoints
+		sample.Samples[0].Timestamp = t.lastTsUsed
 	}
 }

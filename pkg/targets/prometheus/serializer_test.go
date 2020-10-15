@@ -106,12 +106,11 @@ func TestConvertToPromSeries(t *testing.T) {
 	}
 
 	testCases := []struct {
-		desc           string
-		expError       bool
-		inPoint        *data.Point
-		inBuffer       []prompb.TimeSeries
-		expBuffer      []prompb.TimeSeries
-		useCurrentTime bool
+		desc      string
+		expError  bool
+		inPoint   *data.Point
+		inBuffer  []prompb.TimeSeries
+		expBuffer []prompb.TimeSeries
 	}{
 		{desc: "Error on wrong size buffer", expError: true, inPoint: oneFieldPoint, inBuffer: []prompb.TimeSeries{}},
 		{
@@ -124,18 +123,12 @@ func TestConvertToPromSeries(t *testing.T) {
 			inPoint:   twoFieldPoint,
 			inBuffer:  make([]prompb.TimeSeries, 2),
 			expBuffer: []prompb.TimeSeries{tfTS1, tfTS2},
-		}, {
-			desc:           "Two fields, two time-series, labels sorted, but current time used instead of that from point",
-			inPoint:        twoFieldPoint,
-			inBuffer:       make([]prompb.TimeSeries, 2),
-			expBuffer:      []prompb.TimeSeries{tfTS1, tfTS2},
-			useCurrentTime: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := convertToPromSeries(tc.inPoint, tc.inBuffer, tc.useCurrentTime)
+			err := convertToPromSeries(tc.inPoint, tc.inBuffer)
 			if tc.expError && err != nil {
 				return
 			} else if tc.expError {
@@ -172,14 +165,8 @@ func TestConvertToPromSeries(t *testing.T) {
 					if retSample.Value != expSample.Value {
 						t.Errorf("sample value missmatch; exp: %f ; got: %f", expSample.Value, retSample.Value)
 					}
-					if !tc.useCurrentTime && retSample.Timestamp != expSample.Timestamp {
+					if retSample.Timestamp != expSample.Timestamp {
 						t.Errorf("sample time missmatch; exp: %d; got: %d", expSample.Timestamp, retSample.Timestamp)
-					} else if tc.useCurrentTime && retSample.Timestamp <= expSample.Timestamp {
-						//timestamp generated inside convertToPromSeries should be later than the one in the point
-						t.Errorf(
-							"unexpected sample time; exp to be greather than %d, got %d",
-							expSample.Timestamp, retSample.Timestamp,
-						)
 					}
 				}
 			}

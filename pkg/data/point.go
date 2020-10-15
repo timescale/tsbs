@@ -62,6 +62,10 @@ func (p *Point) Timestamp() *time.Time {
 	return p.timestamp
 }
 
+func (p *Point) TimestampInUnixMs() int64 {
+	return p.timestamp.UnixNano() / 1000000
+}
+
 // SetMeasurementName sets the name of the measurement for this data point
 func (p *Point) SetMeasurementName(s []byte) {
 	p.measurementName = s
