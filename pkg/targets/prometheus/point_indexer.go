@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/promscale/pkg/prompb"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
 )

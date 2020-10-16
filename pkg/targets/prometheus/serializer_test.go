@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/timescale/tsbs/pkg/data"
-	"github.com/timescale/tsbs/pkg/data/serialize"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/timescale/promscale/pkg/prompb"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/serialize"
 )
 
 func TestPrometheusSerializer(t *testing.T) {

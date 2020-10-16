@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/promscale/pkg/prompb"
 	"github.com/timescale/tsbs/internal/inputs"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"

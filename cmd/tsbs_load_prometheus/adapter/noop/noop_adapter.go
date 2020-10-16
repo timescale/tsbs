@@ -8,7 +8,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/log"
-	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/promscale/pkg/prompb"
 )
 
 type Adapter struct {
