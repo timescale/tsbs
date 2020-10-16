@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
-	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/promscale/pkg/prompb"
 )
 
 // Client is a wrapper around http.Client
@@ -62,7 +62,6 @@ func (c *Client) Post(series []prompb.TimeSeries) error {
 	compressed = compressed[:cap(compressed)]
 	compressed = snappy.Encode(compressed, buffer.Bytes())
 	bufferPool.Put(buffer)
-
 	httpReq, err := http.NewRequest("POST", c.url.String(), bytes.NewReader(compressed))
 	if err != nil {
 		return err

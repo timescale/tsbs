@@ -1,7 +1,7 @@
 package prometheus
 
 import (
-	"github.com/prometheus/prometheus/prompb"
+	"github.com/timescale/promscale/pkg/prompb"
 	"github.com/timescale/tsbs/pkg/data"
 	"reflect"
 	"testing"
@@ -129,26 +129,23 @@ func TestTimeSeriesIteratorMultipleSets(t *testing.T) {
 	}
 	cases := []struct {
 		desc         string
-		set1         *data.Point
-		set2         *data.Point
+		pointToSet   *data.Point
 		useCurrentTs bool
 		lastTsUsed   int64
 		expect1      []*prompb.TimeSeries
 		expect2      []*prompb.TimeSeries
 	}{
 		{
-			desc:    "Use point time",
-			set1:    point,
-			expect1: []*prompb.TimeSeries{promPoint},
-			set2:    point,
-			expect2: []*prompb.TimeSeries{promPoint},
+			desc:       "Use point time",
+			pointToSet: point,
+			expect1:    []*prompb.TimeSeries{promPoint},
+			expect2:    []*prompb.TimeSeries{promPoint},
 		}, {
 			desc:         "Use current time, it is lagging behind last used timestamp",
 			useCurrentTs: true,
 			// use timestamp in future to simulate that now() is lagging
 			lastTsUsed: futureTime,
-			set1:       point,
-			set2:       point,
+			pointToSet: point,
 			expect1:    []*prompb.TimeSeries{promPointInFuture1},
 			expect2:    []*prompb.TimeSeries{promPointInFuture2},
 		},
@@ -185,9 +182,12 @@ func TestTimeSeriesIteratorMultipleSets(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			iter := &timeSeriesIterator{useCurrentTime: tc.useCurrentTs, lastTsUsed: tc.lastTsUsed}
-			got1 := setPoint(tc.set1, iter)
-			got2 := setPoint(tc.set2, iter)
+			iter := &timeSeriesIterator{
+				useCurrentTime: tc.useCurrentTs,
+				lastTsUsed:     tc.lastTsUsed,
+			}
+			got1 := setPoint(tc.pointToSet, iter)
+			got2 := setPoint(tc.pointToSet, iter)
 			compareTSs(tc.expect1, got1)
 			compareTSs(tc.expect2, got2)
 		})
