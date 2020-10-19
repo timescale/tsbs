@@ -2,9 +2,10 @@ package inputs
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets/constants"
-	"testing"
 )
 
 const (

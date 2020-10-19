@@ -1,13 +1,14 @@
-package main
+package victoriametrics
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/data"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
-
-	"github.com/timescale/tsbs/load"
 )
 
 func TestProcessorProcessBatch(t *testing.T) {
@@ -46,22 +47,27 @@ func TestProcessorProcessBatch(t *testing.T) {
 		},
 	}
 
-	f := &factory{}
+	f := &factory{bufPool: &sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, 16*1024*1024))
+		},
+	}}
 	vm := startFakeVMServer(t)
-	vmURLs = append(vmURLs, vm.server.URL)
+	vmURLs := []string{vm.server.URL}
 	for _, tc := range testCases {
 		name := fmt.Sprintf("%dmetrics %drows %dpoints load %v",
 			tc.metrics, tc.rows, len(tc.points), tc.doLoad)
 		t.Run(name, func(t *testing.T) {
 			b := f.New().(*batch)
 			for _, point := range tc.points {
-				b.Append(&load.Point{
+				b.Append(data.LoadedPoint{
 					Data: []byte(point),
 				})
 			}
 
-			p := &processor{}
-			p.Init(1, false)
+			p := &processor{vmURLs: vmURLs}
+			const ignored = false
+			p.Init(1, ignored, ignored)
 			callsBefore := vm.getCalls()
 			metrics, rows := p.ProcessBatch(b, tc.doLoad)
 			if metrics != tc.metrics {

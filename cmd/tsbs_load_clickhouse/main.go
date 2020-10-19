@@ -19,12 +19,12 @@ var (
 )
 
 var loader load.BenchmarkRunner
-var loaderConf *load.BenchmarkRunnerConfig
+var loaderConf load.BenchmarkRunnerConfig
 var conf *clickhouse.ClickhouseConfig
 
 // Parse args:
 func init() {
-	loaderConf = &load.BenchmarkRunnerConfig{}
+	loaderConf = load.BenchmarkRunnerConfig{}
 	target := clickhouse.NewTarget()
 	loaderConf.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
@@ -36,7 +36,7 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(loaderConf); err != nil {
+	if err := viper.Unmarshal(&loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 	conf = &clickhouse.ClickhouseConfig{

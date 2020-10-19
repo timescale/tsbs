@@ -7,13 +7,12 @@ import (
 	"io"
 	"log"
 
+	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
-
-	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/timescale/tsbs/load"
 )
 
 type fileDataSource struct {
@@ -26,7 +25,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 
 	_, err := d.r.Read(d.lenBuf)
 	if err == io.EOF {
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 	if err != nil {
 		log.Fatal(err.Error())

@@ -1,23 +1,23 @@
-package main
+package victoriametrics
 
 import (
 	"bytes"
+	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/timescale/tsbs/load"
 )
 
 type processor struct {
-	url string
+	url    string
+	vmURLs []string
 }
 
-func (p *processor) Init(workerNum int, _ bool) {
-	p.url = vmURLs[workerNum%len(vmURLs)]
+func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
+	p.url = p.vmURLs[workerNum%len(p.vmURLs)]
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (metricCount, rowCount uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
 	batch := b.(*batch)
 	if !doLoad {
 		return batch.metrics, batch.rows

@@ -76,7 +76,7 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 func (d *fileDataSource) NextItem() data.LoadedPoint {
 	if d.len < 8 {
 		if n := d.Read(); n == 0 {
-			return data.LoadedPoint{nil}
+			return data.LoadedPoint{Data: nil}
 		}
 	}
 	valueCnt := binary.LittleEndian.Uint32(d.buf[:4])
@@ -87,7 +87,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 
 	if d.len < nameCnt {
 		if n := d.Read(); n == 0 {
-			return data.LoadedPoint{nil}
+			return data.LoadedPoint{Data: nil}
 		}
 	}
 
@@ -100,7 +100,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	for i := 0; uint32(i) < valueCnt; i++ {
 		if d.len < 8 {
 			if n := d.Read(); n == 0 {
-				return data.LoadedPoint{nil}
+				return data.LoadedPoint{Data: nil}
 			}
 		}
 		lengthKey := binary.LittleEndian.Uint32(d.buf[:4])
@@ -109,7 +109,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 		total := lengthData + lengthKey + 8
 		for d.len < total {
 			if n := d.Read(); n == 0 {
-				return data.LoadedPoint{nil}
+				return data.LoadedPoint{Data: nil}
 			}
 		}
 

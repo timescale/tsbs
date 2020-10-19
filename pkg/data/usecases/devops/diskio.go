@@ -24,13 +24,13 @@ var (
 	timeND  = common.ND(5, 1)
 
 	diskIOFields = []common.LabeledDistributionMaker{
-		{[]byte("reads"), func() common.Distribution { return common.MWD(opsND, 0) }},
-		{[]byte("writes"), func() common.Distribution { return common.MWD(opsND, 0) }},
-		{[]byte("read_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
-		{[]byte("write_bytes"), func() common.Distribution { return common.MWD(bytesND, 0) }},
-		{[]byte("read_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
-		{[]byte("write_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
-		{[]byte("io_time"), func() common.Distribution { return common.MWD(timeND, 0) }},
+		{Label: []byte("reads"), DistributionMaker: func() common.Distribution { return common.MWD(opsND, 0) }},
+		{Label: []byte("writes"), DistributionMaker: func() common.Distribution { return common.MWD(opsND, 0) }},
+		{Label: []byte("read_bytes"), DistributionMaker: func() common.Distribution { return common.MWD(bytesND, 0) }},
+		{Label: []byte("write_bytes"), DistributionMaker: func() common.Distribution { return common.MWD(bytesND, 0) }},
+		{Label: []byte("read_time"), DistributionMaker: func() common.Distribution { return common.MWD(timeND, 0) }},
+		{Label: []byte("write_time"), DistributionMaker: func() common.Distribution { return common.MWD(timeND, 0) }},
+		{Label: []byte("io_time"), DistributionMaker: func() common.Distribution { return common.MWD(timeND, 0) }},
 	}
 )
 

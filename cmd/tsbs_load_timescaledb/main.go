@@ -5,19 +5,20 @@ package main
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
-	"sync"
 )
 
 // Parse args:
 func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *load.BenchmarkRunnerConfig) {
 	target := timescaledb.NewTarget()
-	loaderConf := &load.BenchmarkRunnerConfig{}
+	loaderConf := load.BenchmarkRunnerConfig{}
 	loaderConf.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
@@ -28,7 +29,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(loaderConf); err != nil {
+	if err := viper.Unmarshal(&loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 	opts := timescaledb.LoadingOptions{}
@@ -60,7 +61,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.ForceTextFormat = viper.GetBool("force-text-format")
 
 	loader := load.GetBenchmarkRunner(loaderConf)
-	return &opts, loader, loaderConf
+	return &opts, loader, &loaderConf
 }
 
 func main() {

@@ -33,7 +33,7 @@ func (d *simulationDataSource) Headers() *common.GeneratedDataHeaders {
 func (d *simulationDataSource) NextItem() data.LoadedPoint {
 	if d.headers == nil {
 		fatal("headers not read before starting to read points")
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 	newSimulatorPoint := data.NewPoint()
 	var write bool
@@ -45,7 +45,7 @@ func (d *simulationDataSource) NextItem() data.LoadedPoint {
 		newSimulatorPoint.Reset()
 	}
 	if d.simulator.Finished() || !write {
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 	newLoadPoint := &insertData{}
 	tagValues := newSimulatorPoint.TagValues()

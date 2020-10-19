@@ -68,10 +68,10 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 
 	// split a point record into a measurement type, timestamp, tags,
@@ -79,7 +79,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	parts := strings.SplitN(d.scanner.Text(), "\t", 4)
 	if len(parts) != 4 {
 		fatal("incorrect point format, some fields are missing")
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 	table := parts[0]
 	tags := []byte(parts[1])
@@ -87,13 +87,13 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	metrics, err := parseMetrics(strings.Split(parts[3], "\t"))
 	if err != nil {
 		fatal("cannot parse metrics: %v", err)
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 
 	ts, err := parseTime(parts[2])
 	if err != nil {
 		fatal("cannot parse timestamp: %v", err)
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 
 	row := append(row{tags, ts}, metrics...)
@@ -122,7 +122,18 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 		fatal("first header line doesn't contain tags")
 		return nil
 	}
-	tags := tagsLine[1:]
+	tagsAndTypes := tagsLine[1:]
+	tags := make([]string, len(tagsAndTypes))
+	tagTypes := make([]string, len(tagsAndTypes))
+	for i, tt := range tagsAndTypes {
+		tagAndTypeSplit := strings.Split(tt, " ")
+		if len(tagAndTypeSplit) != 2 {
+			fatal("first header line should be of format 'tags, tagName1 tagType1, ..., tagNameN tagTypeN")
+			return nil
+		}
+		tags[i] = tagAndTypeSplit[0]
+		tagTypes[i] = tagAndTypeSplit[1]
+	}
 	fields := make(map[string][]string)
 	for {
 		ok := d.scanner.Scan()
@@ -148,7 +159,7 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 		fields[parts[0]] = strings.Split(parts[1], ",")
 	}
 	d.headers = &common.GeneratedDataHeaders{
-		TagTypes:  nil,
+		TagTypes:  tagTypes,
 		TagKeys:   tags,
 		FieldKeys: fields,
 	}

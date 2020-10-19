@@ -71,7 +71,7 @@ func (pd *FileDataSource) NextItem() data.LoadedPoint {
 		}
 		return data.NewLoadedPoint(ts)
 	}
-	return data.LoadedPoint{nil}
+	return data.LoadedPoint{Data: nil}
 }
 
 func (pd *FileDataSource) Headers() *common.GeneratedDataHeaders {

@@ -16,22 +16,22 @@ var (
 	pgHighND = common.ND(1024, 1)
 
 	postgresqlFields = []common.LabeledDistributionMaker{
-		{[]byte("numbackends"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("xact_commit"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("xact_rollback"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("blks_read"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("blks_hit"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("tup_returned"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("tup_fetched"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("tup_inserted"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("tup_updated"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("tup_deleted"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("conflicts"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("temp_files"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("temp_bytes"), func() common.Distribution { return common.CWD(pgHighND, 0, 1024*1024*1024, 0) }},
-		{[]byte("deadlocks"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("blk_read_time"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
-		{[]byte("blk_write_time"), func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("numbackends"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("xact_commit"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("xact_rollback"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("blks_read"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("blks_hit"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("tup_returned"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("tup_fetched"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("tup_inserted"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("tup_updated"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("tup_deleted"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("conflicts"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("temp_files"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("temp_bytes"), DistributionMaker: func() common.Distribution { return common.CWD(pgHighND, 0, 1024*1024*1024, 0) }},
+		{Label: []byte("deadlocks"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("blk_read_time"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
+		{Label: []byte("blk_write_time"), DistributionMaker: func() common.Distribution { return common.CWD(pgND, 0, 1000, 0) }},
 	}
 )
 

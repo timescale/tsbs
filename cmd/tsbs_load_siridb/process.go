@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 
-	siridb "github.com/SiriDB/go-siridb-connector"
-	qpack "github.com/transceptor-technology/go-qpack"
+	"github.com/SiriDB/go-siridb-connector"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/transceptor-technology/go-qpack"
 )
 
 type processor struct {

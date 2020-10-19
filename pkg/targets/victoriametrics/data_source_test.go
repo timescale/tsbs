@@ -1,31 +1,24 @@
-package main
+package victoriametrics
 
 import (
 	"bufio"
 	"bytes"
-	"os"
+	"github.com/timescale/tsbs/pkg/data"
 	"sync"
 	"testing"
-
-	"github.com/timescale/tsbs/load"
 )
 
-func TestMain(m *testing.M) {
-	bufPool = sync.Pool{
-		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
-		},
-	}
-	os.Exit(m.Run())
-}
-
 func TestBatch(t *testing.T) {
-	f := &factory{}
+	f := &factory{bufPool: &sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, 16*1024*1024))
+		},
+	}}
 	b := f.New().(*batch)
 	if b.Len() != 0 {
 		t.Errorf("batch not initialized with count 0")
 	}
-	p := &load.Point{
+	p := data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(p)
@@ -39,7 +32,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &load.Point{
+	p = data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=1.0,col2=1.0 190"),
 	}
 	b.Append(p)
@@ -75,11 +68,11 @@ func TestDecode(t *testing.T) {
 
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
-		decoder := &decoder{scanner: bufio.NewScanner(br)}
-		p := decoder.Decode(br)
-		data := p.Data.([]byte)
-		if !bytes.Equal(data, c.result) {
-			t.Errorf("%s: incorrect result: got\n%v\nwant\n%v", c.desc, data, c.result)
+		decoder := &fileDataSource{scanner: bufio.NewScanner(br)}
+		p := decoder.NextItem()
+		dataBytes := p.Data.([]byte)
+		if !bytes.Equal(dataBytes, c.result) {
+			t.Errorf("%s: incorrect result: got\n%v\nwant\n%v", c.desc, dataBytes, c.result)
 		}
 	}
 }
@@ -87,11 +80,11 @@ func TestDecode(t *testing.T) {
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("cpu,tag1=tag1text,tag2=tag2text col1=0.0,col2=0.0 140")
 	br := bufio.NewReader(bytes.NewReader(input))
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	_ = decoder.Decode(br)
+	decoder := &fileDataSource{scanner: bufio.NewScanner(br)}
+	_ = decoder.NextItem()
 	// nothing left, should be EOF
-	p := decoder.Decode(br)
-	if p != nil {
-		t.Errorf("expected p to be nil, got %v", p)
+	p := decoder.NextItem()
+	if p.Data != nil {
+		t.Errorf("expected p.Data to be nil, got %v", p.Data)
 	}
 }

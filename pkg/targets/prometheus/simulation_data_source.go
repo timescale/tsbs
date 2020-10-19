@@ -49,7 +49,7 @@ func (d *simulationDataSource) NextItem() data.LoadedPoint {
 		newSimulatorPoint.Reset()
 	}
 	if d.simulator.Finished() || !write {
-		return data.LoadedPoint{nil}
+		return data.LoadedPoint{Data: nil}
 	}
 
 	err := d.generatedSeries.Set(newSimulatorPoint)
