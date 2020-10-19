@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"time"
 
 	"github.com/blagojts/viper"
@@ -65,11 +63,17 @@ func init() {
 }
 
 func main() {
-	runner.Run(&query.CrateDBPool, newProcessor)
+	processor, err := newProcessor()
+	if err != nil {
+		panic(err)
+	}
+	runner.Run(&query.CrateDBPool, func() query.Processor {
+		return processor
+	})
 }
 
 type processor struct {
-	pool    *pgxpool.Pool
+	conn    *pgx.Conn
 	connCfg *pgx.ConnConfig
 	opts    *executorOptions
 }
@@ -80,35 +84,28 @@ type executorOptions struct {
 	printResponse bool
 }
 
-func newProcessor() query.Processor {
+func newProcessor() (query.Processor, error) {
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password='%s' dbname=%s", hosts, port, user, pass, runner.DatabaseName())
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse connection config")
+	}
 	return &processor{
-		connCfg: &pgx.ConnConfig{
-			Config: pgconn.Config{
-				Host:     hosts,
-				Port:     uint16(port),
-				User:     user,
-				Password: pass,
-				Database: runner.DatabaseName(),
-			},
-		},
+		connCfg: connConfig,
 		opts: &executorOptions{
 			showExplain:   showExplain,
 			debug:         runner.DebugLevel() > 0,
 			printResponse: runner.DoPrintResponses(),
 		},
-	}
+	}, nil
 }
 
 func (p *processor) Init(workerNumber int) {
-	pool, err := pgxpool.ConnectConfig(context.Background(),
-		&pgxpool.Config{
-			MaxConns:   int32(workerNumber),
-			ConnConfig: p.connCfg,
-		})
+	conn, err := pgx.ConnectConfig(context.Background(), p.connCfg)
 	if err != nil {
 		panic(err)
 	}
-	p.pool = pool
+	p.conn = conn
 }
 
 func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, error) {
@@ -123,7 +120,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	if showExplain {
 		qry = "EXPLAIN ANALYZE " + qry
 	}
-	rows, err := p.pool.Query(context.Background(), qry)
+	rows, err := p.conn.Query(context.Background(), qry)
 	if err != nil {
 		return nil, err
 	}

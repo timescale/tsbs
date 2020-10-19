@@ -5,10 +5,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	internalUtils "github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/query/config"
-	"github.com/timescale/tsbs/pkg/targets/constants"
 	"io"
 	"io/ioutil"
 	"os"
@@ -17,17 +13,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
-
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/query"
+	"github.com/timescale/tsbs/pkg/query/config"
+	"github.com/timescale/tsbs/pkg/targets/constants"
 )
 
 const (

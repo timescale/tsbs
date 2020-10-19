@@ -7,10 +7,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/akumuli"
-	"github.com/timescale/tsbs/pkg/targets/constants"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"sync"
 
@@ -18,6 +14,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/akumuli"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 // Program option vars:
@@ -55,7 +55,7 @@ func init() {
 
 	endpoint = viper.GetString("endpoint")
 	loaderConf.HashWorkers = true
-	loader = load.GetBenchmarkRunner(loaderConf)
+	loader = load.GetBenchmarkRunner(*loaderConf)
 }
 
 func main() {

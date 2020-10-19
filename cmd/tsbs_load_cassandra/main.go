@@ -5,54 +5,23 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/constants"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
-	"log"
-	"os"
-	"time"
-
 	"github.com/blagojts/viper"
-	"github.com/gocql/gocql"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/targets/cassandra"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
-
-// Program option vars:
-var (
-	hosts             string
-	replicationFactor int
-	consistencyLevel  string
-	writeTimeout      time.Duration
-)
-
-// Global vars
-var (
-	loader load.BenchmarkRunner
-	config *load.BenchmarkRunnerConfig
-	target targets.ImplementedTarget
-)
-
-// Map of user specified strings to gocql consistency settings
-var consistencyMapping = map[string]gocql.Consistency{
-	"ALL":    gocql.All,
-	"ANY":    gocql.Any,
-	"QUORUM": gocql.Quorum,
-	"ONE":    gocql.One,
-	"TWO":    gocql.Two,
-	"THREE":  gocql.Three,
-}
 
 // Parse args:
-func init() {
-	config = &load.BenchmarkRunnerConfig{}
-	target = initializers.GetTarget(constants.FormatCassandra)
+func initProgramOptions() (*cassandra.SpecificConfig, *load.BenchmarkRunnerConfig, load.BenchmarkRunner) {
+	config := load.BenchmarkRunnerConfig{}
+	target := initializers.GetTarget(constants.FormatCassandra)
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
-
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -65,72 +34,27 @@ func init() {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 
-	hosts = viper.GetString("hosts")
-	replicationFactor = viper.GetInt("replication-factor")
-	consistencyLevel = viper.GetString("consistency")
-	writeTimeout = viper.GetDuration("write-timeout")
-
-	if _, ok := consistencyMapping[consistencyLevel]; !ok {
-		fmt.Println("Invalid consistency level.")
-		os.Exit(1)
+	dbConfig := &cassandra.SpecificConfig{
+		Hosts:             viper.GetString("hosts"),
+		ReplicationFactor: viper.GetInt("replication-factor"),
+		ConsistencyLevel:  viper.GetString("consistency"),
+		WriteTimeout:      viper.GetDuration("write-timeout"),
 	}
+
 	config.HashWorkers = false
 	config.BatchSize = 100
-	loader = load.GetBenchmarkRunner(config)
-}
-
-type benchmark struct {
-	dbc *dbCreator
-}
-
-func (b *benchmark) GetDataSource() targets.DataSource {
-	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
-}
-
-func (b *benchmark) GetBatchFactory() targets.BatchFactory {
-	return &factory{}
-}
-
-func (b *benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
-	return &targets.ConstantIndexer{}
-}
-
-func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{b.dbc}
-}
-
-func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return b.dbc
+	loader := load.GetBenchmarkRunner(config)
+	return dbConfig, &config, loader
 }
 
 func main() {
-	loader.RunBenchmark(&benchmark{dbc: &dbCreator{}})
-}
-
-type processor struct {
-	dbc *dbCreator
-}
-
-func (p *processor) Init(_ int, _, _ bool) {}
-
-// ProcessBatch reads eventsBatches which contain rows of CQL strings and
-// creates a gocql.LoggedBatch to insert
-func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
-	events := b.(*eventsBatch)
-
-	if doLoad {
-		batch := p.dbc.clientSession.NewBatch(gocql.LoggedBatch)
-		for _, event := range events.rows {
-			batch.Query(singleMetricToInsertStatement(event))
-		}
-
-		err := p.dbc.clientSession.ExecuteBatch(batch)
-		if err != nil {
-			log.Fatalf("Error writing: %s\n", err.Error())
-		}
+	dbConfig, loaderConf, loader := initProgramOptions()
+	benchmark, err := cassandra.NewBenchmark(dbConfig, &source.DataSourceConfig{
+		Type: source.FileDataSourceType,
+		File: &source.FileDataSourceConfig{Location: loaderConf.FileName},
+	})
+	if err != nil {
+		panic(err)
 	}
-	metricCnt := uint64(len(events.rows))
-	events.rows = events.rows[:0]
-	ePool.Put(events)
-	return metricCnt, 0
+	loader.RunBenchmark(benchmark)
 }

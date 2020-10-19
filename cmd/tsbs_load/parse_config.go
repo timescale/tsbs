@@ -48,7 +48,7 @@ func parseConfig(target targets.ImplementedTarget, v *viper.Viper) (targets.Benc
 		return nil, nil, err
 	}
 
-	return benchmark, load.GetBenchmarkRunner(loaderConfigInternal), nil
+	return benchmark, load.GetBenchmarkRunner(*loaderConfigInternal), nil
 }
 
 func parseRunnerConfig(v *viper.Viper) (*RunnerConfig, error) {

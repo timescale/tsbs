@@ -2,10 +2,12 @@ package clickhouse
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/jmoiron/sqlx"
+	_ "github.com/kshvakov/clickhouse"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"strings"
 )
 
 // loader.DBCreator interface implementation
@@ -79,6 +81,9 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	defer db.Close()
 
 	createTagsTable(d.config, db, d.headers.TagKeys, d.headers.TagTypes)
+	if tableCols == nil {
+		tableCols = make(map[string][]string)
+	}
 	tableCols["tags"] = d.headers.TagKeys
 	tagColumnTypes = d.headers.TagTypes
 
@@ -118,7 +123,7 @@ func createMetricsTable(conf *ClickhouseConfig, db *sqlx.DB, tableName string, f
 	}
 
 	// Add all column names from fieldColumns into columnNames
-	columnNames = append(columnNames, fieldColumns[1:]...)
+	columnNames = append(columnNames, fieldColumns...)
 
 	// columnsWithType - column specifications with type. Ex.: "cpu_usage Float64"
 	var columnsWithType []string
@@ -149,20 +154,6 @@ func createMetricsTable(conf *ClickhouseConfig, db *sqlx.DB, tableName string, f
 	if err != nil {
 		panic(err)
 	}
-}
-
-
-// getConnectString() builds connect string to ClickHouse
-// db - whether database specification should be added to the connection string
-func getConnectString(db bool) string {
-	// connectString: tcp://127.0.0.1:9000?debug=true
-	// ClickHouse ex.:
-	// tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
-	if db {
-		return fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s", host, port, user, password, loader.DatabaseName())
-	}
-
-	return fmt.Sprintf("tcp://%s:%d?username=%s&password=%s", host, port, user, password)
 }
 
 func generateTagsTableQuery(tagNames, tagTypes []string) string {

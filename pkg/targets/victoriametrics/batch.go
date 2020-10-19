@@ -1,30 +1,18 @@
-package main
+package victoriametrics
 
 import (
-	"bufio"
 	"bytes"
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data"
 	"log"
 )
 
 const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
 
-var newLine = []byte("\n")
-
-type decoder struct {
-	scanner *bufio.Scanner
-}
-
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
-	ok := d.scanner.Scan()
-	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil
-	} else if !ok {
-		log.Fatalf("scan error: %v", d.scanner.Err())
-		return nil
-	}
-	return load.NewPoint(d.scanner.Bytes())
-}
+var (
+	spaceSep = []byte(" ")
+	commaSep = []byte(",")
+	newLine  = []byte("\n")
+)
 
 type batch struct {
 	buf     *bytes.Buffer
@@ -32,16 +20,11 @@ type batch struct {
 	metrics uint64
 }
 
-func (b *batch) Len() int {
-	return int(b.rows)
+func (b *batch) Len() uint {
+	return uint(b.rows)
 }
 
-var (
-	spaceSep = []byte(" ")
-	commaSep = []byte(",")
-)
-
-func (b *batch) Append(item *load.Point) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.([]byte)
 	b.rows++
 
@@ -60,10 +43,4 @@ func (b *batch) Append(item *load.Point) {
 
 	b.buf.Write(that)
 	b.buf.Write(newLine)
-}
-
-type factory struct{}
-
-func (f *factory) New() load.Batch {
-	return &batch{buf: bufPool.Get().(*bytes.Buffer)}
 }

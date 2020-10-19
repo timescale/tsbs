@@ -5,15 +5,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/constants"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"time"
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 const (
@@ -35,14 +35,14 @@ var (
 // Global vars
 var (
 	loader load.BenchmarkRunner
-	config *load.BenchmarkRunnerConfig
+	config load.BenchmarkRunnerConfig
 	target targets.ImplementedTarget
 )
 
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatMongo)
-	config = &load.BenchmarkRunnerConfig{}
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 
@@ -73,9 +73,9 @@ func init() {
 func main() {
 	var benchmark targets.Benchmark
 	if documentPer {
-		benchmark = newNaiveBenchmark(loader, config)
+		benchmark = newNaiveBenchmark(loader, &config)
 	} else {
-		benchmark = newAggBenchmark(loader, config)
+		benchmark = newAggBenchmark(loader, &config)
 	}
 
 	loader.RunBenchmark(benchmark)

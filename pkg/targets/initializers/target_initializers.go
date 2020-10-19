@@ -9,9 +9,11 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"github.com/timescale/tsbs/pkg/targets/crate"
 	"github.com/timescale/tsbs/pkg/targets/influx"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 	"github.com/timescale/tsbs/pkg/targets/siridb"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
+	"github.com/timescale/tsbs/pkg/targets/victoriametrics"
 	"strings"
 )
 
@@ -30,11 +32,13 @@ func GetTarget(format string) targets.ImplementedTarget {
 	case constants.FormatInflux:
 		return influx.NewTarget()
 	case constants.FormatMongo:
-		return influx.NewTarget()
+		return mongo.NewTarget()
 	case constants.FormatPrometheus:
 		return prometheus.NewTarget()
 	case constants.FormatSiriDB:
 		return siridb.NewTarget()
+	case constants.FormatVictoriaMetrics:
+		return victoriametrics.NewTarget()
 	}
 
 	supportedFormatsStr := strings.Join(constants.SupportedFormats(), ",")

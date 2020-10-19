@@ -14,7 +14,6 @@ import (
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/constants"
-
 )
 
 // Error messages when using a DataGenerator

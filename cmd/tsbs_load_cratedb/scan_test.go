@@ -176,27 +176,31 @@ func TestDataSourceHeaders(t *testing.T) {
 	}{
 		{
 			desc:  "min case: exactly three lines",
-			input: "tags,tag1,tag2\ncpu,col1,col2\n\n",
+			input: "tags,tag1 string,tag2 string2\ncpu,col1,col2\n\n",
 			expectedHeader: &common.GeneratedDataHeaders{
-				TagTypes:  nil,
+				TagTypes:  []string{"string", "string2"},
+				TagKeys:   []string{"tag1", "tag2"},
+				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
+			},
+		}, {
+			desc:  "min case: exactly three lines, tags don't have types",
+			input: "tags,tag1 string,tag2 string2\ncpu,col1,col2\n\n",
+			expectedHeader: &common.GeneratedDataHeaders{
+				TagTypes:  []string{"string", "string2"},
 				TagKeys:   []string{"tag1", "tag2"},
 				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
 			},
 		},
 		{
-			desc:  "min case: more than the header 3 lines",
-			input: "tags,tag1,tag2\ncpu,col1,col2\n\nrow1\nrow2\n",
-			expectedHeader: &common.GeneratedDataHeaders{
-				TagTypes:  nil,
-				TagKeys:   []string{"tag1", "tag2"},
-				FieldKeys: map[string][]string{"cpu": {"col1", "col2"}},
-			},
+			desc:           "min case: more than the header 3 lines",
+			input:          "tags,tag1,tag2\ncpu,col1,col2\n\nrow1\nrow2\n",
+			expectedToFail: true,
 		},
 		{
 			desc:  "multiple tables: more than 3 lines for header",
-			input: "tags,tag1,tag2\ncpu,col1,col2\ndisk,col21,col22\n\n",
+			input: "tags,tag1 string,tag2 string\ncpu,col1,col2\ndisk,col21,col22\n\n",
 			expectedHeader: &common.GeneratedDataHeaders{
-				TagTypes: nil,
+				TagTypes: []string{"string", "string"},
 				TagKeys:  []string{"tag1", "tag2"},
 				FieldKeys: map[string][]string{
 					"cpu":  {"col1", "col2"},
@@ -206,9 +210,9 @@ func TestDataSourceHeaders(t *testing.T) {
 		},
 		{
 			desc:  "multiple tables: more than 3 lines for header w/ extra",
-			input: "tags,tag1,tag2\ncpu,col1,col2\nmem,col21,col22\n\nrow1\nrow2\n",
+			input: "tags,tag1 string,tag2 string\ncpu,col1,col2\nmem,col21,col22\n\nrow1\nrow2\n",
 			expectedHeader: &common.GeneratedDataHeaders{
-				TagTypes: nil,
+				TagTypes: []string{"string", "string"},
 				TagKeys:  []string{"tag1", "tag2"},
 				FieldKeys: map[string][]string{
 					"cpu": {"col1", "col2"},

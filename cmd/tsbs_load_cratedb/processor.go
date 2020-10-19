@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 )
 
 type processor struct {
-	tableDefs []*tableDef
+	tableDefs map[string]*tableDef
 	connCfg   *pgx.ConnConfig
-	pool      *pgxpool.Pool
+	conn      *pgx.Conn
 }
 
 // load.Processor interface implementation
@@ -20,15 +19,12 @@ func (p *processor) Init(workerNum int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
-	pool, err := pgxpool.ConnectConfig(context.Background(), &pgxpool.Config{
-		ConnConfig: p.connCfg,
-		MaxConns:   int32(workerNum),
-	})
+	conn, err := pgx.ConnectConfig(context.Background(), p.connCfg)
 	if err != nil {
 		fatal("cannot create a new connection pool: %v", err)
 		panic(err)
 	}
-	p.pool = pool
+	p.conn = conn
 }
 
 const InsertStmt = "INSERT INTO %s (%s) VALUES (%s)"
@@ -71,13 +67,17 @@ func (p *processor) InsertBatch(table string, rows []*row) uint64 {
 	metricCnt := uint64(0)
 	b := pgx.Batch{}
 	for _, row := range rows {
-		b.Queue(table, *row, nil, nil)
+		insertStmt, err := p.createInsertStmt(p.tableDefs[table])
+		if err != nil {
+			fatal("could not create insert statement for table %s", table)
+		}
+		b.Queue(insertStmt, *row...)
 		// a number of metric values is all row values minus tags and timestamp
 		// this is required by the framework to count the number of inserted
 		// metric values
 		metricCnt += uint64(len(*row) - 2)
 	}
-	batchResults := p.pool.SendBatch(context.Background(), &b)
+	batchResults := p.conn.SendBatch(context.Background(), &b)
 	if err := batchResults.Close(); err != nil {
 		fatal("failed to close a batch operation %v", err)
 	}
@@ -87,6 +87,6 @@ func (p *processor) InsertBatch(table string, rows []*row) uint64 {
 // load.ProcessorCloser interface implementation
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
-		p.pool.Close()
+		p.conn.Close(context.Background())
 	}
 }

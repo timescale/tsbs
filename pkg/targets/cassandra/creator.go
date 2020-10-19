@@ -1,22 +1,35 @@
-package main
+package cassandra
 
 import (
 	"fmt"
+	"github.com/gocql/gocql"
 	"log"
 	"strings"
 	"time"
-
-	"github.com/gocql/gocql"
 )
 
+// Map of user specified strings to gocql consistency settings
+var consistencyMapping = map[string]gocql.Consistency{
+	"ALL":    gocql.All,
+	"ANY":    gocql.Any,
+	"QUORUM": gocql.Quorum,
+	"ONE":    gocql.One,
+	"TWO":    gocql.Two,
+	"THREE":  gocql.Three,
+}
+
 type dbCreator struct {
-	globalSession *gocql.Session
-	clientSession *gocql.Session
+	globalSession     *gocql.Session
+	clientSession     *gocql.Session
+	consistencyLevel  string
+	hosts             string
+	replicationFactor int
+	writeTimeout      time.Duration
 }
 
 func (d *dbCreator) Init() {
-	cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
-	cluster.Consistency = consistencyMapping[consistencyLevel]
+	cluster := gocql.NewCluster(strings.Split(d.hosts, ",")...)
+	cluster.Consistency = consistencyMapping[d.consistencyLevel]
 	cluster.ProtoVersion = 4
 	cluster.Timeout = 10 * time.Second
 	session, err := cluster.CreateSession()
@@ -47,7 +60,7 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 
 func (d *dbCreator) CreateDB(dbName string) error {
 	defer d.globalSession.Close()
-	replicationConfiguration := fmt.Sprintf("{ 'class': 'SimpleStrategy', 'replication_factor': %d }", replicationFactor)
+	replicationConfiguration := fmt.Sprintf("{ 'class': 'SimpleStrategy', 'replication_factor': %d }", d.replicationFactor)
 	if err := d.globalSession.Query(fmt.Sprintf("create keyspace %s with replication = %s;", dbName, replicationConfiguration)).Exec(); err != nil {
 		return err
 	}
@@ -68,10 +81,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 }
 
 func (d *dbCreator) PostCreateDB(dbName string) error {
-	cluster := gocql.NewCluster(strings.Split(hosts, ",")...)
+	cluster := gocql.NewCluster(strings.Split(d.hosts, ",")...)
 	cluster.Keyspace = dbName
-	cluster.Timeout = writeTimeout
-	cluster.Consistency = consistencyMapping[consistencyLevel]
+	cluster.Timeout = d.writeTimeout
+	cluster.Consistency = consistencyMapping[d.consistencyLevel]
 	cluster.ProtoVersion = 4
 	session, err := cluster.CreateSession()
 	if err != nil {

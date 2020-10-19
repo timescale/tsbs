@@ -8,9 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/constants"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"strings"
 	"sync"
@@ -20,6 +17,9 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 // Program option vars:
@@ -35,16 +35,16 @@ var (
 // Global vars
 var (
 	loader  load.BenchmarkRunner
-	config  *load.BenchmarkRunnerConfig
+	config  load.BenchmarkRunnerConfig
 	bufPool sync.Pool
 	target  targets.ImplementedTarget
 )
 
 var consistencyChoices = map[string]struct{}{
-	"any":    struct{}{},
-	"one":    struct{}{},
-	"quorum": struct{}{},
-	"all":    struct{}{},
+	"any":    {},
+	"one":    {},
+	"quorum": {},
+	"all":    {},
 }
 
 // allows for testing
@@ -53,7 +53,7 @@ var fatal = log.Fatalf
 // Parse args:
 func init() {
 	target = initializers.GetTarget(constants.FormatInflux)
-	config = &load.BenchmarkRunnerConfig{}
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	var csvDaemonURLs string

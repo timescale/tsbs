@@ -19,14 +19,14 @@ var (
 	lowND  = common.ND(5, 1)
 
 	netFields = []common.LabeledDistributionMaker{
-		{[]byte("bytes_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
-		{[]byte("bytes_recv"), func() common.Distribution { return common.MWD(highND, 0) }},
-		{[]byte("packets_sent"), func() common.Distribution { return common.MWD(highND, 0) }},
-		{[]byte("packets_recv"), func() common.Distribution { return common.MWD(highND, 0) }},
-		{[]byte("err_in"), func() common.Distribution { return common.MWD(lowND, 0) }},
-		{[]byte("err_out"), func() common.Distribution { return common.MWD(lowND, 0) }},
-		{[]byte("drop_in"), func() common.Distribution { return common.MWD(lowND, 0) }},
-		{[]byte("drop_out"), func() common.Distribution { return common.MWD(lowND, 0) }},
+		{Label: []byte("bytes_sent"), DistributionMaker: func() common.Distribution { return common.MWD(highND, 0) }},
+		{Label: []byte("bytes_recv"), DistributionMaker: func() common.Distribution { return common.MWD(highND, 0) }},
+		{Label: []byte("packets_sent"), DistributionMaker: func() common.Distribution { return common.MWD(highND, 0) }},
+		{Label: []byte("packets_recv"), DistributionMaker: func() common.Distribution { return common.MWD(highND, 0) }},
+		{Label: []byte("err_in"), DistributionMaker: func() common.Distribution { return common.MWD(lowND, 0) }},
+		{Label: []byte("err_out"), DistributionMaker: func() common.Distribution { return common.MWD(lowND, 0) }},
+		{Label: []byte("drop_in"), DistributionMaker: func() common.Distribution { return common.MWD(lowND, 0) }},
+		{Label: []byte("drop_out"), DistributionMaker: func() common.Distribution { return common.MWD(lowND, 0) }},
 	}
 )
 

@@ -16,8 +16,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/targets/initializers"
 	"log"
 	"os"
 	"os/signal"
@@ -27,6 +25,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/inputs"
 	"github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 var (

@@ -29,21 +29,21 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName          string        `yaml:"db-name"`
-	BatchSize       uint          `yaml:"batch-size"`
-	Workers         uint          `yaml:"workers"`
-	Limit           uint64        `yaml:"limit"`
-	DoLoad          bool          `yaml:"do-load"`
-	DoCreateDB      bool          `yaml:"do-create-db"`
-	DoAbortOnExist  bool          `yaml:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `yaml:"reporting-period"`
-	HashWorkers     bool          `yaml:"hash-workers"`
-	NoFlowControl   bool          `yaml:"no-flow-control"`
-	ChannelCapacity uint          `yaml:"channel-capacity"`
-	InsertIntervals string        `yaml:"insert-intervals"`
+	DBName          string        `yaml:"db-name" mapstructure:"db-name"`
+	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size"`
+	Workers         uint          `yaml:"workers" mapstructure:"workers"`
+	Limit           uint64        `yaml:"limit" mapstructure:"limit"`
+	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load"`
+	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db"`
+	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist"`
+	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period"`
+	HashWorkers     bool          `yaml:"hash-workers" mapstructure:"hash-workers"`
+	NoFlowControl   bool          `yaml:"no-flow-control" mapstructure:"no-flow-control"`
+	ChannelCapacity uint          `yaml:"channel-capacity" mapstructure:"channel-capacity"`
+	InsertIntervals string        `yaml:"insert-intervals" mapstructure:"insert-intervals"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
-	FileName string `yaml:"file"`
-	Seed     int64  `yaml:"seed"`
+	FileName string `yaml:"file" mapstructure:"file"`
+	Seed     int64  `yaml:"seed" mapstructure:"seed"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -79,13 +79,12 @@ type CommonBenchmarkRunner struct {
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton CommonBenchmarkRunner for use in a benchmark program
 // with specified batch size.
-func GetBenchmarkRunner(c *BenchmarkRunnerConfig) BenchmarkRunner {
+func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 	loader := CommonBenchmarkRunner{}
-	loader.BenchmarkRunnerConfig = *c
-
+	loader.BenchmarkRunnerConfig = c
 	// If the configuration batch size is 0 use the default batch size.
-	if c.BatchSize == 0 {
-		c.BatchSize = defaultBatchSize
+	if loader.BatchSize == 0 {
+		loader.BatchSize = defaultBatchSize
 	}
 
 	loader.initialRand = rand.New(rand.NewSource(loader.Seed))

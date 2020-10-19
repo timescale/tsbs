@@ -4,10 +4,6 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
-	internalUtils "github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
-	"github.com/timescale/tsbs/pkg/query/config"
-	"github.com/timescale/tsbs/pkg/query/factories"
 	"io"
 	"math/rand"
 	"os"
@@ -15,6 +11,10 @@ import (
 	"time"
 
 	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/query/config"
+	"github.com/timescale/tsbs/pkg/query/factories"
 )
 
 // Error messages when using a QueryGenerator

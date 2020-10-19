@@ -3,18 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/jackc/pgx/v4"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
-	"log"
-	"strings"
 )
 
 type tableDef struct {
-	schema string
-	name   string
-	tags   []string
-	cols   []string
+	schema   string
+	name     string
+	tags     []string
+	tagTypes []string
+	cols     []string
 }
 
 // fqn returns the fully-qualified name of a table
@@ -70,14 +72,14 @@ func (d *dbCreator) Init() {
 //      nginx,accepts,active,handled,reading,requests,waiting,writing
 func (d *dbCreator) readDataHeader(header *common.GeneratedDataHeaders) ([]*tableDef, error) {
 	var tableDefs []*tableDef
-	tags := header.TagKeys
 	for tableName, fieldCols := range header.FieldKeys {
 		tableDefs = append(
 			tableDefs,
 			&tableDef{
-				name: tableName,
-				tags: tags,
-				cols: fieldCols,
+				name:     tableName,
+				tags:     header.TagKeys,
+				tagTypes: header.TagTypes,
+				cols:     fieldCols,
 			},
 		)
 	}
@@ -99,7 +101,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 
 func (d *dbCreator) createMetricsTable(table *tableDef) error {
 	var tagsObjectChildCols []string
-	for _, column := range table.tags {
+	for i, column := range table.tags {
+		if table.tagTypes[i] != "string" {
+			return fmt.Errorf("cratedb db creator does not support non-string tags")
+		}
 		tagsObjectChildCols = append(
 			tagsObjectChildCols,
 			fmt.Sprintf("%s %s", column, "string"))

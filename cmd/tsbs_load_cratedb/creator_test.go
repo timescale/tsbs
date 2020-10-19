@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
 )
 
 func TestDBCreatorReadDataHeader(t *testing.T) {

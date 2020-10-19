@@ -1,4 +1,4 @@
-package main
+package victoriametrics
 
 // VictoriaMetrics don't have a database abstraction
 type dbCreator struct{}
