@@ -1,7 +1,6 @@
 package prometheus
 
 import (
-	"hash/fnv"
 	"math/rand"
 	"strings"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"github.com/timescale/promscale/pkg/prompb"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
+	"go.uber.org/atomic"
 )
 
 func newSeriesIDPointIndexer(maxIndex uint) targets.PointIndexer {
@@ -21,6 +21,8 @@ func newSeriesIDPointIndexer(maxIndex uint) targets.PointIndexer {
 func newRandomPointIndexer(numPartitions uint) targets.PointIndexer {
 	return &randomPointIndexer{int(numPartitions)}
 }
+
+var lastSeriesID atomic.Uint64
 
 type seriesIDPointIndexer struct {
 	maxIndex   uint
@@ -42,9 +44,8 @@ func (s *seriesIDPointIndexer) GetIndex(item data.LoadedPoint) uint {
 		return index.(uint)
 	}
 
-	hasher := fnv.New32a()
-	_, _ = hasher.Write([]byte(labelString))
-	newIndex := uint(hasher.Sum32()) % s.maxIndex
+	id := lastSeriesID.Inc()
+	newIndex := uint(id) % s.maxIndex
 	s.indexCache.Store(labelString, newIndex)
 	return newIndex
 }
