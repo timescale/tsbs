@@ -116,6 +116,7 @@ type Benchmark struct {
 	adapterWriteUrl string
 	dataSource      targets.DataSource
 	batchPool       *sync.Pool
+	client          *Client
 }
 
 func (pm *Benchmark) GetDataSource() targets.DataSource {
@@ -136,11 +137,14 @@ func (pm *Benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (pm *Benchmark) GetProcessor() targets.Processor {
-	client, err := NewClient(pm.adapterWriteUrl, time.Second*30)
-	if err != nil {
-		panic(err)
+	if pm.client == nil {
+		var err error
+		pm.client, err = NewClient(pm.adapterWriteUrl, time.Second*30)
+		if err != nil {
+			panic(err)
+		}
 	}
-	return &Processor{client: client, batchPool: pm.batchPool}
+	return &Processor{client: pm.client, batchPool: pm.batchPool}
 }
 
 func (pm *Benchmark) GetDBCreator() targets.DBCreator {

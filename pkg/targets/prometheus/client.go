@@ -28,7 +28,20 @@ func NewClient(urlStr string, timeout time.Duration) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	httpClient := &http.Client{Timeout: timeout}
+
+	//options copied from Prometheus
+	var rt http.RoundTripper = &http.Transport{
+		MaxIdleConns:        20000,
+		MaxIdleConnsPerHost: 1000, // see https://github.com/golang/go/issues/13801
+		DisableKeepAlives:   false,
+		DisableCompression:  true,
+		// 5 minutes is typically above the maximum sane scrape interval. So we can
+		// use keepalive for all configurations.
+		IdleConnTimeout:       5 * time.Minute,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	httpClient := &http.Client{Transport: rt, Timeout: timeout}
 	return &Client{url: url, httpClient: httpClient}, nil
 }
 
