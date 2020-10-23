@@ -19,13 +19,13 @@ type fileDataSource struct {
 func (d *fileDataSource) NextItem() data.LoadedPoint {
 	hdr, err := d.reader.Peek(6)
 	if err == io.EOF {
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	nbytes := binary.LittleEndian.Uint16(hdr[4:6])
 	body := make([]byte, nbytes)
 	_, err = io.ReadFull(d.reader, body)
 	if err == io.EOF {
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	return data.NewLoadedPoint(body)
 }

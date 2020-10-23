@@ -34,6 +34,30 @@ func (d *DevopsSimulator) Next(p *data.Point) bool {
 	return d.populatePoint(p, d.simulatedMeasurementIndex)
 }
 
+func (s *DevopsSimulator) TagKeys() []string {
+	tagKeysAsStr := make([]string, len(MachineTagKeys))
+	for i, t := range MachineTagKeys {
+		tagKeysAsStr[i] = string(t)
+	}
+	return tagKeysAsStr
+}
+
+func (s *DevopsSimulator) TagTypes() []string {
+	types := make([]string, len(MachineTagKeys))
+	for i := 0; i < len(MachineTagKeys); i++ {
+		types[i] = machineTagType.String()
+	}
+	return types
+}
+
+func (d *DevopsSimulator) Headers() *common.GeneratedDataHeaders {
+	return &common.GeneratedDataHeaders{
+		TagTypes:  d.TagTypes(),
+		TagKeys:   d.TagKeys(),
+		FieldKeys: d.Fields(),
+	}
+}
+
 // DevopsSimulatorConfig is used to create a DevopsSimulator.
 type DevopsSimulatorConfig commonDevopsSimulatorConfig
 

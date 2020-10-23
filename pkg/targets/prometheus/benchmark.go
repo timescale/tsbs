@@ -43,7 +43,7 @@ func NewBenchmark(promSpecificConfig *SpecificConfig, dataSourceConfig *source.D
 	}, nil
 }
 
-// Batch implements load.Batch interface
+// Batch implements targets.Batch interface
 type Batch struct {
 	series []prompb.TimeSeries
 }
@@ -71,7 +71,7 @@ func (pd *FileDataSource) NextItem() data.LoadedPoint {
 		}
 		return data.NewLoadedPoint(ts)
 	}
-	return data.LoadedPoint{Data: nil}
+	return data.LoadedPoint{}
 }
 
 func (pd *FileDataSource) Headers() *common.GeneratedDataHeaders {
@@ -124,9 +124,7 @@ func (pm *Benchmark) GetDataSource() targets.DataSource {
 }
 
 func (pm *Benchmark) GetBatchFactory() targets.BatchFactory {
-	return &BatchFactory{
-		batchPool: pm.batchPool,
-	}
+	return &BatchFactory{batchPool: pm.batchPool}
 }
 
 func (pm *Benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {

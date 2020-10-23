@@ -173,7 +173,7 @@ func (d *testDataSource) NextItem() data.LoadedPoint {
 	b, err := d.br.ReadByte()
 	if err != nil {
 		if err == io.EOF {
-			return data.LoadedPoint{Data: nil}
+			return data.LoadedPoint{}
 		}
 		panic(err)
 	}

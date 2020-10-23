@@ -68,10 +68,10 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 
 	// split a point record into a measurement type, timestamp, tags,
@@ -79,7 +79,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	parts := strings.SplitN(d.scanner.Text(), "\t", 4)
 	if len(parts) != 4 {
 		fatal("incorrect point format, some fields are missing")
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	table := parts[0]
 	tags := []byte(parts[1])
@@ -87,13 +87,13 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	metrics, err := parseMetrics(strings.Split(parts[3], "\t"))
 	if err != nil {
 		fatal("cannot parse metrics: %v", err)
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 
 	ts, err := parseTime(parts[2])
 	if err != nil {
 		fatal("cannot parse timestamp: %v", err)
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 
 	row := append(row{tags, ts}, metrics...)

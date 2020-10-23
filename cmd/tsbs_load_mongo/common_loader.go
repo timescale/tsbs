@@ -25,7 +25,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 
 	_, err := d.r.Read(d.lenBuf)
 	if err == io.EOF {
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	if err != nil {
 		log.Fatal(err.Error())
