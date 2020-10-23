@@ -25,10 +25,10 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil {
 		// nothing scanned & no error = EOF
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"
@@ -38,7 +38,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	prefix := parts[0]
 	if prefix != tagsPrefix {
 		fatal("data file in invalid format; got %s expected %s", prefix, tagsPrefix)
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	newPoint.tags = parts[1]
 
@@ -47,7 +47,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok = d.scanner.Scan()
 	if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	parts = strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix = parts[0]

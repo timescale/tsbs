@@ -12,6 +12,7 @@ const (
 	FormatCrateDB         = "cratedb"
 	FormatPrometheus      = "prometheus"
 	FormatVictoriaMetrics = "victoriametrics"
+	FormatTimestream      = "timestream"
 )
 
 func SupportedFormats() []string {
@@ -26,5 +27,6 @@ func SupportedFormats() []string {
 		FormatCrateDB,
 		FormatPrometheus,
 		FormatVictoriaMetrics,
+		FormatTimestream,
 	}
 }

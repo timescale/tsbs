@@ -14,7 +14,7 @@ type fileDataSource struct {
 func (f fileDataSource) NextItem() data.LoadedPoint {
 	ok := f.scanner.Scan()
 	if !ok && f.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	} else if !ok {
 		log.Fatalf("scan error: %v", f.scanner.Err())
 	}

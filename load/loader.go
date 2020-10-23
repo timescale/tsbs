@@ -212,7 +212,11 @@ func (l *CommonBenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 
 		switch dbcp := dbc.(type) {
 		case targets.DBCreatorPost:
-			dbcp.PostCreateDB(l.DBName)
+			err := dbcp.PostCreateDB(l.DBName)
+			if err != nil {
+				log.Println("could not execute PostCreateDB:" + err.Error())
+				panic(err)
+			}
 		}
 	}
 	return closeFn

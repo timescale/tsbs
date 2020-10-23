@@ -55,34 +55,6 @@ func MustConnect(dbType, connStr string) *sql.DB {
 	return db
 }
 
-// MustExec executes query or exits on error
-func MustExec(db *sql.DB, query string, args ...interface{}) sql.Result {
-	r, err := db.Exec(query, args...)
-	if err != nil {
-		fmt.Printf("could not execute sql: %s", query)
-		panic(err)
-	}
-	return r
-}
-
-// MustQuery executes query or exits on error
-func MustQuery(db *sql.DB, query string, args ...interface{}) *sql.Rows {
-	r, err := db.Query(query, args...)
-	if err != nil {
-		panic(err)
-	}
-	return r
-}
-
-// MustBegin starts transaction or exits on error
-func MustBegin(db *sql.DB) *sql.Tx {
-	tx, err := db.Begin()
-	if err != nil {
-		panic(err)
-	}
-	return tx
-}
-
 func (d *dbCreator) DBExists(dbName string) bool {
 	db := MustConnect(d.driver, d.connStr)
 	defer db.Close()
@@ -264,6 +236,34 @@ func extractTagNamesAndTypes(tags []string) ([]string, []string) {
 	}
 
 	return tagNames, tagTypes
+}
+
+// MustExec executes query or exits on error
+func MustExec(db *sql.DB, query string, args ...interface{}) sql.Result {
+	r, err := db.Exec(query, args...)
+	if err != nil {
+		fmt.Printf("could not execute sql: %s", query)
+		panic(err)
+	}
+	return r
+}
+
+// MustQuery executes query or exits on error
+func MustQuery(db *sql.DB, query string, args ...interface{}) *sql.Rows {
+	r, err := db.Query(query, args...)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// MustBegin starts transaction or exits on error
+func MustBegin(db *sql.DB) *sql.Tx {
+	tx, err := db.Begin()
+	if err != nil {
+		panic(err)
+	}
+	return tx
 }
 
 func serializedTypeToPgType(serializedType string) string {

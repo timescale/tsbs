@@ -20,7 +20,6 @@ type fileDataSource struct {
 	headers *common.GeneratedDataHeaders
 }
 
-const tagsPrefix = tagsKey
 
 func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 	// headers are read from the input file, and should be read first
@@ -80,23 +79,23 @@ func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 func (d *fileDataSource) NextItem() data.LoadedPoint {
 	if d.headers == nil {
 		fatal("headers not read before starting to decode points")
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	newPoint := &insertData{}
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 
 	// The first line is a CSV line of tags with the first element being "tags"
 	parts := strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix := parts[0]
-	if prefix != tagsPrefix {
-		fatal("data file in invalid format; got %s expected %s", prefix, tagsPrefix)
-		return data.LoadedPoint{Data: nil}
+	if prefix != tagsKey {
+		fatal("data file in invalid format; got %s expected %s", prefix, tagsKey)
+		return data.LoadedPoint{}
 	}
 	newPoint.tags = parts[1]
 
@@ -104,7 +103,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok = d.scanner.Scan()
 	if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return data.LoadedPoint{Data: nil}
+		return data.LoadedPoint{}
 	}
 	parts = strings.SplitN(d.scanner.Text(), ",", 2) // prefix & then rest of line
 	prefix = parts[0]
