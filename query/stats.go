@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 	"sync"
-	"github.com/filipecosta90/hdrhistogram"
+	"github.com/HdrHistogram/hdrhistogram-go"
 )
 
 var (
