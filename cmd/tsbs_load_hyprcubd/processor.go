@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -61,11 +60,12 @@ func newTableBatch(name string) *tableBatch {
 		first:  true,
 	}
 
-	tb.stmt.WriteString("INSERT INTO " + name + " (time")
+	tb.stmt.WriteString("INSERT INTO " + name + " (time time")
 
 	for _, col := range tb.schema.cols {
 		tb.stmt.WriteString(",")
 		tb.stmt.WriteString(col.name)
+		tb.stmt.WriteString(" " + col.colType)
 	}
 
 	tb.stmt.WriteString(",tags) VALUES ")
@@ -85,21 +85,9 @@ func (tb *tableBatch) build(p *point) {
 	}
 
 	tb.stmt.WriteString(fmt.Sprintf("'%s'", p.ts.Format(time.RFC3339)))
-	tb.stmt.WriteString("," + strings.Join(p.vals[1:], ","))
-
-	tags := map[string]interface{}{}
-	for _, tag := range p.tags {
-		tags[tag.key] = tag.value
-	}
-
-	out, err := json.Marshal(tags)
-	if err != nil {
-		panic(err)
-	}
-
-	tb.stmt.WriteString(",'")
-	tb.stmt.Write(out)
-	tb.stmt.WriteString("')")
+	tb.stmt.WriteString("," + strings.Join(p.vals[1:], ",") + ",")
+	tb.stmt.WriteString(p.TagsToString())
+	tb.stmt.WriteString(")")
 }
 
 func (tb *tableBatch) string() string {

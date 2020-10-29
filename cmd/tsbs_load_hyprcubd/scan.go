@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -75,9 +76,17 @@ func decodeTags(s string) []tag {
 	parts := strings.Split(s, ",")
 	for _, p := range parts {
 		kv := strings.Split(p, "=")
+
+		value := "'" + kv[1] + "'"
+		_, err := strconv.ParseFloat(kv[1], 64)
+		if err == nil {
+			// No quotes around numbers
+			value = kv[1]
+		}
+
 		tags = append(tags, tag{
 			key:   kv[0],
-			value: kv[1],
+			value: value,
 		})
 	}
 
@@ -89,9 +98,26 @@ type tag struct {
 	value string
 }
 
+func (t tag) ToString() string {
+	return fmt.Sprintf("%s=%s", t.key, t.value)
+}
+
 type point struct {
 	table string
 	ts    time.Time
 	tags  []tag
 	vals  []string
+}
+
+func (p point) TagsToString() string {
+	var s strings.Builder
+	s.WriteString("[")
+	for i, t := range p.tags {
+		if i > 0 {
+			s.WriteString(",")
+		}
+		s.WriteString(t.ToString())
+	}
+	s.WriteString("]")
+	return s.String()
 }

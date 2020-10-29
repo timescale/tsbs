@@ -119,18 +119,7 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 
 	for _, t := range d.tables {
 		var stmt strings.Builder
-		stmt.WriteString("create table " + t.name + " (time time, ")
-
-		if len(d.tags) > 0 {
-			stmt.WriteString("tags JSON")
-		}
-
-		for _, c := range t.cols {
-			stmt.WriteString(", " + c.name + " " + c.colType)
-		}
-
-		stmt.WriteString(")")
-		log.Println(stmt.String())
+		stmt.WriteString("create table " + t.name)
 
 		wg.Add(1)
 		go func(s string) {
