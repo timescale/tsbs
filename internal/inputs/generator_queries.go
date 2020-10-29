@@ -15,6 +15,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/hyprcubd"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
@@ -219,6 +220,11 @@ func (g *QueryGenerator) initFactories() error {
 
 	cratedb := &cratedb.BaseGenerator{}
 	if err := g.addFactory(FormatCrateDB, cratedb); err != nil {
+		return err
+	}
+
+	hyprcubd := &hyprcubd.BaseGenerator{}
+	if err := g.addFactory(FormatHyprcubd, hyprcubd); err != nil {
 		return err
 	}
 
