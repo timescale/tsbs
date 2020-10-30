@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func OpenAWSSession(config *SpecificConfig) (*session.Session, error) {
+func OpenAWSSession(awsRegion *string) (*session.Session, error) {
 	tr := &http.Transport{
 		ResponseHeaderTimeout: 20 * time.Second,
 		// Using DefaultTransport values for other parameters: https://golang.org/pkg/net/http/#RoundTripper
@@ -28,7 +28,7 @@ func OpenAWSSession(config *SpecificConfig) (*session.Session, error) {
 
 	}
 	return session.NewSession(&aws.Config{
-		Region:     &config.AwsRegion,
+		Region:     awsRegion,
 		MaxRetries: aws.Int(10),
 		HTTPClient: &http.Client{Transport: tr}})
 }

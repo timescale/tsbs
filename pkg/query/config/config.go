@@ -62,5 +62,5 @@ func (c *QueryGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
 	fs.Bool("timescale-use-time-bucket", true, "TimescaleDB only: Use time bucket. Set to false to test on native PostgreSQL")
 
-	fs.String("db-name", "benchmarks", "Specify database name. Timestream requires it in order to generate the queries")
+	fs.String("db-name", "benchmark", "Specify database name. Timestream requires it in order to generate the queries")
 }

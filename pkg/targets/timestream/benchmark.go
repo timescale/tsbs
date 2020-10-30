@@ -24,7 +24,7 @@ type benchmark struct {
 }
 
 func newBenchmark(targetDb string, config *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
-	awsSession, err := OpenAWSSession(config)
+	awsSession, err := OpenAWSSession(&config.AwsRegion)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create timestream load benchmark")
 	}
