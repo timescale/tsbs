@@ -247,7 +247,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			avg (case when measure_name = 'usage_user' THEN measure_value::double ELSE NULL END) as mean_usage_user
 		FROM "b"."cpu"
 		WHERE time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 12:16:22.646325 +0000'
-		GROUP BY hour, hostname`,
+		GROUP BY 1, 2`,
 			numMetrics: 1,
 		}, {
 			desc:               "3 metric",
@@ -262,7 +262,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			avg (case when measure_name = 'usage_idle' THEN measure_value::double ELSE NULL END) as mean_usage_idle
 		FROM "b"."cpu"
 		WHERE time >= '1970-01-01 00:54:10.138978 +0000' AND time < '1970-01-01 12:54:10.138978 +0000'
-		GROUP BY hour, hostname`,
+		GROUP BY 1, 2`,
 			numMetrics: 3,
 		},
 	}
@@ -399,7 +399,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			SELECT time, 
 				hostname
 			FROM "b"."cpu"
-			WHERE measure_name = 'usage_user' AND measure_value > 90
+			WHERE measure_name = 'usage_user' AND measure_value::double > 90
 				AND time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 12:16:22.646325 +0000'
 				
 		)
@@ -418,7 +418,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			SELECT time, 
 				hostname
 			FROM "b"."cpu"
-			WHERE measure_name = 'usage_user' AND measure_value > 90
+			WHERE measure_name = 'usage_user' AND measure_value::double > 90
 				AND time >= '1970-01-01 00:47:30.894865 +0000' AND time < '1970-01-01 12:47:30.894865 +0000'
 				AND (hostname = 'host_9')
 		)
@@ -437,7 +437,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			SELECT time, 
 				hostname
 			FROM "b"."cpu"
-			WHERE measure_name = 'usage_user' AND measure_value > 90
+			WHERE measure_name = 'usage_user' AND measure_value::double > 90
 				AND time >= '1970-01-01 00:08:59.080812 +0000' AND time < '1970-01-01 12:08:59.080812 +0000'
 				AND (hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2')
 		)
