@@ -9,6 +9,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timestream"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/victoriametrics"
 	"github.com/timescale/tsbs/pkg/query/config"
 	"github.com/timescale/tsbs/pkg/targets/constants"
@@ -33,5 +34,8 @@ func InitQueryFactories(config *config.QueryGeneratorConfig) map[string]interfac
 	}
 	factories[constants.FormatAkumuli] = &akumuli.BaseGenerator{}
 	factories[constants.FormatVictoriaMetrics] = &victoriametrics.BaseGenerator{}
+	factories[constants.FormatTimestream] = &timestream.BaseGenerator{
+		DBName: config.DbName,
+	}
 	return factories
 }
