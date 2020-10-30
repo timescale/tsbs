@@ -157,7 +157,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 			%s
 		FROM "%s"."cpu"
 		WHERE time >= '%s' AND time < '%s'
-		GROUP BY hour, hostname`,
+		GROUP BY 1, 2`,
 		d.getTimeBucket(oneHour),
 		strings.Join(selectClauses, ",\n\t\t\t"),
 		d.DBName,
@@ -245,7 +245,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 			SELECT time, 
 				hostname
 			FROM "%s"."cpu"
-			WHERE measure_name = 'usage_user' AND measure_value > 90
+			WHERE measure_name = 'usage_user' AND measure_value::double > 90
 				AND time >= '%s' AND time < '%s'
 				%s
 		)

@@ -94,8 +94,10 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 			TableName: &tableName,
 		}
 		_, err := d.writeSvc.CreateTable(createTableInput)
-		if err != nil {
+		if _, ok := err.(*timestreamwrite.ConflictException); !ok {
 			return errors.Wrap(err, "could not create table '"+tableName+"': ")
+		} else {
+			log.Println("Table " + tableName + " exists, skipping create")
 		}
 	}
 
