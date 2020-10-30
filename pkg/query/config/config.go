@@ -27,7 +27,8 @@ type QueryGeneratorConfig struct {
 
 	ClickhouseUseTags bool `mapstructure:"clickhouse-use-tags"`
 
-	MongoUseNaive bool `mapstructure:"mongo-use-native"`
+	MongoUseNaive bool   `mapstructure:"mongo-use-native"`
+	DbName        string `mapstructure:"db-name"`
 }
 
 // Validate checks that the values of the QueryGeneratorConfig are reasonable.
@@ -60,4 +61,6 @@ func (c *QueryGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
 	fs.Bool("timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
 	fs.Bool("timescale-use-time-bucket", true, "TimescaleDB only: Use time bucket. Set to false to test on native PostgreSQL")
+
+	fs.String("db-name", "benchmarks", "Specify database name. Timestream requires it in order to generate the queries")
 }
