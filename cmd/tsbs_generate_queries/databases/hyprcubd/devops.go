@@ -18,6 +18,9 @@ type Devops struct {
 // getHostsExpression selects nHosts random hosts and builds an or group
 // e.g. (hostname = 'host_0' or hostname = 'host_1')
 func (d *Devops) getHostsExpression(nHosts int) string {
+	if nHosts == 0 {
+		return ""
+	}
 	var s strings.Builder
 	s.WriteString("(")
 	hosts, err := d.GetRandomHosts(nHosts)
@@ -124,4 +127,59 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qq query.Query, numMetrics int) {
 	humanLabel := devops.GetDoubleGroupByLabel("Hyprcubd", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qq, humanLabel, humanDesc, sql.String())
+}
+
+// HighCPUForHosts - satisfies
+// high-cpu-all
+// high-cpu-1
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	var hostWhereClause string
+	// nHosts is 0 for high-cpu-all
+	if nHosts == 0 {
+		hostWhereClause = "TRUE"
+	} else {
+		hostWhereClause = d.getHostsExpression(nHosts)
+	}
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
+
+	sql := fmt.Sprintf(`SELECT time, hostname, %s FROM cpu
+		WHERE usage_user > 90.0 and time >= '%s' AND time < '%s' AND %s`,
+		strings.Join(devops.GetAllCPUMetrics(), ", "),
+		interval.Start().Format(time.RFC3339Nano),
+		interval.End().Format(time.RFC3339Nano),
+		hostWhereClause)
+
+	humanLabel, err := devops.GetHighCPULabel("Hyprcubd", nHosts)
+	if err != nil {
+		panic(err)
+	}
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// LastPointPerHost satisifies the following queries:
+// lastpoint
+func (d *Devops) LastPointPerHost(qi query.Query) {
+	humanLabel := "Hyprcubd last row per host"
+	humanDesc := humanLabel
+
+	sql := "select time, hostname, last(usage_user) from cpu group by hostname"
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// GroupByOrderByLimit satisfies the following queries:
+// groupby-orderby-limit
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
+	interval := d.Interval.MustRandWindow(time.Hour)
+	sql := fmt.Sprintf(`SELECT time, max(usage_user)
+        FROM cpu
+        WHERE time < '%s'
+		TIMESERIES 1m
+        ORDER BY time DESC
+		LIMIT 5`,
+		interval.End().Format(time.RFC3339Nano))
+
+	humanLabel := "Hyprcubd max cpu over last 5 min-intervals (random end)"
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.EndString())
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
