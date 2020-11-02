@@ -33,7 +33,7 @@ func (d *Devops) getHostsExpression(nHosts int) string {
 		}
 		s.WriteString(fmt.Sprintf("hostname = '%s'", h))
 	}
-	s.WriteString(") ")
+	s.WriteString(")")
 	return s.String()
 }
 
@@ -76,6 +76,9 @@ func (d *Devops) GroupByTime(qq query.Query, nHosts, numMetrics int, timeRange t
 // cpu-max-all-1
 // cpu-max-all-8
 func (d *Devops) MaxAllCPU(qq query.Query, nHosts int) {
+	if nHosts == 0 {
+		panic("number of hosts cannot be < 1; got 0")
+	}
 	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
 	metrics := devops.GetAllCPUMetrics()
 	hostExpr := d.getHostsExpression(nHosts)
@@ -133,6 +136,9 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qq query.Query, numMetrics int) {
 // high-cpu-all
 // high-cpu-1
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	if nHosts < 0 {
+		panic(fmt.Sprintf("number of hosts cannot be < 1; got %d", nHosts))
+	}
 	var hostWhereClause string
 	// nHosts is 0 for high-cpu-all
 	if nHosts == 0 {
@@ -161,7 +167,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 // lastpoint
 func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Hyprcubd last row per host"
-	humanDesc := humanLabel
+	humanDesc := humanLabel + ": cpu"
 
 	sql := "select time, hostname, last(usage_user) from cpu group by hostname"
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
