@@ -10,6 +10,7 @@ Current databases supported:
 + Cassandra [(supplemental docs)](docs/cassandra.md)
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + CrateDB [(supplemental docs)](docs/cratedb.md)
++ Hyprcubd [(supplemental docs)](docs/hyprcubd.md)
 + InfluxDB [(supplemental docs)](docs/influx.md)
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
@@ -72,6 +73,7 @@ cases are implemented for each database:
 |Cassandra|X||
 |ClickHouse|X||
 |CrateDB|X||
+|Hyprcubd|X||
 |InfluxDB|X|X|
 |MongoDB|X|
 |SiriDB|X|
@@ -142,7 +144,7 @@ Variables needed:
 1. an end time. E.g., `2016-01-04T00:00:00Z`
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
- (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `siridb`,
+ (choose from `cassandra`, `clickhouse`, `cratedb`, `hyprcubd`, `influx`, `mongo`, `siridb`,
   `timescaledb` or `victoriametrics`)
 
 Given the above steps you can now generate a dataset (or multiple
