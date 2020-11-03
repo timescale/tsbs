@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -22,7 +23,10 @@ import (
 
 // Global vars:
 var (
-	runner *query.BenchmarkRunner
+	runner    *query.BenchmarkRunner
+	hyprToken string
+	db        string
+	host      string
 )
 
 type httpQuery struct {
@@ -35,9 +39,8 @@ func init() {
 	var config query.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
-	// pflag.String("urls", "http://localhost:8428",
-	// 	"Comma-separated list of Hyprcubd ingestion URLs(single-node or VMSelect)")
-
+	pflag.String("token", "", "API token for Hyprcubd")
+	pflag.String("host", "https://api.hyprcubd.com", "")
 	pflag.Parse()
 
 	if err := utils.SetupConfigFile(); err != nil {
@@ -46,6 +49,17 @@ func init() {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
+
+	hyprToken = viper.GetString("token")
+	if len(hyprToken) == 0 {
+		log.Fatalf("missing `token` flag")
+	}
+
+	db = viper.GetString("db-name")
+	if len(db) == 0 {
+		log.Fatalf("missing `db` flag")
+	}
+	host = viper.GetString("host")
 
 	runner = query.NewBenchmarkRunner(config)
 }
@@ -83,11 +97,23 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 }
 
 func (p *processor) do(q *query.HTTP) (float64, error) {
+
+	data, err := json.Marshal(&httpQuery{
+		Database: db,
+		Query:    string(q.RawQuery),
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	log.Println(host + "/v1/query")
+
 	// populate a request with data from the Query:
-	req, err := http.NewRequest(string(q.Method), p.url+string(q.Path), nil)
+	req, err := http.NewRequest(string(q.Method), host+"/v1/query", bytes.NewReader(data))
 	if err != nil {
 		return 0, fmt.Errorf("error while creating request: %s", err)
 	}
+	req.Header.Add("Authorization", "Bearer "+hyprToken)
 
 	start := time.Now()
 	resp, err := http.DefaultClient.Do(req)
