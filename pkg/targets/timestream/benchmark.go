@@ -3,7 +3,6 @@ package timestream
 import (
 	"bufio"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/timestreamwrite"
 	"github.com/pkg/errors"
 	"github.com/timescale/tsbs/internal/inputs"
@@ -20,14 +19,9 @@ type benchmark struct {
 	ds           targets.DataSource
 	targetDb     string
 	batchFactory *batchFactory
-	awsSession   *session.Session
 }
 
 func newBenchmark(targetDb string, config *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
-	awsSession, err := OpenAWSSession(&config.AwsRegion)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create timestream load benchmark")
-	}
 	ds, err := initDataSource(dataSourceConfig, config.UseCurrentTime)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create data source")
@@ -36,7 +30,6 @@ func newBenchmark(targetDb string, config *SpecificConfig, dataSourceConfig *sou
 		config:       config,
 		ds:           ds,
 		batchFactory: NewBatchFactory(),
-		awsSession:   awsSession,
 		targetDb:     targetDb,
 	}, nil
 }
@@ -59,27 +52,35 @@ func (b benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (b benchmark) GetProcessor() targets.Processor {
+	awsSession, err := OpenAWSSession(&b.config.AwsRegion)
+	if err != nil {
+		panic("could not open aws session")
+	}
 	if b.config.UseCommonAttributes {
 		return &commonDimensionsProcessor{
 			dbName:       b.targetDb,
 			batchPool:    b.batchFactory.pool,
 			headers:      b.ds.Headers(),
-			writeService: timestreamwrite.New(b.awsSession),
+			writeService: timestreamwrite.New(awsSession),
 		}
 	}
 
 	return &eachValueARecordProcessor{
 		batchPool:    b.batchFactory.pool,
-		writeService: timestreamwrite.New(b.awsSession),
+		writeService: timestreamwrite.New(awsSession),
 		headers:      b.ds.Headers(),
 		dbName:       b.targetDb,
 	}
 }
 
 func (b benchmark) GetDBCreator() targets.DBCreator {
+	awsSession, err := OpenAWSSession(&b.config.AwsRegion)
+	if err != nil {
+		panic("could not open aws session")
+	}
 	return &dbCreator{
 		ds:                                 b.ds,
-		writeSvc:                           timestreamwrite.New(b.awsSession),
+		writeSvc:                           timestreamwrite.New(awsSession),
 		magneticStoreRetentionPeriodInDays: b.config.MagStoreRetentionInDays,
 		memoryRetentionPeriodInHours:       b.config.MemStoreRetentionInHours,
 	}
