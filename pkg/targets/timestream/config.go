@@ -36,7 +36,7 @@ func targetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
 	)
 	flagSet.Bool(
 		flagPrefix+"use-current-time",
-		true,
+		false,
 		"Use the local current timestamp when generating the records to load")
 	flagSet.Int64(
 		"mag-store-retention-in-days",
