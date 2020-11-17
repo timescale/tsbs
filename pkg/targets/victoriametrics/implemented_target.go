@@ -31,7 +31,7 @@ func (vm vmTarget) Serializer() serialize.PointSerializer {
 }
 
 func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
-	pflag.String(
+	flagSet.String(
 		flagPrefix+"urls",
 		"http://localhost:8428/write",
 		"Comma-separated list of VictoriaMetrics ingestion URLs(single-node or VMInsert)",
