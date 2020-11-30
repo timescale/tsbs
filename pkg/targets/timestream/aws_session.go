@@ -9,14 +9,14 @@ import (
 	"time"
 )
 
-func OpenAWSSession(awsRegion *string) (*session.Session, error) {
+func OpenAWSSession(awsRegion *string, timeout time.Duration) (*session.Session, error) {
 	tr := &http.Transport{
 		ResponseHeaderTimeout: 20 * time.Second,
 		// Using DefaultTransport values for other parameters: https://golang.org/pkg/net/http/#RoundTripper
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			KeepAlive: 30 * time.Second,
-			Timeout:   30 * time.Second,
+			Timeout:   timeout,
 		}).DialContext,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,

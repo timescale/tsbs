@@ -9,7 +9,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/timestreamquery"
 	"github.com/timescale/tsbs/pkg/targets/timestream"
 	"time"
@@ -24,7 +23,8 @@ import (
 
 // Program option vars:
 var (
-	awsRegion string
+	awsRegion    string
+	queryTimeout time.Duration
 )
 
 // Global vars:
@@ -38,6 +38,7 @@ func init() {
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("aws-region", "us-east-1", "Region where the database is")
+	pflag.Duration("query-timeout", time.Minute, "Configuration for aws sdk client to timeout after")
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -50,7 +51,7 @@ func init() {
 	}
 
 	awsRegion = viper.GetString("aws-region")
-
+	queryTimeout = viper.GetDuration("query-timeout")
 	runner = query.NewBenchmarkRunner(config)
 }
 
@@ -97,21 +98,20 @@ type queryExecutorOptions struct {
 }
 
 type processor struct {
-	awsSession *session.Session
-	_opts      *queryExecutorOptions
-	_readSvc   *timestreamquery.TimestreamQuery
+	_opts    *queryExecutorOptions
+	_readSvc *timestreamquery.TimestreamQuery
 }
 
 func newProcessor() query.Processor {
-	awsSession, err := timestream.OpenAWSSession(&awsRegion)
-	if err != nil {
-		panic("could not open aws session")
-	}
-	return &processor{awsSession: awsSession}
+	return &processor{}
 }
 
 func (p *processor) Init(_ int) {
-	p._readSvc = timestreamquery.New(p.awsSession)
+	awsSession, err := timestream.OpenAWSSession(&awsRegion, queryTimeout)
+	if err != nil {
+		panic("could not open aws session")
+	}
+	p._readSvc = timestreamquery.New(awsSession)
 	p._opts = &queryExecutorOptions{
 		debug:         runner.DebugLevel() > 0,
 		printResponse: runner.DoPrintResponses(),
