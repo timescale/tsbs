@@ -12,6 +12,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/common"
 	"log"
+	"time"
 )
 
 type benchmark struct {
@@ -52,7 +53,7 @@ func (b benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (b benchmark) GetProcessor() targets.Processor {
-	awsSession, err := OpenAWSSession(&b.config.AwsRegion)
+	awsSession, err := OpenAWSSession(&b.config.AwsRegion, time.Minute)
 	if err != nil {
 		panic("could not open aws session")
 	}
@@ -74,7 +75,7 @@ func (b benchmark) GetProcessor() targets.Processor {
 }
 
 func (b benchmark) GetDBCreator() targets.DBCreator {
-	awsSession, err := OpenAWSSession(&b.config.AwsRegion)
+	awsSession, err := OpenAWSSession(&b.config.AwsRegion, time.Minute)
 	if err != nil {
 		panic("could not open aws session")
 	}
