@@ -14,7 +14,7 @@ Current databases supported:
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
-+ Timestream [(suplemental docs)](docs/timestream.md)
++ Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
 
 ## Overview
