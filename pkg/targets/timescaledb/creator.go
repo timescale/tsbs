@@ -3,10 +3,11 @@ package timescaledb
 import (
 	"database/sql"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/timescale/tsbs/pkg/targets"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
@@ -169,11 +170,19 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 		MustExec(dbBench, indexDef)
 	}
 
-	if d.opts.UseHypertable {
+	if d.opts.UseHypertable || d.opts.UseDistributedHypertable {
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-		MustExec(dbBench,
-			fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				tableName, "tags_id", d.opts.NumberPartitions, d.opts.ChunkTime.Nanoseconds()/1000))
+
+		if d.opts.UseHypertable {
+			MustExec(dbBench,
+				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+					tableName, "tags_id", d.opts.NumberPartitions, d.opts.ChunkTime.Nanoseconds()/1000))
+		} else {
+			MustExec(dbBench,
+				fmt.Sprintf("SELECT create_distributed_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+					tableName, "tags_id", d.opts.NumberPartitions, d.opts.ChunkTime.Nanoseconds()/1000))
+
+		}
 	}
 }
 

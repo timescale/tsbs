@@ -16,10 +16,11 @@ type LoadingOptions struct {
 	Port            string
 	ConnDB          string `yaml:"admin-db-name" mapstructure:"admin-db-name"`
 
-	UseHypertable bool `yaml:"use-hypertable" mapstructure:"use-hypertable"`
-	LogBatches    bool `yaml:"log-batches" mapstructure:"log-batches"`
-	UseJSON       bool `yaml:"use-jsonb-tags" mapstructure:"use-jsonb-tags"`
-	InTableTag    bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
+	UseHypertable            bool `yaml:"use-hypertable" mapstructure:"use-hypertable"`
+	UseDistributedHypertable bool `yaml:"use-distributed-hypertable" mapstructure:"use-distributed-hypertable"`
+	LogBatches               bool `yaml:"log-batches" mapstructure:"log-batches"`
+	UseJSON                  bool `yaml:"use-jsonb-tags" mapstructure:"use-jsonb-tags"`
+	InTableTag               bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
 
 	NumberPartitions int           `yaml:"partitions" mapstructure:"partitions"`
 	ChunkTime        time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`

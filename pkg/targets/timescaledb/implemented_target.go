@@ -1,13 +1,14 @@
 package timescaledb
 
 import (
+	"time"
+
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/constants"
-	"time"
 )
 
 func NewTarget() targets.ImplementedTarget {
@@ -48,6 +49,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"log-batches", false, "Whether to time individual batches.")
 
 	flagSet.Bool(flagPrefix+"use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
+	flagSet.Bool(flagPrefix+"use-distributed-hypertable", false, "Whether to make the table a distributed hypertable when using a multi-node cluster. If both 'use-hypertable' and 'use-distributed-hypertable' are used, 'use-hypertable' takes precident.")
 	flagSet.Bool(flagPrefix+"use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flagSet.Bool(flagPrefix+"in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 
