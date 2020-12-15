@@ -254,7 +254,7 @@ func TestUseDBCreator(t *testing.T) {
 			} else if !c.doPost && core.postCalled {
 				t.Errorf("%s: doPost is false but PostCreateDB was called", c.desc)
 			}
-		} else if core.initCalled {
+		} else if !core.initCalled {
 			t.Errorf("%s: doLoad is false but Init not called", c.desc)
 		}
 
