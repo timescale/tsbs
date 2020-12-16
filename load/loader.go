@@ -183,11 +183,11 @@ func (l *CommonBenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 		// DBCreator should still be Init'd even if -do-create-db is false since
 		// it can initialize the connecting session
 		dbc.Init()
-
-		switch dbcc := dbc.(type) {
-		case targets.DBCreatorCloser:
-			closeFn = dbcc.Close
-		}
+		
+		//switch dbcc := dbc.(type) {
+		//case targets.DBCreatorCloser:
+		//	closeFn = dbcc.Close
+		//}
 
 		// Check whether required DB already exists
 		exists := dbc.DBExists(l.DBName)
