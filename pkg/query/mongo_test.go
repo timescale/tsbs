@@ -3,7 +3,7 @@ package query
 import (
 	"testing"
 
-	"github.com/globalsign/mgo/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestNewMongo(t *testing.T) {

@@ -122,11 +122,11 @@ func (l *CommonBenchmarkRunner) DatabaseName() string {
 	return l.DBName
 }
 
-func (l *CommonBenchmarkRunner) preRun(b targets.Benchmark) (*sync.WaitGroup, *time.Time) {
+func (l *CommonBenchmarkRunner) preRun(b targets.Benchmark) (*sync.WaitGroup, *time.Time, func()) {
 	// Create required DB
+	var cleanupFn func()
 	if b.GetDBCreator() != nil {
-		cleanupFn := l.useDBCreator(b.GetDBCreator())
-		defer cleanupFn()
+		cleanupFn = l.useDBCreator(b.GetDBCreator())
 	}
 
 	if l.ReportingPeriod.Nanoseconds() > 0 {
@@ -135,7 +135,7 @@ func (l *CommonBenchmarkRunner) preRun(b targets.Benchmark) (*sync.WaitGroup, *t
 	wg := &sync.WaitGroup{}
 	wg.Add(int(l.Workers))
 	start := time.Now()
-	return wg, &start
+	return wg, &start, cleanupFn
 }
 
 func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
@@ -181,7 +181,7 @@ func (l *CommonBenchmarkRunner) saveTestResult(took time.Duration, start time.Ti
 
 // RunBenchmark takes in a Benchmark b and uses it to run the load benchmark
 func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
-	wg, start := l.preRun(b)
+	wg, start, cleanupFn := l.preRun(b)
 	var numChannels, capacity uint
 	if l.HashWorkers {
 		numChannels = l.Workers
@@ -207,6 +207,7 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		c.close()
 	}
 
+	cleanupFn()
 	l.postRun(wg, start)
 }
 
