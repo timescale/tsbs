@@ -61,9 +61,10 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 func (d *dbCreator) CreateDB(dbName string) error {
 	defer d.globalSession.Close()
 	replicationConfiguration := fmt.Sprintf("{ 'class': 'SimpleStrategy', 'replication_factor': %d }", d.replicationFactor)
-	if err := d.globalSession.Query(fmt.Sprintf("create keyspace %s with replication = %s;", dbName, replicationConfiguration)).Exec(); err != nil {
-		return err
-	}
+	//if err := d.globalSession.Query(fmt.Sprintf("create keyspace %s with replication = %s;", dbName, replicationConfiguration)).Exec(); err != nil {
+	//	return err
+	//}
+	d.globalSession.Query(fmt.Sprintf("create keyspace %s with replication = %s;", dbName, replicationConfiguration)).Exec()
 	for _, cassandraTypename := range []string{"bigint", "float", "double", "boolean", "blob"} {
 		q := fmt.Sprintf(`CREATE TABLE %s.series_%s (
 					series_id text,
@@ -73,9 +74,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 				 )
 				 WITH COMPACT STORAGE;`,
 			dbName, cassandraTypename, cassandraTypename)
-		if err := d.globalSession.Query(q).Exec(); err != nil {
-			return err
-		}
+		//if err := d.globalSession.Query(q).Exec(); err != nil {
+		//	return err
+		//}
+		d.globalSession.Query(q).Exec()
 	}
 	return nil
 }
