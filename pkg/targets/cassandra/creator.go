@@ -72,7 +72,7 @@ func (d *dbCreator) CreateDB(dbName string) error {
 					value %s,
 					PRIMARY KEY (series_id, timestamp_ns)
 				 )
-				 WITH COMPACT STORAGE;`,
+				 WITH compression = { 'enabled' : false };`,
 			dbName, cassandraTypename, cassandraTypename)
 		//if err := d.globalSession.Query(q).Exec(); err != nil {
 		//	return err
