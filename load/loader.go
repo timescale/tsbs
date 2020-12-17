@@ -183,7 +183,7 @@ func (l *CommonBenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 		// DBCreator should still be Init'd even if -do-create-db is false since
 		// it can initialize the connecting session
 		dbc.Init()
-		
+
 		//switch dbcc := dbc.(type) {
 		//case targets.DBCreatorCloser:
 		//	closeFn = dbcc.Close
@@ -198,12 +198,12 @@ func (l *CommonBenchmarkRunner) useDBCreator(dbc targets.DBCreator) func() {
 		// Create required DB if need be
 		// In case DB already exists - delete it
 		if l.DoCreateDB {
-			if exists {
-				err := dbc.RemoveOldDB(l.DBName)
-				if err != nil {
-					panic(err)
-				}
-			}
+			//if exists {
+				//err := dbc.RemoveOldDB(l.DBName)
+				//if err != nil {
+				//	panic(err)
+				//}
+			//}
 			err := dbc.CreateDB(l.DBName)
 			if err != nil {
 				panic(err)
