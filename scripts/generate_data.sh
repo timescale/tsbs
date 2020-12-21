@@ -7,6 +7,8 @@ if [[ -z "${EXE_FILE_NAME}" ]]; then
     exit 1
 fi
 
+set -x
+
 # Data folder
 BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_data"}
 
@@ -18,6 +20,11 @@ SCALE=${SCALE:-"4000"}
 
 # Rand seed
 SEED=${SEED:-"123"}
+
+# Control level of debug output
+DEBUG=${DEBUG:-"0"}
+
+INTERLEAVED_GENERATION_GROUPS=${INTERLEAVED_GENERATION_GROUPS:-"1"}
 
 # Start and stop time for generated timeseries
 TS_START=${TS_START:-"2016-01-01T00:00:00Z"}
@@ -32,6 +39,9 @@ LOG_INTERVAL=${LOG_INTERVAL:-"10s"}
 # Max number of points to generate data. 0 means "use TS_START TS_END with LOG_INTERVAL"
 MAX_DATA_POINTS=${MAX_DATA_POINTS:-"0"}
 
+# Whether to skip data generation if it already exists
+SKIP_IF_EXISTS=${SKIP_IF_EXISTS:-"TRUE"}
+
 # Ensure DATA DIR available
 mkdir -p ${BULK_DATA_DIR}
 chmod a+rwx ${BULK_DATA_DIR}
@@ -42,7 +52,7 @@ set -eo pipefail
 # Loop over all requested target formats and generate data
 for FORMAT in ${FORMATS}; do
     DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}.dat.gz"
-    if [ -f "${DATA_FILE_NAME}" ]; then
+    if [ -f "${DATA_FILE_NAME}" ] && [ "${SKIP_IF_EXISTS}" == "TRUE" ]; then
         echo "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
     else
         cleanup() {
@@ -53,15 +63,17 @@ for FORMAT in ${FORMATS}; do
 
         echo "Generating ${DATA_FILE_NAME}:"
         ${EXE_FILE_NAME} \
-            --format ${FORMAT} \
-            --use-case ${USE_CASE} \
-            --scale ${SCALE} \
-            --timestamp-start ${TS_START} \
-            --timestamp-end ${TS_END} \
-            --seed ${SEED} \
-            --log-interval ${LOG_INTERVAL} \
-            --max-data-points ${MAX_DATA_POINTS} \
-        | gzip > ${DATA_FILE_NAME}
+            --format=${FORMAT} \
+            --use-case=${USE_CASE} \
+            --scale=${SCALE} \
+            --timestamp-start=${TS_START} \
+            --timestamp-end=${TS_END} \
+            --debug=${DEBUG} \
+            --seed=${SEED} \
+            --log-interval=${LOG_INTERVAL} \
+            --interleaved-generation-groups=${INTERLEAVED_GENERATION_GROUPS} \
+            --max-data-points=${MAX_DATA_POINTS} > ${DATA_FILE_NAME}
+#        | gzip > ${DATA_FILE_NAME}
 
         trap - EXIT
         # Make short symlink for convenience

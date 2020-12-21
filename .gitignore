@@ -6,3 +6,8 @@
 
 # High Dynamic Range (HDR) Histogram files
 *.hdr
+
+/docs/responses
+coverage.txt
+
+bin/

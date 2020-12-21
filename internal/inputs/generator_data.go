@@ -121,8 +121,13 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 			}
 		}
 		point.Reset()
-
+		bar.Increment()
 		currGroupID = (currGroupID + 1) % dgc.InterleavedNumGroups
+
+	}
+	bar.Finish()
+	if g.config.PrintSummary {
+		fmt.Fprint(os.Stderr, fmt.Sprintf("%s\n", sim.GetSummary()))
 	}
 	return nil
 }

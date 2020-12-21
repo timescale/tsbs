@@ -1,0 +1,43 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs:
+  build: # test with redisearch:latest
+    docker:
+      - image: circleci/golang:1.13
+
+    working_directory: /go/src/github.com/RedisTimeSeries/tsbs
+    steps:
+      - checkout
+      - run: go get -t -v ./...
+      - run: GO111MODULE=on go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      - run: bash <(curl -s https://codecov.io/bash) -t ${CODECOV_TOKEN}
+
+  build-multiarch-docker:
+    machine:
+      enabled: true
+    steps:
+      - checkout
+      - run: |
+          echo "$DOCKER_REDISBENCH_PWD" | base64 --decode | docker login --username $DOCKER_REDISBENCH_USER --password-stdin
+      - run:
+          name: Build
+          command: |
+            make docker-release
+          no_output_timeout: 20m
+
+workflows:
+  version: 2
+  build_and_package:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - build-multiarch-docker:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: master

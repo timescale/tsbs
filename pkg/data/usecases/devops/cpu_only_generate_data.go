@@ -9,6 +9,7 @@ import (
 // A CPUOnlySimulator generates data similar to telemetry from Telegraf for only CPU metrics.
 // It fulfills the Simulator interface.
 type CPUOnlySimulator struct {
+	base CPUOnlySimulatorConfig
 	*commonDevopsSimulator
 }
 
@@ -41,6 +42,10 @@ func (d *CPUOnlySimulator) Next(p *data.Point) bool {
 	return d.populatePoint(p, 0)
 }
 
+func (s *CPUOnlySimulator) MaxPoints() uint64 {
+	return s.maxPoints
+}
+
 // CPUOnlySimulatorConfig is used to create a CPUOnlySimulator.
 type CPUOnlySimulatorConfig commonDevopsSimulatorConfig
 
@@ -57,21 +62,23 @@ func (c *CPUOnlySimulatorConfig) NewSimulator(interval time.Duration, limit uint
 		// Set specified points number limit
 		maxPoints = limit
 	}
-	sim := &CPUOnlySimulator{&commonDevopsSimulator{
-		madePoints: 0,
-		maxPoints:  maxPoints,
+	sim := &CPUOnlySimulator{
+		*c,
+		&commonDevopsSimulator{
+			madePoints: 0,
+			maxPoints:  maxPoints,
 
-		hostIndex: 0,
-		hosts:     hostInfos,
+			hostIndex: 0,
+			hosts:     hostInfos,
 
-		epoch:          0,
-		epochs:         epochs,
-		epochHosts:     c.InitHostCount,
-		initHosts:      c.InitHostCount,
-		timestampStart: c.Start,
-		timestampEnd:   c.End,
-		interval:       interval,
-	}}
+			epoch:          0,
+			epochs:         epochs,
+			epochHosts:     c.InitHostCount,
+			initHosts:      c.InitHostCount,
+			timestampStart: c.Start,
+			timestampEnd:   c.End,
+			interval:       interval,
+		}}
 
 	return sim
 }

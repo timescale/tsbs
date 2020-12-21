@@ -108,6 +108,14 @@ scripts). The easiest way to get and install the Go programs is to use
 $ go get github.com/timescale/tsbs
 $ cd $GOPATH/src/github.com/timescale/tsbs/cmd
 $ go get ./...
+$ git remote add redistimeseries https://github.com/RedisTimeSeries/tsbs.git
+$ git fetch
+$ git checkout redistimeseries
+$ cd $GOPATH/src/github.com/timescale/tsbs
+$ make
+$ FORMATS="redistimeseries" SCALE=100 SEED=123 TS_END="2016-01-31T00:00:00Z" ./scripts/generate_data.sh
+# Benchmark part. in PREFIX add a text that will be prefixed on the output results file
+$ NUM_WORKERS=1 BATCH_SIZE=10000 PIPELINE=200 CONNECTIONS=10  PREFIX=1.2.0 ./scripts/load_redistimeseries.sh
 
 # Install desired binaries. At a minimum this includes tsbs_generate_data,
 # tsbs_generate_queries, one tsbs_load_* binary, and one tsbs_run_queries_*
