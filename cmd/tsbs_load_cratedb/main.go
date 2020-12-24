@@ -4,17 +4,21 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"log"
 
+	"github.com/blagojts/viper"
 	"github.com/jackc/pgx/v4"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
-var loader *load.BenchmarkRunner
+var loader load.BenchmarkRunner
+var config load.BenchmarkRunnerConfig
+var target targets.ImplementedTarget
 
 // the logger is used in implementations of interface methods that
 // do not return error on failures to allow testing such methods
@@ -22,43 +26,41 @@ var fatal = log.Fatalf
 
 type benchmark struct {
 	dbc *dbCreator
+	ds  targets.DataSource
 }
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() targets.DataSource {
+	return b.ds
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(maxPartitions uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
+	tableDefs := make(map[string]*tableDef)
+	for _, td := range b.dbc.tableDefs {
+		tableDefs[td.name] = td
+	}
 	return &processor{
-		tableDefs: b.dbc.tableDefs,
+		tableDefs: tableDefs,
 		connCfg:   b.dbc.cfg,
 	}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return b.dbc
 }
 
 func main() {
-	var config load.BenchmarkRunnerConfig
+	target = initializers.GetTarget(constants.FormatCrateDB)
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("hosts", "localhost", "CrateDB hostnames")
-	pflag.Uint("port", 5432, "A port to connect to database instances")
-	pflag.String("user", "crate", "User to connect to CrateDB")
-	pflag.String("pass", "", "Password for user connecting to CrateDB")
-
-	pflag.Int("replicas", 0, "Number of replicas per a metric table")
-	pflag.Int("shards", 5, "Number of shards per a metric table")
-
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -78,22 +80,24 @@ func main() {
 
 	numReplicas := flag.Int("replicas", 0, "Number of replicas per a metric table")
 	numShards := flag.Int("shards", 5, "Number of shards per a metric table")
-
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 
-	connConfig := &pgx.ConnConfig{
-		Config: pgconn.Config{Host: hosts,
-			Port:     uint16(port),
-			User:     user,
-			Password: pass,
-			Database: "doc",
-		},
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password='%s' dbname=doc", hosts, port, user, pass)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		panic("could not parse connection config: " + err.Error())
 	}
 
 	// TODO implement or check if anything has to be done to support WorkerPerQueue mode
-	loader.RunBenchmark(&benchmark{dbc: &dbCreator{
-		cfg:         connConfig,
-		numReplicas: *numReplicas,
-		numShards:   *numShards,
-	}}, load.SingleQueue)
+	ds := &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
+	loader.RunBenchmark(&benchmark{
+		dbc: &dbCreator{
+			cfg:         connConfig,
+			numReplicas: *numReplicas,
+			numShards:   *numShards,
+			ds:          ds,
+		},
+		ds: ds,
+	})
 }

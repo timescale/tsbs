@@ -6,11 +6,7 @@ import (
 	"time"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/query"
-)
-
-const (
-	errMoreItemsThanScale = "cannot get random permutation with more items than scale"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 // TODO: Remove the need for this by continuing to bubble up errors
@@ -37,7 +33,7 @@ type Devops struct {
 // getHostWhereWithHostnames creates WHERE SQL statement for multiple hostnames.
 // NOTE 'WHERE' itself is not included, just hostname filter clauses, ready to concatenate to 'WHERE' string
 func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
-	hostnameClauses := []string{}
+	var hostnameClauses []string
 	if d.UseJSON {
 		for _, s := range hostnames {
 			hostnameClauses = append(hostnameClauses, fmt.Sprintf("tagset @> '{\"hostname\": \"%s\"}'", s))

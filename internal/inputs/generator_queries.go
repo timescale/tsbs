@@ -10,24 +10,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/victoriametrics"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/query/config"
+	"github.com/timescale/tsbs/pkg/query/factories"
 )
 
 // Error messages when using a QueryGenerator
 const (
-	ErrInvalidQueryConfig = "invalid config: QueryGenerator needs a QueryGeneratorConfig"
-	ErrEmptyQueryType     = "query type cannot be empty"
-
 	errBadQueryTypeFmt          = "invalid query type for use case '%s': '%s'"
 	errCouldNotDebugFmt         = "could not write debug output: %v"
 	errCouldNotEncodeQueryFmt   = "could not encode query: %v"
@@ -35,69 +26,18 @@ const (
 	errUseCaseNotImplementedFmt = "use case '%s' not implemented for format '%s'"
 	errInvalidFactory           = "query generator factory for database '%s' does not implement the correct interface"
 	errUnknownUseCaseFmt        = "use case '%s' is undefined"
+	errCannotParseTimeFmt       = "cannot parse time from string '%s': %v"
+	errBadUseFmt                = "invalid use case specified: '%v'"
 )
 
 // DevopsGeneratorMaker creates a query generator for devops use case
 type DevopsGeneratorMaker interface {
-	NewDevops(start, end time.Time, scale int) (utils.QueryGenerator, error)
+	NewDevops(start, end time.Time, scale int) (queryUtils.QueryGenerator, error)
 }
 
 // IoTGeneratorMaker creates a quert generator for iot use case
 type IoTGeneratorMaker interface {
-	NewIoT(start, end time.Time, scale int) (utils.QueryGenerator, error)
-}
-
-// QueryGeneratorConfig is the GeneratorConfig that should be used with a
-// QueryGenerator. It includes all the fields from a BaseConfig, as well as
-// options that are specific to generating the queries to test against a
-// database, such as the query type and individual database options.
-type QueryGeneratorConfig struct {
-	BaseConfig
-	Limit                uint64 `mapstructure:"queries"`
-	QueryType            string `mapstructure:"query-type"`
-	InterleavedGroupID   uint   `mapstructure:"interleaved-generation-group-id"`
-	InterleavedNumGroups uint   `mapstructure:"interleaved-generation-groups"`
-
-	// TODO - I think this needs some rethinking, but a simple, elegant solution escapes me right now
-	TimescaleUseJSON       bool `mapstructure:"timescale-use-json"`
-	TimescaleUseTags       bool `mapstructure:"timescale-use-tags"`
-	TimescaleUseTimeBucket bool `mapstructure:"timescale-use-time-bucket"`
-
-	ClickhouseUseTags bool `mapstructure:"clickhouse-use-tags"`
-
-	MongoUseNaive bool `mapstructure:"mongo-use-native"`
-}
-
-// Validate checks that the values of the QueryGeneratorConfig are reasonable.
-func (c *QueryGeneratorConfig) Validate() error {
-	err := c.BaseConfig.Validate()
-	if err != nil {
-		return err
-	}
-
-	if c.QueryType == "" {
-		return fmt.Errorf(ErrEmptyQueryType)
-	}
-
-	err = validateGroups(c.InterleavedGroupID, c.InterleavedNumGroups)
-	return err
-}
-
-func (c *QueryGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
-	c.BaseConfig.AddToFlagSet(fs)
-	fs.Uint64("queries", 1000, "Number of queries to generate.")
-	fs.String("query-type", "", "Query type. (Choices are in the use case matrix.)")
-
-	fs.Uint("interleaved-generation-group-id", 0,
-		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
-	fs.Uint("interleaved-generation-groups", 1,
-		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
-
-	fs.Bool("clickhouse-use-tags", true, "ClickHouse only: Use separate tags table when querying")
-	fs.Bool("mongo-use-naive", true, "MongoDB only: Generate queries for the 'naive' data storage format for Mongo")
-	fs.Bool("timescale-use-json", false, "TimescaleDB only: Use separate JSON tags table when querying")
-	fs.Bool("timescale-use-tags", true, "TimescaleDB only: Use separate tags table when querying")
-	fs.Bool("timescale-use-time-bucket", true, "TimescaleDB only: Use time bucket. Set to false to test on native PostgreSQL")
+	NewIoT(start, end time.Time, scale int) (queryUtils.QueryGenerator, error)
 }
 
 // QueryGenerator is a type of Generator for creating queries to test against a
@@ -113,8 +53,8 @@ type QueryGenerator struct {
 	// will be os.Stderr.
 	DebugOut io.Writer
 
-	config        *QueryGeneratorConfig
-	useCaseMatrix map[string]map[string]utils.QueryFillerMaker
+	conf          *config.QueryGeneratorConfig
+	useCaseMatrix map[string]map[string]queryUtils.QueryFillerMaker
 	// factories contains all the database implementations which can create
 	// devops query generators.
 	factories map[string]interface{}
@@ -129,41 +69,41 @@ type QueryGenerator struct {
 // NewQueryGenerator returns a QueryGenerator that is set up to work with a given
 // useCaseMatrix, which tells it how to generate the given query type for a use
 // case.
-func NewQueryGenerator(useCaseMatrix map[string]map[string]utils.QueryFillerMaker) *QueryGenerator {
+func NewQueryGenerator(useCaseMatrix map[string]map[string]queryUtils.QueryFillerMaker) *QueryGenerator {
 	return &QueryGenerator{
 		useCaseMatrix: useCaseMatrix,
 		factories:     make(map[string]interface{}),
 	}
 }
 
-func (g *QueryGenerator) Generate(config GeneratorConfig) error {
+func (g *QueryGenerator) Generate(config common.GeneratorConfig) error {
 	err := g.init(config)
 	if err != nil {
 		return err
 	}
 
-	useGen, err := g.getUseCaseGenerator(g.config)
+	useGen, err := g.getUseCaseGenerator(g.conf)
 	if err != nil {
 		return err
 	}
 
-	filler := g.useCaseMatrix[g.config.Use][g.config.QueryType](useGen)
+	filler := g.useCaseMatrix[g.conf.Use][g.conf.QueryType](useGen)
 
-	return g.runQueryGeneration(useGen, filler, g.config)
+	return g.runQueryGeneration(useGen, filler, g.conf)
 }
 
-func (g *QueryGenerator) init(config GeneratorConfig) error {
-	if config == nil {
+func (g *QueryGenerator) init(conf common.GeneratorConfig) error {
+	if conf == nil {
 		return fmt.Errorf(ErrNoConfig)
 	}
-	switch config.(type) {
-	case *QueryGeneratorConfig:
+	switch conf.(type) {
+	case *config.QueryGeneratorConfig:
 	default:
 		return fmt.Errorf(ErrInvalidDataConfig)
 	}
-	g.config = config.(*QueryGeneratorConfig)
+	g.conf = conf.(*config.QueryGeneratorConfig)
 
-	err := g.config.Validate()
+	err := g.conf.Validate()
 	if err != nil {
 		return err
 	}
@@ -172,27 +112,27 @@ func (g *QueryGenerator) init(config GeneratorConfig) error {
 		return err
 	}
 
-	if _, ok := g.useCaseMatrix[g.config.Use]; !ok {
-		return fmt.Errorf(errBadUseFmt, g.config.Use)
+	if _, ok := g.useCaseMatrix[g.conf.Use]; !ok {
+		return fmt.Errorf(errBadUseFmt, g.conf.Use)
 	}
 
-	if _, ok := g.useCaseMatrix[g.config.Use][g.config.QueryType]; !ok {
-		return fmt.Errorf(errBadQueryTypeFmt, g.config.Use, g.config.QueryType)
+	if _, ok := g.useCaseMatrix[g.conf.Use][g.conf.QueryType]; !ok {
+		return fmt.Errorf(errBadQueryTypeFmt, g.conf.Use, g.conf.QueryType)
 	}
 
-	g.tsStart, err = ParseUTCTime(g.config.TimeStart)
+	g.tsStart, err = internalUtils.ParseUTCTime(g.conf.TimeStart)
 	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeStart, err)
+		return fmt.Errorf(errCannotParseTimeFmt, g.conf.TimeStart, err)
 	}
-	g.tsEnd, err = ParseUTCTime(g.config.TimeEnd)
+	g.tsEnd, err = internalUtils.ParseUTCTime(g.conf.TimeEnd)
 	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeEnd, err)
+		return fmt.Errorf(errCannotParseTimeFmt, g.conf.TimeEnd, err)
 	}
 
 	if g.Out == nil {
 		g.Out = os.Stdout
 	}
-	g.bufOut, err = getBufferedWriter(g.config.File, g.Out)
+	g.bufOut, err = getBufferedWriter(g.conf.File, g.Out)
 	if err != nil {
 		return err
 	}
@@ -205,56 +145,13 @@ func (g *QueryGenerator) init(config GeneratorConfig) error {
 }
 
 func (g *QueryGenerator) initFactories() error {
-	cassandra := &cassandra.BaseGenerator{}
-	if err := g.addFactory(FormatCassandra, cassandra); err != nil {
-		return err
+	factoryMap := factories.InitQueryFactories(g.conf)
+	for db, fac := range factoryMap {
+		if err := g.addFactory(db, fac); err != nil {
+			return err
+		}
 	}
-
-	clickhouse := &clickhouse.BaseGenerator{
-		UseTags: g.config.ClickhouseUseTags,
-	}
-	if err := g.addFactory(FormatClickhouse, clickhouse); err != nil {
-		return err
-	}
-
-	cratedb := &cratedb.BaseGenerator{}
-	if err := g.addFactory(FormatCrateDB, cratedb); err != nil {
-		return err
-	}
-
-	influx := &influx.BaseGenerator{}
-	if err := g.addFactory(FormatInflux, influx); err != nil {
-		return err
-	}
-
-	timescale := &timescaledb.BaseGenerator{
-		UseJSON:       g.config.TimescaleUseJSON,
-		UseTags:       g.config.TimescaleUseTags,
-		UseTimeBucket: g.config.TimescaleUseTimeBucket,
-	}
-	if err := g.addFactory(FormatTimescaleDB, timescale); err != nil {
-		return err
-	}
-
-	siriDB := &siridb.BaseGenerator{}
-	if err := g.addFactory(FormatSiriDB, siriDB); err != nil {
-		return err
-	}
-
-	mongo := &mongo.BaseGenerator{
-		UseNaive: g.config.MongoUseNaive,
-	}
-	if err := g.addFactory(FormatMongo, mongo); err != nil {
-		return err
-	}
-
-	victoriametrics := &victoriametrics.BaseGenerator{}
-	if err := g.addFactory(FormatVictoriaMetrics, victoriametrics); err != nil {
-		return err
-	}
-
-	akumuli := &akumuli.BaseGenerator{}
-	return g.addFactory(FormatAkumuli, akumuli)
+	return nil
 }
 
 func (g *QueryGenerator) addFactory(database string, factory interface{}) error {
@@ -274,7 +171,7 @@ func (g *QueryGenerator) addFactory(database string, factory interface{}) error 
 	return nil
 }
 
-func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.QueryGenerator, error) {
+func (g *QueryGenerator) getUseCaseGenerator(c *config.QueryGeneratorConfig) (queryUtils.QueryGenerator, error) {
 	scale := int(c.Scale) // TODO: make all the Devops constructors use a uint64
 	var factory interface{}
 	var ok bool
@@ -284,7 +181,7 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Que
 	}
 
 	switch c.Use {
-	case useCaseIoT:
+	case common.UseCaseIoT:
 		iotFactory, ok := factory.(IoTGeneratorMaker)
 
 		if !ok {
@@ -292,7 +189,7 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Que
 		}
 
 		return iotFactory.NewIoT(g.tsStart, g.tsEnd, scale)
-	case useCaseDevops, useCaseCPUOnly, useCaseCPUSingle:
+	case common.UseCaseDevops, common.UseCaseCPUOnly, common.UseCaseCPUSingle:
 		devopsFactory, ok := factory.(DevopsGeneratorMaker)
 		if !ok {
 			return nil, fmt.Errorf(errUseCaseNotImplementedFmt, c.Use, c.Format)
@@ -304,16 +201,16 @@ func (g *QueryGenerator) getUseCaseGenerator(c *QueryGeneratorConfig) (utils.Que
 	}
 }
 
-func (g *QueryGenerator) runQueryGeneration(useGen utils.QueryGenerator, filler utils.QueryFiller, c *QueryGeneratorConfig) error {
+func (g *QueryGenerator) runQueryGeneration(useGen queryUtils.QueryGenerator, filler queryUtils.QueryFiller, c *config.QueryGeneratorConfig) error {
 	stats := make(map[string]int64)
 	currentGroup := uint(0)
 	enc := gob.NewEncoder(g.bufOut)
 	defer g.bufOut.Flush()
 
-	rand.Seed(g.config.Seed)
+	rand.Seed(g.conf.Seed)
 	//fmt.Println(g.config.Seed)
-	if g.config.Debug > 0 {
-		_, err := fmt.Fprintf(g.DebugOut, "using random seed %d\n", g.config.Seed)
+	if g.conf.Debug > 0 {
+		_, err := fmt.Fprintf(g.DebugOut, "using random seed %d\n", g.conf.Seed)
 		if err != nil {
 			return fmt.Errorf(errCouldNotDebugFmt, err)
 		}

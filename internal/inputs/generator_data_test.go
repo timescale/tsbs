@@ -6,94 +6,25 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/serialize"
+	"github.com/timescale/tsbs/pkg/data/source"
+	"github.com/timescale/tsbs/pkg/data/usecases"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
 )
 
-func TestDataGeneratorConfigValidate(t *testing.T) {
-	c := &DataGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Seed:   123,
-			Format: FormatTimescaleDB,
-			Use:    useCaseDevops,
-			Scale:  10,
-		},
-		LogInterval:          time.Second,
-		InitialScale:         0,
-		InterleavedGroupID:   0,
-		InterleavedNumGroups: 1,
-	}
-
-	// Test base validation
-	err := c.Validate()
-	if err != nil {
-		t.Errorf("unexpected error for correct config: %v", err)
-	}
-
-	c.Format = "bad format"
-	err = c.Validate()
-	if err == nil {
-		t.Errorf("unexpected lack of error for bad format")
-	}
-	c.Format = FormatTimescaleDB
-
-	// Test InitialScale validation
-	c.InitialScale = 0
-	err = c.Validate()
-	if err != nil {
-		t.Errorf("unexpected error for InitialScale of 0: %v", err)
-	}
-	if c.InitialScale != c.Scale {
-		t.Errorf("InitialScale not set correctly for 0: got %d want %d", c.InitialScale, c.Scale)
-	}
-
-	c.InitialScale = 5
-	err = c.Validate()
-	if err != nil {
-		t.Errorf("unexpected error for InitialScale of 5: %v", err)
-	}
-	if c.InitialScale != 5 {
-		t.Errorf("InitialScale not set correctly for 0: got %d want %d", c.InitialScale, 5)
-	}
-
-	// Test LogInterval validation
-	c.LogInterval = 0
-	err = c.Validate()
-	if err == nil {
-		t.Errorf("unexpected lack of error for 0 log interval")
-	} else if got := err.Error(); got != errLogIntervalZero {
-		t.Errorf("incorrect error for 0 log interval: got\n%s\nwant\n%s", got, errLogIntervalZero)
-	}
-	c.LogInterval = time.Second
-
-	// Test groups validation
-	c.InterleavedNumGroups = 0
-	err = c.Validate()
-	if err == nil {
-		t.Errorf("unexpected lack of error for 0 groups")
-	} else if got := err.Error(); got != errTotalGroupsZero {
-		t.Errorf("incorrect error for 0 groups: got\n%s\nwant\n%s", got, errTotalGroupsZero)
-	}
-	c.InterleavedNumGroups = 1
-
-	c.InterleavedGroupID = 2
-	err = c.Validate()
-	if err == nil {
-		t.Errorf("unexpected lack of error for group id > num groups")
-	} else {
-		want := fmt.Sprintf(errInvalidGroupsFmt, 2, 1)
-		if got := err.Error(); got != want {
-			t.Errorf("incorrect error for group id > num groups: got\n%s\nwant\n%s", got, want)
-		}
-	}
-}
+const (
+	defaultTimeStart   = "2016-01-01T00:00:00Z"
+	defaultTimeEnd     = "2016-01-02T00:00:00Z"
+	defaultLogInterval = 10 * time.Second
+)
 
 func TestDataGeneratorInit(t *testing.T) {
 	// Test that empty config fails
@@ -106,7 +37,7 @@ func TestDataGeneratorInit(t *testing.T) {
 	}
 
 	// Test that wrong type of config fails
-	err = dg.init(&BaseConfig{})
+	err = dg.init(&common.BaseConfig{})
 	if err == nil {
 		t.Errorf("unexpected lack of error with invalid config")
 	} else if got := err.Error(); got != ErrInvalidDataConfig {
@@ -114,41 +45,20 @@ func TestDataGeneratorInit(t *testing.T) {
 	}
 
 	// Test that empty, invalid config fails
-	err = dg.init(&DataGeneratorConfig{})
+	err = dg.init(&common.DataGeneratorConfig{})
 	if err == nil {
 		t.Errorf("unexpected lack of error with empty DataGeneratorConfig")
 	}
 
-	c := &DataGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Format: FormatTimescaleDB,
-			Use:    useCaseDevops,
+	c := &common.DataGeneratorConfig{
+		BaseConfig: common.BaseConfig{
+			Format: constants.FormatTimescaleDB,
+			Use:    common.UseCaseDevops,
 			Scale:  1,
 		},
 		LogInterval:          time.Second,
 		InterleavedNumGroups: 1,
 	}
-	const errTimePrefix = "cannot parse time from string"
-
-	// Test incorrect time format for start
-	c.TimeStart = "2006 Jan 2"
-	err = dg.init(c)
-	if err == nil {
-		t.Errorf("unexpected lack of error with bad start date")
-	} else if got := err.Error(); !strings.HasPrefix(got, errTimePrefix) {
-		t.Errorf("unexpected error for bad start date: got\n%s", got)
-	}
-	c.TimeStart = defaultTimeStart
-
-	// Test incorrect time format for end
-	c.TimeEnd = "Jan 3rd 2016"
-	err = dg.init(c)
-	if err == nil {
-		t.Errorf("unexpected lack of error with bad end date")
-	} else if got := err.Error(); !strings.HasPrefix(got, errTimePrefix) {
-		t.Errorf("unexpected error for bad end date: got\n%s", got)
-	}
-	c.TimeEnd = defaultTimeEnd
 
 	// Test that Out is set to os.Stdout if unset
 	err = dg.init(c)
@@ -169,32 +79,24 @@ func TestDataGeneratorInit(t *testing.T) {
 	}
 }
 
-const correctData = `tags,hostname string,region string,datacenter string,rack string,os string,arch string,team string,service string,service_version string,service_environment string
-cpu,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-
-tags,hostname=host_0,region=eu-central-1,datacenter=eu-central-1a,rack=6,os=Ubuntu15.10,arch=x86,team=SF,service=19,service_version=1,service_environment=test
-cpu,1451606400000000000,58,2,24,61,22,63,6,44,80,38
-tags,hostname=host_0,region=eu-central-1,datacenter=eu-central-1a,rack=6,os=Ubuntu15.10,arch=x86,team=SF,service=19,service_version=1,service_environment=test
-cpu,1451606401000000000,57,3,23,60,23,64,5,44,76,36
-tags,hostname=host_0,region=eu-central-1,datacenter=eu-central-1a,rack=6,os=Ubuntu15.10,arch=x86,team=SF,service=19,service_version=1,service_environment=test
-cpu,1451606402000000000,58,2,25,62,23,65,5,45,78,36
-`
-
 func TestDataGeneratorGenerate(t *testing.T) {
+	targetName := constants.FormatTimescaleDB
 	dg := &DataGenerator{}
-
+	mockTarget := &mockTarget{
+		name: targetName,
+	}
 	// Test that an invalid config fails
-	c := &DataGeneratorConfig{}
-	err := dg.Generate(c)
+	c := &common.DataGeneratorConfig{}
+	err := dg.Generate(c, mockTarget)
 	if err == nil {
 		t.Errorf("unexpected lack of error with empty DataGeneratorConfig")
 	}
 
-	c = &DataGeneratorConfig{
-		BaseConfig: BaseConfig{
+	c = &common.DataGeneratorConfig{
+		BaseConfig: common.BaseConfig{
 			Seed:      123,
-			Format:    FormatTimescaleDB,
-			Use:       useCaseCPUOnly,
+			Format:    targetName,
+			Use:       common.UseCaseCPUOnly,
 			Scale:     1,
 			TimeStart: defaultTimeStart,
 			TimeEnd:   defaultTimeEnd,
@@ -206,13 +108,14 @@ func TestDataGeneratorGenerate(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	dg.Out = &buf
-	err = dg.Generate(c)
+	mockSerializer := &mockSerializer{}
+	mockTarget.serializer = mockSerializer
+	err = dg.Generate(c, mockTarget)
 	if err != nil {
 		t.Errorf("unexpected error when generating: got %v", err)
-	} else if got := string(buf.Bytes()); got != correctData {
-		t.Errorf("incorrect data written:\ngot\n%s\nwant\n%s", got, correctData)
+	} else if len(mockSerializer.sentPoints) != int(c.Limit) {
+		t.Errorf("unexpected number of points sent to serializer. expected %d, got %d", c.Limit, len(mockSerializer.sentPoints))
 	}
-
 }
 
 var keyIteration = []byte("iteration")
@@ -223,26 +126,34 @@ type testSimulator struct {
 	iteration        uint64
 }
 
+func (s *testSimulator) Headers() *common.GeneratedDataHeaders {
+	return &common.GeneratedDataHeaders{
+		TagTypes:  s.TagTypes(),
+		TagKeys:   s.TagKeys(),
+		FieldKeys: s.Fields(),
+	}
+}
+
 func (s *testSimulator) Finished() bool {
 	return s.iteration >= s.limit
 }
 
-func (s *testSimulator) Next(p *serialize.Point) bool {
+func (s *testSimulator) Next(p *data.Point) bool {
 	p.AppendField(keyIteration, s.iteration)
 	ret := s.iteration < s.shouldWriteLimit
 	s.iteration++
 	return ret
 }
 
-func (s *testSimulator) Fields() map[string][][]byte {
+func (s *testSimulator) Fields() map[string][]string {
 	return nil
 }
 
-func (s *testSimulator) TagKeys() [][]byte {
+func (s *testSimulator) TagKeys() []string {
 	return nil
 }
 
-func (s *testSimulator) TagTypes() []reflect.Type {
+func (s *testSimulator) TagTypes() []string {
 	return nil
 }
 
@@ -250,7 +161,7 @@ type testSerializer struct {
 	shouldError bool
 }
 
-func (s *testSerializer) Serialize(p *serialize.Point, w io.Writer) error {
+func (s *testSerializer) Serialize(p *data.Point, w io.Writer) error {
 	if s.shouldError {
 		return fmt.Errorf("erroring")
 	}
@@ -326,8 +237,8 @@ func TestRunSimulator(t *testing.T) {
 	}
 	for _, c := range cases {
 		var buf bytes.Buffer
-		dgc := &DataGeneratorConfig{
-			BaseConfig: BaseConfig{
+		dgc := &common.DataGeneratorConfig{
+			BaseConfig: common.BaseConfig{
 				Scale: 1,
 			},
 			Limit:                c.limit,
@@ -375,45 +286,13 @@ func TestRunSimulator(t *testing.T) {
 	}
 }
 
-func TestGetSimulatorConfig(t *testing.T) {
-	dgc := &DataGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Scale: 1,
-		},
-		InitialScale: 1,
-		LogInterval:  defaultLogInterval,
-	}
-	g := &DataGenerator{config: dgc}
-
-	checkType := func(use string, want common.SimulatorConfig) {
-		wantType := reflect.TypeOf(want)
-		dgc.Use = use
-		scfg, err := g.getSimulatorConfig(dgc)
-		if err != nil {
-			t.Errorf("unexpected error with use case %s: %v", use, err)
-		}
-		if got := reflect.TypeOf(scfg); got != wantType {
-			t.Errorf("use '%s' does not give right scfg: got %v want %v", use, got, wantType)
-		}
-	}
-
-	checkType(useCaseDevops, &devops.DevopsSimulatorConfig{})
-	checkType(useCaseIoT, &iot.SimulatorConfig{})
-	checkType(useCaseCPUOnly, &devops.CPUOnlySimulatorConfig{})
-	checkType(useCaseCPUSingle, &devops.CPUOnlySimulatorConfig{})
-
-	dgc.Use = "bogus use case"
-	_, err := g.getSimulatorConfig(dgc)
-	if err == nil {
-		t.Errorf("unexpected lack of error for bogus use case")
-	}
-}
-
 func TestGetSerializer(t *testing.T) {
-	dgc := &DataGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Use:   useCaseCPUOnly,
-			Scale: 1,
+	dgc := &common.DataGeneratorConfig{
+		BaseConfig: common.BaseConfig{
+			Use:       common.UseCaseCPUOnly,
+			Scale:     1,
+			TimeStart: defaultTimeStart,
+			TimeEnd:   defaultTimeEnd,
 		},
 		InitialScale: 1,
 		LogInterval:  defaultLogInterval,
@@ -422,38 +301,74 @@ func TestGetSerializer(t *testing.T) {
 		config: dgc,
 	}
 
-	scfg, err := g.getSimulatorConfig(dgc)
+	scfg, err := usecases.GetSimulatorConfig(dgc)
 	if err != nil {
 		t.Errorf("unexpected error creating scfg: %v", err)
 	}
 
 	sim := scfg.NewSimulator(dgc.LogInterval, 0)
-	var buf bytes.Buffer
-	g.bufOut = bufio.NewWriter(&buf)
-	defer g.bufOut.Flush()
-
-	checkType := func(format string, want serialize.PointSerializer) {
-		wantType := reflect.TypeOf(want)
-		s, err := g.getSerializer(sim, format)
+	checkWriteHeader := func(format string, shouldWriteHeader bool) {
+		var buf bytes.Buffer
+		g.bufOut = bufio.NewWriter(&buf)
+		serializer := &mockSerializer{}
+		target := &mockTarget{
+			name:       format,
+			serializer: serializer,
+		}
+		s, err := g.getSerializer(sim, target)
 		if err != nil {
 			t.Errorf("unexpected error making serializer: %v", err)
 		}
-		if got := reflect.TypeOf(s); got != wantType {
-			t.Errorf("format '%s' does not run the right serializer: got %v want %v", format, got, wantType)
+		if s.(*mockSerializer).numCalledSerialize > 0 {
+			t.Errorf("expected Serialize function not to be called")
+		}
+		g.bufOut.Flush()
+		if shouldWriteHeader && buf.Len() == 0 {
+			t.Errorf("expected header to be written for format %s", format)
+		} else if !shouldWriteHeader && buf.Len() > 0 {
+			t.Errorf("unexpected header for format %s", format)
 		}
 	}
 
-	checkType(FormatCassandra, &serialize.CassandraSerializer{})
-	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
-	checkType(FormatInflux, &serialize.InfluxSerializer{})
-	checkType(FormatMongo, &serialize.MongoSerializer{})
-	checkType(FormatSiriDB, &serialize.SiriDBSerializer{})
-	checkType(FormatClickhouse, &serialize.TimescaleDBSerializer{})
-	checkType(FormatCrateDB, &serialize.CrateDBSerializer{})
-	checkType(FormatVictoriaMetrics, &serialize.InfluxSerializer{})
+	checkWriteHeader(constants.FormatCassandra, false)
+	checkWriteHeader(constants.FormatClickhouse, true)
+	checkWriteHeader(constants.FormatInflux, false)
+	checkWriteHeader(constants.FormatMongo, false)
+	checkWriteHeader(constants.FormatSiriDB, false)
+	checkWriteHeader(constants.FormatCrateDB, true)
+	checkWriteHeader(constants.FormatPrometheus, false)
+	checkWriteHeader(constants.FormatTimescaleDB, true)
+	checkWriteHeader(constants.FormatVictoriaMetrics, false)
+}
 
-	_, err = g.getSerializer(sim, "bogus format")
-	if err == nil {
-		t.Errorf("unexpected lack of error creating bogus serializer")
-	}
+type mockSerializer struct {
+	numCalledSerialize int
+	sentPoints         []*data.Point
+}
+
+func (m *mockSerializer) Serialize(p *data.Point, w io.Writer) error {
+	m.numCalledSerialize++
+	m.sentPoints = append(m.sentPoints, p)
+	return nil
+}
+
+type mockTarget struct {
+	name       string
+	serializer serialize.PointSerializer
+}
+
+func (m *mockTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
+	panic("implement me")
+}
+
+func (m *mockTarget) Serializer() serialize.PointSerializer {
+	return m.serializer
+}
+
+func (m *mockTarget) TargetSpecificFlags(string, *pflag.FlagSet) {
+	panic("implement me")
+}
+
+func (m *mockTarget) TargetName() string {
+	return m.name
 }

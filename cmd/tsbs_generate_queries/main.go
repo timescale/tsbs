@@ -4,15 +4,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/timescale/tsbs/pkg/query/config"
 	"os"
 
+	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/iot"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/internal/inputs"
-	internalutils "github.com/timescale/tsbs/internal/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
 )
 
 var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
@@ -50,7 +51,7 @@ var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
 	},
 }
 
-var config = &inputs.QueryGeneratorConfig{}
+var conf = &config.QueryGeneratorConfig{}
 
 // Parse args:
 func init() {
@@ -69,28 +70,28 @@ func init() {
 		}
 	}
 
-	config.AddToFlagSet(pflag.CommandLine)
+	conf.AddToFlagSet(pflag.CommandLine)
 
 	pflag.Parse()
 
-	err := internalutils.SetupConfigFile()
+	err := internalUtils.SetupConfigFile()
 
 	if err != nil {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-	if err := viper.Unmarshal(&config.BaseConfig); err != nil {
+	if err := viper.Unmarshal(&conf.BaseConfig); err != nil {
 		panic(fmt.Errorf("unable to decode base config: %s", err))
 	}
 
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := viper.Unmarshal(&conf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 }
 
 func main() {
 	qg := inputs.NewQueryGenerator(useCaseMatrix)
-	err := qg.Generate(config)
+	err := qg.Generate(conf)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 	}

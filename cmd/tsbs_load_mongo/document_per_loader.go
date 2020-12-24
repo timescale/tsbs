@@ -5,8 +5,9 @@ import (
 	"sync"
 
 	"github.com/globalsign/mgo"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/mongo"
 )
 
 // naiveBenchmark allows you to run a benchmark using the naive, one document per
@@ -15,16 +16,16 @@ type naiveBenchmark struct {
 	mongoBenchmark
 }
 
-func newNaiveBenchmark(l *load.BenchmarkRunner) *naiveBenchmark {
-	return &naiveBenchmark{mongoBenchmark{l, &dbCreator{}}}
+func newNaiveBenchmark(l load.BenchmarkRunner, loaderConf *load.BenchmarkRunnerConfig) *naiveBenchmark {
+	return &naiveBenchmark{mongoBenchmark{loaderConf.FileName, l, &dbCreator{}}}
 }
 
-func (b *naiveBenchmark) GetProcessor() load.Processor {
+func (b *naiveBenchmark) GetProcessor() targets.Processor {
 	return &naiveProcessor{dbc: b.dbc}
 }
 
-func (b *naiveBenchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *naiveBenchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
 type singlePoint struct {
@@ -43,7 +44,7 @@ type naiveProcessor struct {
 	pvs []interface{}
 }
 
-func (p *naiveProcessor) Init(workerNUm int, doLoad bool) {
+func (p *naiveProcessor) Init(_ int, doLoad, _ bool) {
 	if doLoad {
 		sess := p.dbc.session.Copy()
 		db := sess.DB(loader.DatabaseName())
@@ -55,7 +56,7 @@ func (p *naiveProcessor) Init(workerNUm int, doLoad bool) {
 // ProcessBatch creates a new document for each incoming event for a simpler
 // approach to storing the data. This is _NOT_ the default since the aggregation method
 // is recommended by Mongo and other blogs
-func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64) {
+func (p *naiveProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batch := b.(*batch).arr
 	if cap(p.pvs) < len(batch) {
 		p.pvs = make([]interface{}, len(batch))
@@ -69,12 +70,12 @@ func (p *naiveProcessor) ProcessBatch(b load.Batch, doLoad bool) (uint64, uint64
 		x.Timestamp = event.Timestamp()
 		x.Fields = map[string]interface{}{}
 		x.Tags = map[string]string{}
-		f := &serialize.MongoReading{}
+		f := &mongo.MongoReading{}
 		for j := 0; j < event.FieldsLength(); j++ {
 			event.Fields(f, j)
 			x.Fields[string(f.Key())] = f.Value()
 		}
-		t := &serialize.MongoTag{}
+		t := &mongo.MongoTag{}
 		for j := 0; j < event.TagsLength(); j++ {
 			event.Tags(t, j)
 			x.Tags[string(t.Key())] = string(t.Value())

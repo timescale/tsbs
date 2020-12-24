@@ -7,16 +7,16 @@ import (
 	"strings"
 	"time"
 
-	siridb "github.com/SiriDB/go-siridb-connector"
-	"github.com/timescale/tsbs/load"
-	qpack "github.com/transceptor-technology/go-qpack"
+	"github.com/SiriDB/go-siridb-connector"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/transceptor-technology/go-qpack"
 )
 
 type processor struct {
 	connection *siridb.Connection
 }
 
-func (p *processor) Init(numWorker int, doLoad bool) {
+func (p *processor) Init(numWorker int, _, _ bool) {
 	hostlist := strings.Split(hosts, ",")
 	h := hostlist[numWorker%len(hostlist)]
 	x := strings.Split(h, ":")
@@ -34,7 +34,7 @@ func (p *processor) Close(doLoad bool) {
 	}
 }
 
-func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (metricCount, rows uint64) {
+func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rows uint64) {
 	batch := b.(*batch)
 	if doLoad {
 		if err := p.connection.Connect(dbUser, dbPass, loader.DatabaseName()); err != nil {
@@ -61,7 +61,7 @@ func (p *processor) ProcessBatch(b load.Batch, doLoad bool) (metricCount, rows u
 			fmt.Printf("BATCH: batchsize %d insert rate %f/sec (took %v)\n", batchSize, float64(batchSize)/float64(took.Seconds()), took)
 		}
 	}
-	metricCount = uint64(batch.metricCnt)
+	metricCount = batch.metricCnt
 	batch.series = map[string][]byte{}
 	batch.batchCnt = 0
 	batch.metricCnt = 0

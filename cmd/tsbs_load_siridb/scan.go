@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type point struct {
@@ -16,15 +18,15 @@ type point struct {
 
 type batch struct {
 	series    map[string][]byte
-	batchCnt  int
+	batchCnt  uint
 	metricCnt uint64
 }
 
-func (b *batch) Len() int {
+func (b *batch) Len() uint {
 	return b.batchCnt
 }
 
-func (b *batch) Append(item *load.Point) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.(*point)
 	for k, v := range that.data {
 		if len(b.series[k]) == 0 {
@@ -38,7 +40,7 @@ func (b *batch) Append(item *load.Point) {
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &batch{
 		series:    map[string][]byte{},
 		batchCnt:  0,
@@ -46,14 +48,15 @@ func (f *factory) New() load.Batch {
 	}
 }
 
-type decoder struct {
+type fileDataSource struct {
 	buf []byte
 	len uint32
+	br  *bufio.Reader
 }
 
-func (d *decoder) Read(bf *bufio.Reader) int {
+func (d *fileDataSource) Read() int {
 	buf := make([]byte, 8192)
-	n, err := bf.Read(buf)
+	n, err := d.br.Read(buf)
 	if err == io.EOF {
 		return n
 	}
@@ -66,10 +69,14 @@ func (d *decoder) Read(bf *bufio.Reader) int {
 	return n
 }
 
-func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
+	return nil
+}
+
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	if d.len < 8 {
-		if n := d.Read(bf); n == 0 {
-			return nil
+		if n := d.Read(); n == 0 {
+			return data.LoadedPoint{}
 		}
 	}
 	valueCnt := binary.LittleEndian.Uint32(d.buf[:4])
@@ -79,8 +86,8 @@ func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
 	d.len -= 8
 
 	if d.len < nameCnt {
-		if n := d.Read(bf); n == 0 {
-			return nil
+		if n := d.Read(); n == 0 {
+			return data.LoadedPoint{}
 		}
 	}
 
@@ -89,11 +96,11 @@ func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
 	d.buf = d.buf[nameCnt:]
 	d.len -= nameCnt
 
-	data := make(map[string][]byte)
+	newPoint := make(map[string][]byte)
 	for i := 0; uint32(i) < valueCnt; i++ {
 		if d.len < 8 {
-			if n := d.Read(bf); n == 0 {
-				return nil
+			if n := d.Read(); n == 0 {
+				return data.LoadedPoint{}
 			}
 		}
 		lengthKey := binary.LittleEndian.Uint32(d.buf[:4])
@@ -101,20 +108,20 @@ func (d *decoder) Decode(bf *bufio.Reader) *load.Point {
 
 		total := lengthData + lengthKey + 8
 		for d.len < total {
-			if n := d.Read(bf); n == 0 {
-				return nil
+			if n := d.Read(); n == 0 {
+				return data.LoadedPoint{}
 			}
 		}
 
 		key := string(name) + string(d.buf[8:lengthKey+8])
-		data[key] = d.buf[lengthKey+8 : total]
+		newPoint[key] = d.buf[lengthKey+8 : total]
 
 		d.buf = d.buf[total:]
 		d.len -= total
 	}
 
-	return load.NewPoint(&point{
-		data:    data,
+	return data.NewLoadedPoint(&point{
+		data:    newPoint,
 		dataCnt: uint64(valueCnt),
 	})
 }
