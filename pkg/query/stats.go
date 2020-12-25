@@ -2,10 +2,10 @@ package query
 
 import (
 	"fmt"
-	"github.com/filipecosta90/hdrhistogram"
 	"io"
 	"sort"
 	"sync"
+	"github.com/HdrHistogram/hdrhistogram-go"
 )
 
 var (
