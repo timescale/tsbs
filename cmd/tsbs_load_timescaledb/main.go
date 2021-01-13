@@ -53,6 +53,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.PartitionIndex = viper.GetBool("partition-index")
 	opts.FieldIndex = viper.GetString("field-index")
 	opts.FieldIndexCount = viper.GetInt("field-index-count")
+	opts.Analyze = viper.GetBool("analyze")
 
 	opts.ProfileFile = viper.GetString("write-profile")
 	opts.ReplicationStatsFile = viper.GetString("write-replication-stats")

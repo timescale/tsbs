@@ -59,6 +59,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"partition-index", true, "Whether to build an index on the partition key")
 	flagSet.String(flagPrefix+"field-index", ValueTimeIdx, "index types for tags (comma delimited)")
 	flagSet.Int(flagPrefix+"field-index-count", 0, "Number of indexed fields (-1 for all)")
+	flagSet.Bool(flagPrefix+"analyze", false, "Whether to do vacuum analyze after the load")
 
 	flagSet.String(flagPrefix+"write-profile", "", "File to output CPU/memory profile to")
 	flagSet.String(flagPrefix+"write-replication-stats", "", "File to output replication stats to")

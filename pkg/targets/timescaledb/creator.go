@@ -28,6 +28,9 @@ type dbCreator struct {
 	connStr string
 	connDB  string
 	opts    *LoadingOptions
+	// The next two fields exist so that Close() can do vacuum analyze
+	tables  []string
+	dbName  string
 }
 
 func (d *dbCreator) Init() {
@@ -77,15 +80,33 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	return nil
 }
 
+func (d *dbCreator) Close() {
+	// This gets called from loader.useDBCreator after the load has finished
+	if !d.opts.Analyze {
+		return
+	}
+
+	db := MustConnect(d.driver, d.opts.GetConnectString(d.dbName))
+	for _, tname := range d.tables {
+		fmt.Printf("Close: vacuum analyze %s\n", tname)
+		MustExec(db, "VACUUM ANALYZE "+tname)
+	}
+	db.Close()
+}
+
 func (d *dbCreator) PostCreateDB(dbName string) error {
 	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
+
+	// I wish there were an easier way to get this value, alas it is a field of Loader
+	d.dbName = dbName
 
 	headers := d.ds.Headers()
 	tagNames := headers.TagKeys
 	tagTypes := headers.TagTypes
 	if d.opts.CreateMetricsTable {
 		createTagsTable(dbBench, tagNames, tagTypes, d.opts.UseJSON)
+		d.tables = append(d.tables, "tags")
 	}
 	// tableCols is a global map. Globally cache the available tags
 	tableCols[tagsKey] = tagNames
@@ -155,6 +176,7 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	if d.opts.PartitionIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", tableName))
 	}
+	d.tables = append(d.tables, tableName)
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to

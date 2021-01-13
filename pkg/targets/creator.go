@@ -16,8 +16,8 @@ type DBCreator interface {
 	RemoveOldDB(dbName string) error
 }
 
-// DBCreatorCloser is a DBCreator that also needs a Close method to cleanup any connections
-// after the benchmark is finished.
+// DBCreatorCloser is a DBCreator that also needs a Close method to do work after the benchmark is finished
+// including closing connections or doing vacuum or analyze for a SQL table
 type DBCreatorCloser interface {
 	DBCreator
 

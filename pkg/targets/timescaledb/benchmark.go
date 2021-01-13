@@ -61,6 +61,7 @@ func (b *benchmark) GetDBCreator() targets.DBCreator {
 		ds:      b.ds,
 		driver:  getDriver(b.opts.ForceTextFormat),
 		connStr: b.opts.GetConnectString(b.dbName),
+		tables:  make([]string, 0, 10),
 	}
 }
 

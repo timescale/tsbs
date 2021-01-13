@@ -29,6 +29,7 @@ type LoadingOptions struct {
 	PartitionIndex     bool   `yaml:"partition-index" mapstructure:"partition-index"`
 	FieldIndex         string `yaml:"field-index" mapstructure:"field-index"`
 	FieldIndexCount    int    `yaml:"field-index-count" mapstructure:"field-index-count"`
+	Analyze            bool
 
 	ProfileFile          string `yaml:"write-profile" mapstructure:"write-profile"`
 	ReplicationStatsFile string `yaml:"write-replication-stats" mapstructure:"write-replication-stats"`

@@ -12,7 +12,7 @@ type noFlowBenchmarkRunner struct {
 }
 
 func (l *noFlowBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
-	wg, start := l.preRun(b)
+	wg, start, cleanupFn := l.preRun(b)
 
 	var numChannels uint
 	if l.HashWorkers {
@@ -31,7 +31,7 @@ func (l *noFlowBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 	for _, c := range channels {
 		close(c)
 	}
-	l.postRun(wg, start)
+	l.postRun(wg, start, cleanupFn)
 }
 
 // createChannels create channels from which workers would receive tasks
