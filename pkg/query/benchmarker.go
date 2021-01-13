@@ -2,6 +2,7 @@ package query
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -26,6 +27,7 @@ type BenchmarkRunnerConfig struct {
 	DBName           string `mapstructure:"db-name"`
 	Limit            uint64 `mapstructure:"max-queries"`
 	LimitRPS         uint64 `mapstructure:"max-rps"`
+	LimitDuration    time.Duration `mapstructure:"max-total-duration"`
 	MemProfile       string `mapstructure:"memprofile"`
 	HDRLatenciesFile string `mapstructure:"hdr-latencies"`
 	Workers          uint   `mapstructure:"workers"`
@@ -43,6 +45,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Uint64("burn-in", 0, "Number of queries to ignore before collecting statistics.")
 	fs.Uint64("max-queries", 0, "Limit the number of queries to send, 0 = no limit")
 	fs.Uint64("max-rps", 0, "Limit the rate of queries per second, 0 = no limit")
+	fs.Duration("max-total-duration", 0, "Stop running queries after this much time, 0 = no limit")
 	fs.Uint64("print-interval", 100, "Print timing stats to stderr after this many queries (0 to disable)")
 	fs.String("memprofile", "", "Write a memory profile to this file.")
 	fs.String("hdr-latencies", "", "Write the High Dynamic Range (HDR) Histogram of Response Latencies to this file.")
@@ -149,17 +152,31 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 
 	rateLimiter := getRateLimiter(b.LimitRPS, b.Workers)
 
+	var ctx context.Context
+
+	if b.LimitDuration.Seconds() > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), b.LimitDuration)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
+
 	// Launch query processors
 	var wg sync.WaitGroup
 	for i := 0; i < int(b.Workers); i++ {
 		wg.Add(1)
-		go b.processorHandler(&wg, rateLimiter, queryPool, processorCreateFn(), i)
+		go b.processorHandler(ctx, &wg, rateLimiter, queryPool, processorCreateFn(), i)
 	}
 
 	// Read in jobs, closing the job channel when done:
 	// Wall clock start time
 	wallStart := time.Now()
-	b.scanner.setReader(b.GetBufferedReader()).scan(queryPool, b.ch)
+	b.scanner.setReader(b.GetBufferedReader()).scan(ctx, queryPool, b.ch)
+
+	// scan() can return when all queries have been scanned or one of LimitRPS or LimitDuration are
+	// reached. After the channel has been closed here the workers stop as soon as their currently
+	// running queries finish.
 	close(b.ch)
 
 	// Block for workers to finish sending requests, closing the stats channel when done:
@@ -185,9 +202,26 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	}
 }
 
-func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate.Limiter, queryPool *sync.Pool, processor Processor, workerNum int) {
+func (b *BenchmarkRunner) isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+func (b *BenchmarkRunner) processorHandler(ctx context.Context, wg *sync.WaitGroup, rateLimiter *rate.Limiter, queryPool *sync.Pool, processor Processor, workerNum int) {
 	processor.Init(workerNum)
+	defer wg.Done()
+
 	for query := range b.ch {
+		if b.isDone(ctx) {
+			// This check prevents a query from being started after LimitDuration has been exceeded as b.ch
+			// might have queries when that occurs. Note that b.ch isn't drained in that case.
+			return
+		}
+
 		r := rateLimiter.Reserve()
 		time.Sleep(r.Delay())
 
@@ -211,7 +245,6 @@ func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate
 		}
 		queryPool.Put(query)
 	}
-	wg.Done()
 }
 
 func getRateLimiter(limitRPS uint64, workers uint) *rate.Limiter {

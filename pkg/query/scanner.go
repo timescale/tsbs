@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"encoding/gob"
 	"io"
 	"log"
@@ -26,7 +27,7 @@ func (s *scanner) setReader(r io.Reader) *scanner {
 }
 
 // scan reads encoded Queries and places them into a channel
-func (s *scanner) scan(pool *sync.Pool, c chan Query) {
+func (s *scanner) scan(ctx context.Context, pool *sync.Pool, c chan Query) {
 	decoder := gob.NewDecoder(s.r)
 
 	n := uint64(0)
@@ -49,7 +50,13 @@ func (s *scanner) scan(pool *sync.Pool, c chan Query) {
 
 		// We have a query, send it to the runner
 		q.SetID(n)
-		c <- q
+
+		select {
+		case c <- q:
+			// Nothing more to do
+		case <-ctx.Done():
+			return
+		}
 
 		// Queries counter
 		n++

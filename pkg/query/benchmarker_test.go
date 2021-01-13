@@ -3,6 +3,7 @@ package query
 import (
 	"golang.org/x/time/rate"
 	"io/ioutil"
+	"context"
 	"math"
 	"os"
 	"reflect"
@@ -43,8 +44,8 @@ func TestProcessorHandler(t *testing.T) {
 	var requestBurst = 0
 	var rateLimiter *rate.Limiter = rate.NewLimiter(requestRate, requestBurst)
 
-	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
-	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
+	go b.processorHandler(context.Background(), &wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(context.Background(), &wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q
@@ -85,8 +86,8 @@ func TestProcessorHandlerPreWarm(t *testing.T) {
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
 	wg.Add(2)
-	go b.processorHandler(&wg, rateLimiter, qPool, p1, 0)
-	go b.processorHandler(&wg, rateLimiter, qPool, p2, 5)
+	go b.processorHandler(context.Background(), &wg, rateLimiter, qPool, p1, 0)
+	go b.processorHandler(context.Background(), &wg, rateLimiter, qPool, p2, 5)
 	for i := 0; i < qLimit; i++ {
 		q := qPool.Get().(*testQuery)
 		b.ch <- q

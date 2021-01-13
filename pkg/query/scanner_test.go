@@ -3,6 +3,7 @@ package query
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
 	"sync"
@@ -66,7 +67,7 @@ func runScan(t *testing.T, b *bytes.Buffer, limit, numQueries uint64, pool *sync
 		wg.Done()
 	}()
 	input := bufio.NewReaderSize(bytes.NewReader(b.Bytes()), 1<<20)
-	scanner.setReader(input).scan(pool, queryChan)
+	scanner.setReader(input).scan(context.Background(), pool, queryChan)
 	close(queryChan)
 	wg.Wait()
 	if got != numQueries {
