@@ -20,18 +20,21 @@ type LoadingOptions struct {
 	LogBatches    bool `yaml:"log-batches" mapstructure:"log-batches"`
 	UseJSON       bool `yaml:"use-jsonb-tags" mapstructure:"use-jsonb-tags"`
 	InTableTag    bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
+	UseCopy       bool `yaml:"use-copy" mapstructure:"use-copy"`
 
 	NumberPartitions int           `yaml:"partitions" mapstructure:"partitions"`
 	ChunkTime        time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
-	TimeIndex          bool   `yaml:"time-index" mapstructure:"time-index"`
-	TimePartitionIndex bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`
-	PartitionIndex     bool   `yaml:"partition-index" mapstructure:"partition-index"`
-	FieldIndex         string `yaml:"field-index" mapstructure:"field-index"`
-	FieldIndexCount    int    `yaml:"field-index-count" mapstructure:"field-index-count"`
+	TimeIndex           bool   `yaml:"time-index" mapstructure:"time-index"`
+	TimePartitionIndex  bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`
+	PartitionIndex      bool   `yaml:"partition-index" mapstructure:"partition-index"`
+	PartitionOnHostname bool   `yaml:"partition-on-hostname" mapstructure:"partition-on-hostname"`
+	FieldIndex          string `yaml:"field-index" mapstructure:"field-index"`
+	FieldIndexCount     int    `yaml:"field-index-count" mapstructure:"field-index-count"`
 
 	ProfileFile          string `yaml:"write-profile" mapstructure:"write-profile"`
 	ReplicationStatsFile string `yaml:"write-replication-stats" mapstructure:"write-replication-stats"`
+	ReplicationFactor    int    `yaml:"replication-factor" mapstructure:"replication-factor"`
 
 	CreateMetricsTable bool     `yaml:"create-metrics-table" mapstructure:"create-metrics-table"`
 	ForceTextFormat    bool     `yaml:"force-text-format" mapstructure:"force-text-format"`
