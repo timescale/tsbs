@@ -153,6 +153,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	hostnameField := "hostname"
 	joinStr := ""
+	partitionGrouping := hostnameField
 	if d.UseJSON || d.UseTags {
 		if d.UseJSON {
 			hostnameField = "tags->>'hostname'"
@@ -160,21 +161,23 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 			hostnameField = "tags.hostname"
 		}
 		joinStr = "JOIN tags ON cpu_avg.tags_id = tags.id"
+		partitionGrouping = "tags_id"
 	}
 
 	sql := fmt.Sprintf(`
         WITH cpu_avg AS (
-          SELECT %s as hour, tags_id,
+          SELECT %s as hour, %s,
           %s
           FROM cpu
           WHERE time >= '%s' AND time < '%s'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, %s, %s
         FROM cpu_avg
         %s
         ORDER BY hour, %s`,
 		d.getTimeBucket(oneHour),
+		partitionGrouping,
 		strings.Join(selectClauses, ", "),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
@@ -192,8 +195,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)

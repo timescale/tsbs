@@ -120,8 +120,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // hosts and all `cpu` metrics are returned):
 //
 // select max(1h) from (`groupHost1` | ...) & `cpu` between 'time1' and 'time2'
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 
 	whereMetrics := "`cpu`"
 	whereHosts := d.getHostWhereString(nHosts)

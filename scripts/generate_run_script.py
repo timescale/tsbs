@@ -139,7 +139,7 @@ if __name__ == "__main__":
         action='store_true', help='Whether to only generate commands for inserts')
     parser.add_argument('-l', dest='load_file_dir', default=default_load_dir,
         type=str, help='Path to directory where data to insert is stored')
-    parser.add_argument('-n', dest='limit', default=1000, type=int,
+    parser.add_argument('-n', dest='max_queries', default=1000, type=int,
         help='Max number of queries to run')
     parser.add_argument('-o', dest='query_file_dir', default=default_query_dir,
         type=str, help='Path to directory where queries to execute are stored')
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         args.load_file_dir if not args.query_only else None,
         args.db_name,
         args.batch_size,
-        args.limit,
+        args.max_queries,
         args.workers,
         args.hostname,
         args.extra_query_args)
