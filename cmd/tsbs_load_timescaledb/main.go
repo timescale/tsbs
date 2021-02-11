@@ -66,15 +66,19 @@ type insertData struct {
 }
 
 // Global vars
-var loader *load.BenchmarkRunner
+var (
+	loader     load.BenchmarkRunner
+	loaderConf load.BenchmarkRunnerConfig
+	opts       timescaledb.LoadingOptions
+)
 
 // allows for testing
 var fatal = log.Fatalf
 
 // Parse args:
-func init() {
-	var config load.BenchmarkRunnerConfig
-	config.AddToFlagSet(pflag.CommandLine)
+func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *load.BenchmarkRunnerConfig) {
+	//var config load.BenchmarkRunnerConfig
+	loaderConf.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("postgres", "sslmode=disable", "PostgreSQL connection string")
 	pflag.String("host", "localhost", "Hostname of TimescaleDB (PostgreSQL) instance")
