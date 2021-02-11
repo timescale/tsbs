@@ -1,13 +1,14 @@
 package timescaledb
 
 import (
+	"time"
+
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/source"
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/constants"
-	"time"
 )
 
 func NewTarget() targets.ImplementedTarget {
@@ -48,6 +49,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"log-batches", false, "Whether to time individual batches.")
 
 	flagSet.Bool(flagPrefix+"use-hypertable", true, "Whether to make the table a hypertable. Set this flag to false to check input write speed against regular PostgreSQL.")
+	flagSet.Int(flagPrefix+"replication-factor", 0, "To create distributed hypertable use use replication-factor >= 1")
 	flagSet.Bool(flagPrefix+"use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flagSet.Bool(flagPrefix+"in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 
@@ -56,6 +58,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 
 	flagSet.Bool(flagPrefix+"time-index", true, "Whether to build an index on the time dimension")
 	flagSet.Bool(flagPrefix+"time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
+	flagSet.Bool(flagPrefix+"partition-on-hostname", false, "Whether to create the space partition on the hostname column (instead of tags-id)")
 	flagSet.Bool(flagPrefix+"partition-index", true, "Whether to build an index on the partition key")
 	flagSet.String(flagPrefix+"field-index", ValueTimeIdx, "index types for tags (comma delimited)")
 	flagSet.Int(flagPrefix+"field-index-count", 0, "Number of indexed fields (-1 for all)")
@@ -65,4 +68,6 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"create-metrics-table", true, "Drops existing and creates new metrics table. Can be used for both regular and hypertable")
 
 	flagSet.Bool(flagPrefix+"force-text-format", false, "Send/receive data in text format")
+	flagSet.Bool(flagPrefix+"use-copy", true, "Perform inserts using COPY")
+
 }
