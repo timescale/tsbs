@@ -269,7 +269,7 @@ required, with a gzipped data set as created in the instructions above:
 cat /tmp/timescaledb-data.gz | gunzip | tsbs_load_timescaledb \
 --postgres="sslmode=require" --host="my.tsdb.host" --port=5432 --pass="password" \
 --user="benchmarkuser" --admin-db-name=defaultdb --workers=8  \
---in-table-partition-tag=true --partitions=1 --chunk-time=8h --write-profile= \
+--in-table-partition-tag=true --chunk-time=8h --write-profile= \
 --field-index-count=1 --do-create-db=true --force-text-format=false \
 --do-abort-on-exist=false
 ```
