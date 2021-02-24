@@ -20,6 +20,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/victoriametrics"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/questdb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 )
 
@@ -254,7 +255,12 @@ func (g *QueryGenerator) initFactories() error {
 	}
 
 	akumuli := &akumuli.BaseGenerator{}
-	return g.addFactory(FormatAkumuli, akumuli)
+	if err := g.addFactory(FormatAkumuli, akumuli); err != nil {
+		return err
+	}
+
+	questdb := &questdb.BaseGenerator{}
+	return g.addFactory(FormatQuestDB, questdb)
 }
 
 func (g *QueryGenerator) addFactory(database string, factory interface{}) error {

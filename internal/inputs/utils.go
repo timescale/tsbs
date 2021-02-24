@@ -19,6 +19,7 @@ const (
 	FormatAkumuli     = "akumuli"
 	FormatCrateDB 	  = "cratedb"
 	FormatVictoriaMetrics = "victoriametrics"
+	FormatQuestDB     = "questdb"
 )
 
 const (
@@ -38,6 +39,7 @@ var formats = []string{
 	FormatAkumuli,
 	FormatCrateDB,
 	FormatVictoriaMetrics,
+	FormatQuestDB,
 }
 
 func isIn(s string, arr []string) bool {

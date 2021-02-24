@@ -247,6 +247,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (seri
 	case FormatTimescaleDB:
 		g.writeHeader(sim)
 		ret = &serialize.TimescaleDBSerializer{}
+        case FormatQuestDB:
+	        ret = &serialize.QuestDBSerializer{}
 	default:
 		err = fmt.Errorf(errUnknownFormatFmt, format)
 	}
