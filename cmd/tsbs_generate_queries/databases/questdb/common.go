@@ -22,6 +22,7 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 // fillInQuery fills the query struct with data.
 func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
 	v := url.Values{}
+	v.Set("count", "false")
 	v.Set("query", sql)
 	q := qi.(*query.HTTP)
 	q.HumanLabel = []byte(humanLabel)

@@ -56,8 +56,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 		WHERE hostname IN ('%s')
 		  AND timestamp >= '%s'
 		  AND timestamp < '%s'
-		GROUP BY hour
-		ORDER BY hour`,
+		SAMPLE BY 1h`,
 		strings.Join(selectClauses, ", "),
 		strings.Join(hosts, "', '"),
 		interval.StartString(),

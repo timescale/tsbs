@@ -8,7 +8,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"io/ioutil"
 	"strings"
+	"net/http"
+        "net/url"
+	"encoding/json"
+	"errors"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -19,7 +24,6 @@ import (
 // Program option vars:
 var (
 	daemonUrls []string
-	chunkSize  uint64
 )
 
 // Global vars:
@@ -34,7 +38,6 @@ func init() {
 	var csvDaemonUrls string
 
 	pflag.String("urls", "http://localhost:9000/", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
-	pflag.Uint64("chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
 
 	pflag.Parse()
 
@@ -49,11 +52,22 @@ func init() {
 	}
 
 	csvDaemonUrls = viper.GetString("urls")
-	chunkSize = viper.GetUint64("chunk-response-size")
 
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
 	if len(daemonUrls) == 0 {
 		log.Fatal("missing 'urls' flag")
+	}
+
+	// Add an index to the hostname column in the cpu table
+	r, err := execQuery(daemonUrls[0], "show columns from cpu")
+	if err == nil && r.Count != 0 {
+	       r, err := execQuery(daemonUrls[0], "ALTER TABLE cpu ALTER COLUMN hostname ADD INDEX")
+	       _ = r
+//	       fmt.Println("error:", err)
+//	       fmt.Printf("%+v\n", r)
+	       if err == nil {
+	       	       fmt.Println("Added index to hostname column of cpu table")
+	       }
 	}
 
 	runner = query.NewBenchmarkRunner(config)
@@ -74,7 +88,6 @@ func (p *processor) Init(workerNumber int) {
 	p.opts = &HTTPClientDoOptions{
 		Debug:                runner.DebugLevel(),
 		PrettyPrintResponses: runner.DoPrintResponses(),
-		chunkSize:            chunkSize,
 	}
 	url := daemonUrls[workerNumber%len(daemonUrls)]
 	p.w = NewHTTPClient(url)
@@ -89,4 +102,42 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	stat := query.GetStat()
 	stat.Init(q.HumanLabelName(), lag)
 	return []*query.Stat{stat}, nil
+}
+
+type QueryResponseColumns struct {
+        Name string
+        Type string
+}
+
+type QueryResponse struct {
+        Query string
+        Columns []QueryResponseColumns
+        Dataset []interface{}
+        Count int
+	Error string
+}
+
+func execQuery(uriRoot string, query string) (QueryResponse, error) {
+        var qr QueryResponse
+ 	if strings.HasSuffix(uriRoot, "/") {
+     	        uriRoot = uriRoot[:len(uriRoot)-1]
+        }
+	uriRoot = uriRoot + "/exec?query=" + url.QueryEscape(query);
+	resp, err := http.Get(uriRoot)
+	if err != nil {
+	        return qr, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return qr, err
+	}
+	err = json.Unmarshal(body, &qr);
+	if err != nil {
+		return qr, err
+	}
+	if qr.Error != "" {
+ 	        return qr, errors.New(qr.Error)
+        }
+	return qr, nil
 }

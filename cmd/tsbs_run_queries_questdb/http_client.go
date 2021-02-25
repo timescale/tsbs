@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -66,7 +65,6 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	w.uri = w.uri[:0]
 	w.uri = append(w.uri, w.Host...)
 	w.uri = append(w.uri, q.Path...)
-	w.uri = append(w.uri, []byte("&db="+url.QueryEscape(opts.database))...)
 
 	// populate a request with data from the Query:
 	req, err := http.NewRequest(string(q.Method), string(w.uri), nil)
