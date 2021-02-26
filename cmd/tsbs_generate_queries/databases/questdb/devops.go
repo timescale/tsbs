@@ -81,13 +81,13 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	selectClauses := d.getSelectAggClauses("avg", metrics)
 
 	sql := fmt.Sprintf(`
-		SELECT hour(timestamp) AS hour, hostname,
+		SELECT timestamp, hostname,
 			%s
 		FROM cpu
 		WHERE timestamp >= '%s'
 		  AND timestamp < '%s'
-		GROUP BY hour, hostname
-		ORDER BY hour`,
+		SAMPLE BY 1h
+		GROUP BY timestamp, hostname`,
 		strings.Join(selectClauses, ", "),
 		interval.StartString(),
 		interval.EndString())
@@ -105,12 +105,11 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.MustRandWindow(time.Hour)
 	sql := fmt.Sprintf(`
-		SELECT minute(timestamp) AS minute,
+		SELECT timestamp AS minute,
 			max(usage_user)
 		FROM cpu
 		WHERE timestamp < '%s'
-		GROUP BY minute
-		ORDER BY minute DESC
+		SAMPLE BY 1m
 		LIMIT 5`,
 		interval.EndString())
 
