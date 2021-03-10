@@ -21,6 +21,8 @@ func (t *mongoTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Flag
 	flagSet.String(flagPrefix+"url", "localhost:27017", "Mongo URL.")
 	flagSet.Duration(flagPrefix+"write-timeout", 10*time.Second, "Write timeout.")
 	flagSet.Bool(flagPrefix+"document-per-event", false, "Whether to use one document per event or aggregate by hour")
+	flagSet.String(flagPrefix+"user", "", "User to connect")
+	flagSet.String(flagPrefix+"pass", "", "Password for user connecting to MongoDB (leave blank if not password protected)")
 }
 
 func (t *mongoTarget) TargetName() string {
