@@ -123,12 +123,7 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // Queries:
 // lastpoint
 func (d *Devops) LastPointPerHost(qi query.Query) {
-	sql := fmt.Sprintf(`
-		SELECT * FROM (
-		 SELECT hostname AS host, max(timestamp) AS max_ts FROM cpu
-		) t, cpu c
-		WHERE t.max_ts = c.timestamp
-		 AND t.host = c.hostname`)
+	sql := fmt.Sprintf(`SELECT * FROM cpu latest by hostname`)
 
 	humanLabel := "QuestDB last row per host"
 	humanDesc := humanLabel
