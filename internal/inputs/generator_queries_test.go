@@ -13,25 +13,33 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
-
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
-	"github.com/timescale/tsbs/query"
+	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
+	internalUtils "github.com/timescale/tsbs/internal/utils"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/query"
+	"github.com/timescale/tsbs/pkg/query/config"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+)
+
+const (
+	errTotalGroupsZero  = "incorrect interleaved groups configuration: total groups = 0"
+	errInvalidGroupsFmt = "incorrect interleaved groups configuration: id %d >= total groups %d"
 )
 
 func TestQueryGeneratorConfigValidate(t *testing.T) {
-	c := &QueryGeneratorConfig{
-		BaseConfig: BaseConfig{
+	c := &config.QueryGeneratorConfig{
+		BaseConfig: common.BaseConfig{
 			Seed:   123,
-			Format: FormatTimescaleDB,
-			Use:    useCaseDevops,
+			Format: constants.FormatTimescaleDB,
+			Use:    common.UseCaseDevops,
 			Scale:  10,
 		},
 		QueryType:            "foo",
@@ -50,7 +58,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected lack of error for bad format")
 	}
-	c.Format = FormatTimescaleDB
+	c.Format = constants.FormatTimescaleDB
 
 	// Test QueryType validation
 	c.QueryType = ""
@@ -83,7 +91,7 @@ func TestQueryGeneratorConfigValidate(t *testing.T) {
 }
 
 func TestNewQueryGenerator(t *testing.T) {
-	m := map[string]map[string]utils.QueryFillerMaker{
+	m := map[string]map[string]queryUtils.QueryFillerMaker{
 		"foo": {
 			"bar": nil,
 			"baz": nil,
@@ -101,8 +109,8 @@ func TestNewQueryGenerator(t *testing.T) {
 func TestQueryGeneratorInit(t *testing.T) {
 	const okQueryType = "single-groupby-1-1-1"
 	g := &QueryGenerator{
-		useCaseMatrix: map[string]map[string]utils.QueryFillerMaker{
-			useCaseDevops: {
+		useCaseMatrix: map[string]map[string]queryUtils.QueryFillerMaker{
+			common.UseCaseDevops: {
 				okQueryType: nil,
 			},
 		},
@@ -117,7 +125,7 @@ func TestQueryGeneratorInit(t *testing.T) {
 	}
 
 	// Test that wrong type of config fails
-	err = g.init(&BaseConfig{})
+	err = g.init(&common.BaseConfig{})
 	if err == nil {
 		t.Errorf("unexpected lack of error with invalid config")
 	} else if got := err.Error(); got != ErrInvalidDataConfig {
@@ -125,15 +133,15 @@ func TestQueryGeneratorInit(t *testing.T) {
 	}
 
 	// Test that empty, invalid config fails
-	err = g.init(&QueryGeneratorConfig{})
+	err = g.init(&config.QueryGeneratorConfig{})
 	if err == nil {
 		t.Errorf("unexpected lack of error with empty QueryGeneratorConfig")
 	}
 
-	c := &QueryGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Format: FormatTimescaleDB,
-			Use:    useCaseCPUOnly, // not in the useCaseMatrix
+	c := &config.QueryGeneratorConfig{
+		BaseConfig: common.BaseConfig{
+			Format: constants.FormatTimescaleDB,
+			Use:    common.UseCaseCPUOnly, // not in the useCaseMatrix
 			Scale:  1,
 		},
 		QueryType:            "unknown query type",
@@ -142,17 +150,17 @@ func TestQueryGeneratorInit(t *testing.T) {
 
 	// Test use case not in matrix
 	err = g.init(c)
-	want := fmt.Sprintf(errBadUseFmt, useCaseCPUOnly)
+	want := fmt.Sprintf(errBadUseFmt, common.UseCaseCPUOnly)
 	if err == nil {
 		t.Errorf("unexpected lack of error with bad use case")
 	} else if got := err.Error(); got != want {
 		t.Errorf("incorrect error for bad use case:\ngot\n%s\nwant\n%s", got, want)
 	}
-	c.Use = useCaseDevops
+	c.Use = common.UseCaseDevops
 
 	// Test unknown query type
 	err = g.init(c)
-	want = fmt.Sprintf(errBadQueryTypeFmt, useCaseDevops, "unknown query type")
+	want = fmt.Sprintf(errBadQueryTypeFmt, common.UseCaseDevops, "unknown query type")
 	if err == nil {
 		t.Errorf("unexpected lack of error with bad query type")
 	} else if got := err.Error(); got != want {
@@ -210,33 +218,33 @@ func TestQueryGeneratorInit(t *testing.T) {
 }
 
 func TestGetUseCaseGenerator(t *testing.T) {
-	var useCaseMatrix = map[string]map[string]utils.QueryFillerMaker{
+	var useCaseMatrix = map[string]map[string]queryUtils.QueryFillerMaker{
 		"devops": {
 			devops.LabelLastpoint: devops.NewLastPointPerHost,
 		},
 	}
 	const scale = 10
-	tsStart, _ := ParseUTCTime(defaultTimeStart)
-	tsEnd, _ := ParseUTCTime(defaultTimeEnd)
-	c := &QueryGeneratorConfig{
-		BaseConfig: BaseConfig{
+	tsStart, _ := internalUtils.ParseUTCTime(defaultTimeStart)
+	tsEnd, _ := internalUtils.ParseUTCTime(defaultTimeEnd)
+	c := &config.QueryGeneratorConfig{
+		BaseConfig: common.BaseConfig{
 			Scale:     scale,
 			TimeStart: defaultTimeStart,
 			TimeEnd:   defaultTimeEnd,
 		},
 	}
 	g := &QueryGenerator{
-		config:        c,
+		conf:          c,
 		tsStart:       tsStart,
 		tsEnd:         tsEnd,
 		factories:     make(map[string]interface{}),
 		useCaseMatrix: useCaseMatrix,
 	}
 
-	checkType := func(format string, want utils.QueryGenerator) utils.QueryGenerator {
+	checkType := func(format string, want queryUtils.QueryGenerator) queryUtils.QueryGenerator {
 		wantType := reflect.TypeOf(want)
 		c.Format = format
-		c.Use = useCaseDevops
+		c.Use = common.UseCaseDevops
 		c.QueryType = "lastpoint"
 		c.InterleavedNumGroups = 1
 		err := g.init(c)
@@ -261,54 +269,54 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating cassandra query generator")
 	}
-	checkType(FormatCassandra, cass)
+	checkType(constants.FormatCassandra, cass)
 
 	bcr := cratedb.BaseGenerator{}
 	crate, err := bcr.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Errorf("Error creating cratedb query generator")
 	}
-	checkType(FormatCrateDB, crate)
+	checkType(constants.FormatCrateDB, crate)
 
 	bi := influx.BaseGenerator{}
 	indb, err := bi.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating influx query generator")
 	}
-	checkType(FormatInflux, indb)
+	checkType(constants.FormatInflux, indb)
 
 	bs := siridb.BaseGenerator{}
 	siri, err := bs.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating siridb query generator")
 	}
-	checkType(FormatSiriDB, siri)
+	checkType(constants.FormatSiriDB, siri)
 
 	bm := mongo.BaseGenerator{}
 	mongodb, err := bm.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating mongodb query generator")
 	}
-	checkType(FormatMongo, mongodb)
+	checkType(constants.FormatMongo, mongodb)
 
 	bm.UseNaive = true
 	nmongo, err := bm.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating naive mongodb query generator")
 	}
-	g.config.MongoUseNaive = true
-	checkType(FormatMongo, nmongo)
+	g.conf.MongoUseNaive = true
+	checkType(constants.FormatMongo, nmongo)
 
 	bcc := clickhouse.BaseGenerator{}
 	clickh, err := bcc.NewDevops(tsStart, tsEnd, scale)
 	if err != nil {
 		t.Fatalf("Error creating clickhouse query generator")
 	}
-	checkType(FormatClickhouse, clickh)
+	checkType(constants.FormatClickhouse, clickh)
 
 	bcc.UseTags = true
 	clickt, err := bcc.NewDevops(tsStart, tsEnd, scale)
-	checkType(FormatClickhouse, clickt)
+	checkType(constants.FormatClickhouse, clickt)
 	if got := clickt.(*clickhouse.Devops).UseTags; got != bcc.UseTags {
 		t.Errorf("clickhous3 UseTags not set correctly: got %v want %v", got, bcc.UseTags)
 	}
@@ -316,7 +324,7 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	bt := timescaledb.BaseGenerator{}
 	ts, err := bt.NewDevops(tsStart, tsEnd, scale)
 
-	checkType(FormatTimescaleDB, ts)
+	checkType(constants.FormatTimescaleDB, ts)
 	if got := ts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
@@ -331,10 +339,10 @@ func TestGetUseCaseGenerator(t *testing.T) {
 	bt.UseTags = true
 	bt.UseTimeBucket = true
 	tts, err := bt.NewDevops(tsStart, tsEnd, scale)
-	g.config.TimescaleUseJSON = true
-	g.config.TimescaleUseTags = true
-	g.config.TimescaleUseTimeBucket = true
-	checkType(FormatTimescaleDB, tts)
+	g.conf.TimescaleUseJSON = true
+	g.conf.TimescaleUseTags = true
+	g.conf.TimescaleUseTimeBucket = true
+	checkType(constants.FormatTimescaleDB, tts)
 	if got := tts.(*timescaledb.Devops).UseTags; got != c.TimescaleUseTags {
 		t.Errorf("timescaledb UseTags not set correctly: got %v want %v", got, c.TimescaleUseTags)
 	}
@@ -391,15 +399,15 @@ var wantQueries = []query.TimescaleDB{
 	},
 }
 
-func getTestConfigAndGenerator() (*QueryGeneratorConfig, *QueryGenerator) {
+func getTestConfigAndGenerator() (*config.QueryGeneratorConfig, *QueryGenerator) {
 	const scale = 10
-	tsStart, _ := ParseUTCTime(defaultTimeStart)
-	tsEnd, _ := ParseUTCTime(defaultTimeEnd)
+	tsStart, _ := internalUtils.ParseUTCTime(defaultTimeStart)
+	tsEnd, _ := internalUtils.ParseUTCTime(defaultTimeEnd)
 	tsEnd = tsEnd.Add(time.Second)
-	c := &QueryGeneratorConfig{
-		BaseConfig: BaseConfig{
-			Format:    FormatTimescaleDB,
-			Use:       useCaseCPUOnly,
+	c := &config.QueryGeneratorConfig{
+		BaseConfig: common.BaseConfig{
+			Format:    constants.FormatTimescaleDB,
+			Use:       common.UseCaseCPUOnly,
 			Scale:     scale,
 			TimeStart: defaultTimeStart,
 			TimeEnd:   strings.Replace(defaultTimeEnd, ":00Z", ":01Z", 1),
@@ -412,12 +420,12 @@ func getTestConfigAndGenerator() (*QueryGeneratorConfig, *QueryGenerator) {
 		InterleavedNumGroups:   1,
 	}
 	g := &QueryGenerator{
-		useCaseMatrix: map[string]map[string]utils.QueryFillerMaker{
-			useCaseCPUOnly: {
+		useCaseMatrix: map[string]map[string]queryUtils.QueryFillerMaker{
+			common.UseCaseCPUOnly: {
 				"single-groupby-1-1-1": devops.NewSingleGroupby(1, 1, 1),
 			},
 		},
-		config:    c,
+		conf:      c,
 		tsStart:   tsStart,
 		tsEnd:     tsEnd,
 		DebugOut:  os.Stderr,
@@ -591,7 +599,7 @@ func TestQueryGeneratorGenerate(t *testing.T) {
 	}
 
 	// Test that an invalid config fails
-	c := &QueryGeneratorConfig{}
+	c := &config.QueryGeneratorConfig{}
 	err := g.Generate(c)
 	if err == nil {
 		t.Errorf("unexpected lack of error with empty QueryGeneratorConfig")

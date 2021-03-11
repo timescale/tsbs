@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tsbs.fullname" . }}
+  labels:
+    {{- include "tsbs.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tsbs.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tsbs.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.tsbs.image }}:{{ .Chart.AppVersion }}"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "tsbs.fullname" . }}
+

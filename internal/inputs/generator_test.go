@@ -3,14 +3,21 @@ package inputs
 import (
 	"fmt"
 	"testing"
+
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+)
+
+const (
+	errBadFormatFmt = "invalid format specified: '%v'"
 )
 
 func TestBaseConfigValidate(t *testing.T) {
-	c := &BaseConfig{
+	c := &common.BaseConfig{
 		Scale:  1,
 		Seed:   123,
-		Format: FormatTimescaleDB,
-		Use:    useCaseDevops,
+		Format: constants.FormatTimescaleDB,
+		Use:    common.UseCaseDevops,
 	}
 
 	// Test Scale validation
@@ -23,8 +30,8 @@ func TestBaseConfigValidate(t *testing.T) {
 	err = c.Validate()
 	if err == nil {
 		t.Errorf("unexpected lack of error for scale of 0")
-	} else if got := err.Error(); got != ErrScaleIsZero {
-		t.Errorf("incorrect error for scale of 0: got\n%s\nwant\n%s", got, ErrScaleIsZero)
+	} else if got := err.Error(); got != common.ErrScaleIsZero {
+		t.Errorf("incorrect error for scale of 0: got\n%s\nwant\n%s", got, common.ErrScaleIsZero)
 	}
 	c.Scale = 1
 
@@ -47,10 +54,10 @@ func TestBaseConfigValidate(t *testing.T) {
 	}
 
 	// Test Format validation
-	c.Format = FormatCassandra
+	c.Format = constants.FormatCassandra
 	err = c.Validate()
 	if err != nil {
-		t.Errorf("unexpected error with Format '%s': %v", FormatCassandra, err)
+		t.Errorf("unexpected error with Format '%s': %v", constants.FormatCassandra, err)
 	}
 
 	c.Format = "unknown type"
@@ -63,13 +70,13 @@ func TestBaseConfigValidate(t *testing.T) {
 			t.Errorf("incorrect error for incorrect format: got\n%v\nwant\n%v", got, want)
 		}
 	}
-	c.Format = FormatTimescaleDB
+	c.Format = constants.FormatTimescaleDB
 
 	// Test Use validation
-	c.Use = useCaseCPUOnly
+	c.Use = common.UseCaseCPUOnly
 	err = c.Validate()
 	if err != nil {
-		t.Errorf("unexpected error with Use '%s': %v", useCaseCPUOnly, err)
+		t.Errorf("unexpected error with Use '%s': %v", common.UseCaseCPUOnly, err)
 	}
 
 	c.Use = "bad use"
@@ -82,5 +89,5 @@ func TestBaseConfigValidate(t *testing.T) {
 			t.Errorf("incorrect error for incorrect format: got\n%v\nwant\n%v", got, want)
 		}
 	}
-	c.Use = useCaseDevops
+	c.Use = common.UseCaseDevops
 }

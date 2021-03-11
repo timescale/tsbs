@@ -67,6 +67,7 @@ func (s *sleepRegulator) Sleep(workerNum int, startedWorkAt time.Time) {
 
 	// the worker should sleep this many seconds between inserts
 	timeToSleep := sleepGenerator()
+
 	// if started work at x, should sleep until x+timeToSleep
 	shouldSleepUntil := startedWorkAt.Add(timeToSleep)
 	now := s.nowFn()
@@ -74,7 +75,6 @@ func (s *sleepRegulator) Sleep(workerNum int, startedWorkAt time.Time) {
 	if !shouldSleepUntil.After(now) {
 		return
 	}
-
 	durationToSleep := shouldSleepUntil.Sub(now)
 	time.Sleep(durationToSleep)
 }

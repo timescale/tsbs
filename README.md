@@ -14,6 +14,7 @@ Current databases supported:
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
++ Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
 
 ## Overview
@@ -76,6 +77,7 @@ cases are implemented for each database:
 |MongoDB|X|
 |SiriDB|X|
 |TimescaleDB|X|X|
+|Timestream|X||
 |VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
@@ -88,7 +90,8 @@ query execution performance. (It currently does not measure
 concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
-wherever possible to connect to each database (e.g., `mgo` for MongoDB).
+wherever possible to connect to each database (e.g., `mgo` for MongoDB, 
+`aws sdk` for Timestream).
 
 Although the data is randomly generated, TSBS data and queries are
 entirely deterministic. By supplying the same PRNG (pseudo-random number
@@ -217,6 +220,37 @@ A full list of query types can be found in
 
 ### Benchmarking insert/write performance
 
+TSBS has two ways to benchmark insert/write performance:
+* On the fly simulation and load with `tsbs_load`
+* Pre-generate data to a file and load it either with `tsbs_load` or the
+db specific executables `tsbs_load_*`
+
+#### Using the unified `tsbs_load` executable
+
+The `tsbs_load` executable can load data in any of the supported databases.
+It can use a pregenerated data file as input, or simulate the data on the 
+fly. 
+
+You first start by generating a config yaml file populated with the default
+values for each property with:
+```shell script
+$ tsbs_load config --target=<db-name> --data-source=[FILE|SIMULATOR]
+```
+for example, to generate an example for TimescaleDB, loading the data from file
+```shell script
+$ tsbs_load config --target=timescaledb --data-source=FILE
+Wrote example config to: ./config.yaml
+```
+
+You can then run tsbs_load with the generated config file with:
+```shell script
+$ tsbs_load load timescaledb --config=./config.yaml
+```
+
+For more details on how to use tsbs_load check out the [supplemental docs](docs/tsbs_load.md)
+
+#### Using the database specific `tsbs_load_*` executables
+
 TSBS measures insert/write performance by taking the data generated in
 the previous step and using it as input to a database-specific command
 line program. To the extent that insert programs can be shared, we have
@@ -235,13 +269,13 @@ required, with a gzipped data set as created in the instructions above:
 cat /tmp/timescaledb-data.gz | gunzip | tsbs_load_timescaledb \
 --postgres="sslmode=require" --host="my.tsdb.host" --port=5432 --pass="password" \
 --user="benchmarkuser" --admin-db-name=defaultdb --workers=8  \
---in-table-partition-tag=true --partitions=1 --chunk-time=8h --write-profile= \
+--in-table-partition-tag=true --chunk-time=8h --write-profile= \
 --field-index-count=1 --do-create-db=true --force-text-format=false \
 --do-abort-on-exist=false
 ```
 
 For simpler testing, especially locally, we also supply
-`scripts/load_<database>.sh` for convenience with many of the flags set
+`scripts/load/load_<database>.sh` for convenience with many of the flags set
 to a reasonable default for some of the databases.
 So for loading into TimescaleDB, ensure that TimescaleDB is running and
 then use:
@@ -249,7 +283,7 @@ then use:
 # Will insert using 2 clients, batch sizes of 10k, from a file
 # named `timescaledb-data.gz` in directory `/tmp`
 $ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp \
-    scripts/load_timescaledb.sh
+    scripts/load/load_timescaledb.sh
 ```
 
 This will create a new database called `benchmark` where the data is
@@ -263,7 +297,7 @@ Example for writing to remote host using `load_timescaledb.sh`:
 # named `timescaledb-data.gz` in directory `/tmp`
 $ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp DATABASE_HOST=remotehostname
 DATABASE_USER=user DATABASE \
-    scripts/load_timescaledb.sh
+    scripts/load/load_timescaledb.sh
 ```
 
 ---

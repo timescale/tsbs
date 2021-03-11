@@ -7,7 +7,7 @@ import (
 
 	"github.com/globalsign/mgo/bson"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 func init() {

@@ -1,20 +1,22 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4"
 	"log"
 	"strings"
+
+	"github.com/jackc/pgx/v4"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type tableDef struct {
-	schema string
-	name   string
-	tags   []string
-	cols   []string
+	schema   string
+	name     string
+	tags     []string
+	tagTypes []string
+	cols     []string
 }
 
 // fqn returns the fully-qualified name of a table
@@ -26,7 +28,7 @@ type dbCreator struct {
 	tableDefs []*tableDef
 	cfg       *pgx.ConnConfig
 	conn      *pgx.Conn
-
+	ds        targets.DataSource
 	// common parameters for all metrics table
 	numShards   int
 	numReplicas int
@@ -34,8 +36,8 @@ type dbCreator struct {
 
 // loader.DBCreator interface implementation
 func (d *dbCreator) Init() {
-	br := loader.GetBufferedReader()
-	tableDefs, err := d.readDataHeader(br)
+	header := d.ds.Headers()
+	tableDefs, err := d.readDataHeader(header)
 	if err != nil {
 		fatal("cannot parse the header: %v", err)
 		panic(err)
@@ -68,40 +70,16 @@ func (d *dbCreator) Init() {
 //      tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
 //      disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
 //      nginx,accepts,active,handled,reading,requests,waiting,writing
-func (d *dbCreator) readDataHeader(br *bufio.Reader) ([]*tableDef, error) {
+func (d *dbCreator) readDataHeader(header *common.GeneratedDataHeaders) ([]*tableDef, error) {
 	var tableDefs []*tableDef
-
-	line, err := br.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	line = strings.TrimSpace(line)
-	tagsLine := strings.Split(line, ",")
-	if tagsLine[0] != "tags" {
-		return nil, errors.New("first header line doesn't contain tags")
-	}
-	tags := tagsLine[1:]
-
-	for {
-		line, err := br.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			break
-		}
-
-		parts := strings.SplitN(line, ",", 2)
-		if len(parts) < 2 {
-			return nil, errors.New("metric columns are missing")
-		}
+	for tableName, fieldCols := range header.FieldKeys {
 		tableDefs = append(
 			tableDefs,
 			&tableDef{
-				name: parts[0],
-				tags: tags,
-				cols: strings.Split(parts[1], ","),
+				name:     tableName,
+				tags:     header.TagKeys,
+				tagTypes: header.TagTypes,
+				cols:     fieldCols,
 			},
 		)
 	}
@@ -123,7 +101,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 
 func (d *dbCreator) createMetricsTable(table *tableDef) error {
 	var tagsObjectChildCols []string
-	for _, column := range table.tags {
+	for i, column := range table.tags {
+		if table.tagTypes[i] != "string" {
+			return fmt.Errorf("cratedb db creator does not support non-string tags")
+		}
 		tagsObjectChildCols = append(
 			tagsObjectChildCols,
 			fmt.Sprintf("%s %s", column, "string"))

@@ -5,39 +5,43 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
 
 var newLine = []byte("\n")
 
-type decoder struct {
+type fileDataSource struct {
 	scanner *bufio.Scanner
 }
 
-func (d *decoder) Decode(_ *bufio.Reader) *load.Point {
+func (d *fileDataSource) NextItem() data.LoadedPoint {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return nil
+		return data.LoadedPoint{}
 	} else if !ok {
 		fatal("scan error: %v", d.scanner.Err())
-		return nil
+		return data.LoadedPoint{}
 	}
-	return load.NewPoint(d.scanner.Bytes())
+	return data.NewLoadedPoint(d.scanner.Bytes())
 }
+
+func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }
 
 type batch struct {
 	buf     *bytes.Buffer
-	rows    uint64
+	rows    uint
 	metrics uint64
 }
 
-func (b *batch) Len() int {
-	return int(b.rows)
+func (b *batch) Len() uint {
+	return b.rows
 }
 
-func (b *batch) Append(item *load.Point) {
+func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.([]byte)
 	thatStr := string(that)
 	b.rows++
@@ -56,6 +60,6 @@ func (b *batch) Append(item *load.Point) {
 
 type factory struct{}
 
-func (f *factory) New() load.Batch {
+func (f *factory) New() targets.Batch {
 	return &batch{buf: bufPool.Get().(*bytes.Buffer)}
 }

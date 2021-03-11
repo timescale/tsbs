@@ -95,11 +95,9 @@ time.Duration string, meaning a number followed by a unit abbreviation
 (s = seconds, m = minutes, h = hours), e.g., the default `12h` is 12 hours.
 This should be adjusted based on the dataset size.
 
-#### `-partitions` (type: `int`, default: `1`)
-Number of space partitions for the primary tag. Increasing this from 1 may
-be useful for larger number of devices, but further testing is still
-needed.
-
+#### `-partitions` (type: `int`, default: `0`)
+Number of space partitions for the primary tag. Setting this to `0` will
+disable space partitioning.
 
 ### Index related
 
