@@ -11,10 +11,13 @@ import (
 	"log"
 	"sync"
 
+	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 // Program option vars:
@@ -26,8 +29,10 @@ var (
 
 // Global vars
 var (
-	loader  *load.BenchmarkRunner
+	loader  load.BenchmarkRunner
+	config  load.BenchmarkRunnerConfig
 	bufPool sync.Pool
+	target  targets.ImplementedTarget
 )
 
 // allows for testing
@@ -35,12 +40,10 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
-	var config load.BenchmarkRunnerConfig
+	target = initializers.GetTarget(constants.FormatQuestDB)
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("url", "http://localhost:9000/", "QuestDB REST end point")
-	pflag.String("ilp-bind-to", "127.0.0.1:9009", "QuestDB influx line protocol TCP ip:port")
-
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -49,34 +52,38 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
+fmt.Println("config=", config)
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
+fmt.Println("config=", config)
 
 	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
+	config.HashWorkers = false
+fmt.Println("config=", config)
 	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct{}
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() targets.DataSource {
+	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{}
 }
 
@@ -87,5 +94,5 @@ func main() {
 		},
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{})
 }

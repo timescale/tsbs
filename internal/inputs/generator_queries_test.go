@@ -20,6 +20,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/questdb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	internalUtils "github.com/timescale/tsbs/internal/utils"
@@ -313,6 +314,13 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		t.Fatalf("Error creating clickhouse query generator")
 	}
 	checkType(constants.FormatClickhouse, clickh)
+
+	bq := questdb.BaseGenerator{}
+	qdb, err := bq.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating questdb query generator")
+	}
+	checkType(constants.FormatQuestDB, qdb)
 
 	bcc.UseTags = true
 	clickt, err := bcc.NewDevops(tsStart, tsEnd, scale)

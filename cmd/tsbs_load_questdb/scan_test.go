@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func TestBatch(t *testing.T) {
@@ -21,7 +21,7 @@ func TestBatch(t *testing.T) {
 	if b.Len() != 0 {
 		t.Errorf("batch not initialized with count 0")
 	}
-	p := &load.Point{
+	p := data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(p)
@@ -35,7 +35,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &load.Point{
+	p = data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=1.0,col2=1.0 190"),
 	}
 	b.Append(p)
@@ -49,7 +49,7 @@ func TestBatch(t *testing.T) {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
 
-	p = &load.Point{
+	p = data.LoadedPoint{
 		Data: []byte("bad_point"),
 	}
 	errMsg := ""
@@ -62,7 +62,7 @@ func TestBatch(t *testing.T) {
 	}
 }
 
-func TestDecode(t *testing.T) {
+func TestFileDataSourceNextItem(t *testing.T) {
 	cases := []struct {
 		desc        string
 		input       string
@@ -83,8 +83,8 @@ func TestDecode(t *testing.T) {
 
 	for _, c := range cases {
 		br := bufio.NewReader(bytes.NewReader([]byte(c.input)))
-		decoder := &decoder{scanner: bufio.NewScanner(br)}
-		p := decoder.Decode(br)
+		ds := &fileDataSource{scanner: bufio.NewScanner(br)}
+		p := ds.NextItem()
 		data := p.Data.([]byte)
 		if !bytes.Equal(data, c.result) {
 			t.Errorf("%s: incorrect result: got\n%v\nwant\n%v", c.desc, data, c.result)
@@ -95,11 +95,11 @@ func TestDecode(t *testing.T) {
 func TestDecodeEOF(t *testing.T) {
 	input := []byte("cpu,tag1=tag1text,tag2=tag2text col1=0.0,col2=0.0 140")
 	br := bufio.NewReader(bytes.NewReader([]byte(input)))
-	decoder := &decoder{scanner: bufio.NewScanner(br)}
-	_ = decoder.Decode(br)
+	ds := &fileDataSource{scanner: bufio.NewScanner(br)}
+	_ = ds.NextItem()
 	// nothing left, should be EOF
-	p := decoder.Decode(br)
-	if p != nil {
+	p := ds.NextItem()
+	if p.Data != nil {
 		t.Errorf("expected p to be nil, got %v", p)
 	}
 }
