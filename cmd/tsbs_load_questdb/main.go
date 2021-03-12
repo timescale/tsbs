@@ -52,16 +52,13 @@ func init() {
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
 
-fmt.Println("config=", config)
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-fmt.Println("config=", config)
 
 	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
 	config.HashWorkers = false
-fmt.Println("config=", config)
 	loader = load.GetBenchmarkRunner(config)
 }
 
