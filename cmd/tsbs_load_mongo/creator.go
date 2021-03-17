@@ -17,9 +17,6 @@ type dbCreator struct {
 	cancel context.CancelFunc
 }
 
-//var daemonURL string =  "mongodb+srv://dbadmin:QBrtK7nGNwryvSTs@cluster0.op8ed.mongodb.net"///benchmark?retryWrites=true&w=majority"
-//var writeTimeout time.Duration = 30*time.Second
-//tested - OK
 func (d *dbCreator) Init() {
 	var err error
 	d.ctx, d.cancel = context.WithTimeout(context.Background(), writeTimeout)
