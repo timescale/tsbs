@@ -57,11 +57,11 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 		return err
 	}
 	for _, coll := range collection_names {
-		log.Printf("collection found : ", d.client.Database(dbName).Collection(coll))
+		log.Printf("collection found :  %s", d.client.Database(dbName).Collection(coll))
 		log.Println("deleting the previous collection")
 		err := d.client.Database(dbName).Collection(coll).Drop(d.ctx)
 		if err != nil {
-			log.Printf("Could not delete collection : ", err.Error())
+			log.Printf("Could not delete collection : %s", err.Error())
 		}
 	}
 	return nil
