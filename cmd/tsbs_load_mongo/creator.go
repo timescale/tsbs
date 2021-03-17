@@ -1,29 +1,47 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
 	"strings"
-
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
 )
 
 type dbCreator struct {
-	session *mgo.Session
+	client *mongo.Client
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
+//var daemonURL string =  "mongodb+srv://dbadmin:QBrtK7nGNwryvSTs@cluster0.op8ed.mongodb.net"///benchmark?retryWrites=true&w=majority"
+//var writeTimeout time.Duration = 30*time.Second
+//tested - OK
 func (d *dbCreator) Init() {
 	var err error
-	d.session, err = mgo.DialWithTimeout(daemonURL, writeTimeout)
+	d.ctx, d.cancel = context.WithTimeout(context.Background(), writeTimeout)
+	//defer d.cancel()
+	log.Println("TRYING TO CONNECT")
+	d.client, err = mongo.Connect(d.ctx, options.Client().ApplyURI(daemonURL))
 	if err != nil {
+		log.Println("DID NOT MANAGE TO CONNECT")
 		log.Fatal(err)
+	} else {
+		err = d.client.Ping(d.ctx, readpref.Primary())
+		if err != nil {
+			log.Println("DID NOT MANAGE TO CONNECT")
+			log.Fatal(err)
+		} else {
+			log.Println("MANAGED TO CONNECT")
+		}
 	}
-	d.session.SetMode(mgo.Eventual, false)
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	dbs, err := d.session.DatabaseNames()
+	dbs, err := d.client.ListDatabaseNames(d.ctx, bson.D{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,74 +54,70 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	collections, err := d.session.DB(dbName).CollectionNames()
+	collection_names, err := d.client.Database(dbName).ListCollectionNames(d.ctx, bson.D{})
+	log.Printf("collection_names : %s", collection_names)
 	if err != nil {
 		return err
 	}
-	for _, name := range collections {
-		d.session.DB(dbName).C(name).DropCollection()
+	for _, coll := range collection_names {
+		log.Printf("collection found : ", d.client.Database(dbName).Collection(coll))
+		log.Println("deleting the previous collection")
+		err := d.client.Database(dbName).Collection(coll).Drop(d.ctx)
+		if err != nil {
+			log.Printf("Could not delete collection : ", err.Error())
+		}
 	}
-
 	return nil
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	cmd := make(bson.D, 0, 4)
-	cmd = append(cmd, bson.DocElem{Name: "create", Value: collectionName})
-
-	// wiredtiger settings
-	cmd = append(cmd, bson.DocElem{
-		Name: "storageEngine", Value: map[string]interface{}{
-			"wiredTiger": map[string]interface{}{
-				"configString": "block_compressor=snappy",
-			},
-		},
-	})
-
-	err := d.session.DB(dbName).Run(cmd, nil)
+	//Starting in MongoDB 3.2, the WiredTiger storage engine is the default storage engine
+	err := d.client.Database(dbName).CreateCollection(d.ctx, collectionName)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
+			log.Printf("collection %s already exists", dbName)
 			return nil
 		}
+		log.Printf("create collection err: %v", err)
 		return fmt.Errorf("create collection err: %v", err)
 	}
-
-	collection := d.session.DB(dbName).C(collectionName)
-	var key []string
+	collection := d.client.Database(dbName).Collection(collectionName)
+	var key bson.D
 	if documentPer {
-		key = []string{"measurement", "tags.hostname", timestampField}
+		key = bson.D{{"measurement", 1}, {"tags.hostname", 1}, {timestampField, 1}}
 	} else {
-		key = []string{aggKeyID, "measurement", "tags.hostname"}
+		key = bson.D{{aggKeyID, 1}, {"measurement", 1}, {"tags.hostname", 1}}
 	}
-
-	index := mgo.Index{
-		Key:        key,
-		Unique:     false, // Unique does not work on the entire array of tags!
-		Background: false,
-		Sparse:     false,
+	index := mongo.IndexModel{
+		Keys:    key,
+		Options: options.Index().SetName("default_index"),
 	}
-	err = collection.EnsureIndex(index)
+	idxview := collection.Indexes()
+	_, err = idxview.CreateOne(d.ctx, index)
 	if err != nil {
-		return fmt.Errorf("create basic index err: %v", err)
+		log.Printf("create index err: %v", err)
+		panic(err)
 	}
-
 	// To make updates for new records more efficient, we need a efficient doc
 	// lookup index
 	if !documentPer {
-		err = collection.EnsureIndex(mgo.Index{
-			Key:        []string{aggDocID},
-			Unique:     false,
-			Background: false,
-			Sparse:     false,
+		_, err := idxview.CreateOne(d.ctx, mongo.IndexModel{
+			Keys:    bson.D{{aggDocID, 1}},
+			Options: options.Index().SetName("default_index"),
 		})
 		if err != nil {
-			return fmt.Errorf("create agg doc index err: %v", err)
+			log.Printf("create index err: %v", err)
+			panic(err)
 		}
 	}
-
 	return nil
 }
 
 func (d *dbCreator) Close() {
-	d.session.Close()
+	log.Println("losing database connection")
+	var err error
+	(d.cancel)()
+	if err = d.client.Disconnect(d.ctx); err != nil {
+		panic(err)
+	}
 }
