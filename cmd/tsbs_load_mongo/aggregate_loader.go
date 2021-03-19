@@ -175,7 +175,7 @@ func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint6
 
 		docToEvents[docKey] = append(docToEvents[docKey], x)
 	}
-	coll := p.dbc.client.Database("benchmark").Collection("test")
+	coll := p.dbc.client.Database("benchmark").Collection(collectionName)
 
 	if doLoad {
 		// Checks if any new documents need to be made and does so
