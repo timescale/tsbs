@@ -20,6 +20,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.1-0.20190826204134-d7d95172beb5
 	github.com/kshvakov/clickhouse v1.3.11
 	github.com/lib/pq v1.3.0
+	github.com/mailru/go-clickhouse v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.13.0
 	github.com/shirou/gopsutil v3.21.3+incompatible
