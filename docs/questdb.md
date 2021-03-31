@@ -4,10 +4,9 @@ QuestDB is a high-performance open-source time series database with SQL as a
 query language with time-oriented extensions. QuestDB implements PostgreSQL wire
 protocol, a REST API, and supports ingestion using InfluxDB line protocol.
 
-This guide explains how the data generated for TSBS is stored, additional flags
-available when using the data importer (`tsbs_load_questdb`), and additional
-flags available for the query runner (`tsbs_run_queries_questdb`). **This should
-be read _after_ the main README.**
+This guide explains how the data for TSBS is generated along with additional
+flags available when using the data importer (`tsbs_load_questdb`).
+**This should be read _after_ the main README.**
 
 ## Data format
 
