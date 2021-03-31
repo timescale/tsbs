@@ -101,7 +101,7 @@ Alternatively, shell scripts are provided which can be used to generate and load
 data:
 
 ```bash
-cd ~/tmp/go/src/github.com/timescale/
+cd ~/tmp/go/src/github.com/timescale/tsbs
 
 # generates data file /tmp/bulk_data/influx-data.gz
 PATH=${PATH}:~/tmp/go/bin FORMATS=influx TS_END=2016-01-01T02:00:00Z bash ./scripts/generate_data.sh
