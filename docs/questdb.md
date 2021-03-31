@@ -115,13 +115,13 @@ Run the single-groupby-5-8-1:
 ```bash
 cd ~/tmp/go/src/github.com/timescale/
 
-tsbs_generate_queries \
+~/tmp/go/bin/tsbs_generate_queries \
 --use-case="cpu-only" --seed=123 --scale=4000 \
 --timestamp-start="2016-01-01T00:00:00Z" --timestamp-end="2016-01-02T00:00:01Z" \
 --queries=1000 --query-type="single-groupby-5-8-1" \
 --format="questdb" > /tmp/queries_questdb
 
-tsbs_run_queries_questdb --file /tmp/queries_questdb --print-interval 500
+~/tmp/go/bin/tsbs_run_queries_questdb --file /tmp/queries_questdb --print-interval 500
 ```
 
 #### Shell scripts
