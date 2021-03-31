@@ -30,58 +30,17 @@ diagnostics,name=truck_3985,fleet=West,driver=Seth,model=H-2,device_version=v1.5
 
 ## `tsbs_load_questdb` Additional Flags
 
-**`--batch-size`** (type: `uint`, default: `10000`)
-
-Number of items to batch together in a single insert.
-
-**`--db-name`** (type: `string`, default: `benchmark`)
-
-Name of database.
-
-**`--do-abort-on-exist`** (type: `boolean`, default: `false`)
-
-Whether to abort if a database with the given name already exists.
-
-**`--do-create-db`** (type: `boolean`, default: `true`)
-
-Whether to create the database. Disable on all but one client if running on a
-multi-client setup.
-
-**`--do-load`** (type: `boolean`, default: `true`)
-
-Whether to write data. Set this flag to false to check input read speed.
-
-**`--file`** (type: `string`, default: none)
-
-File name to read data from.
-
 **`--ilp-bind-to`** (type: `string`, default `127.0.0.1:9009`)
 
 QuestDB InfluxDB line protocol TCP port in the format `<ip>:<port>`
-
-**`--limit`** (type: `uint`, default: `0`)
-
-Number of items to insert where `0` is all items.
-
-**`--reporting-period`** (type: `duration`, default: `10`)
-
-Period in seconds to report write stats
-
-**`--seed`** (type: `int`, default: `0`)
-
-PRNG seed. The default value of `0` uses the current timestamp as a seed.
 
 **`--url`** (type: `string`, default: `http://localhost:9000/`)
 
 QuestDB REST end point.
 
-**`--workers`** (type: `uint`, default: `1`)
-
-Number of parallel clients inserting.
-
 **`-help`**
 
-Prints available flags with defaults:
+Prints available flags and their defaults:
 
 ```bash
 ~/tmp/go/bin/tsbs_load_questdb -help
