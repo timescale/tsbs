@@ -27,7 +27,7 @@ An example from the `iot` use case looks like the following:
 diagnostics,name=truck_3985,fleet=West,driver=Seth,model=H-2,device_version=v1.5 load_capacity=1500,fuel_capacity=150,nominal_fuel_consumption=12,fuel_state=0.8,current_load=482,status=4i 1451609990000000000
 ```
 
-## `tsbs_load_questdb` Additional Flags
+## `tsbs_load_questdb` additional flags
 
 **`--ilp-bind-to`** (type: `string`, default `127.0.0.1:9009`)
 
@@ -45,7 +45,7 @@ Prints available flags and their defaults:
 ~/tmp/go/bin/tsbs_load_questdb -help
 ```
 
-## How to run the test. FreeBSD example
+## How to run the test (FreeBSD example)
 
 Firstly, install and build the benchmark suite
 
