@@ -42,12 +42,13 @@ func init() {
 	gob.Register(bson.M{})
 	gob.Register(bson.D{})
 	gob.Register([]bson.M{})
+	gob.Register(time.Time{})
 
 	var config query.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("url", "mongodb://localhost:27017", "Daemon URL.")
-	pflag.Duration("read-timeout", 30*time.Second, "Timeout value for individual queries")
+	pflag.Duration("read-timeout", 300*time.Second, "Timeout value for individual queries")
 
 	pflag.Parse()
 
