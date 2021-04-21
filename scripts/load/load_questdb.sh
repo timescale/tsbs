@@ -10,12 +10,13 @@ fi
 # Load parameters - common
 DATA_FILE_NAME=${DATA_FILE_NAME:-influx-data.gz}
 DATABASE_PORT=${DATABASE_PORT:-9000}
+DATABASE_HEALTH_PORT=${DATABASE_HEALTH_PORT:-9003}
 ILP_PORT=${ILP_PORT:-9009}
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
 
-until curl http://${DATABASE_HOST}:${DATABASE_PORT}/ping 2>/dev/null; do
+until curl http://${DATABASE_HOST}:${DATABASE_HEALTH_PORT}/ping 2>/dev/null; do
     echo "Waiting for QuestDB"
     sleep 1
 done
