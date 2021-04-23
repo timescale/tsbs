@@ -21,6 +21,7 @@ DOC_PER=${DOC_PER:-false}
 TIMESERIES_COLLECTION=${TIMESERIES_COLLECTION:-false}
 RETRYABLE_WRITES=${RETRYABLE_WRITES:-true}
 ORDERED_INSERTS=${ORDERED_INSERTS:-true}
+RANDOM_FIELD_ORDER=${RANDOM_FIELD_ORDER:-false}
 
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --db-name=${DATABASE_NAME} \
@@ -31,4 +32,5 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --timeseries-collection=${TIMESERIES_COLLECTION} \
                                 --retryable-writes=${RETRYABLE_WRITES} \
                                 --ordered-inserts=${ORDERED_INSERTS} \
+                                --random-field-order=${RANDOM_FIELD_ORDER} \
                                 --reporting-period=${PROGRESS_INTERVAL}

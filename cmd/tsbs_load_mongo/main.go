@@ -34,6 +34,7 @@ var (
 	timeseriesCollection bool
 	retryableWrites      bool
 	orderedInserts       bool
+	randomFieldOrder     bool
 )
 
 // Global vars
@@ -68,6 +69,7 @@ func init() {
 	timeseriesCollection = viper.GetBool("timeseries-collection")
 	retryableWrites = viper.GetBool("retryable-writes")
 	orderedInserts = viper.GetBool("ordered-inserts")
+	randomFieldOrder = viper.GetBool("random-field-order")
 	if documentPer {
 		config.HashWorkers = false
 	} else {

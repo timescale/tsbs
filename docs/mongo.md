@@ -74,6 +74,10 @@ Whether retryable writes should be enabled.
 
 If true, measurements will be inserted with {ordered: true}, or {ordered: false} if false.
 
+#### `-random-field-order` (type: `boolean`, default: `true`)
+
+Whether measurements will be inserted with random or deterministic field order.
+
 ---
 
 ## `tsbs_run_queries_mongo` Additional Flags

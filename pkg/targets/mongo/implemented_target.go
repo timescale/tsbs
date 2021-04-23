@@ -25,6 +25,7 @@ func (t *mongoTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Flag
 	flagSet.Bool(flagPrefix+"timeseries-collection", false, "Whether to use a time-series collection")
 	flagSet.Bool(flagPrefix+"retryable-writes", true, "Whether to use retryable writes")
 	flagSet.Bool(flagPrefix+"ordered-inserts", true, "Whether to use ordered inserts")
+	flagSet.Bool(flagPrefix+"random-field-order", true, "Whether to use random field order")
 }
 
 func (t *mongoTarget) TargetName() string {
