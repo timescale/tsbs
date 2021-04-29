@@ -66,7 +66,7 @@ func init() {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-
+        
 	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
 	config.HashWorkers = false
