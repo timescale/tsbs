@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -239,17 +240,22 @@ func (sp *defaultStatProcessor) GetTotalsMap() map[string]interface{}{
 	queryRates := make(map[string]interface{})
 	for label, statGroup := range sp.statMapping {
 		overallQueryRate := float64(statGroup.count) / float64(sinceStart.Seconds())
-		queryRates[label] = overallQueryRate
+		queryRates[stripRegex(label)] = overallQueryRate
 	}
 	totals["overallQueryRates"] = queryRates
 	// calculate overall quantiles
 	quantiles := make(map[string]interface{})
 	for label, statGroup := range sp.statMapping {
 		_, all := generateQuantileMap(statGroup.latencyHDRHistogram)
-		quantiles[label] = all
+		quantiles[stripRegex(label)] = all
 	}
 	totals["overallQuantiles"] = quantiles
 	return totals
+}
+
+func stripRegex(in string) string {
+	reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
+	return reg.ReplaceAllString(in, "_")
 }
 
 // CloseAndWait closes the stats channel and blocks until the StatProcessor has finished all the stats on its channel.

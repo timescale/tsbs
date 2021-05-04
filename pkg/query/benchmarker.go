@@ -198,8 +198,8 @@ func (b *BenchmarkRunner) saveTestResult(took time.Duration, start time.Time, en
 	testResult := LoaderTestResult{
 		ResultFormatVersion: BenchmarkTestResultVersion,
 		RunnerConfig:        b.BenchmarkRunnerConfig,
-		StartTime:           start.Unix(),
-		EndTime:             end.Unix(),
+		StartTime:           start.UTC().Unix()*1000,
+		EndTime:             end.UTC().Unix()*1000,
 		DurationMillis:      took.Milliseconds(),
 		Totals:              b.sp.GetTotalsMap(),
 	}
