@@ -2,7 +2,9 @@ package query
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -35,6 +37,7 @@ type BenchmarkRunnerConfig struct {
 	BurnIn           uint64 `mapstructure:"burn-in"`
 	PrintInterval    uint64 `mapstructure:"print-interval"`
 	PrewarmQueries   bool   `mapstructure:"prewarm-queries"`
+	ResultsFile      string `mapstructure:"results-file"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -51,6 +54,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	fs.Int("debug", 0, "Whether to print debug messages.")
 	fs.String("file", "", "File name to read queries from")
+	fs.String("results-file", "", "Write the test results summary json to this file")
 }
 
 // BenchmarkRunner contains the common components for running a query benchmarking
@@ -182,6 +186,33 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 		}
 		pprof.WriteHeapProfile(f)
 		f.Close()
+	}
+
+	// (Optional) save the results file:
+	if len(b.BenchmarkRunnerConfig.ResultsFile) > 0 {
+		b.saveTestResult(wallTook, wallStart, wallEnd)
+	}
+}
+
+func (b *BenchmarkRunner) saveTestResult(took time.Duration, start time.Time, end time.Time) {
+	testResult := LoaderTestResult{
+		ResultFormatVersion: BenchmarkTestResultVersion,
+		RunnerConfig:        b.BenchmarkRunnerConfig,
+		StartTime:           start.Unix(),
+		EndTime:             end.Unix(),
+		DurationMillis:      took.Milliseconds(),
+		Totals:              b.sp.GetTotalsMap(),
+	}
+
+	_, _ = fmt.Printf("Saving results json file to %s\n", b.BenchmarkRunnerConfig.ResultsFile)
+	file, err := json.MarshalIndent(testResult, "", " ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(b.BenchmarkRunnerConfig.ResultsFile, file, 0644)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
