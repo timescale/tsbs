@@ -102,7 +102,7 @@ with identical data and queried using identical queries.
 
 TSBS is a collection of Go programs (with some auxiliary bash and Python
 scripts). The easiest way to get and install the Go programs is to use
-`go get` and then `make all` to instal all binaries:
+`go get` and then `make all` to install all binaries:
 ```bash
 # Fetch TSBS and its dependencies
 $ go get github.com/timescale/tsbs
