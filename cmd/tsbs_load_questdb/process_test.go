@@ -19,12 +19,10 @@ func emptyLog(_ string, _ ...interface{}) (int, error) {
 type mockServer struct {
         ln net.Listener
         listenPort int
-        running bool
 }
 
 func mockServerStop(ms *mockServer) () {
-        ms.running = false
-        ms.ln.Close()
+         ms.ln.Close()
 }
 
 func mockServerStart() *mockServer {
@@ -36,15 +34,13 @@ func mockServerStart() *mockServer {
         ms := &mockServer {
                 ln: ln,
                 listenPort: ln.Addr().(*net.TCPAddr).Port,
-		running: true,
         }
         go func() {
-	       for ms.running {
+	       for {
+	       	   
 	       	     conn, err := ln.Accept()
 		     if err != nil {
-		             if ms.running {	     
-		     	             fatal("failed to accept connection: ", err.Error())
-                             }
+		     	     // listen socket is closed
 			     return
 		     }
                      go func() {
