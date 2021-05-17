@@ -21,19 +21,10 @@ func (d *dbCreator) Init() {
 	//log.Println("tsbs_load_mongo/creator/Init")
 	var err error
 	d.ctx, d.cancel = context.WithTimeout(context.Background(), writeTimeout)
-	//defer d.cancel()
-	log.Println("TRYING TO CONNECT")
 	d.client, err = mongo.Connect(d.ctx, options.Client().ApplyURI(daemonURL))
 	if err != nil {
-		log.Println("DID NOT MANAGE TO CONNECT")
+		log.Println("Can't establish connection with", daemonURL)
 		log.Fatal(err)
-	} else {
-		err = d.client.Ping(d.ctx, readpref.Primary())
-		if err != nil {
-			log.Println("DID NOT MANAGE TO CONNECT")
-			log.Fatal(err)
-		} else {
-			log.Println("MANAGED TO CONNECT")
 		}
 	}
 }
