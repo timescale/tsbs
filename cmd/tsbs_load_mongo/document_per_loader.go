@@ -84,9 +84,7 @@ func (p *naiveProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uin
 	}
 
 	if doLoad {
-		//bulk := p.collection.Bulk()
 		opts := options.InsertMany().SetOrdered(false)
-		//bulk.Insert(p.pvs...)
 		_, err := p.collection.InsertMany(p.dbc.ctx, p.pvs, opts)
 		if err != nil {
 			log.Fatalf("Bulk insert docs err: %s\n", err.Error())
