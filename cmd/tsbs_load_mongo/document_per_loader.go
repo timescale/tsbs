@@ -5,7 +5,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"sync"
-	//"github.com/globalsign/mgo"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/targets"
 	tsbsmongo "github.com/timescale/tsbs/pkg/targets/mongo"
