@@ -62,7 +62,6 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	//log.Println("tsbs_load_mongo/creator/CreateDB")
 	//Starting in MongoDB 3.2, the WiredTiger storage engine is the default storage engine
 	err := d.client.Database(dbName).CreateCollection(d.ctx, collectionName)
 	if err != nil {
