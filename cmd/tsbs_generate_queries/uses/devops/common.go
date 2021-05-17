@@ -144,11 +144,12 @@ func GetMaxAllLabel(dbName string, nHosts int) string {
 }
 
 // getRandomHosts returns a subset of numHosts hostnames of a permutation of hostnames,
-// numbered from 0 to totalHosts.
+// numbered from 1 to totalHosts.
+// if numHosts is 0 it will get all hosts.
 // Ex.: host_12, host_7, host_25 for numHosts=3 and totalHosts=30 (3 out of 30)
 func getRandomHosts(numHosts int, totalHosts int) ([]string, error) {
 	if numHosts < 0 {
-    return nil, fmt.Errorf("number of hosts cannot be < 0; got %d. See --scale (%d)", numHosts, totalHosts)
+    return nil, fmt.Errorf("number of hosts cannot be < 0; got %d.", numHosts)
 	}
 	if numHosts > totalHosts {
 		return nil, fmt.Errorf("number of hosts (%d) larger than total hosts. See --scale (%d)", numHosts, totalHosts)
