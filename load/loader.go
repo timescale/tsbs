@@ -145,16 +145,16 @@ func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
 	took := end.Sub(*start)
 	l.summary(took)
 	if l.BenchmarkRunnerConfig.ResultsFile != "" {
-		l.saveTestResult(took, *start, end)
+		metricRate := float64(l.metricCnt) / took.Seconds()
+		rowRate := float64(l.rowCnt) / took.Seconds()
+		l.saveTestResult(took, *start, end, metricRate, rowRate)
 	}
 }
 
-func (l *CommonBenchmarkRunner) saveTestResult(took time.Duration, start time.Time, end time.Time) {
+func (l *CommonBenchmarkRunner) saveTestResult(took time.Duration, start time.Time, end time.Time, metricRate, rowRate float64) {
 	totals := make(map[string]interface{})
-	metricRate := float64(l.metricCnt) / took.Seconds()
 	totals["metricRate"] = metricRate
 	if l.rowCnt > 0 {
-		rowRate := float64(l.rowCnt) / float64(took.Seconds())
 		totals["rowRate"] = rowRate
 	}
 

@@ -1,6 +1,5 @@
 package query
 
-
 const BenchmarkTestResultVersion = "0.1"
 
 // LoaderTestResult aggregates the results of an query benchmark in a common format across targets
@@ -19,4 +18,3 @@ type LoaderTestResult struct {
 	// Totals
 	Totals map[string]interface{} `json:"Totals"`
 }
-
