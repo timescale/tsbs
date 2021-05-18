@@ -149,7 +149,7 @@ func GetMaxAllLabel(dbName string, nHosts int) string {
 // Ex.: host_12, host_7, host_25 for numHosts=3 and totalHosts=30 (3 out of 30)
 func getRandomHosts(numHosts int, totalHosts int) ([]string, error) {
 	if numHosts < 0 {
-    return nil, fmt.Errorf("number of hosts cannot be < 0; got %d.", numHosts)
+		return nil, fmt.Errorf("number of hosts cannot be < 0; got %d.", numHosts)
 	}
 	if numHosts > totalHosts {
 		return nil, fmt.Errorf("number of hosts (%d) larger than total hosts. See --scale (%d)", numHosts, totalHosts)
