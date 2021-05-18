@@ -32,7 +32,7 @@ var (
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
 	DBName          string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
-	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-sze"`
+	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
 	Workers         uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
 	Limit           uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
 	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
@@ -144,7 +144,7 @@ func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
 	end := time.Now()
 	took := end.Sub(*start)
 	l.summary(took)
-	if len(l.BenchmarkRunnerConfig.ResultsFile) > 0 {
+	if l.BenchmarkRunnerConfig.ResultsFile != "" {
 		l.saveTestResult(took, *start, end)
 	}
 }
