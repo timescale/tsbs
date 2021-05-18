@@ -20,7 +20,6 @@ type fileDataSource struct {
 	headers *common.GeneratedDataHeaders
 }
 
-
 func (d *fileDataSource) Headers() *common.GeneratedDataHeaders {
 	// headers are read from the input file, and should be read first
 	if d.headers != nil {
