@@ -105,13 +105,7 @@ func TestMaxAllCPU(t *testing.T) {
 			desc:    "negative hosts",
 			input:   -1,
 			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got -1",
-		},
-		{
-			desc:    "zero hosts",
-			input:   0,
-			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got 0",
+			failMsg: "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:               "1 host",
@@ -200,7 +194,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
                 hour,
                 id
         ) AS cpu_avg
-        
+
         ORDER BY
             hour ASC,
             hostname
@@ -228,7 +222,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
                 hour,
                 id
         ) AS cpu_avg
-        
+
         ORDER BY
             hour ASC,
             hostname
@@ -320,7 +314,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:    "negative hosts",
 			input:   -1,
 			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got -1",
+			failMsg: "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:               "zero hosts",
@@ -330,7 +324,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedQuery: `
         SELECT *
         FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:16:22') AND (created_at <  '1970-01-01 12:16:22') 
+        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:16:22') AND (created_at <  '1970-01-01 12:16:22')
         `,
 		},
 		{
