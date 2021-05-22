@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 var bytesSlash = []byte("/") // heap optimization
@@ -17,7 +18,7 @@ var bytesSlash = []byte("/") // heap optimization
 // HTTPClient is a reusable HTTP Client.
 type HTTPClient struct {
 	//client     fasthttp.Client
-	client     http.Client
+	client     *http.Client
 	Host       []byte
 	HostString string
 	uri        []byte
@@ -31,10 +32,23 @@ type HTTPClientDoOptions struct {
 	database             string
 }
 
+var httpClientOnce = sync.Once{}
+var httpClient *http.Client
+
+func getHttpClient() *http.Client {
+	httpClientOnce.Do(func() {
+		tr := &http.Transport{
+			MaxIdleConnsPerHost: 1024,
+		}
+		httpClient = &http.Client{Transport: tr}
+	})
+	return httpClient
+}
+
 // NewHTTPClient creates a new HTTPClient.
 func NewHTTPClient(host string) *HTTPClient {
 	return &HTTPClient{
-		client:     http.Client{},
+		client:     getHttpClient(),
 		Host:       []byte(host),
 		HostString: host,
 		uri:        []byte{}, // heap optimization

@@ -1,9 +1,9 @@
 package load
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,11 +16,11 @@ type testProcessor struct {
 	closed bool
 }
 
-func (p *testProcessor) Init(workerNum int, _ bool) {
+func (p *testProcessor) Init(workerNum int, _, _ bool) {
 	p.worker = workerNum
 }
 
-func (p *testProcessor) ProcessBatch(b Batch, doLoad bool) (metricCount, rowCount uint64) {
+func (p *testProcessor) ProcessBatch(targets.Batch, bool) (metricCount, rowCount uint64) {
 	return 1, 0
 }
 
@@ -43,17 +43,17 @@ type testCreator struct {
 func (c *testCreator) Init() {
 	c.initCalled = true
 }
-func (c *testCreator) DBExists(dbName string) bool {
+func (c *testCreator) DBExists(string) bool {
 	return c.exists
 }
-func (c *testCreator) CreateDB(dbName string) error {
+func (c *testCreator) CreateDB(string) error {
 	c.createCalled = true
 	if c.errCreate {
 		return fmt.Errorf("create error")
 	}
 	return nil
 }
-func (c *testCreator) RemoveOldDB(dbName string) error {
+func (c *testCreator) RemoveOldDB(string) error {
 	c.removeCalled = true
 	if c.errRemove {
 		return fmt.Errorf("remove error")
@@ -65,7 +65,7 @@ type testCreatorPost struct {
 	testCreator
 }
 
-func (c *testCreatorPost) PostCreateDB(dbName string) error {
+func (c *testCreatorPost) PostCreateDB(string) error {
 	c.postCalled = true
 	return nil
 }
@@ -83,15 +83,20 @@ type testBenchmark struct {
 	offset     int64
 }
 
-func (b *testBenchmark) GetPointDecoder(_ *bufio.Reader) PointDecoder    { return nil }
-func (b *testBenchmark) GetBatchFactory() BatchFactory                   { return nil }
-func (b *testBenchmark) GetPointIndexer(maxPartitions uint) PointIndexer { return &ConstantIndexer{} }
-func (b *testBenchmark) GetProcessor() Processor {
+func (b *testBenchmark) GetDataSource() targets.DataSource {
+	return nil
+}
+
+func (b *testBenchmark) GetBatchFactory() targets.BatchFactory { return nil }
+func (b *testBenchmark) GetPointIndexer(uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
+}
+func (b *testBenchmark) GetProcessor() targets.Processor {
 	idx := atomic.AddInt64(&b.offset, 1)
 	idx--
 	return b.processors[idx]
 }
-func (b *testBenchmark) GetDBCreator() DBCreator {
+func (b *testBenchmark) GetDBCreator() targets.DBCreator {
 	return nil
 }
 
@@ -100,62 +105,10 @@ type testSleepRegulator struct {
 	lock        sync.Mutex
 }
 
-func (sr *testSleepRegulator) Sleep(workerNum int, startedWorkAt time.Time) {
+func (sr *testSleepRegulator) Sleep(int, time.Time) {
 	sr.lock.Lock()
 	sr.calledTimes++
 	sr.lock.Unlock()
-}
-
-func TestGetBufferedReader(t *testing.T) {
-	r := &BenchmarkRunner{}
-	br := r.br
-	if br != nil {
-		t.Errorf("initial buffered reader is non-nil")
-	}
-
-	oldFatal := fatal
-	fatalCalled := false
-	fatal = func(format string, args ...interface{}) {
-		fatalCalled = true
-	}
-
-	// Should give a nil bufio.Reader
-	fatalCalled = false
-	r.FileName = "foo"
-	br = r.GetBufferedReader()
-	if br != nil {
-		t.Errorf("filename returned not nil buffered reader for nonexistent file")
-	}
-
-	if !fatalCalled {
-		t.Errorf("fatal not called when it should have been")
-	}
-
-	// Should give a non-nil bufio.Reader
-	fatalCalled = false
-	r.FileName = "/dev/null"
-	br = r.GetBufferedReader()
-	if br == nil {
-		t.Errorf("filename returned nil buffered reader for /dev/null")
-	}
-
-	// Should give a non-nil bufio.Reader
-	fatalCalled = false
-	r.FileName = ""
-	br = r.GetBufferedReader()
-	if br == nil {
-		t.Errorf("STDOUT returned a nil buffered reader")
-	}
-
-	// Test that it returns same bufio.Reader as before
-	fatalCalled = false
-	old := br
-	br = r.GetBufferedReader()
-	if br != old {
-		t.Errorf("different buffered reader returned after previously set")
-	}
-
-	fatal = oldFatal
 }
 
 func TestUseDBCreator(t *testing.T) {
@@ -232,7 +185,7 @@ func TestUseDBCreator(t *testing.T) {
 			shouldPanic: true,
 		},
 	}
-	testPanic := func(r *BenchmarkRunner, dbc DBCreator, desc string) {
+	testPanic := func(r *CommonBenchmarkRunner, dbc targets.DBCreator, desc string) {
 		defer func() {
 			if re := recover(); re == nil {
 				t.Errorf("%s: did not panic when should", desc)
@@ -241,7 +194,7 @@ func TestUseDBCreator(t *testing.T) {
 		_ = r.useDBCreator(dbc)
 	}
 	for _, c := range cases {
-		r := &BenchmarkRunner{
+		r := &CommonBenchmarkRunner{
 			BenchmarkRunnerConfig: BenchmarkRunnerConfig{
 				DoLoad:         c.doLoad,
 				DoCreateDB:     c.doCreate,
@@ -255,7 +208,7 @@ func TestUseDBCreator(t *testing.T) {
 		}
 
 		// Decide whether to decorate the core DBCreator
-		var dbc DBCreator
+		var dbc targets.DBCreator
 		if c.doPost {
 			dbc = &testCreatorPost{core}
 		} else if c.doClose {
@@ -301,7 +254,7 @@ func TestUseDBCreator(t *testing.T) {
 			} else if !c.doPost && core.postCalled {
 				t.Errorf("%s: doPost is false but PostCreateDB was called", c.desc)
 			}
-		} else if core.initCalled {
+		} else if !core.initCalled {
 			t.Errorf("%s: doLoad is false but Init not called", c.desc)
 		}
 
@@ -314,77 +267,46 @@ func TestUseDBCreator(t *testing.T) {
 
 func TestCreateChannelsAndPartitions(t *testing.T) {
 	cases := []struct {
-		desc           string
-		queues         uint
-		workers        uint
-		wantPartitions uint
-		wantChanLen    int
-		shouldPanic    bool
+		desc        string
+		wantChanLen int
+		wantChanCap int
 	}{
 		{
-			desc:           "single queue",
-			queues:         SingleQueue,
-			workers:        2,
-			wantPartitions: 1,
-			wantChanLen:    2,
+			desc:        "single queue",
+			wantChanLen: 1,
+			wantChanCap: 1,
 		},
 		{
-			desc:           "worker per queue",
-			queues:         WorkerPerQueue,
-			workers:        2,
-			wantPartitions: 2,
-			wantChanLen:    1,
+			desc:        "worker per queue",
+			wantChanLen: 2,
+			wantChanCap: 1,
+		}, {
+			desc:        "worker per queue, larger cap",
+			wantChanLen: 2,
+			wantChanCap: 5,
 		},
-		{
-			desc:           "workers divide evenly into queues",
-			queues:         3,
-			workers:        6,
-			wantPartitions: 3,
-			wantChanLen:    2,
-		},
-		{
-			desc:           "workers do not divide evenly into queues",
-			queues:         3,
-			workers:        7,
-			wantPartitions: 3,
-			wantChanLen:    3,
-		},
-		{
-			desc:           "too many queues for workers, panic",
-			queues:         3,
-			workers:        2,
-			wantPartitions: 0,
-			wantChanLen:    0,
-			shouldPanic:    true,
-		},
-	}
-	testPanic := func(br *BenchmarkRunner, queues uint, desc string) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("%s: did not panic when should", desc)
-			}
-		}()
-		_ = br.createChannels(queues)
 	}
 	for _, c := range cases {
-		br := &BenchmarkRunner{}
-		br.Workers = c.workers
-		if c.shouldPanic {
-			testPanic(br, c.queues, c.desc)
-		} else {
-			channels := br.createChannels(c.queues)
-			if got := uint(len(channels)); got != c.wantPartitions {
-				t.Errorf("%s: incorrect number of partitions: got %d want %d", c.desc, got, c.wantPartitions)
+		br := &CommonBenchmarkRunner{}
+		t.Run(c.desc, func(t *testing.T) {
+			channels := br.createChannels(uint(c.wantChanLen), uint(c.wantChanCap))
+			if got := len(channels); got != c.wantChanLen {
+				t.Errorf("incorrect number of channels: got %d want %d", got, c.wantChanLen)
 			}
-			if got := cap(channels[0].toWorker); got != c.wantChanLen {
-				t.Errorf("%s: incorrect channel length: got %d want %d", c.desc, got, c.wantChanLen)
+			for _, ch := range channels {
+				if got := cap(ch.toWorker); got != c.wantChanCap {
+					t.Errorf("incorrect toWorker channel cap: got %d want %d", got, c.wantChanCap)
+				}
+				if got := cap(ch.toScanner); got != c.wantChanCap {
+					t.Errorf("incorrect toScanner channel cap: got %d want %d", got, c.wantChanCap)
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestWork(t *testing.T) {
-	br := loader
+	br := &CommonBenchmarkRunner{}
 	b := &testBenchmark{}
 	for i := 0; i < 2; i++ {
 		b.processors = append(b.processors, &testProcessor{})
@@ -424,7 +346,7 @@ func TestWork(t *testing.T) {
 }
 
 func TestWorkWithSleep(t *testing.T) {
-	br := &BenchmarkRunner{
+	br := &CommonBenchmarkRunner{
 		sleepRegulator: &testSleepRegulator{lock: sync.Mutex{}},
 	}
 	b := &testBenchmark{}
@@ -495,7 +417,7 @@ func TestSummary(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		br := &BenchmarkRunner{}
+		br := &CommonBenchmarkRunner{}
 		br.metricCnt = c.metrics
 		br.rowCnt = c.rows
 		var b bytes.Buffer
@@ -519,7 +441,7 @@ func TestReport(t *testing.T) {
 		defer m.Unlock()
 		return fmt.Fprintf(&b, s, args...)
 	}
-	br := &BenchmarkRunner{}
+	br := &CommonBenchmarkRunner{}
 	duration := 200 * time.Millisecond
 	go br.report(duration)
 

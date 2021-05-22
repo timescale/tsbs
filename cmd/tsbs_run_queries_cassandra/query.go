@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 // HLQuery is a high-level query, usually read from stdin after being

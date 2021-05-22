@@ -14,6 +14,8 @@ Current databases supported:
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
++ Timestream [(supplemental docs)](docs/timestream.md)
++ VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
 
 ## Overview
 
@@ -75,8 +77,11 @@ cases are implemented for each database:
 |MongoDB|X|
 |SiriDB|X|
 |TimescaleDB|X|X|
+|Timestream|X||
+|VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
+² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
 
 ## What the TSBS tests
 
@@ -85,7 +90,8 @@ query execution performance. (It currently does not measure
 concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
-wherever possible to connect to each database (e.g., `mgo` for MongoDB).
+wherever possible to connect to each database (e.g., `mgo` for MongoDB, 
+`aws sdk` for Timestream).
 
 Although the data is randomly generated, TSBS data and queries are
 entirely deterministic. By supplying the same PRNG (pseudo-random number
@@ -96,25 +102,12 @@ with identical data and queried using identical queries.
 
 TSBS is a collection of Go programs (with some auxiliary bash and Python
 scripts). The easiest way to get and install the Go programs is to use
-`go get` and then `go install`:
+`go get` and then `make all` to install all binaries:
 ```bash
 # Fetch TSBS and its dependencies
 $ go get github.com/timescale/tsbs
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ go get ./...
-
-# Install desired binaries. At a minimum this includes tsbs_generate_data,
-# tsbs_generate_queries, one tsbs_load_* binary, and one tsbs_run_queries_*
-# binary:
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ cd tsbs_generate_data && go install
-$ cd ../tsbs_generate_queries && go install
-$ cd ../tsbs_load_timescaledb && go install
-$ cd ../tsbs_run_queries_timescaledb && go install
-
-# Optionally, install all binaries:
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ go install ./...
+$ cd $GOPATH/src/github.com/timescale/tsbs
+$ make
 ```
 
 ## How to use TSBS
@@ -140,7 +133,7 @@ Variables needed:
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
  (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `siridb`,
-  or `timescaledb`)
+  `timescaledb` or `victoriametrics`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can
@@ -155,7 +148,8 @@ $ tsbs_generate_data --use-case="iot" --seed=123 --scale=4000 \
 
 # Each additional database would be a separate call.
 ```
-_Note: We pipe the output to gzip to reduce on-disk space._
+_Note: We pipe the output to gzip to reduce on-disk space. This also requires
+you to pipe through gunzip when you run your tests._
 
 The example above will generate a pseudo-CSV file that can be used to
 bulk load data into TimescaleDB. Each database has it's own format of how
@@ -196,6 +190,8 @@ $ tsbs_generate_queries --use-case="iot" --seed=123 --scale=4000 \
     --queries=1000 --query-type="breakdown-frequency" --format="timescaledb" \
     | gzip > /tmp/timescaledb-queries-breakdown-frequency.gz
 ```
+_Note: We pipe the output to gzip to reduce on-disk space. This also requires
+you to pipe through gunzip when you run your tests._
 
 For generating sets of queries for multiple types:
 ```bash
@@ -211,6 +207,37 @@ A full list of query types can be found in
 
 ### Benchmarking insert/write performance
 
+TSBS has two ways to benchmark insert/write performance:
+* On the fly simulation and load with `tsbs_load`
+* Pre-generate data to a file and load it either with `tsbs_load` or the
+db specific executables `tsbs_load_*`
+
+#### Using the unified `tsbs_load` executable
+
+The `tsbs_load` executable can load data in any of the supported databases.
+It can use a pregenerated data file as input, or simulate the data on the 
+fly. 
+
+You first start by generating a config yaml file populated with the default
+values for each property with:
+```shell script
+$ tsbs_load config --target=<db-name> --data-source=[FILE|SIMULATOR]
+```
+for example, to generate an example for TimescaleDB, loading the data from file
+```shell script
+$ tsbs_load config --target=timescaledb --data-source=FILE
+Wrote example config to: ./config.yaml
+```
+
+You can then run tsbs_load with the generated config file with:
+```shell script
+$ tsbs_load load timescaledb --config=./config.yaml
+```
+
+For more details on how to use tsbs_load check out the [supplemental docs](docs/tsbs_load.md)
+
+#### Using the database specific `tsbs_load_*` executables
+
 TSBS measures insert/write performance by taking the data generated in
 the previous step and using it as input to a database-specific command
 line program. To the extent that insert programs can be shared, we have
@@ -222,8 +249,20 @@ details (host & ports), etc -- but they also have database-specific tuning
 flags. To find the flags for a particular database, use the `-help` flag
 (e.g., `tsbs_load_timescaledb -help`).
 
-Instead of calling these binaries directly, we also supply
-`scripts/load_<database>.sh` for convenience with many of the flags set
+Here's an example of loading data to a remote timescaledb instance with SSL
+required, with a gzipped data set as created in the instructions above:
+
+```bash
+cat /tmp/timescaledb-data.gz | gunzip | tsbs_load_timescaledb \
+--postgres="sslmode=require" --host="my.tsdb.host" --port=5432 --pass="password" \
+--user="benchmarkuser" --admin-db-name=defaultdb --workers=8  \
+--in-table-partition-tag=true --chunk-time=8h --write-profile= \
+--field-index-count=1 --do-create-db=true --force-text-format=false \
+--do-abort-on-exist=false
+```
+
+For simpler testing, especially locally, we also supply
+`scripts/load/load_<database>.sh` for convenience with many of the flags set
 to a reasonable default for some of the databases.
 So for loading into TimescaleDB, ensure that TimescaleDB is running and
 then use:
@@ -231,13 +270,22 @@ then use:
 # Will insert using 2 clients, batch sizes of 10k, from a file
 # named `timescaledb-data.gz` in directory `/tmp`
 $ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp \
-    scripts/load_timescaledb.sh
+    scripts/load/load_timescaledb.sh
 ```
 
 This will create a new database called `benchmark` where the data is
 stored. It **will overwrite** the database if it exists; if you don't
 want that to happen, supply a different `DATABASE_NAME` to the above
 command.
+
+Example for writing to remote host using `load_timescaledb.sh`:
+```bash
+# Will insert using 2 clients, batch sizes of 10k, from a file
+# named `timescaledb-data.gz` in directory `/tmp`
+$ NUM_WORKERS=2 BATCH_SIZE=10000 BULK_DATA_DIR=/tmp DATABASE_HOST=remotehostname
+DATABASE_USER=user DATABASE \
+    scripts/load/load_timescaledb.sh
+```
 
 ---
 

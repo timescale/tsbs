@@ -12,11 +12,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/gocql/gocql"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/query"
+	"github.com/timescale/tsbs/pkg/query"
 )
 
 const (
@@ -75,6 +75,10 @@ func init() {
 
 	if err != nil {
 		panic(fmt.Errorf("fatal error config file: %s", err))
+	}
+
+	if err := viper.Unmarshal(&config); err != nil {
+		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 
 	daemonURL = viper.GetString("host")

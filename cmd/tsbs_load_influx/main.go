@@ -13,10 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 // Program option vars:
@@ -31,8 +34,10 @@ var (
 
 // Global vars
 var (
-	loader  *load.BenchmarkRunner
+	loader  load.BenchmarkRunner
+	config  load.BenchmarkRunnerConfig
 	bufPool sync.Pool
+	target  targets.ImplementedTarget
 )
 
 var consistencyChoices = map[string]struct{}{
@@ -47,15 +52,11 @@ var fatal = log.Fatalf
 
 // Parse args:
 func init() {
-	var config load.BenchmarkRunnerConfig
+	target = initializers.GetTarget(constants.FormatInflux)
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
+	target.TargetSpecificFlags("", pflag.CommandLine)
 	var csvDaemonURLs string
-
-	pflag.String("urls", "http://localhost:8086", "InfluxDB URLs, comma-separated. Will be used in a round-robin fashion.")
-	pflag.Int("replication-factor", 1, "Cluster replication factor (only applies to clustered databases).")
-	pflag.String("consistency", "all", "Write consistency. Must be one of: any, one, quorum, all.")
-	pflag.Duration("backoff", time.Second, "Time to sleep between requests when server indicates backpressure is needed.")
-	pflag.Bool("gzip", true, "Whether to gzip encode requests (default true).")
 
 	pflag.Parse()
 
@@ -83,29 +84,29 @@ func init() {
 	if len(daemonURLs) == 0 {
 		log.Fatal("missing 'urls' flag")
 	}
-
+	config.HashWorkers = false
 	loader = load.GetBenchmarkRunner(config)
 }
 
 type benchmark struct{}
 
-func (b *benchmark) GetPointDecoder(br *bufio.Reader) load.PointDecoder {
-	return &decoder{scanner: bufio.NewScanner(br)}
+func (b *benchmark) GetDataSource() targets.DataSource {
+	return &fileDataSource{scanner: bufio.NewScanner(load.GetBufferedReader(config.FileName))}
 }
 
-func (b *benchmark) GetBatchFactory() load.BatchFactory {
+func (b *benchmark) GetBatchFactory() targets.BatchFactory {
 	return &factory{}
 }
 
-func (b *benchmark) GetPointIndexer(_ uint) load.PointIndexer {
-	return &load.ConstantIndexer{}
+func (b *benchmark) GetPointIndexer(_ uint) targets.PointIndexer {
+	return &targets.ConstantIndexer{}
 }
 
-func (b *benchmark) GetProcessor() load.Processor {
+func (b *benchmark) GetProcessor() targets.Processor {
 	return &processor{}
 }
 
-func (b *benchmark) GetDBCreator() load.DBCreator {
+func (b *benchmark) GetDBCreator() targets.DBCreator {
 	return &dbCreator{}
 }
 
@@ -116,5 +117,5 @@ func main() {
 		},
 	}
 
-	loader.RunBenchmark(&benchmark{}, load.SingleQueue)
+	loader.RunBenchmark(&benchmark{})
 }

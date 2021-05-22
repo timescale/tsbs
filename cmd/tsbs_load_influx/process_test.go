@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/data"
 )
 
 func emptyLog(_ string, _ ...interface{}) (int, error) {
@@ -20,7 +20,7 @@ func TestProcessorInit(t *testing.T) {
 	daemonURLs = []string{"url1", "url2"}
 	printFn = emptyLog
 	p := &processor{}
-	p.Init(0, false)
+	p.Init(0, false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[0] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[0])
@@ -30,14 +30,14 @@ func TestProcessorInit(t *testing.T) {
 	}
 
 	p = &processor{}
-	p.Init(1, false)
+	p.Init(1, false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[1] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[1])
 	}
 
 	p = &processor{}
-	p.Init(len(daemonURLs), false)
+	p.Init(len(daemonURLs), false, false)
 	p.Close(true)
 	if got := p.httpWriter.c.Host; got != daemonURLs[0] {
 		t.Errorf("incorrect host: got %s want %s", got, daemonURLs[0])
@@ -93,7 +93,7 @@ func TestProcessorProcessBatch(t *testing.T) {
 	}
 	f := &factory{}
 	b := f.New().(*batch)
-	pt := &load.Point{
+	pt := data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=0.0,col2=0.0 140"),
 	}
 	b.Append(pt)
@@ -165,7 +165,7 @@ func TestProcessorProcessBatch(t *testing.T) {
 			if mCnt != b.metrics {
 				t.Errorf("process batch returned less metrics than batch: got %d want %d", mCnt, b.metrics)
 			}
-			if rCnt != b.rows {
+			if rCnt != uint64(b.rows) {
 				t.Errorf("process batch returned less rows than batch: got %d want %d", rCnt, b.rows)
 			}
 			p.Close(true)

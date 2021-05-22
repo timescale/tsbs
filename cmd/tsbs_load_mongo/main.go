@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/load"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
+	"github.com/timescale/tsbs/pkg/targets/initializers"
 )
 
 const (
@@ -31,17 +34,17 @@ var (
 
 // Global vars
 var (
-	loader *load.BenchmarkRunner
+	loader load.BenchmarkRunner
+	config load.BenchmarkRunnerConfig
+	target targets.ImplementedTarget
 )
 
 // Parse args:
 func init() {
-	var config load.BenchmarkRunnerConfig
+	target = initializers.GetTarget(constants.FormatMongo)
+	config = load.BenchmarkRunnerConfig{}
 	config.AddToFlagSet(pflag.CommandLine)
-
-	pflag.String("url", "localhost:27017", "Mongo URL.")
-	pflag.Duration("write-timeout", 10*time.Second, "Write timeout.")
-	pflag.Bool("document-per-event", false, "Whether to use one document per event or aggregate by hour")
+	target.TargetSpecificFlags("", pflag.CommandLine)
 
 	pflag.Parse()
 
@@ -58,20 +61,22 @@ func init() {
 	daemonURL = viper.GetString("url")
 	writeTimeout = viper.GetDuration("write-timeout")
 	documentPer = viper.GetBool("document-per-event")
+	if documentPer {
+		config.HashWorkers = false
+	} else {
+		config.HashWorkers = true
+	}
 
 	loader = load.GetBenchmarkRunner(config)
 }
 
 func main() {
-	var benchmark load.Benchmark
-	var workQueues uint
+	var benchmark targets.Benchmark
 	if documentPer {
-		benchmark = newNaiveBenchmark(loader)
-		workQueues = load.SingleQueue
+		benchmark = newNaiveBenchmark(loader, &config)
 	} else {
-		benchmark = newAggBenchmark(loader)
-		workQueues = load.WorkerPerQueue
+		benchmark = newAggBenchmark(loader, &config)
 	}
 
-	loader.RunBenchmark(benchmark, workQueues)
+	loader.RunBenchmark(benchmark)
 }

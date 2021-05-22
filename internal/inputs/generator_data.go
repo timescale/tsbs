@@ -7,72 +7,20 @@ import (
 	"math/rand"
 	"os"
 	"sort"
-	"time"
 
-	"github.com/spf13/pflag"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/common"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/devops"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/iot"
-	"github.com/timescale/tsbs/cmd/tsbs_generate_data/serialize"
+	"github.com/timescale/tsbs/pkg/data"
+	"github.com/timescale/tsbs/pkg/data/serialize"
+	"github.com/timescale/tsbs/pkg/data/usecases"
+	"github.com/timescale/tsbs/pkg/data/usecases/common"
+	"github.com/timescale/tsbs/pkg/targets"
+	"github.com/timescale/tsbs/pkg/targets/constants"
 )
 
 // Error messages when using a DataGenerator
 const (
 	ErrNoConfig          = "no GeneratorConfig provided"
 	ErrInvalidDataConfig = "invalid config: DataGenerator needs a DataGeneratorConfig"
-
-	errLogIntervalZero    = "cannot have log interval of 0"
-	errTotalGroupsZero    = "incorrect interleaved groups configuration: total groups = 0"
-	errInvalidGroupsFmt   = "incorrect interleaved groups configuration: id %d >= total groups %d"
-	errCannotParseTimeFmt = "cannot parse time from string '%s': %v"
 )
-
-const defaultLogInterval = 10 * time.Second
-
-// DataGeneratorConfig is the GeneratorConfig that should be used with a
-// DataGenerator. It includes all the fields from a BaseConfig, as well as some
-// options that are specific to generating the data for database write operations,
-// such as the initial scale and how spaced apart data points should be in time.
-type DataGeneratorConfig struct {
-	BaseConfig
-	Limit                uint64        `mapstructure:"max-data-points"`
-	InitialScale         uint64        `mapstructure:"initial-scale"`
-	LogInterval          time.Duration `mapstructure:"log-interval"`
-	InterleavedGroupID   uint          `mapstructure:"interleaved-generation-group-id"`
-	InterleavedNumGroups uint          `mapstructure:"interleaved-generation-groups"`
-}
-
-// Validate checks that the values of the DataGeneratorConfig are reasonable.
-func (c *DataGeneratorConfig) Validate() error {
-	err := c.BaseConfig.Validate()
-	if err != nil {
-		return err
-	}
-
-	if c.InitialScale == 0 {
-		c.InitialScale = c.BaseConfig.Scale
-	}
-
-	if c.LogInterval == 0 {
-		return fmt.Errorf(errLogIntervalZero)
-	}
-
-	err = validateGroups(c.InterleavedGroupID, c.InterleavedNumGroups)
-	return err
-}
-
-func (c *DataGeneratorConfig) AddToFlagSet(fs *pflag.FlagSet) {
-	c.BaseConfig.AddToFlagSet(fs)
-	fs.Uint64("max-data-points", 0, "Limit the number of data points to generate, 0 = no limit")
-	fs.Uint64("initial-scale", 0, "Initial scaling variable specific to the use case (e.g., devices in 'devops'). 0 means to use -scale value")
-	fs.Duration("log-interval", defaultLogInterval, "Duration between data points")
-
-	fs.Uint("interleaved-generation-group-id", 0,
-		"Group (0-indexed) to perform round-robin serialization within. Use this to scale up data generation to multiple processes.")
-	fs.Uint("interleaved-generation-groups", 1,
-		"The number of round-robin serialization groups. Use this to scale up data generation to multiple processes.")
-
-}
 
 // DataGenerator is a type of Generator for creating data that will be consumed
 // by a database's write/insert operations. The output is specific to the type
@@ -83,38 +31,27 @@ type DataGenerator struct {
 	// Generate.
 	Out io.Writer
 
-	config  *DataGeneratorConfig
-	tsStart time.Time
-	tsEnd   time.Time
+	config *common.DataGeneratorConfig
 
 	// bufOut represents the buffered writer that should actually be passed to
 	// any operations that write out data.
 	bufOut *bufio.Writer
 }
 
-func (g *DataGenerator) init(config GeneratorConfig) error {
+func (g *DataGenerator) init(config common.GeneratorConfig) error {
 	if config == nil {
 		return fmt.Errorf(ErrNoConfig)
 	}
 	switch config.(type) {
-	case *DataGeneratorConfig:
+	case *common.DataGeneratorConfig:
 	default:
 		return fmt.Errorf(ErrInvalidDataConfig)
 	}
-	g.config = config.(*DataGeneratorConfig)
+	g.config = config.(*common.DataGeneratorConfig)
 
 	err := g.config.Validate()
 	if err != nil {
 		return err
-	}
-
-	g.tsStart, err = ParseUTCTime(g.config.TimeStart)
-	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeStart, err)
-	}
-	g.tsEnd, err = ParseUTCTime(g.config.TimeEnd)
-	if err != nil {
-		return fmt.Errorf(errCannotParseTimeFmt, g.config.TimeEnd, err)
 	}
 
 	if g.Out == nil {
@@ -128,7 +65,7 @@ func (g *DataGenerator) init(config GeneratorConfig) error {
 	return nil
 }
 
-func (g *DataGenerator) Generate(config GeneratorConfig) error {
+func (g *DataGenerator) Generate(config common.GeneratorConfig, target targets.ImplementedTarget) error {
 	err := g.init(config)
 	if err != nil {
 		return err
@@ -136,13 +73,13 @@ func (g *DataGenerator) Generate(config GeneratorConfig) error {
 
 	rand.Seed(g.config.Seed)
 
-	scfg, err := g.getSimulatorConfig(g.config)
+	scfg, err := usecases.GetSimulatorConfig(g.config)
 	if err != nil {
 		return err
 	}
 
 	sim := scfg.NewSimulator(g.config.LogInterval, g.config.Limit)
-	serializer, err := g.getSerializer(sim, g.config.Format)
+	serializer, err := g.getSerializer(sim, target)
 	if err != nil {
 		return err
 	}
@@ -150,11 +87,25 @@ func (g *DataGenerator) Generate(config GeneratorConfig) error {
 	return g.runSimulator(sim, serializer, g.config)
 }
 
-func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *DataGeneratorConfig) error {
+func (g *DataGenerator) CreateSimulator(config *common.DataGeneratorConfig) (common.Simulator, error) {
+	err := g.init(config)
+	if err != nil {
+		return nil, err
+	}
+	rand.Seed(g.config.Seed)
+	scfg, err := usecases.GetSimulatorConfig(g.config)
+	if err != nil {
+		return nil, err
+	}
+
+	return scfg.NewSimulator(g.config.LogInterval, g.config.Limit), nil
+}
+
+func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *common.DataGeneratorConfig) error {
 	defer g.bufOut.Flush()
 
 	currGroupID := uint(0)
-	point := serialize.NewPoint()
+	point := data.NewPoint()
 	for !sim.Finished() {
 		write := sim.Next(point)
 		if !write {
@@ -176,95 +127,33 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 	return nil
 }
 
-func (g *DataGenerator) getSimulatorConfig(dgc *DataGeneratorConfig) (common.SimulatorConfig, error) {
-	var ret common.SimulatorConfig
-	var err error
-	switch dgc.Use {
-	case useCaseDevops:
-		ret = &devops.DevopsSimulatorConfig{
-			Start: g.tsStart,
-			End:   g.tsEnd,
-
-			InitHostCount:   dgc.InitialScale,
-			HostCount:       dgc.Scale,
-			HostConstructor: devops.NewHost,
-		}
-	case useCaseIoT:
-		ret = &iot.SimulatorConfig{
-			Start: g.tsStart,
-			End:   g.tsEnd,
-
-			InitGeneratorScale:   dgc.InitialScale,
-			GeneratorScale:       dgc.Scale,
-			GeneratorConstructor: iot.NewTruck,
-		}
-	case useCaseCPUOnly:
-		ret = &devops.CPUOnlySimulatorConfig{
-			Start: g.tsStart,
-			End:   g.tsEnd,
-
-			InitHostCount:   dgc.InitialScale,
-			HostCount:       dgc.Scale,
-			HostConstructor: devops.NewHostCPUOnly,
-		}
-	case useCaseCPUSingle:
-		ret = &devops.CPUOnlySimulatorConfig{
-			Start: g.tsStart,
-			End:   g.tsEnd,
-
-			InitHostCount:   dgc.InitialScale,
-			HostCount:       dgc.Scale,
-			HostConstructor: devops.NewHostCPUSingle,
-		}
-	default:
-		err = fmt.Errorf("unknown use case: '%s'", dgc.Use)
-	}
-	return ret, err
-}
-
-func (g *DataGenerator) getSerializer(sim common.Simulator, format string) (serialize.PointSerializer, error) {
-	var ret serialize.PointSerializer
-	var err error
-
-	switch format {
-	case FormatCassandra:
-		ret = &serialize.CassandraSerializer{}
-	case FormatInflux:
-		ret = &serialize.InfluxSerializer{}
-	case FormatMongo:
-		ret = &serialize.MongoSerializer{}
-	case FormatSiriDB:
-		ret = &serialize.SiriDBSerializer{}
-	case FormatAkumuli:
-		ret = serialize.NewAkumuliSerializer()
-	case FormatCrateDB:
-		g.writeHeader(sim)
-		ret = &serialize.CrateDBSerializer{}
-	case FormatClickhouse:
+func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.ImplementedTarget) (serialize.PointSerializer, error) {
+	switch target.TargetName() {
+	case constants.FormatCrateDB:
 		fallthrough
-	case FormatTimescaleDB:
-		g.writeHeader(sim)
-		ret = &serialize.TimescaleDBSerializer{}
-	default:
-		err = fmt.Errorf(errUnknownFormatFmt, format)
+	case constants.FormatClickhouse:
+		fallthrough
+	case constants.FormatTimescaleDB:
+		g.writeHeader(sim.Headers())
 	}
-
-	return ret, err
+	return target.Serializer(), nil
 }
 
-func (g *DataGenerator) writeHeader(sim common.Simulator) {
+//TODO should be implemented in targets package
+func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
-	types := sim.TagTypes()
-	for i, key := range sim.TagKeys() {
+
+	types := headers.TagTypes
+	for i, key := range headers.TagKeys {
 		g.bufOut.WriteString(",")
-		g.bufOut.Write(key)
+		g.bufOut.Write([]byte(key))
 		g.bufOut.WriteString(" ")
-		g.bufOut.WriteString(types[i].String())
+		g.bufOut.WriteString(types[i])
 	}
 	g.bufOut.WriteString("\n")
 	// sort the keys so the header is deterministic
 	keys := make([]string, 0)
-	fields := sim.Fields()
+	fields := headers.FieldKeys
 	for k := range fields {
 		keys = append(keys, k)
 	}
@@ -273,7 +162,7 @@ func (g *DataGenerator) writeHeader(sim common.Simulator) {
 		g.bufOut.WriteString(measurementName)
 		for _, field := range fields[measurementName] {
 			g.bufOut.WriteString(",")
-			g.bufOut.Write(field)
+			g.bufOut.Write([]byte(field))
 		}
 		g.bufOut.WriteString("\n")
 	}
