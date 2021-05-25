@@ -42,7 +42,7 @@ QuestDB REST end point.
 Prints available flags and their defaults:
 
 ```bash
-~/tmp/go/bin/tsbs_load_questdb -help
+tsbs_load_questdb --help
 ```
 
 ## How to run the test (FreeBSD example)
