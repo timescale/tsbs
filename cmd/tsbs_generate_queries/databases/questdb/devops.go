@@ -141,28 +141,28 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	sql := ""
 	if nHosts > 0 {
-	   	  hosts, err := d.GetRandomHosts(nHosts)
-		  panicIfErr(err)
+		hosts, err := d.GetRandomHosts(nHosts)
+		panicIfErr(err)
 
-		  sql = fmt.Sprintf(`
+		sql = fmt.Sprintf(`
 		      SELECT *
 		      FROM cpu
 		      WHERE usage_user > 90.0
 		       AND hostname IN ('%s')
 		       AND timestamp >= '%s'
 		       AND timestamp < '%s'`,
-		   strings.Join(hosts, "', '"),
- 		   interval.StartString(),
-		   interval.EndString())
-        } else {
-		  sql = fmt.Sprintf(`
+			strings.Join(hosts, "', '"),
+			interval.StartString(),
+			interval.EndString())
+	} else {
+		sql = fmt.Sprintf(`
 		      SELECT *
 		      FROM cpu
 		      WHERE usage_user > 90.0
 		       AND timestamp >= '%s'
 		       AND timestamp < '%s'`,
-		   interval.StartString(),
-		   interval.EndString())
+			interval.StartString(),
+			interval.EndString())
 	}
 
 	humanLabel, err := devops.GetHighCPULabel("QuestDB", nHosts)

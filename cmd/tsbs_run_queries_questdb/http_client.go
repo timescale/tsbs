@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
-        "strings"
 
 	"github.com/timescale/tsbs/pkg/query"
 )
@@ -48,8 +48,8 @@ func getHttpClient() *http.Client {
 // NewHTTPClient creates a new HTTPClient.
 func NewHTTPClient(host string) *HTTPClient {
 	if strings.HasSuffix(host, "/") {
-     	        host = host[:len(host)-1]
-        }
+		host = host[:len(host)-1]
+	}
 	return &HTTPClient{
 		client:     getHttpClient(),
 		Host:       []byte(host),

@@ -17,11 +17,11 @@ type processor struct {
 func (p *processor) Init(numWorker int, _, _ bool) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", questdbILPBindTo)
 	if err != nil {
-	       fatal("Failed to resolve %s: %s\n", questdbILPBindTo, err.Error())
+		fatal("Failed to resolve %s: %s\n", questdbILPBindTo, err.Error())
 	}
 	p.ilpConn, err = net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
-	       fatal("Failed connect to %s: %s\n", questdbILPBindTo, err.Error())
+		fatal("Failed connect to %s: %s\n", questdbILPBindTo, err.Error())
 	}
 }
 

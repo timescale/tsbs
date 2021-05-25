@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
@@ -24,8 +24,8 @@ import (
 // Program option vars:
 var (
 	questdbRESTEndPoint string
-	questdbILPBindTo string
-	doAbortOnExist    bool
+	questdbILPBindTo    string
+	doAbortOnExist      bool
 )
 
 // Global vars
@@ -43,7 +43,7 @@ var fatal = log.Fatalf
 func init() {
 	target = initializers.GetTarget(constants.FormatQuestDB)
 	config = load.BenchmarkRunnerConfig{}
-        // Not all the default flags apply to QuestDB
+	// Not all the default flags apply to QuestDB
 	// config.AddToFlagSet(pflag.CommandLine)
 	pflag.CommandLine.Uint("batch-size", 10000, "Number of items to batch together in a single insert")
 	pflag.CommandLine.Uint("workers", 1, "Number of parallel clients inserting")
@@ -66,7 +66,7 @@ func init() {
 	if err := viper.Unmarshal(&config); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-        
+
 	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
 	config.HashWorkers = false

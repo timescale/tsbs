@@ -6,14 +6,14 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"io/ioutil"
-	"strings"
-	"net/http"
-        "net/url"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
@@ -61,13 +61,13 @@ func init() {
 	// Add an index to the hostname column in the cpu table
 	r, err := execQuery(daemonUrls[0], "show columns from cpu")
 	if err == nil && r.Count != 0 {
-	       r, err := execQuery(daemonUrls[0], "ALTER TABLE cpu ALTER COLUMN hostname ADD INDEX")
-	       _ = r
-//	       fmt.Println("error:", err)
-//	       fmt.Printf("%+v\n", r)
-	       if err == nil {
-	       	       fmt.Println("Added index to hostname column of cpu table")
-	       }
+		r, err := execQuery(daemonUrls[0], "ALTER TABLE cpu ALTER COLUMN hostname ADD INDEX")
+		_ = r
+		//	       fmt.Println("error:", err)
+		//	       fmt.Printf("%+v\n", r)
+		if err == nil {
+			fmt.Println("Added index to hostname column of cpu table")
+		}
 	}
 
 	runner = query.NewBenchmarkRunner(config)
@@ -105,39 +105,39 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 }
 
 type QueryResponseColumns struct {
-        Name string
-        Type string
+	Name string
+	Type string
 }
 
 type QueryResponse struct {
-        Query string
-        Columns []QueryResponseColumns
-        Dataset []interface{}
-        Count int
-	Error string
+	Query   string
+	Columns []QueryResponseColumns
+	Dataset []interface{}
+	Count   int
+	Error   string
 }
 
 func execQuery(uriRoot string, query string) (QueryResponse, error) {
-        var qr QueryResponse
- 	if strings.HasSuffix(uriRoot, "/") {
-     	        uriRoot = uriRoot[:len(uriRoot)-1]
-        }
-	uriRoot = uriRoot + "/exec?query=" + url.QueryEscape(query);
+	var qr QueryResponse
+	if strings.HasSuffix(uriRoot, "/") {
+		uriRoot = uriRoot[:len(uriRoot)-1]
+	}
+	uriRoot = uriRoot + "/exec?query=" + url.QueryEscape(query)
 	resp, err := http.Get(uriRoot)
 	if err != nil {
-	        return qr, err
+		return qr, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return qr, err
 	}
-	err = json.Unmarshal(body, &qr);
+	err = json.Unmarshal(body, &qr)
 	if err != nil {
 		return qr, err
 	}
 	if qr.Error != "" {
- 	        return qr, errors.New(qr.Error)
-        }
+		return qr, errors.New(qr.Error)
+	}
 	return qr, nil
 }

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"testing"
-	"fmt"
-        "net"
-        "io"
 	"bytes"
+	"fmt"
+	"io"
+	"net"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/timescale/tsbs/pkg/data"
@@ -17,53 +17,53 @@ func emptyLog(_ string, _ ...interface{}) (int, error) {
 }
 
 type mockServer struct {
-        ln net.Listener
-        listenPort int
+	ln         net.Listener
+	listenPort int
 }
 
-func mockServerStop(ms *mockServer) () {
-         ms.ln.Close()
+func mockServerStop(ms *mockServer) {
+	ms.ln.Close()
 }
 
 func mockServerStart() *mockServer {
-        ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
-                fatal("Failed to start server listen socket: %s\n", err.Error())
+		fatal("Failed to start server listen socket: %s\n", err.Error())
 	}
-        fmt.Println("Mock TCP server listening on port:", ln.Addr().(*net.TCPAddr).Port)
-        ms := &mockServer {
-                ln: ln,
-                listenPort: ln.Addr().(*net.TCPAddr).Port,
-        }
-        go func() {
-	       for {
-	       	   
-	       	     conn, err := ln.Accept()
-		     if err != nil {
-		     	     // listen socket is closed
-			     return
-		     }
-                     go func() {
-                             data := make([]byte, 512)
-                             for {
-                                     rc,err := conn.Read(data)
-                                     if err != nil {
-                                             if err != io.EOF {
-                                                     fatal("failed to read from connection: ", err.Error())
-                                             }
-                                             return
-                                     }
-                                     fmt.Println(conn, " read ", rc)
-                             }
-                     }()
- 	       }
-        }()
-        return ms
+	fmt.Println("Mock TCP server listening on port:", ln.Addr().(*net.TCPAddr).Port)
+	ms := &mockServer{
+		ln:         ln,
+		listenPort: ln.Addr().(*net.TCPAddr).Port,
+	}
+	go func() {
+		for {
+
+			conn, err := ln.Accept()
+			if err != nil {
+				// listen socket is closed
+				return
+			}
+			go func() {
+				data := make([]byte, 512)
+				for {
+					rc, err := conn.Read(data)
+					if err != nil {
+						if err != io.EOF {
+							fatal("failed to read from connection: ", err.Error())
+						}
+						return
+					}
+					fmt.Println(conn, " read ", rc)
+				}
+			}()
+		}
+	}()
+	return ms
 }
 
 func TestProcessorInit(t *testing.T) {
-        ms := mockServerStart()
-        defer mockServerStop(ms)
+	ms := mockServerStart()
+	defer mockServerStop(ms)
 	questdbILPBindTo = fmt.Sprintf("127.0.0.1:%d", ms.listenPort)
 	printFn = emptyLog
 	p := &processor{}
@@ -89,13 +89,13 @@ func TestProcessorProcessBatch(t *testing.T) {
 	b.Append(pt)
 
 	cases := []struct {
-		doLoad        bool
+		doLoad bool
 	}{
 		{
-			doLoad:  false,
+			doLoad: false,
 		},
 		{
-			doLoad:  true,
+			doLoad: true,
 		},
 	}
 
@@ -105,8 +105,8 @@ func TestProcessorProcessBatch(t *testing.T) {
 			fmt.Printf(format, args...)
 		}
 
-        	ms := mockServerStart()
-                questdbILPBindTo = fmt.Sprintf("127.0.0.1:%d", ms.listenPort)
+		ms := mockServerStart()
+		questdbILPBindTo = fmt.Sprintf("127.0.0.1:%d", ms.listenPort)
 
 		p := &processor{}
 		p.Init(0, true, true)
