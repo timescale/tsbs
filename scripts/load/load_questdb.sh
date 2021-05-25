@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# This script assumes questdb is up and running, you can start it with docker with
+# docker run -p 9000:9000 -p 8812:8812 -p 9009:9009 -p 9003:9003 questdb/questdb
+
+
 # Ensure loader is available
 EXE_FILE_NAME=${EXE_FILE_NAME:-$(which tsbs_load_questdb)}
 if [[ -z "$EXE_FILE_NAME" ]]; then
