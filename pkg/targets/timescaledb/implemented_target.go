@@ -51,7 +51,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flagSet.Bool(flagPrefix+"in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 
-	flagSet.Int(flagPrefix+"partitions", 1, "Number of partitions")
+	flagSet.Int(flagPrefix+"partitions", 0, "Number of partitions")
 	flagSet.Duration(flagPrefix+"chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
 	flagSet.Bool(flagPrefix+"time-index", true, "Whether to build an index on the time dimension")

@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	insertCSI    = `INSERT INTO %s(time,tags_id,%s%s,additional_tags) VALUES %s`
-	numExtraCols = 2 // one for json, one for tags_id
+	insertTagsSQL = `INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`
+	getTagsSQL    = `SELECT * FROM tags`
+	numExtraCols  = 2 // one for json, one for tags_id
 )
 
 type syncCSI struct {
@@ -44,15 +45,15 @@ func newSyncCSI() *syncCSI {
 var globalSyncCSI = newSyncCSI()
 
 func subsystemTagsToJSON(tags []string) map[string]interface{} {
-	json := map[string]interface{}{}
+	jsonToReturn := map[string]interface{}{}
 	for _, t := range tags {
 		args := strings.Split(t, "=")
-		json[args[0]] = args[1]
+		jsonToReturn[args[0]] = args[1]
 	}
-	return json
+	return jsonToReturn
 }
 
-func (p *processor) insertTags(db *sql.DB, tagRows [][]string, returnResults bool) map[string]int64 {
+func (p *processor) insertTags(db *sql.DB, tagRows [][]string) map[string]int64 {
 	tagCols := tableCols[tagsKey]
 	cols := tagCols
 	values := make([]string, 0)
@@ -80,40 +81,42 @@ func (p *processor) insertTags(db *sql.DB, tagRows [][]string, returnResults boo
 	}
 	tx := MustBegin(db)
 	defer tx.Commit()
-	res, err := tx.Query(fmt.Sprintf(`INSERT INTO tags(%s) VALUES %s ON CONFLICT DO NOTHING RETURNING *`, strings.Join(cols, ","), strings.Join(values, ",")))
+	res, err := tx.Query(fmt.Sprintf(insertTagsSQL, strings.Join(cols, ","), strings.Join(values, ",")))
 	if err != nil {
 		panic(err)
 	}
 
-	// Results will be used to make a Golang index for faster inserts
-	if returnResults {
-		resCols, _ := res.Columns()
-		resVals := make([]interface{}, len(resCols))
-		resValsPtrs := make([]interface{}, len(resCols))
-		for i := range resVals {
-			resValsPtrs[i] = &resVals[i]
-		}
-		ret := make(map[string]int64)
-		for res.Next() {
-			err = res.Scan(resValsPtrs...)
-			if err != nil {
-				panic(err)
-			}
+	ret := p.sqlTagsToCacheLine(res, err, tagCols)
+	return ret
+}
 
-			var key string
-			if p.opts.UseJSON {
-				decodedTagset := map[string]string{}
-				json.Unmarshal(resVals[1].([]byte), &decodedTagset)
-				key = decodedTagset[tagCols[0]]
-			} else {
-				key = fmt.Sprintf("%v", resVals[1])
-			}
-			ret[key] = resVals[0].(int64)
-		}
-		res.Close()
-		return ret
+func (p *processor) sqlTagsToCacheLine(res *sql.Rows, err error, tagCols []string) map[string]int64 {
+	// Results will be used to make a Golang index for faster inserts
+	resCols, _ := res.Columns()
+	resVals := make([]interface{}, len(resCols))
+	resValsPtrs := make([]interface{}, len(resCols))
+	for i := range resVals {
+		resValsPtrs[i] = &resVals[i]
 	}
-	return nil
+	ret := make(map[string]int64)
+	for res.Next() {
+		err = res.Scan(resValsPtrs...)
+		if err != nil {
+			panic(err)
+		}
+
+		var key string
+		if p.opts.UseJSON {
+			decodedTagset := map[string]string{}
+			json.Unmarshal(resVals[1].([]byte), &decodedTagset)
+			key = decodedTagset[tagCols[0]]
+		} else {
+			key = fmt.Sprintf("%v", resVals[1])
+		}
+		ret[key] = resVals[0].(int64)
+	}
+	res.Close()
+	return ret
 }
 
 // splitTagsAndMetrics takes an array of insertData (sharded by hypertable) and
@@ -195,7 +198,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 	p._csi.mutex.RUnlock()
 	if len(newTags) > 0 {
 		p._csi.mutex.Lock()
-		res := p.insertTags(p._db, newTags, true)
+		res := p.insertTags(p._db, newTags)
 		for k, v := range res {
 			p._csi.m[k] = v
 		}
@@ -289,6 +292,21 @@ func (p *processor) Init(_ int, doLoad, hashWorkers bool) {
 		}
 		p._pgxConn = conn
 	}
+	p.loadExistingTagsInCache(p._db)
+}
+
+func (p *processor) loadExistingTagsInCache(db *sql.DB) {
+	p._csi.mutex.Lock()
+	res, err := db.Query(getTagsSQL)
+	if err != nil {
+		panic(err)
+	}
+	tagCols := tableCols[tagsKey]
+	ret := p.sqlTagsToCacheLine(res, err, tagCols)
+	for k, v := range ret {
+		p._csi.m[k] = v
+	}
+	p._csi.mutex.Unlock()
 }
 
 func (p *processor) Close(doLoad bool) {

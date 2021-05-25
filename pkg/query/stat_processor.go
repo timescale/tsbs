@@ -1,6 +1,8 @@
 package query
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -170,9 +172,13 @@ func (sp *defaultStatProcessor) process(workers uint) {
 
 	if len(sp.args.hdrLatenciesFile) > 0 {
 		_, _ = fmt.Printf("Saving High Dynamic Range (HDR) Histogram of Response Latencies to %s\n", sp.args.hdrLatenciesFile)
-
-		d1 := []byte(statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(10, 1000.0))
-		err = ioutil.WriteFile(sp.args.hdrLatenciesFile, d1, 0644)
+		var b bytes.Buffer
+		bw := bufio.NewWriter(&b)
+		_, err = statMapping[allQueriesLabel].latencyHDRHistogram.PercentilesPrint(bw, 10, 1000.0)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = ioutil.WriteFile(sp.args.hdrLatenciesFile, b.Bytes(), 0644)
 		if err != nil {
 			log.Fatal(err)
 		}

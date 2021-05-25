@@ -102,25 +102,12 @@ with identical data and queried using identical queries.
 
 TSBS is a collection of Go programs (with some auxiliary bash and Python
 scripts). The easiest way to get and install the Go programs is to use
-`go get` and then `go install`:
+`go get` and then `make all` to install all binaries:
 ```bash
 # Fetch TSBS and its dependencies
 $ go get github.com/timescale/tsbs
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ go get ./...
-
-# Install desired binaries. At a minimum this includes tsbs_generate_data,
-# tsbs_generate_queries, one tsbs_load_* binary, and one tsbs_run_queries_*
-# binary:
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ cd tsbs_generate_data && go install
-$ cd ../tsbs_generate_queries && go install
-$ cd ../tsbs_load_timescaledb && go install
-$ cd ../tsbs_run_queries_timescaledb && go install
-
-# Optionally, install all binaries:
-$ cd $GOPATH/src/github.com/timescale/tsbs/cmd
-$ go install ./...
+$ cd $GOPATH/src/github.com/timescale/tsbs
+$ make
 ```
 
 ## How to use TSBS
@@ -269,7 +256,7 @@ required, with a gzipped data set as created in the instructions above:
 cat /tmp/timescaledb-data.gz | gunzip | tsbs_load_timescaledb \
 --postgres="sslmode=require" --host="my.tsdb.host" --port=5432 --pass="password" \
 --user="benchmarkuser" --admin-db-name=defaultdb --workers=8  \
---in-table-partition-tag=true --partitions=1 --chunk-time=8h --write-profile= \
+--in-table-partition-tag=true --chunk-time=8h --write-profile= \
 --field-index-count=1 --do-create-db=true --force-text-format=false \
 --do-abort-on-exist=false
 ```
