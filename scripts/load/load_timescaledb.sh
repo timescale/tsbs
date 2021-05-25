@@ -10,7 +10,10 @@ fi
 # Load parameters - common
 DATA_FILE_NAME=${DATA_FILE_NAME:-timescaledb-data.gz}
 DATABASE_USER=${DATABASE_USER:-postgres}
-
+DATABASE_NAME=${DATABASE_NAME:-benchmark}
+DATABASE_HOST=${DATABASE_HOST:-localhost}
+DATABASE_PORT=${DATABASE_PORT:-5432}
+DATABASE_PWD=${DATABASE_PWD:-password}
 # Load parameters - personal
 CHUNK_TIME=${CHUNK_TIME:-8h}
 PARTITIONS=${PARTITIONS:-0}
@@ -26,7 +29,7 @@ FORCE_TEXT_FORMAT=${FORCE_TEXT_FORMAT:-false}
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
 
-while ! pg_isready -h ${DATABASE_HOST}; do
+while ! pg_isready -h ${DATABASE_HOST} -p ${DATABASE_PORT}; do
     echo "Waiting for timescaledb"
     sleep 1
 done
@@ -35,6 +38,8 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --postgres="sslmode=disable" \
                                 --db-name=${DATABASE_NAME} \
                                 --host=${DATABASE_HOST} \
+                                --port=${DATABASE_PORT} \
+                                --pass=${DATABASE_PWD} \
                                 --user=${DATABASE_USER} \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
