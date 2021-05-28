@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/cheggaaa/pb/v3"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases"
@@ -105,6 +106,7 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 	defer g.bufOut.Flush()
 
 	currGroupID := uint(0)
+	bar := pb.StartNew(int(sim.MaxPoints()))
 	point := data.NewPoint()
 	for !sim.Finished() {
 		write := sim.Next(point)
@@ -112,6 +114,7 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 			point.Reset()
 			continue
 		}
+		bar.Increment()
 
 		// in the default case this is always true
 		if currGroupID == dgc.InterleavedGroupID {
@@ -121,9 +124,9 @@ func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.
 			}
 		}
 		point.Reset()
-
 		currGroupID = (currGroupID + 1) % dgc.InterleavedNumGroups
 	}
+	bar.Finish()
 	return nil
 }
 

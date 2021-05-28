@@ -1,8 +1,10 @@
 package load
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/timescale/tsbs/pkg/targets"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"sync"
@@ -29,21 +31,22 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName          string        `yaml:"db-name" mapstructure:"db-name"`
-	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size"`
-	Workers         uint          `yaml:"workers" mapstructure:"workers"`
-	Limit           uint64        `yaml:"limit" mapstructure:"limit"`
-	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load"`
-	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db"`
-	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period"`
-	HashWorkers     bool          `yaml:"hash-workers" mapstructure:"hash-workers"`
-	NoFlowControl   bool          `yaml:"no-flow-control" mapstructure:"no-flow-control"`
-	ChannelCapacity uint          `yaml:"channel-capacity" mapstructure:"channel-capacity"`
-	InsertIntervals string        `yaml:"insert-intervals" mapstructure:"insert-intervals"`
+	DBName          string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
+	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-sze"`
+	Workers         uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
+	Limit           uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
+	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
+	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
+	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
+	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
+	HashWorkers     bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
+	NoFlowControl   bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
+	ChannelCapacity uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
+	InsertIntervals string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
+	ResultsFile     string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
-	FileName string `yaml:"file" mapstructure:"file"`
-	Seed     int64  `yaml:"seed" mapstructure:"seed"`
+	FileName string `yaml:"file" mapstructure:"file" json:"file"`
+	Seed     int64  `yaml:"seed" mapstructure:"seed" json:"seed"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -60,6 +63,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
 	fs.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
+	fs.String("results-file", "", "Write the test results summary json to this file")
 }
 
 type BenchmarkRunner interface {
@@ -138,7 +142,41 @@ func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
 	// Wait for all workers to finish
 	wg.Wait()
 	end := time.Now()
-	l.summary(end.Sub(*start))
+	took := end.Sub(*start)
+	l.summary(took)
+	if len(l.BenchmarkRunnerConfig.ResultsFile) > 0 {
+		l.saveTestResult(took, *start, end)
+	}
+}
+
+func (l *CommonBenchmarkRunner) saveTestResult(took time.Duration, start time.Time, end time.Time) {
+	totals := make(map[string]interface{})
+	metricRate := float64(l.metricCnt) / took.Seconds()
+	totals["metricRate"] = metricRate
+	if l.rowCnt > 0 {
+		rowRate := float64(l.rowCnt) / float64(took.Seconds())
+		totals["rowRate"] = rowRate
+	}
+
+	testResult := LoaderTestResult{
+		ResultFormatVersion: LoaderTestResultVersion,
+		RunnerConfig:        l.BenchmarkRunnerConfig,
+		StartTime:           start.Unix(),
+		EndTime:             end.Unix(),
+		DurationMillis:      took.Milliseconds(),
+		Totals:              totals,
+	}
+
+	_, _ = fmt.Printf("Saving results json file to %s\n", l.BenchmarkRunnerConfig.ResultsFile)
+	file, err := json.MarshalIndent(testResult, "", " ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(l.BenchmarkRunnerConfig.ResultsFile, file, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // RunBenchmark takes in a Benchmark b and uses it to run the load benchmark

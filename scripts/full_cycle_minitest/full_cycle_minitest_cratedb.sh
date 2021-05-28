@@ -16,7 +16,7 @@ $GOPATH/bin/tsbs_generate_queries --format cratedb --use-case cpu-only --scale 1
 $GOPATH/bin/tsbs_generate_queries --format cratedb --use-case cpu-only --scale 10 --seed 123 --query-type groupby-orderby-limit --file /tmp/bulk_data/cratedb_query_groupby-orderby-limit
 
 # insert benchmark
-$GOPATH/bin/tsbs_load_cratedb --db-name=benchmark --hosts=localhost --workers=1 --file=/tmp/bulk_data/cratedb_data
+$GOPATH/bin/tsbs_load_cratedb --db-name=benchmark --hosts=localhost --workers=1 --file=/tmp/bulk_data/cratedb_data --results-file="cratedb_load_results.json"
 
 # queries benchmark
 $GOPATH/bin/tsbs_run_queries_cratedb --db-name=benchmark --hosts=localhost --workers=1 --max-queries=10 --file=/tmp/bulk_data/cratedb_query_lastpoint

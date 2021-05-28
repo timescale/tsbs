@@ -42,6 +42,10 @@ func (s *DevopsSimulator) TagKeys() []string {
 	return tagKeysAsStr
 }
 
+func (s *DevopsSimulator) MaxPoints() uint64 {
+	return s.maxPoints
+}
+
 func (s *DevopsSimulator) TagTypes() []string {
 	types := make([]string, len(MachineTagKeys))
 	for i := 0; i < len(MachineTagKeys); i++ {

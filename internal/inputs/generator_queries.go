@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"fmt"
+
 	"io"
 	"math/rand"
 	"os"
