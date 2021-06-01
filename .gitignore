@@ -6,3 +6,26 @@
 
 # High Dynamic Range (HDR) Histogram files
 *.hdr
+bin/tsbs_generate_data
+bin/tsbs_generate_queries
+bin/tsbs_load
+bin/tsbs_load_akumuli
+bin/tsbs_load_cassandra
+bin/tsbs_load_clickhouse
+bin/tsbs_load_cratedb
+bin/tsbs_load_influx
+bin/tsbs_load_mongo
+bin/tsbs_load_prometheus
+bin/tsbs_load_siridb
+bin/tsbs_load_timescaledb
+bin/tsbs_load_victoriametrics
+bin/tsbs_run_queries_akumuli
+bin/tsbs_run_queries_cassandra
+bin/tsbs_run_queries_clickhouse
+bin/tsbs_run_queries_cratedb
+bin/tsbs_run_queries_influx
+bin/tsbs_run_queries_mongo
+bin/tsbs_run_queries_siridb
+bin/tsbs_run_queries_timescaledb
+bin/tsbs_run_queries_timestream
+bin/tsbs_run_queries_victoriametrics

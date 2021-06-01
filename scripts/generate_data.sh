@@ -41,7 +41,7 @@ set -eo pipefail
 
 # Loop over all requested target formats and generate data
 for FORMAT in ${FORMATS}; do
-    DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}.dat.gz"
+    DATA_FILE_NAME="data_${FORMAT}_${USE_CASE}_${SCALE}_${TS_START}_${TS_END}_${LOG_INTERVAL}_${SEED}_${MAX_DATA_POINTS}.dat.gz"
     if [ -f "${DATA_FILE_NAME}" ]; then
         echo "WARNING: file ${DATA_FILE_NAME} already exists, skip generating new data"
     else
