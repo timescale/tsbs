@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-cat /tmp/bulk_data/clickhouse-data.gz | gunzip | ../../bin/tsbs_load_clickhouse --workers=1 --user="default" --password="" --batch-size=1 --debug=0 --do-create-db=true --host="localhost" --db-name="benchmark"
+cat /tmp/bulk_data/clickhouse-data.gz | gunzip | ../../../bin/tsbs_load_clickhouse --workers=1 --user="default" --password="" --batch-size=1 --debug=0 --do-create-db=true --host="localhost" --db-name="benchmark"
 
 :<<-EOF
 1622537969,1113.99,1.114000E+04,1113.99,111.40,1.114000E+03,111.40

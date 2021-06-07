@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 echo "--workers=1 --batch-size=2500"
-cat /tmp/bulk_data/clickhouse-data.gz | gunzip | ../../bin/tsbs_load_clickhouse --user="default" --password="" --do-create-db=true --host="localhost" --db-name="benchmark" --workers=1 --batch-size=2500
+cat /tmp/bulk_data/clickhouse-data.gz | gunzip | ../../../bin/tsbs_load_clickhouse --user="default" --password="" --do-create-db=true --host="localhost" --db-name="benchmark" --workers=1 --batch-size=2500
 
 :<<-EOF
 --workers=1 --batch-size=2500

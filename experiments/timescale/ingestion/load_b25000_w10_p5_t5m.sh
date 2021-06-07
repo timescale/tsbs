@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 echo "--workers=10 --partitions=5 --chunk-time=5m --batch-size=25000"
-cat /tmp/bulk_data/timescaledb-data.gz | gunzip | ../../bin/tsbs_load_timescaledb --do-create-db=true --host="localhost" --db-name="benchmark" --workers=10 --batch-size=25000 --field-index="VALUE-TIME" --time-partition-index=true --partitions=5 --chunk-time="5m" --field-index-count="-1"
+cat /tmp/bulk_data/timescaledb-data.gz | gunzip | ../../../bin/tsbs_load_timescaledb --do-create-db=true --host="localhost" --db-name="benchmark" --workers=10 --batch-size=25000 --field-index="VALUE-TIME" --time-partition-index=true --partitions=5 --chunk-time="5m" --field-index-count="-1"
 
 :<<-EOF
 time,per. metric/s,metric total,overall metric/s,per. row/s,row total,overall row/s
