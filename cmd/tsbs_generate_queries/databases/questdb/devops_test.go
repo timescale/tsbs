@@ -3,9 +3,9 @@ package questdb
 import (
 	"math/rand"
 	"net/url"
+	"regexp"
 	"testing"
 	"time"
-        "regexp"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/pkg/query"
@@ -275,24 +275,24 @@ func verifyQuery(t *testing.T, q query.Query, humanLabel, humanDesc, expectedSql
 		t.Errorf("incorrect method:\ngot\n%s\nwant GET", got)
 	}
 
-        uri := string(sql.Path)
-        u, err := url.Parse(uri)
+	uri := string(sql.Path)
+	u, err := url.Parse(uri)
 	if err != nil {
 		t.Errorf("Failed to decode %s: %s", uri, err)
 	}
-        actualSql := normaliseField(u.Query()["query"][0])
+	actualSql := normaliseField(u.Query()["query"][0])
 
-        if (expectedSql != actualSql) {
+	if expectedSql != actualSql {
 		t.Errorf("expcted %s, actual %s", expectedSql, actualSql)
 	}
 }
 
 func normaliseField(fieldValue string) string {
-        m1 := regexp.MustCompile("^\\s+")
-        m2 := regexp.MustCompile("\\s+$")
-        m3 := regexp.MustCompile("\\s+")
-        fieldValue = m1.ReplaceAllString(fieldValue, "")
-        fieldValue = m2.ReplaceAllString(fieldValue, "")
-        fieldValue = m3.ReplaceAllString(fieldValue, " ")
-        return fieldValue
+	m1 := regexp.MustCompile("^\\s+")
+	m2 := regexp.MustCompile("\\s+$")
+	m3 := regexp.MustCompile("\\s+")
+	fieldValue = m1.ReplaceAllString(fieldValue, "")
+	fieldValue = m2.ReplaceAllString(fieldValue, "")
+	fieldValue = m3.ReplaceAllString(fieldValue, " ")
+	return fieldValue
 }
