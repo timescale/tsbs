@@ -12,7 +12,7 @@ import (
 
 	"github.com/blagojts/viper"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mailru/go-clickhouse"
+	_ "github.com/kshvakov/clickhouse"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
