@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/kshvakov/clickhouse"
 	"github.com/timescale/tsbs/pkg/targets"
 	"strconv"
 	"strings"
@@ -154,11 +155,11 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 		// additional_tags
 		tagsIdPosition = 3 // what is the position of the tags_id in the row - nil value
 		r = append(r,
-			timeUTC,    // created_date
-			timeUTC,    // created_at
-			TimeUTCStr, // time
-			nil,        // tags_id
-			json)       // additional_tags
+			strings.Fields(TimeUTCStr)[0], // created_date
+			timeUTC,                       // created_at
+			TimeUTCStr,                    // time
+			nil,                           // tags_id
+			json)                          // additional_tags
 
 		if p.conf.InTableTag {
 			r = append(r, tags[0]) // tags[0] = hostname
@@ -253,11 +254,11 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			panic(err)
 		}
 	}
-	err = stmt.Close()
+	err = tx.Commit()
 	if err != nil {
 		panic(err)
 	}
-	err = tx.Commit()
+	err = stmt.Close()
 	if err != nil {
 		panic(err)
 	}
