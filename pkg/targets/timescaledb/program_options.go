@@ -21,8 +21,9 @@ type LoadingOptions struct {
 	UseJSON       bool `yaml:"use-jsonb-tags" mapstructure:"use-jsonb-tags"`
 	InTableTag    bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
 
-	NumberPartitions int           `yaml:"partitions" mapstructure:"partitions"`
-	ChunkTime        time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
+	NumberPartitions  int           `yaml:"partitions" mapstructure:"partitions"`
+	ReplicationFactor int           `yaml:"replication-factor" mapstructure:"replication-factor"`
+	ChunkTime         time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
 	TimeIndex          bool   `yaml:"time-index" mapstructure:"time-index"`
 	TimePartitionIndex bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`
@@ -36,6 +37,7 @@ type LoadingOptions struct {
 	CreateMetricsTable bool     `yaml:"create-metrics-table" mapstructure:"create-metrics-table"`
 	ForceTextFormat    bool     `yaml:"force-text-format" mapstructure:"force-text-format"`
 	TagColumnTypes     []string `yaml:",omitempty" mapstructure:",omitempty"`
+	UseCopy            bool     `yaml:"use-copy" mapstructure:"use-copy"`
 }
 
 func (o *LoadingOptions) GetConnectString(dbName string) string {

@@ -42,11 +42,24 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.LogBatches = viper.GetBool("log-batches")
 
 	opts.UseHypertable = viper.GetBool("use-hypertable")
+	opts.ChunkTime = viper.GetDuration("chunk-time")
+
 	opts.UseJSON = viper.GetBool("use-jsonb-tags")
 	opts.InTableTag = viper.GetBool("in-table-partition-tag")
 
+	/* These two settings determine if we are creating a distributed
+	/ hypertable or not, and if so, what the replication factor should be
+
+	    | partitions | replication-factor | hypertable type created|
+	    |------------|--------------------|------------------------|
+	    | null, 0, 1 |  null or any int   | regular hypertable     |
+	    | >1         |  null              | distributed hypertable, rf=1 |
+	    | >1         |  any int           | distributed hypertable, rf = setting |
+
+	*/
+
 	opts.NumberPartitions = viper.GetInt("partitions")
-	opts.ChunkTime = viper.GetDuration("chunk-time")
+	opts.ReplicationFactor = viper.GetInt("replication-factor")
 
 	opts.TimeIndex = viper.GetBool("time-index")
 	opts.TimePartitionIndex = viper.GetBool("time-partition-index")

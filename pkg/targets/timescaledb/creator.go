@@ -201,19 +201,25 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 
-		// Don't pass replication factor directly to the create command.  We
-		// currently only support a replication factor of 1, which is implicit
-		// in create_distributed_hypertable.
-		if d.opts.ReplicationFactor > 0 {
+		// Number of partitions determines whether we create a distributed hypertable
+		// or not. If it is unset (or equal to 1), then we will create a regular
+		// hypertable with no partitions.
+		//
+		// If partitions are greater than 1, we assume there are at least multiple
+		// data nodes and attempt a distributed hypertable creation. While we do
+		// not currently benchmark replication, we set the value to 1 (the default)
+		// unless otherwise specified.
+		if d.opts.NumberPartitions <= 1 {
 			creationCommand = "create_hypertable"
-		} else {
-			creationCommand = "create_distributed_hypertable"
-		}
-
-		if d.opts.NumberPartitions > 0 {
-			partitionsOption = fmt.Sprintf("number_partitions => %v::smallint", d.opts.NumberPartitions)
-		} else {
 			partitionsOption = "number_partitions => NULL"
+		} else {
+			// This gives us a future option of testing the impact of
+			// multi-node replication across data nodes
+			if d.opts.ReplicationFactor == 0 {
+				d.opts.ReplicationFactor = 1
+			}
+			creationCommand = "create_distributed_hypertable"
+			partitionsOption = fmt.Sprintf("number_partitions => %v::smallint, replication_factor => %v::smallint", d.opts.NumberPartitions, d.opts.ReplicationFactor)
 		}
 
 		MustExec(dbBench,
