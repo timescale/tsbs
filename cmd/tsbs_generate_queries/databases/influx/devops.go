@@ -104,8 +104,8 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 	whereHosts := d.getHostWhereString(nHosts)
 	selectClauses := d.getSelectClausesAggMetrics("max", devops.GetAllCPUMetrics())
 

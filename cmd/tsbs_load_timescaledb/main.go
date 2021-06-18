@@ -59,6 +59,7 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.CreateMetricsTable = viper.GetBool("create-metrics-table")
 
 	opts.ForceTextFormat = viper.GetBool("force-text-format")
+	opts.UseCopy = viper.GetBool("use-copy")
 
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &opts, loader, &loaderConf

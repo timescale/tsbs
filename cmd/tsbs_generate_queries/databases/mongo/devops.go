@@ -168,8 +168,8 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 	hostnames, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
 	docs := getTimeFilterDocs(interval)
