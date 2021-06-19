@@ -22,6 +22,7 @@ type LoadingOptions struct {
 	InTableTag    bool `yaml:"in-table-partition-tag" mapstructure:"in-table-partition-tag"`
 
 	NumberPartitions  int           `yaml:"partitions" mapstructure:"partitions"`
+	PartitionColumn   string        `yaml:"partition-column" mapstructure:"partition-column"`
 	ReplicationFactor int           `yaml:"replication-factor" mapstructure:"replication-factor"`
 	ChunkTime         time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
@@ -37,7 +38,7 @@ type LoadingOptions struct {
 	CreateMetricsTable bool     `yaml:"create-metrics-table" mapstructure:"create-metrics-table"`
 	ForceTextFormat    bool     `yaml:"force-text-format" mapstructure:"force-text-format"`
 	TagColumnTypes     []string `yaml:",omitempty" mapstructure:",omitempty"`
-	UseCopy            bool     `yaml:"use-copy" mapstructure:"use-copy"`
+	UseInsert          bool     `yaml:"use-insert" mapstructure:"use-insert"`
 }
 
 func (o *LoadingOptions) GetConnectString(dbName string) string {

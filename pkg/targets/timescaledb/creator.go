@@ -166,27 +166,18 @@ func (d *dbCreator) getFieldAndIndexDefinitions(tableName string, columns []stri
 // createTableAndIndexes takes a list of field and index definitions for a given tableName and constructs
 // the necessary table, index, and potential hypertable based on the user's settings
 func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fieldDefs []string, indexDefs []string) {
-	var partitionColumn string
-
-	// We assume that if there are more than one partitions, that it is
-	// a distributed hypertable and hostname will be included in the table to partition
-	if d.opts.NumberPartitions > 1 {
-		partitionColumn = "hostname"
-	} else {
-		partitionColumn = "tags_id"
-	}
 
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
 	if d.opts.PartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, d.opts.PartitionColumn))
 	}
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to
 	// use --time-partition-index for reduced index lock contention.
 	if d.opts.TimePartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, partitionColumn))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, d.opts.PartitionColumn))
 	} else if d.opts.TimeIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", tableName))
 	}
@@ -196,35 +187,35 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	}
 
 	if d.opts.UseHypertable {
-		var creationCommand string
-		var partitionsOption string
+		var creationCommand string = "create_hypertable"
+		var partitionsOption string = "replication_factor => NULL"
 
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 
-		// Number of partitions determines whether we create a distributed hypertable
-		// or not. If it is unset (or equal to 1), then we will create a regular
+		// Replication factor determines whether we create a distributed hypertable
+		// or not. If it is unset or zero, then we will create a regular
 		// hypertable with no partitions.
 		//
-		// If partitions are greater than 1, we assume there are at least multiple
-		// data nodes and attempt a distributed hypertable creation. While we do
-		// not currently benchmark replication, we set the value to 1 (the default)
-		// unless otherwise specified.
-		if d.opts.NumberPartitions <= 1 {
-			creationCommand = "create_hypertable"
-			partitionsOption = "number_partitions => NULL"
-		} else {
+		// If replication factor is greater >= 1, we assume there are at least multiple
+		// data nodes. We currently use `create_hypertable` for both statements, the
+		// default behavior is to create a distributed hypertable if `replication_factor`
+		// is >= 1
+
+		// We assume a single partition hypertable. This provides an option to test
+		// partitioning on regular hypertables
+		if d.opts.NumberPartitions > 0 {
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", d.opts.PartitionColumn, d.opts.NumberPartitions)
+		}
+
+		if d.opts.ReplicationFactor > 0 {
 			// This gives us a future option of testing the impact of
 			// multi-node replication across data nodes
-			if d.opts.ReplicationFactor == 0 {
-				d.opts.ReplicationFactor = 1
-			}
-			creationCommand = "create_distributed_hypertable"
-			partitionsOption = fmt.Sprintf("number_partitions => %v::smallint, replication_factor => %v::smallint", d.opts.NumberPartitions, d.opts.ReplicationFactor)
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", d.opts.PartitionColumn, d.opts.ReplicationFactor)
 		}
 
 		MustExec(dbBench,
-			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				creationCommand, tableName, partitionColumn, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
+			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+				creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
 	}
 }
 

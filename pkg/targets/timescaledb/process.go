@@ -247,7 +247,7 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 			panic(err)
 		}
 	} else {
-		if p.opts.UseCopy {
+		if !p.opts.UseInsert {
 			rows := pgx.CopyFromRows(dataRows)
 			inserted, err := p._pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
 
