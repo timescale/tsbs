@@ -46,14 +46,16 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.ChunkTime = viper.GetDuration("chunk-time")
 
 	opts.UseJSON = viper.GetBool("use-jsonb-tags")
+
+	// This must be set to 'true' if you are going to test
+	// distributed hypertable queries and insert. Replication
+	// factor must also be set to true for distributed hypertables
 	opts.InTableTag = viper.GetBool("in-table-partition-tag")
 
 	// 	We currently use `create_hypertable` for all variations. When
 	//   `replication-factor`>=1, we automatically create a distributed
 	//   hypertable.
 	opts.ReplicationFactor = viper.GetInt("replication-factor")
-	// Required for distributed hypertable
-	opts.PartitionColumn = viper.GetString("partition-column")
 	// Currently ignored for distributed hypertables. We assume all
 	// data nodes will be used based on the partition-column above
 	opts.NumberPartitions = viper.GetInt("partitions")

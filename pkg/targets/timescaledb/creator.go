@@ -166,18 +166,27 @@ func (d *dbCreator) getFieldAndIndexDefinitions(tableName string, columns []stri
 // createTableAndIndexes takes a list of field and index definitions for a given tableName and constructs
 // the necessary table, index, and potential hypertable based on the user's settings
 func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fieldDefs []string, indexDefs []string) {
+	// We default to the tags_id column unless users are creating the
+	// name/hostname column in the time-series table for multi-node
+	// testing. For distributed queries, pushdown of JOINs is not yet
+	// supported.
+	var partitionColumn string = "tags_id"
+
+	if d.opts.InTableTag {
+		partitionColumn = tableCols[tagsKey][0]
+	}
 
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
 	if d.opts.PartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, d.opts.PartitionColumn))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
 	}
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to
 	// use --time-partition-index for reduced index lock contention.
 	if d.opts.TimePartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, d.opts.PartitionColumn))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, partitionColumn))
 	} else if d.opts.TimeIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", tableName))
 	}
@@ -204,13 +213,13 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 		// We assume a single partition hypertable. This provides an option to test
 		// partitioning on regular hypertables
 		if d.opts.NumberPartitions > 0 {
-			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", d.opts.PartitionColumn, d.opts.NumberPartitions)
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", partitionColumn, d.opts.NumberPartitions)
 		}
 
 		if d.opts.ReplicationFactor > 0 {
 			// This gives us a future option of testing the impact of
 			// multi-node replication across data nodes
-			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", d.opts.PartitionColumn, d.opts.ReplicationFactor)
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
 		}
 
 		MustExec(dbBench,
