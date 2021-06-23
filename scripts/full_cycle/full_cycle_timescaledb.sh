@@ -14,8 +14,6 @@ DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
 
 
 CONTAINER_NAME=timescaledb_benchmark
-# only because you're going to do benchmarks and don't wanto to persist it
-sudo docker rm -f $(sudo docker ps -aq --filter name=$CONTAINER_NAME)
 # setup pg with password and expose the default port.
 sudo docker run -d --name $CONTAINER_NAME -p 5432:$PORT \
   -e POSTGRES_PASSWORD=$PASSWORD \
@@ -86,3 +84,6 @@ do
         --workers=${WORKERS} \
         --file=$TARGET_DATA_FOLDER/timescaledb_query_$_type
 done
+
+# only because you're going to do benchmarks and don't wanto to persist it
+sudo docker rm -f $(sudo docker ps -aq --filter name=$CONTAINER_NAME)
