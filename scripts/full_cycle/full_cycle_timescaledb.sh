@@ -11,8 +11,6 @@ USER=postgres
 PASSWORD=password
 HOST=0.0.0.0
 DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
-
-
 CONTAINER_NAME=timescaledb_benchmark
 # setup pg with password and expose the default port.
 sudo docker run -d --name $CONTAINER_NAME -p 5432:$PORT \
@@ -24,25 +22,34 @@ sleep 2
 
 
 # Setup
+TARGET=timescaledb
 USE_CASE=${USE_CASE:-"cpu-only"}
 QUERY_TYPES=(lastpoint cpu-max-all-1 high-cpu-1)
 SCALE=10
 SEED=123
 WORKERS=1
 MAX_QUERIES=${MAX_QUERIES:-"1000"}
+LOG_INTERVAL="3600s"
+START_TIME="2021-01-01T00:00:00Z"
+END_TIME="2021-01-07T00:00:00Z"
+
+# 7 days with 10/sec = ~6 Milion records
 
 # Folders setup
 
 TARGET_DATA_FOLDER=${TARGET_DATA_FOLDER:-"/tmp/bulk_data"}
-DATA_FILE=$TARGET_DATA_FOLDER/timescaledb_data
+DATA_FILE="${TARGET_DATA_FOLDER}/${TARGET}_data_${USE_CASE}_${SCALE}"
 mkdir -p $TARGET_DATA_FOLDER
 
 
 # generate queries
 $GOPATH/bin/tsbs_generate_data \
-    --format timescaledb \
+    --format $TARGET \
     --use-case $USE_CASE \
     --scale $SCALE \
+    --log-interval $LOG_INTERVAL \
+    --timestamp-start $START_TIME \
+    --timestamp-end  $END_TIME \
     --seed $SEED \
     --file $DATA_FILE
 
@@ -55,8 +62,11 @@ do
     --use-case $USE_CASE \
     --scale $SCALE \
     --seed $SEED \
+    --timestamp-start $START_TIME \
+    --timestamp-end  $END_TIME \
     --query-type $_type \
-    --file $TARGET_DATA_FOLDER/timescaledb_query_$_type
+    --file $TARGET_DATA_FOLDER/timescaledb_query_${_type}_${USE_CASE}_${SCALE}
+     # FIXME: add to filename with the proper format _${START_TIME}_${END_TIME}
 done
 
 # insert benchmark
