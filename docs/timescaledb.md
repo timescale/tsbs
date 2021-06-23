@@ -36,6 +36,20 @@ cpu,1451606400000000000,58.1317132304976170,2.6224297271376256,24.99694950699478
 ---
 
 ## `tsbs_load_timescaledb` Additional Flags
+Examples of TimescaleDB YAML configuration for loading data can be found in the
+[sample-configs]() directory. The main difference in benchmarking TimescaleDB 
+regards whether you are attempting to benchmark a regular, single-node 
+hypertable or a distributed multi-node hypertable. There are sample configuration
+files for both.
+
+The settings that determines whether TSBS will attempt to create a distributed hypertable
+or a regular hypertable are below. All other settings impact the overall test, 
+regardless of which type of hypertable setup you are testing.
+
+| Setting | Hypertable | Distributed Hypertable |
+|---------|------------|------------------------|
+| in-table-partition-tag | false | true |
+| replication-factor | omit/0 | 1 |
 
 
 ### PostgreSQL related
@@ -78,6 +92,11 @@ store the primary tag (first tag in the list of tags in the data format) in
 the hypertable so that if most queries are using that as a filter, query
 performance can be improved.
 
+> **Please note**, `-in-table-partition-tag` is required for multi-node TimescaleDB
+benchmark testing. Currently, the multi-node query engine does not support
+push-down of JOINs and so the most efficient queries will filter on the primary
+tag name.
+
 #### `-use-jsonb-tags` (type: `boolean`, default: `false`)
 Whether to store the tags as a JSONB element in the tags table. By default
 tags are stored in separate columns in a metadata table named `tags`, where
@@ -98,6 +117,19 @@ This should be adjusted based on the dataset size.
 #### `-partitions` (type: `int`, default: `0`)
 Number of space partitions for the primary tag. Setting this to `0` will
 disable space partitioning.
+
+> **Multi-node Benchmarking**: When testing a multi-node installation, this value
+should be set to zero or omitted (which will default to zero.) In doing so, the
+distributed hypertable will be created across all connected data nodes, which
+is the preferred setup.
+
+#### `-replication-factor` (type: `int`, default: `0`)
+This setting is specifically required to create a distributed hypertable. This 
+is only supported on multi-node installations. Setting it to a value of 1 is 
+recommended for most multi-node testing.
+
+If this value is set >=1 on a single-node TimescaleDB instance, `tsbs_load` will
+error.
 
 ### Index related
 
