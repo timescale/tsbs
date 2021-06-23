@@ -6,11 +6,15 @@
 
 # Auth
 
+TARGET=timescaledb
 PORT=5432
 USER=postgres
 PASSWORD=password
 HOST=0.0.0.0
 DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
+
+# Container
+
 CONTAINER_NAME=timescaledb_benchmark
 # setup pg with password and expose the default port.
 sudo docker run -d --name $CONTAINER_NAME -p 5432:$PORT \
@@ -20,9 +24,8 @@ sudo docker run -d --name $CONTAINER_NAME -p 5432:$PORT \
 docker start $CONTAINER_NAME
 sleep 2
 
+# Profile
 
-# Setup
-TARGET=timescaledb
 USE_CASE=${USE_CASE:-"cpu-only"}
 QUERY_TYPES=(lastpoint cpu-max-all-1 high-cpu-1)
 SCALE=10
