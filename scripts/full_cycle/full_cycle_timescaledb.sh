@@ -5,11 +5,25 @@
 # - 3) query execution
 
 # Auth
-HOST=127.0.0.1
+
 PORT=5432
 USER=postgres
-PASSWORD=${PASSWORD:-""}
+PASSWORD=password
+HOST=0.0.0.0
 DATABASE_NAME=${DATABASE_NAME:-"benchmark"}
+
+
+CONTAINER_NAME=timescaledb_benchmark
+# only because you're going to do benchmarks and don't wanto to persist it
+sudo docker rm -f $(sudo docker ps -aq --filter name=$CONTAINER_NAME)
+# setup pg with password and expose the default port.
+sudo docker run -d --name $CONTAINER_NAME -p 5432:$PORT \
+  -e POSTGRES_PASSWORD=$PASSWORD \
+  timescale/timescaledb:latest-pg12
+
+docker start $CONTAINER_NAME
+sleep 2
+
 
 # Setup
 USE_CASE=${USE_CASE:-"cpu-only"}
