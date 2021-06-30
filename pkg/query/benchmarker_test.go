@@ -323,6 +323,10 @@ func (m *mockStatProcessor) CloseAndWait() {
 	m.closed = true
 	m.wg.Done()
 }
+func (m *mockStatProcessor) GetTotalsMap() map[string]interface{} {
+	totals := make(map[string]interface{})
+	return totals
+}
 
 type mockProcessor struct {
 	processRes []*Stat

@@ -19,7 +19,7 @@ $GOPATH/bin/tsbs_generate_queries --queries=${MAX_QUERIES} --format clickhouse -
 $GOPATH/bin/tsbs_generate_queries --queries=${MAX_QUERIES} --format clickhouse --use-case cpu-only --scale 10 --seed 123 --query-type high-cpu-1 --file /tmp/bulk_data/clickhouse_query_high-cpu-1
 
 # insert benchmark
-$GOPATH/bin/tsbs_load_clickhouse --db-name=benchmark --host=127.0.0.1 --workers=1 --file=/tmp/bulk_data/clickhouse_data
+$GOPATH/bin/tsbs_load_clickhouse --db-name=benchmark --host=127.0.0.1 --workers=1 --file=/tmp/bulk_data/clickhouse_data --results-file="clickhouse_load_results.json"
 
 # queries benchmark
 #last point query is broke
