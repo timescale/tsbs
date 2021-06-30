@@ -40,6 +40,12 @@ FILE or SIMULATOR
 
 The generated config file is saved in `./config.yaml`
 
+### Sample config files
+
+You can find sample YAML configuration files for TimescaleDB in the 
+[sample-configs](https://github.com/timescale/tsbs/tree/master/docs/sample-configs) directory. Both single and multi-node examples are provided
+for `FILE` and `SIMULATOR` modes.
+
 ## On the fly simulation and load with `data-source: SIMULATOR`
 
 When you run `tsbs_generate_data` a simulator is created for 

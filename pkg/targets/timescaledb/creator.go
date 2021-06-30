@@ -3,10 +3,12 @@ package timescaledb
 import (
 	"database/sql"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"log"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/timescale/tsbs/pkg/targets"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
@@ -101,6 +103,20 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 		fieldDefs, indexDefs := d.getFieldAndIndexDefinitions(tableName, columns)
 		if d.opts.CreateMetricsTable {
 			d.createTableAndIndexes(dbBench, tableName, fieldDefs, indexDefs)
+		} else {
+			// If not creating table, wait for another client to set it up
+			i := 0
+			checkTableQuery := fmt.Sprintf("SELECT * FROM pg_tables WHERE tablename = '%s'", tableName)
+			r := MustQuery(dbBench, checkTableQuery)
+			for !r.Next() {
+				time.Sleep(100 * time.Millisecond)
+				i += 1
+				if i == 600 {
+					return fmt.Errorf("expected table not created after one minute of waiting")
+				}
+				r = MustQuery(dbBench, checkTableQuery)
+			}
+			return nil
 		}
 	}
 	return nil
@@ -150,17 +166,27 @@ func (d *dbCreator) getFieldAndIndexDefinitions(tableName string, columns []stri
 // createTableAndIndexes takes a list of field and index definitions for a given tableName and constructs
 // the necessary table, index, and potential hypertable based on the user's settings
 func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fieldDefs []string, indexDefs []string) {
+	// We default to the tags_id column unless users are creating the
+	// name/hostname column in the time-series table for multi-node
+	// testing. For distributed queries, pushdown of JOINs is not yet
+	// supported.
+	var partitionColumn string = "tags_id"
+
+	if d.opts.InTableTag {
+		partitionColumn = tableCols[tagsKey][0]
+	}
+
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
 	if d.opts.PartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(tags_id, \"time\" DESC)", tableName))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
 	}
 
 	// Only allow one or the other, it's probably never right to have both.
 	// Experimentation suggests (so far) that for 100k devices it is better to
 	// use --time-partition-index for reduced index lock contention.
 	if d.opts.TimePartitionIndex {
-		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, tags_id)", tableName))
+		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC, %s)", tableName, partitionColumn))
 	} else if d.opts.TimeIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(\"time\" DESC)", tableName))
 	}
@@ -170,16 +196,35 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	}
 
 	if d.opts.UseHypertable {
+		var creationCommand string = "create_hypertable"
+		var partitionsOption string = "replication_factor => NULL"
+
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+
+		// Replication factor determines whether we create a distributed hypertable
+		// or not. If it is unset or zero, then we will create a regular
+		// hypertable with no partitions.
+		//
+		// If replication factor is greater >= 1, we assume there are at least multiple
+		// data nodes. We currently use `create_hypertable` for both statements, the
+		// default behavior is to create a distributed hypertable if `replication_factor`
+		// is >= 1
+
+		// We assume a single partition hypertable. This provides an option to test
+		// partitioning on regular hypertables
 		if d.opts.NumberPartitions > 0 {
-			MustExec(dbBench,
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, partitioning_column => '%s'::name, number_partitions => %v::smallint, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-					tableName, "tags_id", d.opts.NumberPartitions, d.opts.ChunkTime.Nanoseconds()/1000))
-		} else {
-			MustExec(dbBench,
-				fmt.Sprintf("SELECT create_hypertable('%s'::regclass, 'time'::name, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-					tableName, d.opts.ChunkTime.Nanoseconds()/1000))
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", partitionColumn, d.opts.NumberPartitions)
 		}
+
+		if d.opts.ReplicationFactor > 0 {
+			// This gives us a future option of testing the impact of
+			// multi-node replication across data nodes
+			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
+		}
+
+		MustExec(dbBench,
+			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+				creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
 	}
 }
 

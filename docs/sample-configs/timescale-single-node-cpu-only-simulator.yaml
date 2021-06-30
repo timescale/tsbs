@@ -1,0 +1,78 @@
+################################################################################
+# This example configuration will simulate data on-the-fly so that data does
+# not have to be pre-created with `tsbs_generate_data`. 
+#
+# See the documentation for each system for what configuration is available, 
+# typically found at: https://github.com/timescale/tsbs/tree/master/docs
+# 
+# PLEASE NOTE: There are currently memory limitations that will reduce the ingest 
+# throughput, so if you are attempting to ingest the max speed of your system 
+# (ingest specifically), then you will need to pre-generate the data first.
+################################################################################
+
+# configuration about where the data is coming from
+data-source:
+  # data source type [SIMULATOR|FILE]
+  type: SIMULATOR
+  # generate data on the fly
+  simulator:
+    # each time the simulator advances in time it skips this amount of time
+    log-interval: 60s
+    # maximum number of points to simulate (limit)
+    max-data-points: 10080000000
+    # number of hosts to simulate (each host has a different tag-set/label-set
+    scale: 100
+    # set seed to some number to have reproducible data be generated
+    seed: 1
+    # start time of simulation
+    timestamp-start: "2020-11-02T00:00:00Z"
+    # end time of simulation
+    timestamp-end: "2020-12-01T00:00:00Z"
+    # use case to simulate
+    use-case: cpu-only
+loader:
+  db-specific:
+    admin-db-name: postgres
+    # set chunk time depending on server size
+    chunk-time: 168h0m0s
+    create-metrics-table: true
+    field-index: VALUE-TIME
+    field-index-count: 0
+    force-text-format: false
+    host: localhost
+    user: postgres
+    pass: "timescale"
+    port: "5432"
+    in-table-partition-tag: false
+    log-batches: false
+    partition-index: true
+    postgres: sslmode=require
+    time-index: true
+    time-partition-index: false
+    use-hypertable: true
+    use-jsonb-tags: false
+  runner:
+    # the simulated data will be sent in batches of 'batch-size' points
+    # to each worker
+    batch-size: 10000
+    # don't worry about this until you need to simulate data with scale > 1000
+    channel-capacity: "0"
+    db-name: benchmarkdb
+    do-abort-on-exist: false
+    do-create-db: false
+    # set this to false if you want to see the speed of data generation
+    do-load: true
+    # don't worry about this until you need to simulate data with scale > 1000
+    flow-control: false
+    # use one queue for the simulated data, or a separate queue per worker
+    # points will be separated by `loader.db-specific.hash-property`
+    hash-workers: true
+    # limit how many generated points will be sent to db
+    limit: 10080000000
+    # period in which to print statistics (rows/s, total rows etc)
+    reporting-period: 30s
+    # set to some number for reproducible loads
+    seed: 1
+    # num concurrent workers/clients sending data to db
+    workers: 10
+ 

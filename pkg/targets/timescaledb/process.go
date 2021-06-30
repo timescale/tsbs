@@ -1,16 +1,19 @@
 package timescaledb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/targets"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
@@ -244,14 +247,40 @@ func (p *processor) processCSI(hypertable string, rows []*insertData) uint64 {
 			panic(err)
 		}
 	} else {
-		rows := pgx.CopyFromRows(dataRows)
-		inserted, err := p._pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
-		if err != nil {
-			panic(err)
-		}
-		if inserted != int64(len(dataRows)) {
-			fmt.Fprintf(os.Stderr, "Failed to insert all the data! Expected: %d, Got: %d", len(dataRows), inserted)
-			os.Exit(1)
+		if !p.opts.UseInsert {
+			rows := pgx.CopyFromRows(dataRows)
+			inserted, err := p._pgxConn.CopyFrom(context.Background(), pgx.Identifier{hypertable}, cols, rows)
+
+			if err != nil {
+				panic(err)
+			}
+
+			if inserted != int64(len(dataRows)) {
+				fmt.Fprintf(os.Stderr, "Failed to insert all the data! Expected: %d, Got: %d", len(dataRows), inserted)
+				os.Exit(1)
+			}
+		} else {
+			tx := MustBegin(p._db)
+			var stmt *sql.Stmt
+			var err error
+
+			stmtString := genBatchInsertStmt(hypertable, cols, len(dataRows))
+			stmt, err = tx.Prepare(stmtString)
+
+			_, err = stmt.Exec(flatten(dataRows)...)
+			if err != nil {
+				panic(err)
+			}
+
+			err = stmt.Close()
+			if err != nil {
+				panic(err)
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
@@ -273,6 +302,37 @@ type processor struct {
 	opts     *LoadingOptions
 	driver   string
 	dbName   string
+}
+
+func genBatchInsertStmt(hypertable string, cols []string, rows int) string {
+	colLen := len(cols)
+	if rows*colLen > math.MaxUint16 {
+		panic(fmt.Errorf("Max allowed batch size when not using COPY is %d due to PosgreSQL limitation of max parameters", math.MaxUint16/colLen))
+	}
+	insertStmt := bytes.NewBufferString(fmt.Sprintf("INSERT INTO %s(%s) VALUES", hypertable, strings.Join(cols, ",")))
+	rowPrefix := ""
+	for i := 0; i < rows; i++ {
+		insertStmt.WriteString(rowPrefix + " (")
+		rowPrefix = ","
+		colPrefix := ""
+		for j := range cols {
+			insertStmt.WriteString(fmt.Sprintf("%s$%d", colPrefix, (i*colLen)+(j+1)))
+			colPrefix = ","
+		}
+		insertStmt.WriteString(")")
+	}
+	return insertStmt.String()
+}
+
+func flatten(dataRows [][]interface{}) []interface{} {
+	flattened := make([]interface{}, len(dataRows)*len(dataRows[0]))
+	for i, row := range dataRows {
+		cols := len(row)
+		for j := range row {
+			flattened[i*cols+j] = row[j]
+		}
+	}
+	return flattened
 }
 
 func (p *processor) Init(_ int, doLoad, hashWorkers bool) {

@@ -85,8 +85,8 @@ const clickhouseTimeStringFormat = "2006-01-02 15:04:05"
 // Resultsets:
 // cpu-max-all-1
 // cpu-max-all-8
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
 

@@ -254,6 +254,42 @@ func TestSplitTagsAndMetrics(t *testing.T) {
 	}
 }
 
+func TestGenBatchInsertStmt(t *testing.T) {
+	cols := []string{"col1", "col2", "col3"}
+	stmt := genBatchInsertStmt("test", cols, 2)
+	expected := "INSERT INTO test(col1,col2,col3) VALUES ($1,$2,$3), ($4,$5,$6)"
+	assert(expected, stmt, t)
+}
+
+func TestFlatten(t *testing.T) {
+	dataRows := make([][]interface{}, 2)
+	row1 := []int{1, 2, 3}
+	row2 := []int{4, 5, 6}
+
+	dataRows[0] = convert(row1)
+	dataRows[1] = convert(row2)
+
+	flattened := flatten(dataRows)
+	assert(6, len(flattened), t)
+	assert(1, flattened[0], t)
+	assert(6, flattened[5], t)
+}
+
+// Look into reflect.DeepEqual to understand what types/comparisons are supported
+func assert(expected, actual interface{}, t *testing.T) {
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("incorrect output: expected %v, got: %v", expected, actual)
+	}
+}
+
+func convert(in []int) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, e := range in {
+		out[i] = e
+	}
+	return out
+}
+
 func TestConvertValsToSQLBasedOnType(t *testing.T) {
 	inVals := []string{"1", "2", "3", "4", "5", ""}
 	inTypes := []string{"text", "int32", "int64", "float32", "float64", "int32"}

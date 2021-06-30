@@ -46,11 +46,11 @@ func (d *Devops) getHostWhereWithHostnames(hostnames []string) string {
 		return fmt.Sprintf("tags_id IN (SELECT id FROM tags WHERE hostname IN (%s))", strings.Join(hostnameClauses, ","))
 	} else {
 		for _, s := range hostnames {
-			hostnameClauses = append(hostnameClauses, fmt.Sprintf("hostname = '%s'", s))
+			hostnameClauses = append(hostnameClauses, fmt.Sprintf("'%s'", s))
 		}
-		combinedHostnameClause := strings.Join(hostnameClauses, " OR ")
-
-		return "(" + combinedHostnameClause + ")"
+		// using the OR logic here is an anti-pattern for the query planner. Doing
+		// the IN will get translated to an ANY query and do better
+		return fmt.Sprintf("hostname IN (%s)", strings.Join(hostnameClauses, ","))
 	}
 }
 
@@ -83,7 +83,7 @@ func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []stri
 //
 // SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
-// WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// WHERE hostname IN ('$HOSTNAME_1',...,'$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY minute ORDER BY minute ASC
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
@@ -153,6 +153,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	hostnameField := "hostname"
 	joinStr := ""
+	partitionGrouping := hostnameField
 	if d.UseJSON || d.UseTags {
 		if d.UseJSON {
 			hostnameField = "tags->>'hostname'"
@@ -160,21 +161,23 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 			hostnameField = "tags.hostname"
 		}
 		joinStr = "JOIN tags ON cpu_avg.tags_id = tags.id"
+		partitionGrouping = "tags_id"
 	}
 
 	sql := fmt.Sprintf(`
         WITH cpu_avg AS (
-          SELECT %s as hour, tags_id,
+          SELECT %s as hour, %s,
           %s
           FROM cpu
           WHERE time >= '%s' AND time < '%s'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, %s, %s
         FROM cpu_avg
         %s
         ORDER BY hour, %s`,
 		d.getTimeBucket(oneHour),
+		partitionGrouping,
 		strings.Join(selectClauses, ", "),
 		interval.Start().Format(goTimeFmt),
 		interval.End().Format(goTimeFmt),
@@ -189,11 +192,11 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 // e.g. in pseudo-SQL:
 //
 // SELECT MAX(metric1), ..., MAX(metricN)
-// FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// FROM cpu WHERE hostname IN ('$HOSTNAME_1',...,'$HOSTNAME_N')
 // AND time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour ORDER BY hour
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 
 	metrics := devops.GetAllCPUMetrics()
 	selectClauses := d.getSelectClausesAggMetrics("max", metrics)

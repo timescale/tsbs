@@ -25,14 +25,14 @@ func TestDevopsGetHostWhereWithHostnames(t *testing.T) {
 			hostnames: []string{"foo1"},
 			useJSON:   false,
 			useTags:   false,
-			want:      "(hostname = 'foo1')",
+			want:      "hostname IN ('foo1')",
 		},
 		{
 			desc:      "multi host - no json or tags",
 			hostnames: []string{"foo1", "foo2"},
 			useJSON:   false,
 			useTags:   false,
-			want:      "(hostname = 'foo1' OR hostname = 'foo2')",
+			want:      "hostname IN ('foo1','foo2')",
 		},
 		{
 			desc:      "single host - w/ json",
@@ -88,15 +88,15 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 	}{
 		{
 			nHosts: 1,
-			want:   "(hostname = 'host_5')",
+			want:   "hostname IN ('host_5')",
 		},
 		{
 			nHosts: 2,
-			want:   "(hostname = 'host_5' OR hostname = 'host_9')",
+			want:   "hostname IN ('host_5','host_9')",
 		},
 		{
 			nHosts: 5,
-			want:   "(hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_3' OR hostname = 'host_1' OR hostname = 'host_7')",
+			want:   "hostname IN ('host_5','host_9','host_3','host_1','host_7')",
 		},
 	}
 
@@ -184,7 +184,7 @@ func TestDevopsGroupByTime(t *testing.T) {
 	expectedSQLQuery := `SELECT time_bucket('60 seconds', time) AS minute,
         max(usage_user) as max_usage_user
         FROM cpu
-        WHERE (hostname = 'host_9') AND time >= '1970-01-01 00:05:58.646325 +0000' AND time < '1970-01-01 00:05:59.646325 +0000'
+        WHERE hostname IN ('host_9') AND time >= '1970-01-01 00:05:58.646325 +0000' AND time < '1970-01-01 00:05:59.646325 +0000'
         GROUP BY minute ORDER BY minute ASC`
 
 	rand.Seed(123) // Setting seed for testing purposes.
@@ -255,11 +255,11 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHypertable: "cpu",
 			expectedSQLQuery: `
         WITH cpu_avg AS (
-          SELECT time_bucket('3600 seconds', time) as hour, tags_id,
+          SELECT time_bucket('3600 seconds', time) as hour, hostname,
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 12:16:22.646325 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, hostname, mean_usage_user
         FROM cpu_avg
@@ -278,7 +278,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:54:10.138978 +0000' AND time < '1970-01-01 12:54:10.138978 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags->>'hostname', mean_usage_user
         FROM cpu_avg
@@ -297,7 +297,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:47:30.894865 +0000' AND time < '1970-01-01 12:47:30.894865 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags.hostname, mean_usage_user
         FROM cpu_avg
@@ -317,7 +317,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
           avg(usage_user) as mean_usage_user
           FROM cpu
           WHERE time >= '1970-01-01 00:37:12.342805 +0000' AND time < '1970-01-01 12:37:12.342805 +0000'
-          GROUP BY hour, tags_id
+          GROUP BY 1, 2
         )
         SELECT hour, tags->>'hostname', mean_usage_user
         FROM cpu_avg
@@ -363,7 +363,7 @@ func TestMaxAllCPU(t *testing.T) {
 		"max(usage_softirq) as max_usage_softirq, max(usage_steal) as max_usage_steal, max(usage_guest) as max_usage_guest, " +
 		`max(usage_guest_nice) as max_usage_guest_nice
         FROM cpu
-        WHERE (hostname = 'host_9') AND time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 08:16:22.646325 +0000'
+        WHERE hostname IN ('host_9') AND time >= '1970-01-01 00:16:22.646325 +0000' AND time < '1970-01-01 08:16:22.646325 +0000'
         GROUP BY hour ORDER BY hour`
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
@@ -379,7 +379,7 @@ func TestMaxAllCPU(t *testing.T) {
 	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
-	d.MaxAllCPU(q, 1)
+	d.MaxAllCPU(q, 1, devops.MaxAllDuration)
 	verifyQuery(t, q, expectedHumanLabel, expectedHumanDesc, expectedHypertable, expectedSQLQuery)
 }
 
@@ -476,7 +476,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedHumanDesc:  "TimescaleDB CPU over threshold, 1 host(s): 1970-01-01T00:47:30Z",
 			expectedHypertable: "cpu",
 			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:47:30.894865 +0000'" +
-				" AND time < '1970-01-01 12:47:30.894865 +0000' AND (hostname = 'host_9')",
+				" AND time < '1970-01-01 12:47:30.894865 +0000' AND hostname IN ('host_9')",
 		},
 		{
 			desc:               "five hosts",
@@ -485,8 +485,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedHumanDesc:  "TimescaleDB CPU over threshold, 5 host(s): 1970-01-01T00:08:59Z",
 			expectedHypertable: "cpu",
 			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:08:59.080812 +0000'" +
-				" AND time < '1970-01-01 12:08:59.080812 +0000' AND (hostname = 'host_5' OR hostname = 'host_9' " +
-				"OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2')",
+				" AND time < '1970-01-01 12:08:59.080812 +0000' AND hostname IN ('host_5','host_9','host_1','host_7','host_2')",
 		},
 	}
 
