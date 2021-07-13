@@ -66,7 +66,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("do-create-db", true, "Whether to create the database. Disable on all but one client if running on a multi client setup.")
 	fs.Bool("do-abort-on-exist", false, "Whether to abort if a database with the given name already exists.")
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
-	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus stats. (0 = disabled).")
+	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus. (0 = disabled).")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
@@ -210,16 +210,6 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		capacity = l.Workers
 	}
 
-	// TODO: add vector for each channels
-	/*
-		l.metricsPerChannel = prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "tsbs_metrics_per_channel",
-				Help: "Number of metrics per channel",
-			},
-			[]string{"channel-id"},
-		)
-	*/
 	l.metricCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "tsbs_load_metric_count",
 		Help: "TSBS: The total number of metrics inserted",
