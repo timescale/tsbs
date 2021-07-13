@@ -3,13 +3,19 @@ package load
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/targets"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/load/insertstrategy"
@@ -31,19 +37,20 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName          string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
-	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
-	Workers         uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
-	Limit           uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
-	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
-	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
-	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
-	HashWorkers     bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
-	NoFlowControl   bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
-	ChannelCapacity uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
-	InsertIntervals string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
-	ResultsFile     string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
+	DBName               string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
+	BatchSize            uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
+	Workers              uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
+	Limit                uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
+	DoLoad               bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
+	DoCreateDB           bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
+	DoAbortOnExist       bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
+	ReportingPeriod      time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
+	ReportingMetricsPort uint64        `yaml:"reporting-metrics-port" mapstructure:"reporting-metrics-port" json:"reporting-metrics-port"`
+	HashWorkers          bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
+	NoFlowControl        bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
+	ChannelCapacity      uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
+	InsertIntervals      string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
+	ResultsFile          string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
 	FileName string `yaml:"file" mapstructure:"file" json:"file"`
 	Seed     int64  `yaml:"seed" mapstructure:"seed" json:"seed"`
@@ -59,6 +66,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("do-create-db", true, "Whether to create the database. Disable on all but one client if running on a multi client setup.")
 	fs.Bool("do-abort-on-exist", false, "Whether to abort if a database with the given name already exists.")
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
+	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus stats. (0 = disabled).")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
@@ -79,6 +87,8 @@ type CommonBenchmarkRunner struct {
 	rowCnt         uint64
 	initialRand    *rand.Rand
 	sleepRegulator insertstrategy.SleepRegulator
+	metricCounter  prometheus.Counter
+	rowCounter     prometheus.Counter
 }
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton CommonBenchmarkRunner for use in a benchmark program
@@ -102,6 +112,14 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 			panic(fmt.Sprintf("could not initialize BenchmarkRunner: %v", err))
 		}
 	}
+
+	if c.ReportingMetricsPort > 0 {
+		go func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(fmt.Sprintf(":%d", c.ReportingMetricsPort), nil)
+		}()
+	}
+
 	if !c.NoFlowControl {
 		return &loader
 	}
@@ -132,6 +150,7 @@ func (l *CommonBenchmarkRunner) preRun(b targets.Benchmark) (*sync.WaitGroup, *t
 	if l.ReportingPeriod.Nanoseconds() > 0 {
 		go l.report(l.ReportingPeriod)
 	}
+
 	wg := &sync.WaitGroup{}
 	wg.Add(int(l.Workers))
 	start := time.Now()
@@ -190,6 +209,26 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		numChannels = 1
 		capacity = l.Workers
 	}
+
+	// TODO: add vector for each channels
+	/*
+		l.metricsPerChannel = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "tsbs_metrics_per_channel",
+				Help: "Number of metrics per channel",
+			},
+			[]string{"channel-id"},
+		)
+	*/
+	l.metricCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tsbs_load_metric_count",
+		Help: "TSBS: The total number of metrics inserted",
+	})
+
+	l.rowCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tsbs_load_rows_count",
+		Help: "TSBS: The total number of rows ingested",
+	})
 
 	channels := l.createChannels(numChannels, capacity)
 
@@ -285,6 +324,9 @@ func (l *CommonBenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c 
 		metricCnt, rowCnt := proc.ProcessBatch(batch, l.DoLoad)
 		atomic.AddUint64(&l.metricCnt, metricCnt)
 		atomic.AddUint64(&l.rowCnt, rowCnt)
+		l.metricCounter.Add(float64(metricCnt))
+		l.rowCounter.Add(float64(rowCnt))
+
 		c.sendToScanner()
 		l.timeToSleep(workerNum, startedWorkAt)
 	}
