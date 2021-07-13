@@ -6,10 +6,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"runtime/pprof"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/spf13/pflag"
 	"golang.org/x/time/rate"
@@ -25,19 +30,20 @@ const (
 
 // BenchmarkRunnerConfig is the configuration of the benchmark runner.
 type BenchmarkRunnerConfig struct {
-	DBName           string `mapstructure:"db-name"`
-	Limit            uint64 `mapstructure:"max-queries"`
-	LimitRPS         uint64 `mapstructure:"max-rps"`
-	MemProfile       string `mapstructure:"memprofile"`
-	HDRLatenciesFile string `mapstructure:"hdr-latencies"`
-	Workers          uint   `mapstructure:"workers"`
-	PrintResponses   bool   `mapstructure:"print-responses"`
-	Debug            int    `mapstructure:"debug"`
-	FileName         string `mapstructure:"file"`
-	BurnIn           uint64 `mapstructure:"burn-in"`
-	PrintInterval    uint64 `mapstructure:"print-interval"`
-	PrewarmQueries   bool   `mapstructure:"prewarm-queries"`
-	ResultsFile      string `mapstructure:"results-file"`
+	DBName               string `mapstructure:"db-name"`
+	Limit                uint64 `mapstructure:"max-queries"`
+	LimitRPS             uint64 `mapstructure:"max-rps"`
+	MemProfile           string `mapstructure:"memprofile"`
+	HDRLatenciesFile     string `mapstructure:"hdr-latencies"`
+	Workers              uint   `mapstructure:"workers"`
+	PrintResponses       bool   `mapstructure:"print-responses"`
+	Debug                int    `mapstructure:"debug"`
+	FileName             string `mapstructure:"file"`
+	BurnIn               uint64 `mapstructure:"burn-in"`
+	PrintInterval        uint64 `mapstructure:"print-interval"`
+	PrewarmQueries       bool   `mapstructure:"prewarm-queries"`
+	ResultsFile          string `mapstructure:"results-file"`
+	ReportingMetricsPort uint64 `mapstructure:"reporting-metrics-port"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -50,6 +56,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.String("memprofile", "", "Write a memory profile to this file.")
 	fs.String("hdr-latencies", "", "Write the High Dynamic Range (HDR) Histogram of Response Latencies to this file.")
 	fs.Uint("workers", 1, "Number of concurrent requests to make.")
+	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus. (0 = disabled).")
 	fs.Bool("prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	fs.Bool("print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	fs.Int("debug", 0, "Whether to print debug messages.")
@@ -61,10 +68,11 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 // program against a database.
 type BenchmarkRunner struct {
 	BenchmarkRunnerConfig
-	br      *bufio.Reader
-	sp      statProcessor
-	scanner *scanner
-	ch      chan Query
+	br                *bufio.Reader
+	sp                statProcessor
+	scanner           *scanner
+	ch                chan Query
+	runQueriesCounter *prometheus.CounterVec
 }
 
 // NewBenchmarkRunner creates a new instance of BenchmarkRunner which is
@@ -72,6 +80,15 @@ type BenchmarkRunner struct {
 func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
 	runner := &BenchmarkRunner{BenchmarkRunnerConfig: config}
 	runner.scanner = newScanner(&runner.Limit)
+	runner.runQueriesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tsbs_metrics_run_queries",
+			Help: "Number of queries runs per type",
+		},
+		[]string{"label", "is_warm", "is_partial"},
+	)
+	prometheus.MustRegister(runner.runQueriesCounter)
+
 	spArgs := &statProcessorArgs{
 		limit:            &runner.Limit,
 		printInterval:    runner.PrintInterval,
@@ -81,6 +98,13 @@ func NewBenchmarkRunner(config BenchmarkRunnerConfig) *BenchmarkRunner {
 	}
 
 	runner.sp = newStatProcessor(spArgs)
+
+	if runner.ReportingMetricsPort > 0 {
+		go func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(fmt.Sprintf(":%d", runner.ReportingMetricsPort), nil)
+		}()
+	}
 	return runner
 }
 
@@ -226,7 +250,11 @@ func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate
 		if err != nil {
 			panic(err)
 		}
+
 		b.sp.send(stats)
+		for _, stat := range stats {
+			b.runQueriesCounter.WithLabelValues(string(stat.label), strconv.FormatBool(stat.isWarm), strconv.FormatBool(stat.isPartial)).Add(stat.value)
+		}
 
 		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
 		// then we immediately run it a second time and report that as the 'warm' stat.
