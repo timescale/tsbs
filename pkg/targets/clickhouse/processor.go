@@ -115,7 +115,7 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			tags[i] = strings.Split(tags[i], "=")[1]
 		}
 		// prepare JSON for tags that are not common
-		var json interface{} = nil
+		var json interface{}
 		if len(tags) > commonTagsLen {
 			// Join additional tags into JSON string
 			json = subsystemTagsToJSON(strings.Split(tags[commonTagsLen], ","))

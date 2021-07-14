@@ -248,7 +248,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 func (d *Devops) LastPointPerHost(qi query.Query) {
 	var sql string
 	if d.UseTags {
-		sql = fmt.Sprintf(`
+		sql = `
             SELECT *
             FROM
             (
@@ -267,15 +267,15 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
             ORDER BY
                 t.hostname ASC,
                 c.time DESC
-            `)
+            `
 	} else {
-		sql = fmt.Sprintf(`
+		sql = `
             SELECT DISTINCT(hostname), *
             FROM cpu
             ORDER BY
                 hostname ASC,
                 created_at DESC
-            `)
+            `
 	}
 
 	humanLabel := "ClickHouse last row per host"

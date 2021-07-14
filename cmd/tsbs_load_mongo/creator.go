@@ -41,7 +41,10 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 		return err
 	}
 	for _, name := range collections {
-		d.session.DB(dbName).C(name).DropCollection()
+		err := d.session.DB(dbName).C(name).DropCollection()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

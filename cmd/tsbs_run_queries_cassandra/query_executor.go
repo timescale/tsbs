@@ -64,7 +64,7 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 			panic("logic error: invalid aggregation plan option")
 		}
 	}
-	qpLagMs = float64(time.Now().Sub(qpStart).Nanoseconds()) / 1e6
+	qpLagMs = float64(time.Since(qpStart).Nanoseconds()) / 1e6
 
 	// print debug info if needed:
 	if opts.Debug >= 1 {
@@ -82,7 +82,7 @@ func (qe *HLQueryExecutor) Do(q *HLQuery, opts HLQueryExecutorDoOptions) (qpLagM
 	var results []CQLResult
 	execStart := time.Now()
 	results, err = qp.Execute(qe.session)
-	requestLagMs = float64(time.Now().Sub(execStart).Nanoseconds()) / 1e6
+	requestLagMs = float64(time.Since(execStart).Nanoseconds()) / 1e6
 	if err != nil {
 		return
 	}
