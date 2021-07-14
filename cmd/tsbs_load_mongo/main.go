@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/blagojts/viper"
@@ -22,14 +23,18 @@ const (
 	aggDateFmt         = "20060102_15" // see Go docs for how we arrive at this time format
 	aggKeyID           = "key_id"
 	aggInsertBatchSize = 500 // found via trial-and-error
-	timestampField     = "timestamp_ns"
+	timestampField     = "time"
 )
 
 // Program option vars:
 var (
-	daemonURL    string
-	documentPer  bool
-	writeTimeout time.Duration
+	daemonURL            string
+	documentPer          bool
+	writeTimeout         time.Duration
+	timeseriesCollection bool
+	retryableWrites      bool
+	orderedInserts       bool
+	randomFieldOrder     bool
 )
 
 // Global vars
@@ -61,10 +66,18 @@ func init() {
 	daemonURL = viper.GetString("url")
 	writeTimeout = viper.GetDuration("write-timeout")
 	documentPer = viper.GetBool("document-per-event")
+	timeseriesCollection = viper.GetBool("timeseries-collection")
+	retryableWrites = viper.GetBool("retryable-writes")
+	orderedInserts = viper.GetBool("ordered-inserts")
+	randomFieldOrder = viper.GetBool("random-field-order")
 	if documentPer {
 		config.HashWorkers = false
 	} else {
 		config.HashWorkers = true
+	}
+
+	if !documentPer && timeseriesCollection {
+		log.Fatal("Must set document-per-event=true in order to use timeseries-collection=true")
 	}
 
 	loader = load.GetBenchmarkRunner(config)
