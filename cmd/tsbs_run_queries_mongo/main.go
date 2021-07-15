@@ -5,46 +5,53 @@
 package main
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/blagojts/viper"
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	mgobson "github.com/globalsign/mgo/bson"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"log"
+	"time"
 )
 
 // Program option vars:
 var (
 	daemonURL string
 	timeout   time.Duration
+	batchsize int32
 )
 
 // Global vars:
 var (
-	runner  *query.BenchmarkRunner
-	session *mgo.Session
+	runner *query.BenchmarkRunner
+	//session *mgo.Session\
+	processedqueries int64
 )
 
 // Parse args:
 func init() {
+	log.Println("init")
 	// needed for deserializing the mongo query from gob
 	gob.Register([]interface{}{})
 	gob.Register(map[string]interface{}{})
 	gob.Register([]map[string]interface{}{})
 	gob.Register(bson.M{})
 	gob.Register([]bson.M{})
-
+	gob.Register(mgobson.M{})
+	gob.Register([]mgobson.M{})
 	var config query.BenchmarkRunnerConfig
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String("url", "mongodb://localhost:27017", "Daemon URL.")
 	pflag.Duration("read-timeout", 30*time.Second, "Timeout value for individual queries")
-
+	pflag.Int32("batchsize", 1, "Batch size for queries")
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -59,42 +66,77 @@ func init() {
 
 	daemonURL = viper.GetString("url")
 	timeout = viper.GetDuration("read-timeout")
-
+	batchsize = viper.GetInt32("batchsize")
 	runner = query.NewBenchmarkRunner(config)
+	log.Println("exiting init")
+	processedqueries = 0
 }
 
 func main() {
-	var err error
-	session, err = mgo.DialWithTimeout(daemonURL, timeout)
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println("launching run")
 	runner.Run(&query.MongoPool, newProcessor)
 }
 
 type processor struct {
-	collection *mgo.Collection
+	client     *mongo.Client
+	collection *mongo.Collection
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
-	sess := session.Copy()
-	db := sess.DB(runner.DatabaseName())
-	p.collection = db.C("point_data")
+	var err error
+	p.ctx, p.cancel = context.WithTimeout(context.Background(), timeout)
+	log.Println("TRYING TO CONNECT")
+	p.client, err = mongo.Connect(p.ctx, options.Client().ApplyURI(daemonURL))
+	db := p.client.Database(runner.DatabaseName())
+	p.collection = db.Collection("point_data")
+	if err != nil {
+		log.Println("DID NOT MANAGE TO CONNECT")
+		log.Fatal(err)
+	} else {
+		err = p.client.Ping(p.ctx, readpref.Primary())
+		if err != nil {
+			log.Println("DID NOT MANAGE TO CONNECT")
+			log.Fatal(err)
+		} else {
+			log.Println("MANAGED TO CONNECT")
+		}
+	}
 }
 
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
+	processedqueries++
+	log.Printf("processed queries : %d", processedqueries)
 	mq := q.(*query.Mongo)
 	start := time.Now().UnixNano()
-	pipe := p.collection.Pipe(mq.BsonDoc).AllowDiskUse()
-	iter := pipe.Iter()
+	//mgo.Collection.Pipe()
+	var opts options.AggregateOptions
+	opts.SetAllowDiskUse(true)
+	opts.SetBatchSize(batchsize)
+	//log.Println("creating cursor")
+	cursor, err := p.collection.Aggregate(p.ctx, mq.BsonDoc, &opts)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	//log.Println("cursor created")
+	//pipe := p.collection.Pipe(mq.BsonDoc).AllowDiskUse()
+	//defer cursor.Close(p.ctx)
+	//iter := pipe.Iter()
 	if runner.DebugLevel() > 0 {
 		fmt.Println(mq.BsonDoc)
 	}
-	var result map[string]interface{}
+	//var result map[string]interface{}
 	cnt := 0
-	for iter.Next(&result) {
+	//iter.Next(&result)
+	//log.Println("going through cursor")
+	for cursor.Next(p.ctx) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			log.Println(err)
+		}
 		if runner.DoPrintResponses() {
 			fmt.Printf("ID %d: %v\n", q.GetID(), result)
 		}
@@ -103,8 +145,6 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	if runner.DebugLevel() > 0 {
 		fmt.Println(cnt)
 	}
-	err := iter.Close()
-
 	took := time.Now().UnixNano() - start
 	lag := float64(took) / 1e6 // milliseconds
 	stat := query.GetStat()

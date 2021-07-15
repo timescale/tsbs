@@ -83,7 +83,9 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	log.Println("Creating Timestream tables")
 	headers := d.ds.Headers()
 	var requiredTables []string
+	log.Printf("We need the following tables %v", headers.FieldKeys)
 	for tableName := range headers.FieldKeys {
+		log.Printf("trying to create table : %s", tableName)
 		requiredTables = append(requiredTables, tableName)
 		createTableInput := &timestreamwrite.CreateTableInput{
 			DatabaseName: &dbName,
@@ -94,13 +96,38 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 			TableName: &tableName,
 		}
 		_, err := d.writeSvc.CreateTable(createTableInput)
-		if _, ok := err.(*timestreamwrite.ConflictException); !ok {
-			return errors.Wrap(err, "could not create table '"+tableName+"': ")
-		} else {
-			log.Println("Table " + tableName + " exists, skipping create")
+		switch err.(type) {
+		case *timestreamwrite.ConflictException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because it already exists: ")
+		case *timestreamwrite.ValidationException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because the request is malformed: ")
+		case *timestreamwrite.AccessDeniedException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because access denied: ")
+		case *timestreamwrite.ResourceNotFoundException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because resource not found : ")
+		case *timestreamwrite.ServiceQuotaExceededException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because service quota exceeded : ")
+		case *timestreamwrite.ThrottlingException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because too many requests were "+
+				"made by a user exceeding service quotas. The request  was throttled : ")
+		case *timestreamwrite.InternalServerException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because Timestream was unable "+
+				"to fully process this request because of an internal  server error : ")
+		case *timestreamwrite.InvalidEndpointException:
+			log.Printf("failure in creating : %s", tableName)
+			return errors.Wrap(err, "could not create table '"+tableName+"' because the requested endpoint "+
+				"was invalid : ")
+		default:
+			log.Printf("success in creating : %s", tableName)
 		}
 	}
-
 	fmt.Println("DB created, checking table status")
 	if err := d.waitForTables(dbName, requiredTables); err != nil {
 		return errors.Wrap(err, "could not create timestream tables")

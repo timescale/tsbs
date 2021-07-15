@@ -1,18 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"hash/fnv"
 	"log"
 	"sync"
 	"time"
-
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
+	//"github.com/globalsign/mgo"
+	//"github.com/globalsign/mgo/bson"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/targets"
-	"github.com/timescale/tsbs/pkg/targets/mongo"
+	tsbsmongo "github.com/timescale/tsbs/pkg/targets/mongo" //to resolve name collision with mongo driver
 )
 
 type hostnameIndexer struct {
@@ -20,8 +23,8 @@ type hostnameIndexer struct {
 }
 
 func (i *hostnameIndexer) GetIndex(item data.LoadedPoint) uint {
-	p := item.Data.(*mongo.MongoPoint)
-	t := &mongo.MongoTag{}
+	p := item.Data.(*tsbsmongo.MongoPoint)
+	t := &tsbsmongo.MongoTag{}
 	for j := 0; j < p.TagsLength(); j++ {
 		p.Tags(t, j)
 		key := string(t.Key())
@@ -29,7 +32,10 @@ func (i *hostnameIndexer) GetIndex(item data.LoadedPoint) uint {
 			// the hostame is the defacto index for devops tags
 			// the truck name is the defacto index for iot tags
 			h := fnv.New32a()
-			h.Write([]byte(string(t.Value())))
+			_, err := h.Write(t.Value())
+			if err != nil {
+				panic("cannot write value to hash")
+			}
 			return uint(h.Sum32()) % i.partitions
 		}
 	}
@@ -78,7 +84,7 @@ var pPool = &sync.Pool{New: func() interface{} { return &point{} }}
 
 type aggProcessor struct {
 	dbc        *dbCreator
-	collection *mgo.Collection
+	collection *mongo.Collection
 
 	createdDocs map[string]bool
 	createQueue []interface{}
@@ -86,13 +92,11 @@ type aggProcessor struct {
 
 func (p *aggProcessor) Init(_ int, doLoad, _ bool) {
 	if doLoad {
-		sess := p.dbc.session.Copy()
-		db := sess.DB(loader.DatabaseName())
-		p.collection = db.C(collectionName)
+		db := p.dbc.client.Database(loader.DatabaseName())
+		p.collection = db.Collection(collectionName)
 	}
 	p.createdDocs = make(map[string]bool)
 	p.createQueue = []interface{}{}
-
 }
 
 // ProcessBatch receives a batch of bson.M documents (BSON maps) that
@@ -127,7 +131,7 @@ func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint6
 	eventCnt := uint64(0)
 	for _, event := range batch.arr {
 		tagsMap := map[string]string{}
-		t := &mongo.MongoTag{}
+		t := &tsbsmongo.MongoTag{}
 		for j := 0; j < event.TagsLength(); j++ {
 			event.Tags(t, j)
 			tagsMap[string(t.Key())] = string(t.Value())
@@ -161,7 +165,7 @@ func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint6
 		}
 		x := pPool.Get().(*point)
 		x.Fields = map[string]interface{}{}
-		f := &mongo.MongoReading{}
+		f := &tsbsmongo.MongoReading{}
 		for j := 0; j < event.FieldsLength(); j++ {
 			event.Fields(f, j)
 			x.Fields[string(f.Key())] = f.Value()
@@ -171,38 +175,36 @@ func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint6
 
 		docToEvents[docKey] = append(docToEvents[docKey], x)
 	}
+	coll := p.dbc.client.Database("benchmark").Collection(collectionName)
 
 	if doLoad {
 		// Checks if any new documents need to be made and does so
-		bulk := p.collection.Bulk()
-		bulk = insertNewAggregateDocs(p.collection, bulk, p.createQueue)
+		//bulk := p.collection.Bulk()
+		insertNewAggregateDocs(coll, p.dbc.ctx, p.createQueue)
 		p.createQueue = p.createQueue[:0]
-
 		// For each document, create one 'set' command for all records
 		// that belong to the document
 		for docKey, events := range docToEvents {
-			selector := bson.M{aggDocID: docKey}
 			updateMap := bson.M{}
 			for _, event := range events {
 				minKey := (event.Timestamp / (1e9 * 60)) % 60
 				secKey := (event.Timestamp / 1e9) % 60
 				key := fmt.Sprintf("events.%d.%d", minKey, secKey)
 				val := event.Fields
-
 				val[timestampField] = event.Timestamp
 				updateMap[key] = val
 			}
-
 			update := bson.M{"$set": updateMap}
-			bulk.Update(selector, update)
+			filter := bson.M{
+				aggDocID: bson.M{
+					"$eq": docKey, //check if aggDocID field has value of docKey
+				},
+			}
+			_, err := coll.UpdateOne(p.dbc.ctx, filter, update)
+			if err != nil {
+				log.Fatalf(" Update err: %s\n", err.Error())
+			}
 		}
-
-		// All documents accounted for, finally run the operation
-		_, err := bulk.Run()
-		if err != nil {
-			log.Fatalf("Bulk aggregate update err: %s\n", err.Error())
-		}
-
 		for _, events := range docToEvents {
 			for _, e := range events {
 				delete(e.Fields, timestampField)
@@ -215,8 +217,7 @@ func (p *aggProcessor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint6
 
 // insertNewAggregateDocs handles creating new aggregated documents when new devices
 // or time periods are encountered
-func insertNewAggregateDocs(collection *mgo.Collection, bulk *mgo.Bulk, createQueue []interface{}) *mgo.Bulk {
-	b := bulk
+func insertNewAggregateDocs(collection *mongo.Collection, ctx context.Context, createQueue []interface{}) {
 	if len(createQueue) > 0 {
 		off := 0
 		for off < len(createQueue) {
@@ -224,17 +225,12 @@ func insertNewAggregateDocs(collection *mgo.Collection, bulk *mgo.Bulk, createQu
 			if l > len(createQueue) {
 				l = len(createQueue)
 			}
-
-			b.Insert(createQueue[off:l]...)
-			_, err := b.Run()
+			opts := options.InsertMany().SetOrdered(false)
+			_, err := collection.InsertMany(ctx, createQueue[off:l], opts)
 			if err != nil {
-				log.Fatalf("Bulk aggregate docs err: %s\n", err.Error())
+				log.Fatalf("Insert many aggregate docs err: %s\n", err.Error())
 			}
-			b = collection.Bulk()
-
 			off = l
 		}
 	}
-
-	return b
 }
