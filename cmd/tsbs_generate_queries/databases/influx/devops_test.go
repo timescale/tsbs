@@ -236,12 +236,6 @@ func TestDevopsGroupByTimeAndPrimaryTag(t *testing.T) {
 func TestMaxAllCPU(t *testing.T) {
 	cases := []testCase{
 		{
-			desc:    "zero hosts",
-			input:   0,
-			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got 0",
-		},
-		{
 			desc:               "1 host",
 			input:              1,
 			expectedHumanLabel: "Influx max of all CPU metrics, random    1 hosts, random 8h0m0s by 1h",
@@ -310,7 +304,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:    "negative hosts",
 			input:   -1,
 			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got -1",
+			failMsg: "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:               "zero hosts",

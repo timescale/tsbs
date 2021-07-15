@@ -162,14 +162,7 @@ func TestGetRandomHosts(t *testing.T) {
 			scale:     100,
 			nHosts:    -1,
 			shouldErr: true,
-			errMsg:    "number of hosts cannot be < 1; got -1",
-		},
-		{
-			desc:      "0 host out of 100",
-			scale:     100,
-			nHosts:    0,
-			shouldErr: true,
-			errMsg:    "number of hosts cannot be < 1; got 0",
+			errMsg:    "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:   "1 host out of 100",
