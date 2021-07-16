@@ -392,12 +392,12 @@ func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 	eventTime.SetToCurrentTime()
 	if err := push.New("http://pushgateway:9091", "tsbs_load").
 		Collector(eventTime).
-		Grouping("db-name", c.DBName).
+		Grouping("db", c.DBName).
 		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
-		Grouping("batch-size", fmt.Sprintf("%d", c.BatchSize)).
-		Grouping("insert-intervals", c.InsertIntervals).
-		Grouping("do-load", fmt.Sprintf("%t", c.DoLoad)).
-		Grouping("do-create-db", fmt.Sprintf("%t", c.DoCreateDB)).
+		Grouping("batch_size", fmt.Sprintf("%d", c.BatchSize)).
+		Grouping("insert_intervals", c.InsertIntervals).
+		Grouping("do_load", fmt.Sprintf("%t", c.DoLoad)).
+		Grouping("do_create_db", fmt.Sprintf("%t", c.DoCreateDB)).
 		Push(); err != nil {
 		fmt.Println("Could not push completion time to Pushgateway:", err)
 	}
