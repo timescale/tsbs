@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/load/insertstrategy"
@@ -114,6 +115,7 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 	}
 
 	if c.ReportingMetricsPort > 0 {
+		loader.pushEventToPrometheus("start")
 		go func() {
 			http.Handle("/metrics", promhttp.Handler())
 			http.ListenAndServe(fmt.Sprintf(":%d", c.ReportingMetricsPort), nil)
@@ -167,6 +169,10 @@ func (l *CommonBenchmarkRunner) postRun(wg *sync.WaitGroup, start *time.Time) {
 		metricRate := float64(l.metricCnt) / took.Seconds()
 		rowRate := float64(l.rowCnt) / took.Seconds()
 		l.saveTestResult(took, *start, end, metricRate, rowRate)
+	}
+
+	if l.ReportingMetricsPort > 0 {
+		l.pushEventToPrometheus("finish")
 	}
 }
 
@@ -374,5 +380,25 @@ func (l *CommonBenchmarkRunner) report(period time.Duration) {
 		prevColCount = cCount
 		prevRowCount = rCount
 		prevTime = now
+	}
+}
+
+// Track tsbs config on prometheus pushing a single event in the start.
+func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
+	eventTime := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: fmt.Sprintf("tsbs_load_%s", event),
+		Help: "TSBS load started.",
+	})
+	eventTime.SetToCurrentTime()
+	if err := push.New("http://pushgateway:9091", "tsbs_load").
+		Collector(eventTime).
+		Grouping("db-name", c.DBName).
+		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
+		Grouping("batch-size", fmt.Sprintf("%d", c.BatchSize)).
+		Grouping("insert-intervals", c.InsertIntervals).
+		Grouping("do-load", fmt.Sprintf("%t", c.DoLoad)).
+		Grouping("do-create-db", fmt.Sprintf("%t", c.DoCreateDB)).
+		Push(); err != nil {
+		fmt.Println("Could not push completion time to Pushgateway:", err)
 	}
 }

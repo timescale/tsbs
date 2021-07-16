@@ -253,7 +253,9 @@ func (b *BenchmarkRunner) processorHandler(wg *sync.WaitGroup, rateLimiter *rate
 
 		b.sp.send(stats)
 		for _, stat := range stats {
-			b.runQueriesCounter.WithLabelValues(string(stat.label), strconv.FormatBool(stat.isWarm), strconv.FormatBool(stat.isPartial)).Add(stat.value)
+			b.runQueriesCounter.
+				WithLabelValues(string(stat.label), strconv.FormatBool(stat.isWarm), strconv.FormatBool(stat.isPartial)).
+				Add(stat.value)
 		}
 
 		// If PrewarmQueries is set, we run the query as 'cold' first (see above),
