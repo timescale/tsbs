@@ -387,7 +387,7 @@ func (l *CommonBenchmarkRunner) report(period time.Duration) {
 func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 	eventTime := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: fmt.Sprintf("tsbs_load_%s", event),
-		Help: "TSBS load started.",
+		Help: "TSBS load start/finish events.",
 	})
 	eventTime.SetToCurrentTime()
 	if err := push.New("http://pushgateway:9091", "tsbs_load").
@@ -399,6 +399,6 @@ func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 		Grouping("do_load", fmt.Sprintf("%t", c.DoLoad)).
 		Grouping("do_create_db", fmt.Sprintf("%t", c.DoCreateDB)).
 		Push(); err != nil {
-		fmt.Println("Could not push completion time to Pushgateway:", err)
+		fmt.Println("Could not push tsbs event to Pushgateway:", err)
 	}
 }
