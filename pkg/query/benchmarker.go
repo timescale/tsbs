@@ -15,6 +15,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/spf13/pflag"
 	"golang.org/x/time/rate"
@@ -172,6 +173,8 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	}
 	b.ch = make(chan Query, b.Workers)
 
+	b.pushEventToPrometheus("start")
+
 	// Launch the stats processor:
 	go b.sp.process(b.Workers)
 
@@ -194,6 +197,8 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	wg.Wait()
 	b.sp.CloseAndWait()
 
+	b.pushEventToPrometheus("start")
+
 	// Wall clock end time
 	wallEnd := time.Now()
 	wallTook := wallEnd.Sub(wallStart)
@@ -215,6 +220,25 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	// (Optional) save the results file:
 	if len(b.BenchmarkRunnerConfig.ResultsFile) > 0 {
 		b.saveTestResult(wallTook, wallStart, wallEnd)
+	}
+}
+
+func (c *BenchmarkRunner) pushEventToPrometheus(event string) {
+	eventTime := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: fmt.Sprintf("tsbs_run_%s", event),
+		Help: "TSBS run query start/finish events.",
+	})
+	eventTime.SetToCurrentTime()
+	if err := push.New("http://pushgateway:9091", "tsbs_load").
+		Collector(eventTime).
+		Grouping("db", c.DBName).
+		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
+		Grouping("limit", fmt.Sprintf("%d", c.Limit)).
+		Grouping("limit_rps", fmt.Sprintf("%d", c.LimitRPS)).
+		Grouping("file_name", c.FileName).
+		Grouping("prewarm_queries", fmt.Sprintf("%t", c.PrewarmQueries)).
+		Push(); err != nil {
+		fmt.Println("Could not push tsbs event to Pushgateway:", err)
 	}
 }
 
