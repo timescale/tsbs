@@ -196,8 +196,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	// Block for workers to finish sending requests, closing the stats channel when done:
 	wg.Wait()
 	b.sp.CloseAndWait()
-
-	b.pushEventToPrometheus("start")
+	b.pushEventToPrometheus("finish")
 
 	// Wall clock end time
 	wallEnd := time.Now()
