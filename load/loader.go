@@ -320,8 +320,11 @@ func (l *CommonBenchmarkRunner) work(b targets.Benchmark, wg *sync.WaitGroup, c 
 		metricCnt, rowCnt := proc.ProcessBatch(batch, l.DoLoad)
 		atomic.AddUint64(&l.metricCnt, metricCnt)
 		atomic.AddUint64(&l.rowCnt, rowCnt)
-		l.metricCounter.Add(float64(metricCnt))
-		l.rowCounter.Add(float64(rowCnt))
+
+		if l.ReportingMetricsPort > 0 {
+			l.metricCounter.Add(float64(metricCnt))
+			l.rowCounter.Add(float64(rowCnt))
+		}
 
 		c.sendToScanner()
 		l.timeToSleep(workerNum, startedWorkAt)

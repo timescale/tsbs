@@ -228,7 +228,7 @@ func (c *BenchmarkRunner) pushEventToPrometheus(event string) {
 		Help: "TSBS run query start/finish events.",
 	})
 	eventTime.SetToCurrentTime()
-	if err := push.New("http://pushgateway:9091", "tsbs_load").
+	if err := push.New("http://pushgateway:9091", "tsbs_run").
 		Collector(eventTime).
 		Grouping("db", c.DBName).
 		Grouping("workers", fmt.Sprintf("%d", c.Workers)).

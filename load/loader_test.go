@@ -3,12 +3,13 @@ package load
 import (
 	"bytes"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/targets"
 )
 
 type testProcessor struct {
@@ -306,8 +307,11 @@ func TestCreateChannelsAndPartitions(t *testing.T) {
 }
 
 func TestWork(t *testing.T) {
+
 	br := &CommonBenchmarkRunner{}
 	b := &testBenchmark{}
+	br.ReportingMetricsPort = 0
+
 	for i := 0; i < 2; i++ {
 		b.processors = append(b.processors, &testProcessor{})
 	}
