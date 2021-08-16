@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	"github.com/timescale/tsbs/pkg/query"
 )
 
@@ -47,7 +48,7 @@ func Test_what(t *testing.T) {
 		},
 		"MaxAllCPU": {
 			fn: func(g *Devops, q *query.HTTP) {
-				g.MaxAllCPU(q, 5)
+				g.MaxAllCPU(q, 5, devops.MaxAllDuration)
 			},
 			expQuery: "max(max_over_time({__name__=~'cpu_(usage_user|usage_system|usage_idle|usage_nice|usage_iowait|usage_irq|usage_softirq|usage_steal|usage_guest|usage_guest_nice)', hostname=~'host_5|host_9|host_3|host_1|host_7'}[1h])) by (__name__)",
 			expStep:  "3600",

@@ -91,13 +91,13 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qq query.Query, numMetrics int) {
 // 		{hostname=~"hostname1|hostname2...|hostnameN"}[1h]
 // 	)
 // ) by (__name__)
-func (d *Devops) MaxAllCPU(qq query.Query, nHosts int) {
+func (d *Devops) MaxAllCPU(qq query.Query, nHosts int, duration time.Duration) {
 	hosts := d.mustGetRandomHosts(nHosts)
 	selectClause := getSelectClause(devops.GetAllCPUMetrics(), hosts)
 	qi := &queryInfo{
 		query:    fmt.Sprintf("max(max_over_time(%s[1h])) by (__name__)", selectClause),
 		label:    devops.GetMaxAllLabel("VictoriaMetrics", nHosts),
-		interval: d.Interval.MustRandWindow(devops.MaxAllDuration),
+		interval: d.Interval.MustRandWindow(duration),
 		step:     "3600",
 	}
 	d.fillInQuery(qq, qi)
