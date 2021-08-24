@@ -11,6 +11,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/influx"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
+	"github.com/timescale/tsbs/pkg/targets/questdb"
 	"github.com/timescale/tsbs/pkg/targets/siridb"
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"github.com/timescale/tsbs/pkg/targets/timestream"
@@ -42,6 +43,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return victoriametrics.NewTarget()
 	case constants.FormatTimestream:
 		return timestream.NewTarget()
+	case constants.FormatQuestDB:
+		return questdb.NewTarget()
 	}
 
 	supportedFormatsStr := strings.Join(constants.SupportedFormats(), ",")
