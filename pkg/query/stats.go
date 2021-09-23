@@ -92,12 +92,13 @@ func (s *statGroup) push(n float64) {
 
 // string makes a simple description of a statGroup.
 func (s *statGroup) string() string {
-	return fmt.Sprintf("min: %8.2fms, p25: %8.2fms, med: %8.2fms, p75: %8.2fms, p99: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
+	return fmt.Sprintf("min: %8.2fms, p25: %8.2fms, med: %8.2fms, p75: %8.2fms, p95: %8.2fms,  p99: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
 		s.Min(),
 		s.Median(),
 		s.Percentile(25.0),
 		s.Mean(),
 		s.Percentile(75.0),
+		s.Percentile(95.0),
 		s.Percentile(99.0),
 		s.Max(),
 		s.StdDev(),
