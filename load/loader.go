@@ -396,6 +396,7 @@ func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 	if err := push.New("http://pushgateway:9091", "tsbs_load").
 		Collector(eventTime).
 		Grouping("db", c.DBName).
+		Grouping("results_file", c.ResultsFile).
 		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
 		Grouping("batch_size", fmt.Sprintf("%d", c.BatchSize)).
 		Grouping("insert_intervals", c.InsertIntervals).
