@@ -50,25 +50,69 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	cmd := make(bson.D, 0, 4)
-	cmd = append(cmd, bson.E{"create", collectionName})
+	createCollCmd := make(bson.D, 0, 4)
+	createCollCmd = append(createCollCmd, bson.E{"create", collectionName})
 
 	if timeseriesCollection {
-		cmd = append(cmd, bson.E{"timeseries", bson.M{
+		createCollCmd = append(createCollCmd, bson.E{"timeseries", bson.M{
 			"timeField": timestampField,
 			"metaField": "tags",
 		}})
 	}
 
-	res := d.client.Database(dbName).RunCommand(context.Background(), cmd)
-	if res.Err() != nil {
-		if strings.Contains(res.Err().Error(), "already exists") {
+	createCollRes := d.client.Database(dbName).RunCommand(context.Background(), createCollCmd)
+
+	if createCollRes.Err() != nil {
+		if strings.Contains(createCollRes.Err().Error(), "already exists") {
 			return nil
 		}
-		return fmt.Errorf("create collection err: %v", res.Err().Error())
+		return fmt.Errorf("create collection err: %v", createCollRes.Err().Error())
 	}
 
-	var model []mongo.IndexModel
+	if collectionSharded {
+	        // first enable sharding on dbName
+		enableShardingCmd := make(bson.D, 0, 4)
+		enableShardingCmd = append(enableShardingCmd, bson.E{"enableSharding", dbName})
+		
+	        renableShardingRes :=
+			d.client.Database("admin").RunCommand(context.Background(), enableShardingCmd)
+	        if renableShardingRes.Err() != nil {
+			return fmt.Errorf("enableSharding err: %v", renableShardingRes.Err().Error())
+		}
+
+		// then shard the collection
+		shardCollCmd := make(bson.D, 0, 4)
+		shardCollCmd = append(shardCollCmd, bson.E{"shardCollection",dbName+"."+collectionName})
+		var shardKey interface{}
+		
+		err := bson.UnmarshalExtJSON([]byte(shardKeySpec), true, &shardKey)
+		if err != nil {
+		   err = bson.UnmarshalExtJSON([]byte("{\"time\":1}"), true, &shardKey)		       
+		}
+		shardCollCmd = append(shardCollCmd, bson.E{"key", shardKey})
+
+		if numInitChunks > 0 {
+		   	shardCollCmd = append(shardCollCmd, bson.E{"numInitialChunks", numInitChunks})
+		}
+	   	shardCollRes := d.client.Database("admin").RunCommand(context.Background(), shardCollCmd)
+	
+		if shardCollRes.Err() != nil {
+		        return fmt.Errorf("shard collection err: %v", shardCollRes.Err().Error())
+	        }
+
+		balancerCmd := make(bson.D, 0, 4)
+		if balancerOn {
+		        balancerCmd = append(balancerCmd, bson.E{"balancerStart", 1})		
+		} else {
+		        balancerCmd = append(balancerCmd, bson.E{"balancerStop", 1})		
+		}
+	        balancerRes := d.client.Database("admin").RunCommand(context.Background(), balancerCmd)
+	        if balancerRes.Err() != nil {
+			return fmt.Errorf("balancerStart/Stop err: %v", balancerRes.Err().Error())
+		}
+	}
+
+ 	var model []mongo.IndexModel
 	if documentPer {
 		model = []mongo.IndexModel{
 			{
