@@ -1,0 +1,42 @@
+version: '3.0'
+services:
+  db:
+    image: timescale/timescaledb-ha:pg14-latest
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+    network_mode: bridge
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    network_mode: bridge
+
+  promscale:
+    image: "timescale/promscale:0.8.0"
+    restart: on-failure
+    depends_on:
+      - db
+      - prometheus
+    environment:
+      PROMSCALE_DB_CONNECT_RETRIES: 10
+      PROMSCALE_WEB_TELEMETRY_PATH: /metrics-text
+      PROMSCALE_DB_URI: postgres://postgres:password@0.0.0.0:5432/postgres?sslmode=allow
+    network_mode: bridge
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    depends_on:
+      - promscale
+    network_mode: bridge
+
+volumes:
+  timescaledb-data:
+  grafana-data:
+
+networks:
+  default:
+    name: bridge
+    external: true

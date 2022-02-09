@@ -31,20 +31,21 @@ const (
 
 // BenchmarkRunnerConfig is the configuration of the benchmark runner.
 type BenchmarkRunnerConfig struct {
-	DBName               string `mapstructure:"db-name"`
-	Limit                uint64 `mapstructure:"max-queries"`
-	LimitRPS             uint64 `mapstructure:"max-rps"`
-	MemProfile           string `mapstructure:"memprofile"`
-	HDRLatenciesFile     string `mapstructure:"hdr-latencies"`
-	Workers              uint   `mapstructure:"workers"`
-	PrintResponses       bool   `mapstructure:"print-responses"`
-	Debug                int    `mapstructure:"debug"`
-	FileName             string `mapstructure:"file"`
-	BurnIn               uint64 `mapstructure:"burn-in"`
-	PrintInterval        uint64 `mapstructure:"print-interval"`
-	PrewarmQueries       bool   `mapstructure:"prewarm-queries"`
-	ResultsFile          string `mapstructure:"results-file"`
-	ReportingMetricsPort uint64 `mapstructure:"reporting-metrics-port"`
+	DBName                   string `mapstructure:"db-name"`
+	Limit                    uint64 `mapstructure:"max-queries"`
+	LimitRPS                 uint64 `mapstructure:"max-rps"`
+	MemProfile               string `mapstructure:"memprofile"`
+	HDRLatenciesFile         string `mapstructure:"hdr-latencies"`
+	Workers                  uint   `mapstructure:"workers"`
+	PrintResponses           bool   `mapstructure:"print-responses"`
+	Debug                    int    `mapstructure:"debug"`
+	FileName                 string `mapstructure:"file"`
+	BurnIn                   uint64 `mapstructure:"burn-in"`
+	PrintInterval            uint64 `mapstructure:"print-interval"`
+	PrewarmQueries           bool   `mapstructure:"prewarm-queries"`
+	ResultsFile              string `mapstructure:"results-file"`
+	ReportingMetricsPort     uint64 `mapstructure:"reporting-metrics-port"`
+	PrometheusPushGatewayURI string `mapstructure:"prometheus-push-gateway-uri"`
 }
 
 // AddToFlagSet adds command line flags needed by the BenchmarkRunnerConfig to the flag set.
@@ -58,6 +59,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.String("hdr-latencies", "", "Write the High Dynamic Range (HDR) Histogram of Response Latencies to this file.")
 	fs.Uint("workers", 1, "Number of concurrent requests to make.")
 	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus. (0 = disabled).")
+	fs.String("prometheus-push-gateway-uri", "http://pushgateway:9091", "Push start/end events to prometheus pushgateway endpoint.")
 	fs.Bool("prewarm-queries", false, "Run each query twice in a row so the warm query is guaranteed to be a cache hit")
 	fs.Bool("print-responses", false, "Pretty print response bodies for correctness checking (default false).")
 	fs.Int("debug", 0, "Whether to print debug messages.")
@@ -74,6 +76,7 @@ type BenchmarkRunner struct {
 	scanner           *scanner
 	ch                chan Query
 	runQueriesCounter *prometheus.CounterVec
+	benchmarkUUID     string
 }
 
 // NewBenchmarkRunner creates a new instance of BenchmarkRunner which is
@@ -174,6 +177,7 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 	b.ch = make(chan Query, b.Workers)
 
 	b.pushEventToPrometheus("start")
+	b.benchmarkUUID = RandomUUID()
 
 	// Launch the stats processor:
 	go b.sp.process(b.Workers)
@@ -223,14 +227,18 @@ func (b *BenchmarkRunner) Run(queryPool *sync.Pool, processorCreateFn ProcessorC
 }
 
 func (c *BenchmarkRunner) pushEventToPrometheus(event string) {
+	if c.BenchmarkRunnerConfig.PrometheusPushGatewayURI == "" {
+		return
+	}
 	eventTime := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: fmt.Sprintf("tsbs_run_%s", event),
 		Help: "TSBS run query start/finish events.",
 	})
 	eventTime.SetToCurrentTime()
-	if err := push.New("http://pushgateway:9091", "tsbs_run").
+	if err := push.New(c.BenchmarkRunnerConfig.PrometheusPushGatewayURI, "tsbs_run").
 		Collector(eventTime).
 		Grouping("db", c.DBName).
+		Grouping("benchmark_uuid", c.benchmarkUUID).
 		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
 		Grouping("limit", fmt.Sprintf("%d", c.Limit)).
 		Grouping("limit_rps", fmt.Sprintf("%d", c.LimitRPS)).
@@ -306,4 +314,9 @@ func getRateLimiter(limitRPS uint64, workers uint) *rate.Limiter {
 		requestBurst = int(workers)
 	}
 	return rate.NewLimiter(requestRate, requestBurst)
+}
+
+func RandomUUID() string {
+	u, _ := ioutil.ReadFile("/proc/sys/kernel/random/uuid")
+	return string(u)
 }

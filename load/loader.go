@@ -38,20 +38,21 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName               string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
-	BatchSize            uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
-	Workers              uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
-	Limit                uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
-	DoLoad               bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
-	DoCreateDB           bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
-	DoAbortOnExist       bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
-	ReportingPeriod      time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
-	ReportingMetricsPort uint64        `yaml:"reporting-metrics-port" mapstructure:"reporting-metrics-port" json:"reporting-metrics-port"`
-	HashWorkers          bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
-	NoFlowControl        bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
-	ChannelCapacity      uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
-	InsertIntervals      string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
-	ResultsFile          string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
+	DBName                   string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
+	BatchSize                uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
+	Workers                  uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
+	Limit                    uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
+	DoLoad                   bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
+	DoCreateDB               bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
+	DoAbortOnExist           bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
+	ReportingPeriod          time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
+	ReportingMetricsPort     uint64        `yaml:"reporting-metrics-port" mapstructure:"reporting-metrics-port" json:"reporting-metrics-port"`
+	PrometheusPushGatewayURI string        `yaml:"prometheus-push-gateway-uri" mapstructure:"prometheus-push-gateway-uri" json:"prometheus-push-gateway-uri"`
+	HashWorkers              bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
+	NoFlowControl            bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
+	ChannelCapacity          uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
+	InsertIntervals          string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
+	ResultsFile              string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
 	FileName string `yaml:"file" mapstructure:"file" json:"file"`
 	Seed     int64  `yaml:"seed" mapstructure:"seed" json:"seed"`
@@ -68,6 +69,7 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Bool("do-abort-on-exist", false, "Whether to abort if a database with the given name already exists.")
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
 	fs.Uint64("reporting-metrics-port", 9101, "Port to report metrics to prometheus. (0 = disabled).")
+	fs.String("prometheus-push-gateway-uri", "http://localhost:9091", "Prometheus push gateway reports start/end events.")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
@@ -90,6 +92,7 @@ type CommonBenchmarkRunner struct {
 	sleepRegulator insertstrategy.SleepRegulator
 	metricCounter  prometheus.Counter
 	rowCounter     prometheus.Counter
+	benchmarkUUID  string
 }
 
 // GetBenchmarkRunnerWithBatchSize returns the singleton CommonBenchmarkRunner for use in a benchmark program
@@ -103,6 +106,7 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 	}
 
 	loader.initialRand = rand.New(rand.NewSource(loader.Seed))
+	loader.benchmarkUUID = RandomUUID()
 
 	var err error
 	if c.InsertIntervals == "" {
@@ -117,6 +121,7 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 	if c.ReportingMetricsPort > 0 {
 		loader.pushEventToPrometheus("start")
 		go func() {
+			fmt.Println(fmt.Sprintf("Serving metrics on :%d", c.ReportingMetricsPort))
 			http.Handle("/metrics", promhttp.Handler())
 			http.ListenAndServe(fmt.Sprintf(":%d", c.ReportingMetricsPort), nil)
 		}()
@@ -216,15 +221,15 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		capacity = l.Workers
 	}
 
-	l.metricCounter = promauto.NewCounter(prometheus.CounterOpts{
+	l.metricCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tsbs_load_metric_count",
 		Help: "TSBS: The total number of metrics inserted",
-	})
+	}, []string{"benchmark_uuid"}).WithLabelValues(l.benchmarkUUID)
 
-	l.rowCounter = promauto.NewCounter(prometheus.CounterOpts{
+	l.rowCounter = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tsbs_load_rows_count",
 		Help: "TSBS: The total number of rows ingested",
-	})
+	}, []string{"benchmark_uuid"}).WithLabelValues(l.benchmarkUUID)
 
 	channels := l.createChannels(numChannels, capacity)
 
@@ -393,8 +398,9 @@ func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 		Help: "TSBS load start/finish events.",
 	})
 	eventTime.SetToCurrentTime()
-	if err := push.New("http://pushgateway:9091", "tsbs_load").
+	if err := push.New(c.PrometheusPushGatewayURI, "tsbs_load").
 		Collector(eventTime).
+		Grouping("benchmark_uuid", c.benchmarkUUID).
 		Grouping("db", c.DBName).
 		Grouping("results_file", c.ResultsFile).
 		Grouping("workers", fmt.Sprintf("%d", c.Workers)).
@@ -405,4 +411,8 @@ func (c *CommonBenchmarkRunner) pushEventToPrometheus(event string) {
 		Push(); err != nil {
 		fmt.Println("Could not push tsbs event to Pushgateway:", err)
 	}
+}
+func RandomUUID() string {
+	u, _ := ioutil.ReadFile("/proc/sys/kernel/random/uuid")
+	return string(u)
 }
