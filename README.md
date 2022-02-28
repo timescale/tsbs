@@ -10,7 +10,7 @@ Current databases supported:
 + Cassandra [(supplemental docs)](docs/cassandra.md)
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + CrateDB [(supplemental docs)](docs/cratedb.md)
-+ InfluxDB [(supplemental docs)](docs/influx.md)
++ InfluxDB v1 [(supplemental docs)](docs/influx.md)
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + QuestDB [(supplemental docs)](docs/questdb.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
