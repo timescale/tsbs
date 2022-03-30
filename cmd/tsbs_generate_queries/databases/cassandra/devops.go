@@ -93,8 +93,8 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	panicIfErr(err)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Cassandra", numMetrics)

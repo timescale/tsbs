@@ -238,9 +238,9 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 // WHERE time >= '$HOUR_START' AND time < '$HOUR_END'
 // GROUP BY hour, hostname ORDER BY hour, hostname
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	docs := getTimeFilterDocs(interval)
 	bucketNano := time.Hour.Nanoseconds()
 

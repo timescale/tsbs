@@ -326,11 +326,11 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:               "zero hosts",
 			input:              0,
 			expectedHumanLabel: "ClickHouse CPU over threshold, all hosts",
-			expectedHumanDesc:  "ClickHouse CPU over threshold, all hosts: 1970-01-01T00:16:22Z",
+			expectedHumanDesc:  "ClickHouse CPU over threshold, all hosts: 1970-01-01T00:54:10Z",
 			expectedQuery: `
         SELECT *
         FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:16:22') AND (created_at <  '1970-01-01 12:16:22') 
+        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:54:10') AND (created_at <  '1970-01-01 12:54:10') 
         `,
 		},
 		{
@@ -341,18 +341,18 @@ func TestHighCPUForHosts(t *testing.T) {
 			expectedQuery: `
         SELECT *
         FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:47:30') AND (created_at <  '1970-01-01 12:47:30') AND ((hostname = 'host_9'))
+        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:47:30') AND (created_at <  '1970-01-01 12:47:30') AND ((hostname = 'host_5'))
         `,
 		},
 		{
 			desc:               "5 hosts",
 			input:              5,
 			expectedHumanLabel: "ClickHouse CPU over threshold, 5 host(s)",
-			expectedHumanDesc:  "ClickHouse CPU over threshold, 5 host(s): 1970-01-01T00:08:59Z",
+			expectedHumanDesc:  "ClickHouse CPU over threshold, 5 host(s): 1970-01-01T00:17:45Z",
 			expectedQuery: `
         SELECT *
         FROM cpu
-        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:08:59') AND (created_at <  '1970-01-01 12:08:59') AND ((hostname = 'host_5' OR hostname = 'host_9' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2'))
+        PREWHERE (usage_user > 90.0) AND (created_at >= '1970-01-01 00:17:45') AND (created_at <  '1970-01-01 12:17:45') AND ((hostname = 'host_9' OR hostname = 'host_5' OR hostname = 'host_1' OR hostname = 'host_7' OR hostname = 'host_2'))
         `,
 		},
 		{

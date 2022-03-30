@@ -232,13 +232,13 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // AND time >= '$TIME_START' AND time < '$TIME_END'
 // AND (hostname = '$HOST' OR hostname = '$HOST2'...)
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""
 	} else {
 		hostWhereClause = fmt.Sprintf("AND %s", d.getHostWhereString(nHosts))
 	}
-	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	sql := fmt.Sprintf(`
 		WITH usage_over_ninety AS (
