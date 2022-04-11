@@ -2,7 +2,7 @@
 
 [InfluxDB](https://www.influxdata.com/products/influxdb-overview/)
 is a purpose-built time-series database written in Go from
-InfluxData. Only v1.x is currently supported
+InfluxData. Only v1.x is currently supported by TSBS
 (see [#163](https://github.com/timescale/tsbs/issues/163)).
 
 This supplemental guide explains how the data generated for TSBS is
