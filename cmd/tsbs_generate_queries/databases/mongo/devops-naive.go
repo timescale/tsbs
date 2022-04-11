@@ -230,38 +230,22 @@ func (d *NaiveDevops) HighCPUForHosts(qi query.Query, nHosts int) {
 // ORDER BY hostname, time DESC
 func (d *NaiveDevops) LastPointPerHost(qi query.Query) {
 	pipelineQuery := []bson.M{
-		{"$match": bson.M{"measurement": "cpu"}},
+		{"$sort": bson.D{{"tags.hostname", 1}, {"time", -1}}},
 		{
 			"$group": bson.M{
-				"_id":       bson.M{"hostname": "$tags.hostname"},
-				"last_time": bson.M{"$max": "$time"},
-			},
-		},
-		{
-			"$lookup": bson.M{
-				"from": "point_data",
-				"let":  bson.M{"time": "$last_time", "hostname": "$_id.hostname"},
-				"pipeline": []bson.M{
-					{
-						"$match": bson.M{
-							"$expr": bson.M{
-								"$and": []bson.M{
-									{"$eq": []interface{}{"$time", "$$time"}},
-									{"$eq": []interface{}{"$tags.hostname", "$$hostname"}},
-									{"$eq": []interface{}{"$measurement", "cpu"}},
-								},
-							},
-						},
-					},
-					{
-						"$project": bson.M{
-							"time": 0,
-							"tags": 0,
-							"_id":  0,
-						},
-					},
-				},
-				"as": "metrics",
+				"_id":              bson.M{"hostname": "$tags.hostname"},
+				"time":             bson.M{"$first": "$time"},
+				"usage_guest":      bson.M{"$first": "$usage_guest"},
+				"usage_guest_nice": bson.M{"$first": "$usage_guest_nice"},
+				"usage_idle":       bson.M{"$first": "$usage_idle"},
+				"usage_iowait":     bson.M{"$first": "$usage_iowait"},
+				"usage_irq":        bson.M{"$first": "$usage_irq"},
+				"usage_nice":       bson.M{"$first": "$usage_nice"},
+				"usage_softirq":    bson.M{"$first": "$usage_softirq"},
+				"usage_steal":      bson.M{"$first": "$usage_steal"},
+				"usage_system":     bson.M{"$first": "$usage_system"},
+				"usage_user":       bson.M{"$first": "$usage_user"},
+				"measurement":      bson.M{"$first": "$measurement"},
 			},
 		},
 	}

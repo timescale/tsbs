@@ -116,7 +116,7 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	if documentPer {
 		model = []mongo.IndexModel{
 			{
-				Keys: bson.D{{"time", 1}, {"tags.hostname", 1}},
+				Keys: bson.D{{"tags.hostname", 1}, {"time", -1}},
 			},
 		}
 	} else {
