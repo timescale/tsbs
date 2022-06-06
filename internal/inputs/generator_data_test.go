@@ -339,6 +339,7 @@ func TestGetSerializer(t *testing.T) {
 	checkWriteHeader(constants.FormatPrometheus, false)
 	checkWriteHeader(constants.FormatTimescaleDB, true)
 	checkWriteHeader(constants.FormatVictoriaMetrics, false)
+	checkWriteHeader(constants.FormatQuestDB, false)
 }
 
 type mockSerializer struct {

@@ -43,8 +43,11 @@ All data out of retention period will be automatically deleted after insertion.
 
 One of the ways to generate data for insertion is to use `scripts/generate_data.sh`:
 ```text
-FORMATS=victoriametrics SCALE=100 TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z  ./scripts/generate_data.sh
+FORMATS=victoriametrics SCALE=100 TS_START=2021-08-01T00:00:00Z TS_END=2021-08-03T00:00:00Z  ./scripts/generate_data.sh
 ```
+
+Important: please ensure that VictoriaMetrics retention setting covers the time range
+set by TS_START and TS_END params. 
 
 ---
 
@@ -54,19 +57,23 @@ See recommendations for insertion in [InfluxDB protocol](https://github.com/Vict
 
 One of the ways to load data in VictoriaMetrics is to use `scripts/load_victoriametrics.sh`:
 ```text
-./scripts/load_victoriametrics.sh
+./scripts/load/load_victoriametrics.sh
 ```
 > Assumed that VictoriaMetrics is already installed and ready for insertion on default port `8428`.
   If not - please set `DATABASE_PORT` variable accordingly.
+> If you're using cluster version of VictoriaMetrics please specify `vminsert` port (`8480` by default)
+  and `DATABASE_PATH=insert/0/influx/write`, where `0` is tenant ID.
+  See more about URL format [here](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format).
 
 
 ### Additional Flags
 
-#### `-urls` (type: `string`, default: `http://localhost:8428/write`)
+#### `--urls` (type: `string`, default: `http://localhost:8428/write`)
 
 Comma-separated list of URLs to connect to for inserting data.  It can be
 just a single-version URL or list of VMInsert URLs. Workers will be
 distributed in a round robin fashion across the URLs.
+See more about URL format [here](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format).
 
 ---
 
@@ -81,13 +88,13 @@ types for `devops` use-case:
 
 The `iot` use-case wasn't implemented yet.
 
-Of of the ways to generate queries for VictoriaMetrics is to use `scripts/generate_queries.sh`:
+One of the ways to generate queries for VictoriaMetrics is to use `scripts/generate_queries.sh`:
 ```text
- FORMATS=victoriametrics SCALE=100 TS_START=2019-09-01T00:00:00Z TS_END=2019-09-03T00:00:00Z \
+ FORMATS=victoriametrics SCALE=100 TS_START=2021-08-01T00:00:00Z TS_END=2021-08-03T00:00:00Z \
  QUERY_TYPES="cpu-max-all-8 double-groupby-1" ./scripts/generate_queries.sh
 ```
 
-Consider to generate queries with same params as generated data.
+Important: generate queries with same params as used for data loading on previous steps.
 
 ---
 
@@ -98,11 +105,18 @@ To run generated queries follow examples in documentation:
 cat /tmp/bulk_queries/victoriametrics-cpu-max-all-8-queries.gz | gunzip | tsbs_run_queries_victoriametrics
 ```
 
+> By default, tsbs_run_queries_victoriametrics assumes that VictoriaMetrics is already installed and ready 
+  for accepting queries on `http://localhost:8428`. To change the address, please specify `--urls` flags.
+> If you're using cluster version of VictoriaMetrics please specify `--urls` flag as
+  `http://localhost:8481/select/0/prometheus`, where `localhost:8481` is vmselect address and port,
+  and `0` is tenant ID. See more about URL format [here](https://docs.victoriametrics.com/Cluster-VictoriaMetrics.html#url-format).
+
+
 ### Additional flags
 
-#### `-urls` (type: `string`, default: `http://localhost:8428`)
+#### `--urls` (type: `string`, default: `http://localhost:8428`)
 
 Comma-separated list of URLs to connect to for querying. It can be
 just a single-version URL or list of VMSelect URLs. Workers will be
-distributed in a round robin fashion across the URLs.
+distributed in a round robin fashion across the URLs. See help for additional info.
 
