@@ -261,7 +261,7 @@ func (d *NaiveDevops) LastPointPerHost(qi query.Query) {
 // GroupByOrderByLimit populates a query.Query that has a time WHERE clause, that groups by a
 // truncated date, orders by that date, and takes a limit, e.g. in pseudo-SQL:
 //
-// SELECT minute, MAX(cpu) FROM cpu
+// SELECT minute, MAX(usage_user) FROM cpu
 // WHERE time < '$TIME'
 // GROUP BY minute ORDER BY minute DESC
 // LIMIT $LIMIT
