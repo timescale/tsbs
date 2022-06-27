@@ -20,6 +20,7 @@ import (
 var (
 	daemonUrls []string
 	chunkSize  uint64
+	authToken  string
 )
 
 // Global vars:
@@ -35,6 +36,7 @@ func init() {
 
 	pflag.String("urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
 	pflag.Uint64("chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
+	pflag.String("auth-token", "", "Use the Authorization header with the Token scheme to provide your token to InfluxDB. If empty will not send the Authorization header.")
 
 	pflag.Parse()
 
@@ -49,8 +51,13 @@ func init() {
 	}
 
 	csvDaemonUrls = viper.GetString("urls")
+	authToken = viper.GetString("auth-token")
 	chunkSize = viper.GetUint64("chunk-response-size")
-
+	if authToken != "" {
+		log.Println("Using Authorization header in benchmark")
+	} else {
+		log.Println("Given no Authorization header was provided will not send it in benchmark")
+	}
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
 	if len(daemonUrls) == 0 {
 		log.Fatal("missing 'urls' flag")
@@ -78,7 +85,7 @@ func (p *processor) Init(workerNumber int) {
 		database:             runner.DatabaseName(),
 	}
 	url := daemonUrls[workerNumber%len(daemonUrls)]
-	p.w = NewHTTPClient(url)
+	p.w = NewHTTPClient(url, authToken)
 }
 
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
