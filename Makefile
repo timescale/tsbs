@@ -7,7 +7,6 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOFMT=$(GOCMD) fmt
-DISTDIR= ./dist
 
 .PHONY: all generators loaders runners lint fmt checkfmt
 

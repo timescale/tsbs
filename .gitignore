@@ -5,12 +5,11 @@
 .vscode
 *~
 
-bin
 
 # High Dynamic Range (HDR) Histogram files
 *.hdr
 
-dist
+# Distribution related
 bin
 
 # JSON results
