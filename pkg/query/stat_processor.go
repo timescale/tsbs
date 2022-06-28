@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/HdrHistogram/hdrhistogram-go"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/HdrHistogram/hdrhistogram-go"
 )
 
 // statProcessor is used to collect, analyze, and print query execution statistics.

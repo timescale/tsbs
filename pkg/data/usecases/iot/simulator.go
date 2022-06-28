@@ -36,6 +36,10 @@ func (sc *SimulatorConfig) NewSimulator(interval time.Duration, limit uint64) co
 	}
 }
 
+func (s *Simulator) MaxPoints() uint64 {
+	return s.MaxPoints()
+}
+
 // Simulator is responsible for simulating entries for the IoT use case.
 // It will run on batches of entries and apply the generated batch configuration
 // which it gets from the config generator. That way it can introduce things like

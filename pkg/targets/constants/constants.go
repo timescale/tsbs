@@ -13,6 +13,7 @@ const (
 	FormatPrometheus      = "prometheus"
 	FormatVictoriaMetrics = "victoriametrics"
 	FormatTimestream      = "timestream"
+	FormatRedisTimeSeries = "redistimeseries"
 	FormatQuestDB         = "questdb"
 )
 
@@ -29,6 +30,7 @@ func SupportedFormats() []string {
 		FormatPrometheus,
 		FormatVictoriaMetrics,
 		FormatTimestream,
+		FormatRedisTimeSeries,
 		FormatQuestDB,
 	}
 }

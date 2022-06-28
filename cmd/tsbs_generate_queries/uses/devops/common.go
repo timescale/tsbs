@@ -120,6 +120,12 @@ type HighCPUFiller interface {
 	HighCPUForHosts(query.Query, int)
 }
 
+// GetSingleGroupByLabel returns the Query human-readable label for DoubleGroupBy queries
+func GetSingleGroupByLabel(dbName string, numMetrics, nHosts int, timerange string) string {
+	return fmt.Sprintf("%s MAX of %d metrics,random %4d hosts, random %s by 1m", dbName, numMetrics, nHosts, timerange)
+
+}
+
 // GetDoubleGroupByLabel returns the Query human-readable label for DoubleGroupBy queries
 func GetDoubleGroupByLabel(dbName string, numMetrics int) string {
 	return fmt.Sprintf("%s mean of %d metrics, all hosts, random %s by 1h", dbName, numMetrics, DoubleGroupByDuration)
@@ -141,6 +147,11 @@ func GetHighCPULabel(dbName string, nHosts int) (string, error) {
 // GetMaxAllLabel returns the Query human-readable label for MaxAllCPU queries
 func GetMaxAllLabel(dbName string, nHosts int) string {
 	return fmt.Sprintf("%s max of all CPU metrics, random %4d hosts, random %s by 1h", dbName, nHosts, MaxAllDuration)
+}
+
+// GetMaxAllLabel returns the Query human-readable label for MaxAllCPU queries
+func GetGroupByOrderByLimitLabel(dbName string) string {
+	return fmt.Sprintf("%s max cpu over last 5 min-intervals (random end)", dbName)
 }
 
 // getRandomHosts returns a subset of numHosts hostnames of a permutation of hostnames,

@@ -157,6 +157,10 @@ func (s *testSimulator) TagTypes() []string {
 	return nil
 }
 
+func (s *testSimulator) MaxPoints() uint64 {
+	return s.limit
+}
+
 type testSerializer struct {
 	shouldError bool
 }

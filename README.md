@@ -12,6 +12,7 @@ Current databases supported:
 + CrateDB [(supplemental docs)](docs/cratedb.md)
 + InfluxDB [(supplemental docs)](docs/influx.md)
 + MongoDB [(supplemental docs)](docs/mongo.md)
++ RedisTimeSeries [(supplemental docs)](docs/redistimeseries.md)
 + QuestDB [(supplemental docs)](docs/questdb.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
@@ -76,6 +77,7 @@ cases are implemented for each database:
 |CrateDB|X||
 |InfluxDB|X|X|
 |MongoDB|X|
+|RedisTimeSeries|X||
 |QuestDB|X|X
 |SiriDB|X|
 |TimescaleDB|X|X|
@@ -83,6 +85,7 @@ cases are implemented for each database:
 |VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
+
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
 
 ## What the TSBS tests
