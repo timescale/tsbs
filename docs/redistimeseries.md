@@ -33,7 +33,7 @@ So for a Full cycle TSBS RedisTimeSeries benchmark, ensure that RedisTimeSeries 
 # functional full cycle 
 
 ```
-scripts/functional/debug_responses_full_cycle_minitest_redistimeseries.sh
+./scripts/full_cycle_minitest/full_cycle_minitest_redistimeseries.sh
 ```
 
 
