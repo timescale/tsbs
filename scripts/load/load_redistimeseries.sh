@@ -12,6 +12,7 @@ source ${EXE_DIR}/../redistimeseries_common.sh
 mkdir -p ${RESULTS_DIR}
 
 OUT_FULL_FILE_NAME="${RESULTS_DIR}/${PREFIX}_load_result.out"
+JSON_FILE_NAME="${RESULTS_DIR}/${PREFIX}_load_result.json"
 echo "Using only 1 worker"
 echo "Saving results to ${OUT_FULL_FILE_NAME}"
 
@@ -22,6 +23,7 @@ $EXE_FILE_NAME \
   --compression=${COMPRESSION_TYPE} \
   --batch-size=${BATCH_SIZE} \
   --reporting-period=${REPORTING_PERIOD} \
+  --results-file=${JSON_FILE_NAME} \
   --host=${DATABASE_HOST}:${DATABASE_PORT} ${CLUSTER_FLAG} \
   --connections=${CONNECTIONS} --pipeline=${PIPELINE} |
   tee ${OUT_FULL_FILE_NAME}
