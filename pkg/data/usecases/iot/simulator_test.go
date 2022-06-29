@@ -58,6 +58,11 @@ func (m *mockBaseSimulator) Headers() *common.GeneratedDataHeaders {
 		FieldKeys: m.Fields(),
 	}
 }
+
+func (s *mockBaseSimulator) MaxPoints() uint64 {
+	return uint64(len(s.pending))
+}
+
 func newMockBaseSimulator() *mockBaseSimulator {
 	fields := make(map[string][][]byte, fieldCount)
 	fieldKeys := make([][]byte, fieldCount)

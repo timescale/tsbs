@@ -57,6 +57,10 @@ func (c *GenericMetricsSimulatorConfig) NewSimulator(interval time.Duration, lim
 	return dg
 }
 
+func (gms *GenericMetricsSimulator) MaxPoints() uint64 {
+	return gms.maxPoints
+}
+
 // Fields returns a map of subsystems to metrics collected
 // Since each host has different number of fields (we use zipf distribution to assign # fields) we search
 // for the host with the max number of fields

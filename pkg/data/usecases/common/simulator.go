@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"github.com/timescale/tsbs/pkg/data"
 	"reflect"
 	"time"
@@ -77,6 +78,7 @@ type Simulator interface {
 	TagKeys() []string
 	TagTypes() []string
 	Headers() *GeneratedDataHeaders
+	MaxPoints() uint64
 }
 
 // BaseSimulator generates data similar to truck readings.
@@ -97,6 +99,31 @@ type BaseSimulator struct {
 	interval       time.Duration
 
 	simulatedMeasurementIndex int
+}
+
+func (s *BaseSimulator) MaxPoints() uint64 {
+	return s.maxPoints
+}
+
+func (s *BaseSimulator) Epochs() uint64 {
+	return s.epochs
+}
+
+func (s *BaseSimulator) TimestampEnd() time.Time {
+	return s.timestampEnd
+}
+
+func (s *BaseSimulator) TimestampStart() time.Time {
+	return s.timestampStart
+}
+
+func (s *BaseSimulator) MadePoints() uint64 {
+	return s.madePoints
+}
+
+// GetSummary returns a summary string after data has been generated.
+func (s *BaseSimulator) GetSummary() string {
+	return fmt.Sprintf("Generated a total of %d points.", s.madePoints)
 }
 
 // Finished tells whether we have simulated all the necessary points.
