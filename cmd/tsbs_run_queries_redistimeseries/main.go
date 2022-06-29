@@ -79,7 +79,7 @@ func init() {
 		if config.Debug > 0 {
 			fmt.Println("Printing cluster connection details after ")
 			fmt.Println(fmt.Sprintf("Cluster Addresses: %s", addresses))
-			fmt.Println(fmt.Sprintf("Cluster slots: %s", slots))
+			fmt.Println(fmt.Sprintf("Cluster slots: %v", slots))
 		}
 
 	} else {
