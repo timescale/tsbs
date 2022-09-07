@@ -33,11 +33,13 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 func (p *processor) do(b *batch) (uint64, uint64) {
 	for {
-		_, err := p.client.Write(context.TODO(), b.points)
+		ret, err := p.client.Write(context.TODO(), b.points)
 
 		if err == nil {
+			log.Printf("success :%d\n", ret)
 			return b.metrics, b.rows
 		}
+
 		log.Printf("Retrying, write failed. err:%s", err)
 		time.Sleep(time.Millisecond * 10)
 	}
