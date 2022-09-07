@@ -26,9 +26,9 @@ func initProgramOptions() (*ceresdb.SpecificConfig, load.BenchmarkRunner, *load.
 	if err := viper.Unmarshal(&loaderConf); err != nil {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
-	ceresdbAddr := viper.GetString("ceresdbAddr")
+	ceresdbAddr := viper.GetString("ceresdb-addr")
 	if len(ceresdbAddr) == 0 {
-		log.Fatalf("missing `ceresdbAddr` flag")
+		log.Fatalf("missing `ceresdb-addr` flag")
 	}
 
 	loader := load.GetBenchmarkRunner(loaderConf)

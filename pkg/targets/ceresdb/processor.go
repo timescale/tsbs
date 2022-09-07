@@ -36,11 +36,11 @@ func (p *processor) do(b *batch) (uint64, uint64) {
 		ret, err := p.client.Write(context.TODO(), b.points)
 
 		if err == nil {
-			log.Printf("success :%d\n", ret)
+			// log.Printf("success :%d\n", ret)
 			return b.metrics, b.rows
 		}
 
-		log.Printf("Retrying, write failed. err:%s", err)
+		log.Printf("Retrying, write failed. err:%s, ret:%d", err, ret)
 		time.Sleep(time.Millisecond * 10)
 	}
 }

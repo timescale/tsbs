@@ -32,7 +32,7 @@ func (vm vmTarget) Serializer() serialize.PointSerializer {
 
 func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
 	flagSet.String(
-		flagPrefix+"ceresdbAddr",
+		flagPrefix+"ceresdb-addr",
 		"127.0.0.1:8831",
 		"ceresdb gRPC endpoint",
 	)

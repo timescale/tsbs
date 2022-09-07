@@ -77,6 +77,5 @@ func (b *batch) Append(item data.LoadedPoint) {
 			Fields:    fields,
 			Timestamp: unixTimestampMs(t),
 		})
-		fmt.Printf("%+v\n", b.points[len(b.points)-1])
 	}
 }

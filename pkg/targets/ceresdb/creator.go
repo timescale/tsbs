@@ -11,12 +11,12 @@ func (d *dbCreator) Init() {}
 func (d *dbCreator) DBExists(dbName string) bool { return true }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	for tableName, fieldColumns := range d.headers.FieldKeys {
-		// tableName: cpu
-		// fieldColumns: usage_user...
+	// for tableName, fieldColumns := range d.headers.FieldKeys {
+	// 	// tableName: cpu
+	// 	// fieldColumns: usage_user...
 
-		createTable(tableName, fieldColumns)
-	}
+	// 	createTable(tableName, fieldColumns)
+	// }
 	return nil
 }
 

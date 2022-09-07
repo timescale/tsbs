@@ -1,6 +1,6 @@
-// tsbs_run_queries_clickhouse speed tests ClickHouse using requests from stdin or file.
+// tsbs_run_queries_ceresdb speed tests CeresDB using requests from stdin or file.
 //
-// It reads encoded Query objects from stdin or file, and makes concurrent requests to the provided ClickHouse endpoint.
+// It reads encoded Query objects from stdin or file, and makes concurrent requests to the provided CeresDB endpoint.
 // This program has no knowledge of the internals of the endpoint.
 package main
 
@@ -35,7 +35,7 @@ func init() {
 	config.AddToFlagSet(pflag.CommandLine)
 
 	pflag.String(
-		"ceresdbAddr",
+		"ceresdb-addr",
 		"127.0.0.1:8831",
 		"ceresdb gRPC endpoint",
 	)
@@ -52,7 +52,7 @@ func init() {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 
-	ceresdbAddr = viper.GetString("ceresdbAddr")
+	ceresdbAddr = viper.GetString("ceresdb-addr")
 	showExplain = viper.GetBool("show-explain")
 
 	runner = query.NewBenchmarkRunner(config)
