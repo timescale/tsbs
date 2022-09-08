@@ -11,7 +11,6 @@ import (
 
 	"github.com/blagojts/viper"
 	"github.com/jiacai2050/ceresdb_client_go/ceresdb"
-	_ "github.com/kshvakov/clickhouse"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
@@ -87,7 +86,6 @@ func (p *processor) Init(workerNumber int) {
 	}
 	p.db = client
 	p.opts = &queryExecutorOptions{
-		// ClickHouse could not do EXPLAIN
 		showExplain:   false,
 		debug:         runner.DebugLevel() > 0,
 		printResponse: runner.DoPrintResponses(),
@@ -101,7 +99,6 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 		return nil, nil
 	}
 
-	// Ensure ClickHouse query
 	ceresdbQuery := q.(*query.CeresDB)
 
 	start := time.Now()

@@ -12,6 +12,7 @@ import (
 
 const timestampName = "timestamp"
 
+// Those tags are not included in generated data file, so append them when create table
 var moreTagKeys map[string][]string
 
 func init() {
