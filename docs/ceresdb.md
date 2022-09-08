@@ -20,7 +20,7 @@ go build ./cmd/tsbs_run_queries_ceresdb/
       --timestamp-end="2022-09-05T00:00:10Z" \
       --log-interval="10s" --format="ceresdb" > data.input
 
-./tsbs_load_ceresdb --file data.input
+./tsbs_load_ceresdb --file data.input --storage-format hybrid
 ```
 
 ## Query

@@ -13,7 +13,8 @@ import (
 )
 
 type SpecificConfig struct {
-	CeresdbAddr string `yaml:"ceresdbAddr" mapstructure:"ceresdbAddr"`
+	CeresdbAddr   string `yaml:"ceresdbAddr" mapstructure:"ceresdbAddr"`
+	StorageFormat string `yaml:"storageFormat" mapstructure:"storageFormat"`
 }
 
 func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {
@@ -26,11 +27,11 @@ func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {
 
 // loader.Benchmark interface implementation
 type benchmark struct {
-	addr       string
+	config     *SpecificConfig
 	dataSource targets.DataSource
 }
 
-func NewBenchmark(vmSpecificConfig *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
+func NewBenchmark(config *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
 	if dataSourceConfig.Type != source.FileDataSourceType {
 		return nil, errors.New("only FILE data source type is supported for CeresDB")
 	}
@@ -40,7 +41,7 @@ func NewBenchmark(vmSpecificConfig *SpecificConfig, dataSourceConfig *source.Dat
 		dataSource: &fileDataSource{
 			scanner: bufio.NewScanner(br),
 		},
-		addr: vmSpecificConfig.CeresdbAddr,
+		config: config,
 	}, nil
 }
 
@@ -62,11 +63,14 @@ func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{addr: b.addr}
+	return &processor{addr: b.config.CeresdbAddr}
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{}
+	return &dbCreator{
+		config: b.config,
+		ds:     b.dataSource,
+	}
 }
 
 type factory struct {

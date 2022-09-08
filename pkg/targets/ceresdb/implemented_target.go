@@ -36,6 +36,11 @@ func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet
 		"127.0.0.1:8831",
 		"ceresdb gRPC endpoint",
 	)
+	flagSet.String(
+		flagPrefix+"storage-format",
+		"columnar",
+		"columnar or hybrid",
+	)
 }
 
 func (vm vmTarget) TargetName() string {

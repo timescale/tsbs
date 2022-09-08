@@ -30,9 +30,12 @@ func initProgramOptions() (*ceresdb.SpecificConfig, load.BenchmarkRunner, *load.
 	if len(ceresdbAddr) == 0 {
 		log.Fatalf("missing `ceresdb-addr` flag")
 	}
-
+	storageFormat := viper.GetString("storage-format")
 	loader := load.GetBenchmarkRunner(loaderConf)
-	return &ceresdb.SpecificConfig{CeresdbAddr: ceresdbAddr}, loader, &loaderConf
+	return &ceresdb.SpecificConfig{
+		CeresdbAddr:   ceresdbAddr,
+		StorageFormat: storageFormat,
+	}, loader, &loaderConf
 }
 
 func main() {
