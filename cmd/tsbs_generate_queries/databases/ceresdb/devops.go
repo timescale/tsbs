@@ -63,6 +63,66 @@ func (d *Devops) getHostWhereString(nhosts int) string {
 	return d.getHostWhereWithHostnames(hostnames)
 }
 
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in pseudo-SQL:
+//
+// SELECT MAX(metric1), ..., MAX(metricN)
+// FROM cpu
+// WHERE
+// 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// 		AND time >= '$HOUR_START'
+// 		AND time < '$HOUR_END'
+// GROUP BY hour
+// ORDER BY hour
+//
+// Resultsets:
+// cpu-max-all-1
+// cpu-max-all-8
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
+	metrics := devops.GetAllCPUMetrics()
+	selectClauses := d.getSelectClausesAggMetrics("max", metrics)
+
+	sql := fmt.Sprintf(`
+        SELECT
+            %s AS hour,
+            %s
+        FROM cpu
+        WHERE %s AND (created_at >= '%s') AND (created_at < '%s')
+        GROUP BY hour
+        ORDER BY hour
+        `,
+		d.getTimeBucket(oneHour),
+		strings.Join(selectClauses, ", "),
+		d.getHostWhereString(nHosts),
+		interval.Start().Format(timeStringFormat),
+		interval.End().Format(timeStringFormat))
+
+	humanLabel := devops.GetMaxAllLabel("CeresDB", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
+}
+
+// GroupByTime selects the MAX for numMetrics metrics under 'cpu',
+// per minute for nhosts hosts,
+// e.g. in pseudo-SQL:
+//
+// SELECT minute, max(metric1), ..., max(metricN)
+// FROM cpu
+// WHERE
+// 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// 	AND time >= '$HOUR_START'
+// 	AND time < '$HOUR_END'
+// GROUP BY minute
+// ORDER BY minute ASC
+//
+// Resultsets:
+// single-groupby-1-1-12
+// single-groupby-1-1-1
+// single-groupby-1-8-1
+// single-groupby-5-1-12
+// single-groupby-5-1-1
+// single-groupby-5-8-1
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
 	interval := d.Interval.MustRandWindow(timeRange)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
