@@ -15,6 +15,7 @@ import (
 type SpecificConfig struct {
 	CeresdbAddr   string `yaml:"ceresdbAddr" mapstructure:"ceresdbAddr"`
 	StorageFormat string `yaml:"storageFormat" mapstructure:"storageFormat"`
+	RowGroupSize  int64  `yaml:"rowGroupSize" mapstructure:"rowGroupSize"`
 }
 
 func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {

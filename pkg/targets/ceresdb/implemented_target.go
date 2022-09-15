@@ -41,6 +41,7 @@ func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet
 		"columnar",
 		"columnar or hybrid",
 	)
+	flagSet.Int64(flagPrefix+"row-group-size", 8192, "row num per row group in parquet")
 }
 
 func (vm vmTarget) TargetName() string {

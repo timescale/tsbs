@@ -24,7 +24,8 @@ const (
 	oneMintue = 60
 	oneHour   = oneMintue * 60
 
-	timeStringFormat = "2006-01-02 15:04:05"
+	// timeStringFormat = "2006-01-02 15:04:05"
+	timeStringFormat = time.RFC3339
 	timestampColumn  = "timestamp"
 )
 
@@ -88,7 +89,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
             %s AS hour,
             %s
         FROM cpu
-        WHERE %s AND (created_at >= '%s') AND (created_at < '%s')
+        WHERE %s AND (timestamp >= '%s') AND (timestamp < '%s')
         GROUP BY hour
         ORDER BY hour
         `,

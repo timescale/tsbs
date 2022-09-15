@@ -83,11 +83,12 @@ create table if not exists %s (
 %s
 ) with (
 enable_ttl = 'false',
+num_rows_per_row_group='%d',
 storage_format = '%s'
 );
 
 `
-	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.StorageFormat)
+	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.RowGroupSize, d.config.StorageFormat)
 	// fmt.Printf("sql = %s\n", sql)
 	_, err := client.Query(context.TODO(), sql)
 	return err
