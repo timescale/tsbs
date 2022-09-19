@@ -42,6 +42,11 @@ func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet
 		"columnar or hybrid",
 	)
 	flagSet.Int64(flagPrefix+"row-group-size", 8192, "row num per row group in parquet")
+	flagSet.String(
+		flagPrefix+"primary-keys",
+		"timestamp,tsid",
+		"Primary keys used when create table",
+	)
 }
 
 func (vm vmTarget) TargetName() string {

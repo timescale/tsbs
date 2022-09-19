@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/CeresDB/ceresdb-client-go/ceresdb"
 	"github.com/blagojts/viper"
-	"github.com/jiacai2050/ceresdb_client_go/ceresdb"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"

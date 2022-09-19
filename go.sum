@@ -49,6 +49,8 @@ github.com/Azure/go-autorest/tracing v0.6.0/go.mod h1:+vhtPC754Xsa23ID7GlGsrdKBp
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/CeresDB/ceresdb-client-go v0.0.0-20220919075902-fed3f5b9928b h1:kPI3xX13ADikiGjzGJgk2jyDP3u7rI0xNTQtgVoLW1g=
+github.com/CeresDB/ceresdb-client-go v0.0.0-20220919075902-fed3f5b9928b/go.mod h1:P7JKS3z72Fqo4ZDoFyHebspPZHzA5Q6+d12Rn76Vffc=
 github.com/CeresDB/ceresdbproto/go/ceresdbproto v0.0.0-20220531034131-a7db8811a949 h1:/kSxcFBTHSgIS8D91JMMvAdTwMcEwBwvf9OEgoDTdUM=
 github.com/CeresDB/ceresdbproto/go/ceresdbproto v0.0.0-20220531034131-a7db8811a949/go.mod h1:o1BFBNhM4aIRP+l4nn8P5F37xn43JqPhPV7Ozi3iQ88=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
@@ -581,8 +583,6 @@ github.com/jackc/puddle v1.1.0/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dv
 github.com/jackc/puddle v1.1.1/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dvjSWk=
 github.com/jamiealquiza/envy v1.1.0/go.mod h1:MP36BriGCLwEHhi1OU8E9569JNZrjWfCvzG7RsPnHus=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
-github.com/jiacai2050/ceresdb_client_go v0.0.0-20220905082216-dfb3fbbb7202 h1:4i1OOn80I3tEHZkI5JbqrdESU6rmug+GOq0zNVxR/w4=
-github.com/jiacai2050/ceresdb_client_go v0.0.0-20220905082216-dfb3fbbb7202/go.mod h1:8yan7WyhDfhoYsUK5m6s+B41cGP0tgdaURSD0SSb5Bw=
 github.com/jingyugao/rowserrcheck v0.0.0-20191204022205-72ab7603b68a/go.mod h1:xRskid8CManxVta/ALEhJha/pweKBaVG6fWgc0yH25s=
 github.com/jirfag/go-printf-func-name v0.0.0-20191110105641-45db9963cdd3/go.mod h1:HEWGJkRDzjJY2sqdDwxccsGicWEf9BQOZsq2tV+xzM0=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=

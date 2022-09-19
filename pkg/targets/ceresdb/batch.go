@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/influxdata/line-protocol/v2/lineprotocol"
-	"github.com/jiacai2050/ceresdb_client_go/ceresdb"
+	"github.com/CeresDB/ceresdb-client-go/ceresdb"
 	"github.com/timescale/tsbs/pkg/data"
 )
 

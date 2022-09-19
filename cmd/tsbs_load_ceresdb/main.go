@@ -31,12 +31,14 @@ func initProgramOptions() (*ceresdb.SpecificConfig, load.BenchmarkRunner, *load.
 		log.Fatalf("missing `ceresdb-addr` flag")
 	}
 	storageFormat := viper.GetString("storage-format")
+	primaryKeys := viper.GetString("primary-keys")
 	rowGroupSize := viper.GetInt64("row-group-size")
 	loader := load.GetBenchmarkRunner(loaderConf)
 	return &ceresdb.SpecificConfig{
 		CeresdbAddr:   ceresdbAddr,
 		StorageFormat: storageFormat,
 		RowGroupSize:  rowGroupSize,
+		PrimaryKeys:   primaryKeys,
 	}, loader, &loaderConf
 }
 

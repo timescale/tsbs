@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jiacai2050/ceresdb_client_go/ceresdb"
+	"github.com/CeresDB/ceresdb-client-go/ceresdb"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 )
@@ -80,7 +80,8 @@ func (d *dbCreator) createTable(client *ceresdb.Client, tableName string,
 
 	tmpl := `
 create table if not exists %s (
-%s
+%s,
+primary key(%s)
 ) with (
 enable_ttl = 'false',
 num_rows_per_row_group='%d',
@@ -88,7 +89,7 @@ storage_format = '%s'
 );
 
 `
-	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.RowGroupSize, d.config.StorageFormat)
+	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.PrimaryKeys, d.config.RowGroupSize, d.config.StorageFormat)
 	// fmt.Printf("sql = %s\n", sql)
 	_, err := client.Query(context.TODO(), sql)
 	return err

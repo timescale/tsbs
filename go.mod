@@ -3,6 +3,7 @@ module github.com/timescale/tsbs
 go 1.14
 
 require (
+	github.com/CeresDB/ceresdb-client-go v0.0.0-20220919075902-fed3f5b9928b
 	github.com/HdrHistogram/hdrhistogram-go v1.0.0
 	github.com/SiriDB/go-siridb-connector v0.0.0-20190110105621-86b34c44c921
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -18,7 +19,6 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/influxdata/line-protocol/v2 v2.2.1
 	github.com/jackc/pgx/v4 v4.8.0
-	github.com/jiacai2050/ceresdb_client_go v0.0.0-20220905082216-dfb3fbbb7202
 	github.com/jmoiron/sqlx v1.2.1-0.20190826204134-d7d95172beb5
 	github.com/kshvakov/clickhouse v1.3.11
 	github.com/lib/pq v1.3.0
