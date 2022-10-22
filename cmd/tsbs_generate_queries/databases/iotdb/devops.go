@@ -72,7 +72,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.StartString(), interval.EndString())
 
-	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
 
 // GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
@@ -96,5 +96,88 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.StartString(), interval.EndString(), d.BasicPathLevel+2)
 
-	d.fillInQuery(qi, humanLabel, humanDesc, devops.TableName, sql)
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// LastPointPerHost finds the last row for every host in the dataset
+func (d *Devops) LastPointPerHost(qi query.Query) {
+	humanLabel := "IoTDB last row per host"
+	humanDesc := humanLabel + ": cpu"
+
+	sql := fmt.Sprintf("SELECT LAST * FROM %s.cpu.* ", d.BasicPath)
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
+// e.g. in pseudo-SQL:
+//
+// SELECT MAX(metric1), ..., MAX(metricN)
+// FROM cpu WHERE (hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+// AND time >= '$HOUR_START' AND time < '$HOUR_END'
+// GROUP BY hour ORDER BY hour
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
+	fromHosts := d.getHostFromString(nHosts)
+	selectClauses := d.getSelectClausesAggMetrics("MAX_VALUE", devops.GetAllCPUMetrics())
+
+	humanLabel := devops.GetMaxAllLabel("IoTDB", nHosts)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+	sql := ""
+	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
+	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h)", interval.StartString(), interval.EndString())
+
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// GroupByOrderByLimit benchmarks a query that has a time WHERE clause, that groups by a truncated date, orders by that date, and takes a limit:
+// SELECT date_trunc('minute', time) AS t, MAX(cpu) FROM cpu
+// WHERE time < '$TIME'
+// GROUP BY t ORDER BY t DESC
+// LIMIT $LIMIT
+func (d *Devops) GroupByOrderByLimit(qi query.Query) {
+	interval := d.Interval.MustRandWindow(time.Hour)
+	selectClauses := d.getSelectClausesAggMetrics("MAX_VALUE", []string{"usage_user"})
+
+	sql := ""
+	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
+	// sql = sql + fmt.Sprintf(" WHERE time < %s", interval.EndString())
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.StartString(), interval.EndString())
+	sql = sql + " LIMIT 5"
+
+	humanLabel := "IoTDB max cpu over last 5 min-intervals (random end)"
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
+}
+
+// HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
+// usage between a time period for a number of hosts (if 0, it will search all hosts),
+// e.g. in pseudo-SQL:
+//
+// SELECT * FROM cpu
+// WHERE usage_user > 90.0
+// AND time >= '$TIME_START' AND time < '$TIME_END'
+// AND (hostname = '$HOST' OR hostname = '$HOST2'...)
+func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
+
+	var fromHosts string
+	if nHosts <= 0 {
+		fromHosts = fmt.Sprintf("%s.cpu.*", d.BasicPath)
+	} else {
+		fromHosts = d.getHostFromString(nHosts)
+	}
+
+	humanLabel, err := devops.GetHighCPULabel("IoTDB", nHosts)
+	panicIfErr(err)
+	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
+
+	sql := "SELECT *"
+	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
+	sql = sql + fmt.Sprintf(" WHERE usage_user > 90.0 AND time >= %s AND time < %s", interval.StartString(), interval.EndString())
+
+	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }

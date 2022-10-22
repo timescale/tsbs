@@ -15,7 +15,6 @@ type IoTDB struct {
 
 	// CRTODO: 设计好这里的结构，这里可能还需要其他东西
 	ClientSession client.Session
-	TableName     []byte
 	SqlQuery      []byte
 	id            uint64
 }
@@ -27,8 +26,7 @@ var IoTDBPool = sync.Pool{
 			HumanLabel:       []byte{},
 			HumanDescription: []byte{},
 
-			TableName: []byte{},
-			SqlQuery:  []byte{},
+			SqlQuery: []byte{},
 		}
 	},
 }

@@ -118,12 +118,12 @@ func (ti *TimeInterval) StartUnixMillis() int64 {
 	return ti.start.UTC().UnixNano() / int64(time.Millisecond)
 }
 
-// StartString formats the start  of the TimeInterval according to RFC3339.
+// StartString formats the start of the TimeInterval according to RFC3339.
 func (ti *TimeInterval) StartString() string {
 	return ti.start.Format(time.RFC3339)
 }
 
-// End returns the starting time in UTC.
+// End returns the end time in UTC.
 func (ti *TimeInterval) End() time.Time {
 	return ti.end
 }

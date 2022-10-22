@@ -16,11 +16,10 @@ func (g *BaseGenerator) GenerateEmptyQuery() query.Query {
 }
 
 // fillInQuery fills the query struct with data.
-func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, tableName, sql string) {
+func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, sql string) {
 	q := qi.(*query.IoTDB)
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(humanDesc)
-	q.TableName = []byte(tableName)
 	q.SqlQuery = []byte(sql)
 	// CRTODO: 在修改了结构之后，这里是否还需要更多的东西？
 }
