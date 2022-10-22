@@ -22,6 +22,35 @@ type Devops struct {
 	*devops.Core
 }
 
+// modifyHostnames makes sure IP address can appear in the path.
+// Node names in path can NOT contain "." unless enclosing it within either single quote (') or double quote (").
+// In this case, quotes are recognized as part of the node name to avoid ambiguity.
+func (d *Devops) modifyHostnames(hostnames []string) []string {
+	for i, hostname := range hostnames {
+		if strings.Contains(hostname, ".") {
+			if !(hostname[:1] == "\"" && hostname[len(hostname)-1:] == "\"") {
+				// not modified yet
+				hostnames[i] = "\"" + hostnames[i] + "\""
+			}
+
+		}
+	}
+	return hostnames
+}
+
+// getHostFromWithHostnames creates FROM SQL statement for multiple hostnames.
+// e.g.  A storage group "root.cpu" has two devices.
+//       Two hostnames are "host1" and "host2"
+//       This function returns "root.cpu.host1, root.cpu.host2" (without "FROM")
+func (d *Devops) getHostFromWithHostnames(hostnames []string) string {
+	hostnames = d.modifyHostnames(hostnames)
+	var hostnameClauses []string
+	for _, hostname := range hostnames {
+		hostnameClauses = append(hostnameClauses, fmt.Sprintf("%s.cpu.%s", d.BasicPath, hostname))
+	}
+	return strings.Join(hostnameClauses, ", ")
+}
+
 // getHostFromString gets multiple random hostnames and creates a FROM SQL statement for these hostnames.
 // e.g.  A storage group "root.cpu" has two devices, named "host1" and "host2"
 //       Two paths for them are "root.cpu.host1" and "root.cpu.host2"
@@ -29,13 +58,8 @@ type Devops struct {
 func (d *Devops) getHostFromString(nHosts int) string {
 	hostnames, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
-	var hostnameClauses []string
-
-	for _, hostname := range hostnames {
-		hostnameClauses = append(hostnameClauses, fmt.Sprintf("%s.cpu.%s", d.BasicPath, hostname))
-	}
-
-	return strings.Join(hostnameClauses, ", ")
+	fromClauses := d.getHostFromWithHostnames(hostnames)
+	return fromClauses
 }
 
 // getSelectClausesAggMetrics gets clauses for aggregate functions.
@@ -46,6 +70,12 @@ func (d *Devops) getSelectClausesAggMetrics(agg string, metrics []string) []stri
 	}
 
 	return selectClauses
+}
+
+// getSelectClausesAggMetricsString gets a whole select clause for aggregate functions.
+func (d *Devops) getSelectClausesAggMetricsString(agg string, metrics []string) string {
+	selectClauses := d.getSelectClausesAggMetrics(agg, metrics)
+	return strings.Join(selectClauses, ", ")
 }
 
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu',
@@ -61,13 +91,13 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	interval := d.Interval.MustRandWindow(timeRange)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	panicIfErr(err)
-	selectClauses := d.getSelectClausesAggMetrics("MAX_VALUE", metrics)
+	selectClause := d.getSelectClausesAggMetricsString("MAX_VALUE", metrics)
 	fromHosts := d.getHostFromString(nHosts)
 
 	humanLabel := fmt.Sprintf("IoTDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	sql := ""
-	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.StartString(), interval.EndString())
@@ -86,12 +116,12 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	panicIfErr(err)
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
-	selectClauses := d.getSelectClausesAggMetrics("AVG", metrics)
+	selectClause := d.getSelectClausesAggMetrics("AVG", metrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("IoTDB", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	sql := ""
-	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.StartString(), interval.EndString(), d.BasicPathLevel+2)
@@ -118,12 +148,12 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 	interval := d.Interval.MustRandWindow(duration)
 	fromHosts := d.getHostFromString(nHosts)
-	selectClauses := d.getSelectClausesAggMetrics("MAX_VALUE", devops.GetAllCPUMetrics())
+	selectClause := d.getSelectClausesAggMetrics("MAX_VALUE", devops.GetAllCPUMetrics())
 
 	humanLabel := devops.GetMaxAllLabel("IoTDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	sql := ""
-	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h)", interval.StartString(), interval.EndString())
@@ -138,10 +168,10 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.MustRandWindow(time.Hour)
-	selectClauses := d.getSelectClausesAggMetrics("MAX_VALUE", []string{"usage_user"})
+	selectClause := d.getSelectClausesAggMetrics("MAX_VALUE", []string{"usage_user"})
 
 	sql := ""
-	sql = sql + fmt.Sprintf("SELECT %s", strings.Join(selectClauses, ", "))
+	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
 	// sql = sql + fmt.Sprintf(" WHERE time < %s", interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.StartString(), interval.EndString())

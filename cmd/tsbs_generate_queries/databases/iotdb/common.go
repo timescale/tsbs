@@ -1,6 +1,10 @@
 package iotdb
 
 import (
+	"time"
+
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	"github.com/timescale/tsbs/pkg/query"
 )
 
@@ -22,4 +26,20 @@ func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, sql s
 	q.HumanDescription = []byte(humanDesc)
 	q.SqlQuery = []byte(sql)
 	// CRTODO: 在修改了结构之后，这里是否还需要更多的东西？
+}
+
+// NewDevops creates a new devops use case query generator.
+func (g *BaseGenerator) NewDevops(start, end time.Time, scale int) (utils.QueryGenerator, error) {
+	core, err := devops.NewCore(start, end, scale)
+
+	if err != nil {
+		return nil, err
+	}
+
+	devops := &Devops{
+		BaseGenerator: g,
+		Core:          core,
+	}
+
+	return devops, nil
 }
