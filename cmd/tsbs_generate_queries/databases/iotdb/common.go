@@ -8,6 +8,8 @@ import (
 	"github.com/timescale/tsbs/pkg/query"
 )
 
+const iotdbTimeFmt = "2006-01-02 15:04:05"
+
 // BaseGenerator contains settings specific for IoTDB
 type BaseGenerator struct {
 	BasicPath      string // e.g. "root.sg" is basic path of "root.sg.device"
