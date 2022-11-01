@@ -8,11 +8,11 @@ import (
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-func newBenchmark(clientConfig client.Config, loaderConfig load.BenchmarkRunnerConfig) (targets.Benchmark, error) {
+func newBenchmark(clientConfig client.Config, loaderConfig load.BenchmarkRunnerConfig) targets.Benchmark {
 	return &iotdbBenchmark{
 		cilentConfig: clientConfig,
 		loaderConfig: loaderConfig,
-	}, nil
+	}
 }
 
 type iotdbBenchmark struct {
