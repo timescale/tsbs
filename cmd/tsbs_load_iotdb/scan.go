@@ -14,7 +14,7 @@ import (
 type iotdbPoint struct {
 	deviceID      string // the deviceID(path) of this record, e.g. "root.cpu.host_0"
 	fieldKeyStr   string // the keys of fields, e.g. "timestamp,value,str"
-	fieldValueStr string // the values of fields in string, e.g. "1666281600000,44.0,\"host_1\""
+	fieldValueStr string // the values of fields in string, e.g. "1666281600000,44.0,'host_1'"
 	fieldsCnt     uint64
 }
 
