@@ -5,11 +5,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"log"
-	"sync"
-	"time"
 
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
@@ -25,7 +22,7 @@ import (
 // database option vars
 var (
 	clientConfig client.Config
-	timeoutInNs  int
+	timeoutInMs  int // 0 for no timeout
 )
 
 // Global vars
@@ -34,7 +31,7 @@ var (
 	// CRTODO 如果没用就移除它
 	loaderConfig load.BenchmarkRunnerConfig
 	loader       load.BenchmarkRunner
-	bufPool      sync.Pool
+	// bufPool      sync.Pool
 )
 
 // allows for testing
@@ -42,7 +39,7 @@ var fatal = log.Fatalf // CRTODO 如果没用就移除它
 
 // Parse args:
 func init() {
-	timeoutInNs = int(2 * time.Second)
+	timeoutInMs = int(2000)
 	target = initializers.GetTarget(constants.FormatIoTDB)
 	loaderConfig = load.BenchmarkRunnerConfig{}
 	loaderConfig.AddToFlagSet(pflag.CommandLine)
@@ -74,11 +71,11 @@ func init() {
 }
 
 func main() {
-	bufPool = sync.Pool{
-		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
-		},
-	}
+	// bufPool = sync.Pool{
+	// 	New: func() interface{} {
+	// 		return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
+	// 	},
+	// }
 	benchmark := newBenchmark(clientConfig, loaderConfig)
 
 	loader.RunBenchmark(benchmark)

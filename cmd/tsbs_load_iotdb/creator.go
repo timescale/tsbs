@@ -15,7 +15,7 @@ type dbCreator struct {
 
 func (d *dbCreator) Init() {
 	d.session = client.NewSession(&clientConfig)
-	if err := d.session.Open(false, timeoutInNs); err != nil {
+	if err := d.session.Open(false, timeoutInMs); err != nil {
 		errMsg := fmt.Sprintf("dbCreator init error, session is not open: %v\n", err)
 		errMsg = errMsg + fmt.Sprintf("Maybe your configuration is inappropriate, please check: %v", clientConfig)
 		fatal(errMsg)
