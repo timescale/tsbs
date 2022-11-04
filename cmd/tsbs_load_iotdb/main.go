@@ -59,6 +59,11 @@ func init() {
 	port := viper.GetString("port")
 	user := viper.GetString("user")
 	password := viper.GetString("password")
+	workers := viper.GetUint("workers")
+	log.Printf("tsbs_load_iotdb loading with %d workers.\n", workers)
+	if workers < 5 {
+		log.Println("Insertion throughput is strongly related to the number of threads. Use more workers for better performance.")
+	}
 
 	clientConfig = client.Config{
 		Host:     host,

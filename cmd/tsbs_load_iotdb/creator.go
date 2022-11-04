@@ -17,7 +17,7 @@ func (d *dbCreator) Init() {
 	d.session = client.NewSession(&clientConfig)
 	if err := d.session.Open(false, timeoutInMs); err != nil {
 		errMsg := fmt.Sprintf("dbCreator init error, session is not open: %v\n", err)
-		errMsg = errMsg + fmt.Sprintf("Maybe your configuration is inappropriate, please check: %v", clientConfig)
+		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
 		fatal(errMsg)
 	}
 }
