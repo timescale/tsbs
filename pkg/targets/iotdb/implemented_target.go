@@ -21,6 +21,7 @@ func (t *iotdbTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Flag
 	flagSet.String(flagPrefix+"port", "6667", "Which port to connect to on the database host")
 	flagSet.String(flagPrefix+"user", "root", "The user who connect to IoTDB")
 	flagSet.String(flagPrefix+"password", "root", "The password for user connecting to IoTDB")
+	flagSet.Int(flagPrefix+"timeout", 0, "Session timeout check in millisecond. Use 0 for no timeout.")
 }
 
 func (t *iotdbTarget) TargetName() string {

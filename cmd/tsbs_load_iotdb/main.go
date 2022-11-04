@@ -39,7 +39,6 @@ var fatal = log.Fatalf // CRTODO 如果没用就移除它
 
 // Parse args:
 func init() {
-	timeoutInMs = int(2000)
 	target = initializers.GetTarget(constants.FormatIoTDB)
 	loaderConfig = load.BenchmarkRunnerConfig{}
 	loaderConfig.AddToFlagSet(pflag.CommandLine)
@@ -60,7 +59,14 @@ func init() {
 	user := viper.GetString("user")
 	password := viper.GetString("password")
 	workers := viper.GetUint("workers")
-	log.Printf("tsbs_load_iotdb loading with %d workers.\n", workers)
+	timeoutInMs = viper.GetInt("timeout")
+
+	timeoutStr := fmt.Sprintf("timeout for session opening check: %d ms", timeoutInMs)
+	if timeoutInMs <= 0 {
+		timeoutInMs = 0 //
+		timeoutStr = "no timeout for session opening check"
+	}
+	log.Printf("tsbs_load_iotdb target: %s:%s, %s. Loading with %d workers.\n", host, port, timeoutStr, workers)
 	if workers < 5 {
 		log.Println("Insertion throughput is strongly related to the number of threads. Use more workers for better performance.")
 	}
