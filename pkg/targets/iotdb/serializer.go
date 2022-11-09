@@ -12,6 +12,8 @@ import (
 // Serializer writes a Point in a serialized form for MongoDB
 type Serializer struct{}
 
+const iotdbTimeFmt = "2006-01-02 15:04:05"
+
 // Serialize writes Point p to the given Writer w, so it can be
 // loaded by the IoTDB loader. The format is CSV with two lines per Point,
 // with the first row being the names of fields and the second row being the
@@ -21,8 +23,8 @@ type Serializer struct{}
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
 //
-// deviceID,timestamp,hostname,tag2
-// root.cpu.host_1,1666281600000,'host_1',44.0
+// deviceID,timestamp,hostname,value
+// root.cpu.host_1,2016-01-01 00:00:00,'host_1',44.0
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	// Tag row first, prefixed with 'time,path'
 	buf1 := make([]byte, 0, 1024)
@@ -49,7 +51,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	}
 	buf2 := make([]byte, 0, 1024)
 	buf2 = append(buf2, []byte(fmt.Sprintf("root.%s.%s,", modifyHostname(string(p.MeasurementName())), hostname))...)
-	buf2 = append(buf2, []byte(fmt.Sprintf("%d", p.Timestamp().UTC().UnixMicro()))...)
+	buf2 = append(buf2, []byte(fmt.Sprintf("%s", p.Timestamp().UTC().Format(iotdbTimeFmt)))...)
 	buf2 = append(buf2, tempBuf...)
 	// Fields
 	fieldKeys := p.FieldKeys()

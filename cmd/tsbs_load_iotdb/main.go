@@ -81,11 +81,6 @@ func init() {
 }
 
 func main() {
-	// bufPool = sync.Pool{
-	// 	New: func() interface{} {
-	// 		return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
-	// 	},
-	// }
 	benchmark := newBenchmark(clientConfig, loaderConfig)
 
 	loader.RunBenchmark(benchmark)

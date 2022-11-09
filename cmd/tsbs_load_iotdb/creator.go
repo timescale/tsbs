@@ -46,9 +46,6 @@ func (d *dbCreator) getAllStorageGroup() ([]string, error) {
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	// d.session = client.NewSession(&clientConfig)
-	// defer d.session.Close()
-
 	sgList, err := d.getAllStorageGroup()
 	if err != nil {
 		fatal("DBExists error: %v", err)
@@ -68,9 +65,6 @@ func (d *dbCreator) CreateDB(dbName string) error {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	// d.session = client.NewSession(&clientConfig)
-	// defer d.session.Close()
-
 	sg := fmt.Sprintf("root.%s", dbName)
 	_, err := d.session.DeleteStorageGroup(sg)
 	return err

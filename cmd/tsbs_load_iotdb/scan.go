@@ -14,7 +14,7 @@ import (
 type iotdbPoint struct {
 	deviceID      string // the deviceID(path) of this record, e.g. "root.cpu.host_0"
 	fieldKeyStr   string // the keys of fields, e.g. "timestamp,value,str"
-	fieldValueStr string // the values of fields in string, e.g. "1666281600000,44.0,'host_1'"
+	fieldValueStr string // the values of fields in string, e.g. "2016-01-01 00:00:00,44.0,'host_1'"
 	fieldsCnt     uint64
 }
 
@@ -32,8 +32,8 @@ type fileDataSource struct {
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
 //
-// deviceID,timestamp,hostname,tag2
-// root.cpu.host_1,1666281600000,'host_1',44.0
+// deviceID,timestamp,hostname,value
+// root.cpu.host_1,2016-01-01 00:00:00,'host_1',44.0
 //
 // return : bool -> true means got one point, else reaches EOF or error happens
 func (d *fileDataSource) nextTwoLines() (bool, string, string, error) {
