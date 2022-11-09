@@ -17,24 +17,24 @@ func TestModifyHostnames(t *testing.T) {
 		expected    []string
 	}{
 		{
-			description: "normal node names",
+			description: "normal node name",
 			hostnames:   []string{"hostname", "hello_world"},
 			expected:    []string{"hostname", "hello_world"},
 		},
 		{
 			description: "IP address or URL as hostnames",
 			hostnames:   []string{"192.168.1.1", "8.8.8.8", "iotdb.apache.org"},
-			expected:    []string{"\"192.168.1.1\"", "\"8.8.8.8\"", "\"iotdb.apache.org\""},
+			expected:    []string{"`192.168.1.1`", "`8.8.8.8`", "`iotdb.apache.org`"},
 		},
 		{
-			description: "already modified case",
-			hostnames:   []string{"\"192.168.1.1\"", "\"8.8.8.8\"", "\"iotdb.apache.org\""},
-			expected:    []string{"\"192.168.1.1\"", "\"8.8.8.8\"", "\"iotdb.apache.org\""},
+			description: "already modified cases",
+			hostnames:   []string{"`192.168.1.1`", "`8.8.8.8`", "`iotdb.apache.org`"},
+			expected:    []string{"`192.168.1.1`", "`8.8.8.8`", "`iotdb.apache.org`"},
 		},
 		{
 			description: "mixed host names",
-			hostnames:   []string{"192.168.1.1", "hostname", "iotdb.apache.org", "\"8.8.8.8\""},
-			expected:    []string{"\"192.168.1.1\"", "hostname", "\"iotdb.apache.org\"", "\"8.8.8.8\""},
+			hostnames:   []string{"192.168.1.1", "hostname", "iotdb.apache.org", "`8.8.8.8`"},
+			expected:    []string{"`192.168.1.1`", "hostname", "`iotdb.apache.org`", "`8.8.8.8`"},
 		},
 	}
 
@@ -84,8 +84,8 @@ func TestDevopsGetHostFromString(t *testing.T) {
 			description:    "multi host (3) with special node names",
 			basicPath:      "root",
 			basicPathLevel: 0,
-			hostnames:      []string{"host1", "192.168.1.1", "\"iotdb.apache.org\""},
-			expected:       "root.cpu.host1, root.cpu.\"192.168.1.1\", root.cpu.\"iotdb.apache.org\"",
+			hostnames:      []string{"host1", "192.168.1.1", "`iotdb.apache.org`"},
+			expected:       "root.cpu.host1, root.cpu.`192.168.1.1`, root.cpu.`iotdb.apache.org`",
 		},
 	}
 

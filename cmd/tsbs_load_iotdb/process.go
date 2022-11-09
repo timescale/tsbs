@@ -17,7 +17,7 @@ func (p *processor) Init(_ int, doLoad, _ bool) {
 	}
 	p.session = client.NewSession(&clientConfig)
 	if err := p.session.Open(false, timeoutInMs); err != nil {
-		errMsg := fmt.Sprintf("processor init error, session is not open: %v\n", err)
+		errMsg := fmt.Sprintf("IoTDB processor init error, session is not open: %v\n", err)
 		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
 		fatal(errMsg)
 	}

@@ -44,11 +44,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		}
 	}
 	if !foundHostname {
-		// errMsg := "IoTDB Serialize Error, 'hostname' tag not found.\n Tags are:"
-		// for i, _ := range tagKeys {
-		// 	errMsg += fmt.Sprintf("%s, ", string(tagKeys[i]))
-		// }
-		// return fmt.Errorf("%s", errMsg)
+		// Unable to find hostname as part of device id
 		hostname = "unknown"
 	}
 	buf2 := make([]byte, 0, 1024)
@@ -78,9 +74,9 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 // In this case, quotes are recognized as part of the node name to avoid ambiguity.
 func modifyHostname(hostname string) string {
 	if strings.Contains(hostname, ".") {
-		if !(hostname[:1] == "\"" && hostname[len(hostname)-1:] == "\"") {
+		if !(hostname[:1] == "`" && hostname[len(hostname)-1:] == "`") {
 			// not modified yet
-			hostname = "\"" + hostname + "\""
+			hostname = "`" + hostname + "`"
 		}
 
 	}

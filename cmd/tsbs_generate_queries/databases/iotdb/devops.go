@@ -28,9 +28,9 @@ type Devops struct {
 func (d *Devops) modifyHostnames(hostnames []string) []string {
 	for i, hostname := range hostnames {
 		if strings.Contains(hostname, ".") {
-			if !(hostname[:1] == "\"" && hostname[len(hostname)-1:] == "\"") {
+			if !(hostname[:1] == "`" && hostname[len(hostname)-1:] == "`") {
 				// not modified yet
-				hostnames[i] = "\"" + hostnames[i] + "\""
+				hostnames[i] = "`" + hostnames[i] + "`"
 			}
 
 		}

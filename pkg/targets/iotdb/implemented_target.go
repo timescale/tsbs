@@ -33,6 +33,6 @@ func (t *iotdbTarget) Serializer() serialize.PointSerializer {
 }
 
 func (t *iotdbTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
-	// CRTODO: 搞清楚这个是干什么的，MongoDB和questdb都没做这个事情
-	panic("not implemented")
+	// benchmark for tsbs_load_iotdb is implemented in "cmd/tsbs_load_iotdb/main.go/main()"
+	panic("Benchmark() not implemented! Benchmark for tsbs_load_iotdb is implemented in \"cmd/tsbs_load_iotdb/main.go/main()\"")
 }

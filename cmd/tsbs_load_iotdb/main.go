@@ -28,14 +28,13 @@ var (
 // Global vars
 var (
 	target targets.ImplementedTarget
-	// CRTODO 如果没用就移除它
+
 	loaderConfig load.BenchmarkRunnerConfig
 	loader       load.BenchmarkRunner
-	// bufPool      sync.Pool
 )
 
 // allows for testing
-var fatal = log.Fatalf // CRTODO 如果没用就移除它
+var fatal = log.Fatalf
 
 // Parse args:
 func init() {

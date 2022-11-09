@@ -27,7 +27,6 @@ func (g *BaseGenerator) fillInQuery(qi query.Query, humanLabel, humanDesc, sql s
 	q.HumanLabel = []byte(humanLabel)
 	q.HumanDescription = []byte(humanDesc)
 	q.SqlQuery = []byte(sql)
-	// CRTODO: 在修改了结构之后，这里是否还需要更多的东西？
 }
 
 // NewDevops creates a new devops use case query generator.

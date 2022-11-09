@@ -3,8 +3,6 @@ package query
 import (
 	"fmt"
 	"sync"
-	// CRTODO: 删掉不需要的内容
-	// "github.com/apache/iotdb-client-go/client"
 )
 
 // IoTDB encodes a IoTDB request. This will be serialized for use
@@ -13,8 +11,6 @@ type IoTDB struct {
 	HumanLabel       []byte
 	HumanDescription []byte
 
-	// CRTODO: 设计好这里的结构，这里可能还需要其他东西
-	// ClientSession client.Session
 	SqlQuery []byte
 	id       uint64
 }
@@ -66,7 +62,6 @@ func (q *IoTDB) HumanDescriptionName() []byte {
 
 // Release resets and returns this Query to its pool
 func (q *IoTDB) Release() {
-	// CRTODO: 弄清楚这里是否还需要其他的操作
 	q.HumanLabel = q.HumanLabel[:0]
 	q.HumanDescription = q.HumanDescription[:0]
 	q.id = 0

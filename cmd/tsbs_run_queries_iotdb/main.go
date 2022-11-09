@@ -96,8 +96,7 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 
 	took := time.Now().UnixNano() - start
 	if err != nil {
-		// CRTODO 更换一个更合适的方式
-		log.Printf("log! ERROR! %v", err)
+		log.Printf("An error occurred while executing SQL: %s\n", sql)
 		return nil, err
 	}
 	lag := float64(took) / float64(time.Millisecond) // in milliseconds

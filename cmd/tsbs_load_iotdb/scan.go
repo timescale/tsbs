@@ -64,7 +64,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 		if err == nil { // End of file
 			return data.LoadedPoint{}
 		} else { // Some error occurred
-			fatal("scan error: %v", err)
+			fatal("IoTDB scan error: %v", err)
 			return data.LoadedPoint{}
 		}
 	}
@@ -93,7 +93,6 @@ func (b *iotdbBatch) Len() uint {
 }
 
 func (b *iotdbBatch) Append(item data.LoadedPoint) {
-	// CRTODO 可能需要解析内容
 	b.rows++
 	b.points = append(b.points, item.Data.(*iotdbPoint))
 	b.metrics += item.Data.(*iotdbPoint).fieldsCnt
