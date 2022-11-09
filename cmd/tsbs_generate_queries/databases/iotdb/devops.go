@@ -124,7 +124,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
 	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+2)
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+2)
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }

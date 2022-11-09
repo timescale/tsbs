@@ -182,7 +182,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root.sg", BasicPathLevel: 1},
 			expectedHumanLabel: "IoTDB mean of 1 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "IoTDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT AVG(usage_user) FROM root.sg.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1m), LEVEL = 3",
+			expectedSQLQuery:   "SELECT AVG(usage_user) FROM root.sg.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h), LEVEL = 3",
 		},
 		{
 			description:        "5 metric with storage group 'root'",
@@ -190,7 +190,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root", BasicPathLevel: 0},
 			expectedHumanLabel: "IoTDB mean of 5 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "IoTDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT AVG(usage_user), AVG(usage_system), AVG(usage_idle), AVG(usage_nice), AVG(usage_iowait) FROM root.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1m), LEVEL = 2",
+			expectedSQLQuery:   "SELECT AVG(usage_user), AVG(usage_system), AVG(usage_idle), AVG(usage_nice), AVG(usage_iowait) FROM root.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h), LEVEL = 2",
 		},
 	}
 
