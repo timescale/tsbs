@@ -39,7 +39,8 @@ runners: tsbs_run_queries_akumuli \
 		 tsbs_run_queries_timescaledb \
 		 tsbs_run_queries_timestream \
 		 tsbs_run_queries_victoriametrics \
-		 tsbs_run_queries_questdb
+		 tsbs_run_queries_questdb \
+		 tsbs_run_queries_iotdb
 
 test:
 	$(GOTEST) -v ./...

@@ -12,7 +12,7 @@ const iotdbTimeFmt = "2006-01-02 15:04:05"
 
 // BaseGenerator contains settings specific for IoTDB
 type BaseGenerator struct {
-	BasicPath      string // e.g. "root.sg" is basic path of "root.sg.device"
+	BasicPath      string // e.g. "root.sg" is basic path of "root.sg.device". default : "root"
 	BasicPathLevel int32  // e.g. 0 for "root", 1 for "root.device"
 }
 

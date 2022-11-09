@@ -3,8 +3,8 @@ package query
 import (
 	"fmt"
 	"sync"
-
-	"github.com/apache/iotdb-client-go/client"
+	// CRTODO: 删掉不需要的内容
+	// "github.com/apache/iotdb-client-go/client"
 )
 
 // IoTDB encodes a IoTDB request. This will be serialized for use
@@ -14,9 +14,9 @@ type IoTDB struct {
 	HumanDescription []byte
 
 	// CRTODO: 设计好这里的结构，这里可能还需要其他东西
-	ClientSession client.Session
-	SqlQuery      []byte
-	id            uint64
+	// ClientSession client.Session
+	SqlQuery []byte
+	id       uint64
 }
 
 // IoTDBPool is a sync.Pool of IoTDB Query types
