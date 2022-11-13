@@ -8,7 +8,8 @@ import (
 )
 
 type processor struct {
-	session client.Session
+	session        client.Session
+	recordsMaxRows int // max rows of records in 'InsertRecords'
 }
 
 func (p *processor) Init(_ int, doLoad, _ bool) {
@@ -28,10 +29,58 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 	// Write records
 	if doLoad {
-		for _, row := range batch.points {
-			sql := row.generateInsertStatement()
-			p.session.ExecuteUpdateStatement(sql)
+		if p.recordsMaxRows > 0 {
+			for index := 0; index < len(batch.points); {
+				var (
+					deviceId     []string
+					measurements [][]string
+					dataTypes    [][]client.TSDataType
+					values       [][]interface{}
+					timestamps   []int64
+				)
+				for thisRecordsCnt := 0; thisRecordsCnt < recordsMaxRows && index < len(batch.points); {
+					row := batch.points[index]
+					deviceId = append(deviceId, row.deviceID)
+					measurements = append(measurements, row.measurements)
+					dataTypes = append(dataTypes, row.dataTypes)
+					values = append(values, row.values)
+					timestamps = append(timestamps, row.timestamp)
+					thisRecordsCnt++
+					index++
+				}
+				_, err := p.session.InsertRecords(
+					deviceId, measurements, dataTypes, values, timestamps,
+				)
+				if err != nil {
+					fatal("ProcessBatch error:%v", err)
+				}
+			}
+		} else {
+			var (
+				deviceId     []string
+				measurements [][]string
+				dataTypes    [][]client.TSDataType
+				values       [][]interface{}
+				timestamps   []int64
+			)
+			for _, row := range batch.points {
+				deviceId = append(deviceId, row.deviceID)
+				measurements = append(measurements, row.measurements)
+				dataTypes = append(dataTypes, row.dataTypes)
+				values = append(values, row.values)
+				timestamps = append(timestamps, row.timestamp)
+			}
+			_, err := p.session.InsertRecords(
+				deviceId, measurements, dataTypes, values, timestamps,
+			)
+			if err != nil {
+				fatal("ProcessBatch error:%v", err)
+			}
 		}
+		// for _, row := range batch.points {
+		// 	sql := row.generateInsertStatement()
+		// 	p.session.ExecuteUpdateStatement(sql)
+		// }
 	}
 
 	metricCount = batch.metrics

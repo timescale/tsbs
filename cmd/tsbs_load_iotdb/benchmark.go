@@ -10,14 +10,16 @@ import (
 
 func newBenchmark(clientConfig client.Config, loaderConfig load.BenchmarkRunnerConfig) targets.Benchmark {
 	return &iotdbBenchmark{
-		cilentConfig: clientConfig,
-		loaderConfig: loaderConfig,
+		cilentConfig:   clientConfig,
+		loaderConfig:   loaderConfig,
+		recordsMaxRows: recordsMaxRows,
 	}
 }
 
 type iotdbBenchmark struct {
-	cilentConfig client.Config
-	loaderConfig load.BenchmarkRunnerConfig
+	cilentConfig   client.Config
+	loaderConfig   load.BenchmarkRunnerConfig
+	recordsMaxRows int
 }
 
 func (b *iotdbBenchmark) GetDataSource() targets.DataSource {
@@ -33,7 +35,9 @@ func (b *iotdbBenchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexe
 }
 
 func (b *iotdbBenchmark) GetProcessor() targets.Processor {
-	return &processor{}
+	return &processor{
+		recordsMaxRows: b.recordsMaxRows,
+	}
 }
 
 func (b *iotdbBenchmark) GetDBCreator() targets.DBCreator {

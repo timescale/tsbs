@@ -4,10 +4,71 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/apache/iotdb-client-go/client"
 	"github.com/stretchr/testify/require"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 )
+
+func TestIotdbFormat(t *testing.T) {
+	cases := []struct {
+		description  string
+		input        interface{}
+		expectedByte []byte
+		expectedType client.TSDataType
+	}{
+		{
+			description:  "boolean true",
+			input:        interface{}(true),
+			expectedByte: []byte("true"),
+			expectedType: client.BOOLEAN,
+		},
+		{
+			description:  "boolean false",
+			input:        interface{}(false),
+			expectedByte: []byte("false"),
+			expectedType: client.BOOLEAN,
+		},
+		{
+			description:  "int32 -1",
+			input:        interface{}(int32(-1)),
+			expectedByte: []byte("-1"),
+			expectedType: client.INT32,
+		},
+		{
+			description:  "int64 2147483648",
+			input:        interface{}(int64(2147483648)),
+			expectedByte: []byte("2147483648"),
+			expectedType: client.INT64,
+		},
+		{
+			description:  "int64 9223372036854775801",
+			input:        interface{}(int64(9223372036854775801)),
+			expectedByte: []byte("9223372036854775801"),
+			expectedType: client.INT64,
+		},
+		{
+			description:  "float32 0.1",
+			input:        interface{}(float32(0.1)),
+			expectedByte: []byte("0.1"),
+			expectedType: client.FLOAT,
+		},
+		{
+			description:  "float64 0.12345678901234567890123456",
+			input:        interface{}(float64(0.12345678901234567890123456)),
+			expectedByte: []byte("0.12345678901234568"),
+			expectedType: client.DOUBLE,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			actualByte, actualType := iotdbFormat(c.input)
+			require.EqualValues(t, c.expectedByte, actualByte)
+			require.EqualValues(t, c.expectedType, actualType)
+		})
+	}
+
+}
 
 func TestSerialize_001(t *testing.T) {
 	cases := []struct {
@@ -18,22 +79,22 @@ func TestSerialize_001(t *testing.T) {
 		{
 			description: "a regular point ",
 			inputPoint:  serialize.TestPointDefault(),
-			expected:    "deviceID,timestamp,region,datacenter,usage_guest_nice\nroot.cpu.host_0,2016-01-01 00:00:00,'eu-west-1','eu-west-1b',38.24311829\n",
+			expected:    "deviceID,timestamp,region,datacenter,usage_guest_nice\nroot.cpu.host_0,1451606400000000000,'eu-west-1','eu-west-1b',38.24311829\ndatatype,5,5,4\n",
 		},
 		{
 			description: "a regular Point using int as value",
 			inputPoint:  serialize.TestPointInt(),
-			expected:    "deviceID,timestamp,region,datacenter,usage_guest\nroot.cpu.host_0,2016-01-01 00:00:00,'eu-west-1','eu-west-1b',38\n",
+			expected:    "deviceID,timestamp,region,datacenter,usage_guest\nroot.cpu.host_0,1451606400000000000,'eu-west-1','eu-west-1b',38\ndatatype,5,5,2\n",
 		},
 		{
 			description: "a regular Point with multiple fields",
 			inputPoint:  serialize.TestPointMultiField(),
-			expected:    "deviceID,timestamp,region,datacenter,big_usage_guest,usage_guest,usage_guest_nice\nroot.cpu.host_0,2016-01-01 00:00:00,'eu-west-1','eu-west-1b',5000000000,38,38.24311829\n",
+			expected:    "deviceID,timestamp,region,datacenter,big_usage_guest,usage_guest,usage_guest_nice\nroot.cpu.host_0,1451606400000000000,'eu-west-1','eu-west-1b',5000000000,38,38.24311829\ndatatype,5,5,2,2,4\n",
 		},
 		{
 			description: "a Point with no tags",
 			inputPoint:  serialize.TestPointNoTags(),
-			expected:    "deviceID,timestamp,usage_guest_nice\nroot.cpu.unknown,2016-01-01 00:00:00,38.24311829\n",
+			expected:    "deviceID,timestamp,usage_guest_nice\nroot.cpu.unknown,1451606400000000000,38.24311829\ndatatype,4\n",
 		},
 	}
 	for _, c := range cases {

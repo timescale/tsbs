@@ -21,8 +21,9 @@ import (
 
 // database option vars
 var (
-	clientConfig client.Config
-	timeoutInMs  int // 0 for no timeout
+	clientConfig   client.Config
+	timeoutInMs    int // 0 for no timeout
+	recordsMaxRows int // max rows of records in 'InsertRecords'
 )
 
 // Global vars
@@ -58,11 +59,12 @@ func init() {
 	user := viper.GetString("user")
 	password := viper.GetString("password")
 	workers := viper.GetUint("workers")
+	recordsMaxRows = viper.GetInt("records-max-rows")
 	timeoutInMs = viper.GetInt("timeout")
 
 	timeoutStr := fmt.Sprintf("timeout for session opening check: %d ms", timeoutInMs)
 	if timeoutInMs <= 0 {
-		timeoutInMs = 0 //
+		timeoutInMs = 0 // 0 for no timeout.
 		timeoutStr = "no timeout for session opening check"
 	}
 	log.Printf("tsbs_load_iotdb target: %s:%s, %s. Loading with %d workers.\n", host, port, timeoutStr, workers)

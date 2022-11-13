@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/apache/iotdb-client-go/client"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
@@ -12,54 +15,124 @@ import (
 
 // iotdbPoint is a single record(row) of data
 type iotdbPoint struct {
-	deviceID      string // the deviceID(path) of this record, e.g. "root.cpu.host_0"
-	fieldKeyStr   string // the keys of fields, e.g. "timestamp,value,str"
-	fieldValueStr string // the values of fields in string, e.g. "2016-01-01 00:00:00,44.0,'host_1'"
-	fieldsCnt     uint64
+	deviceID     string // the deviceID(path) of this record, e.g. "root.cpu.host_0"
+	timestamp    int64
+	measurements []string
+	values       []interface{}
+	dataTypes    []client.TSDataType
+
+	fieldsCnt uint64
 }
 
-func (p *iotdbPoint) generateInsertStatement() string {
-	sql := fmt.Sprintf("INSERT INTO %s(%s) VALUES(%s)", p.deviceID, p.fieldKeyStr, p.fieldValueStr)
-	return sql
+// parse datatype and convert string into interface
+func parseDateToInterface(datatype client.TSDataType, str string) (interface{}, error) {
+	switch client.TSDataType(datatype) {
+	case client.BOOLEAN:
+		value, err := strconv.ParseBool(str)
+		return interface{}(value), err
+	case client.INT32:
+		value, err := strconv.ParseInt(str, 10, 32)
+		return interface{}(int32(value)), err
+	case client.INT64:
+		value, err := strconv.ParseInt(str, 10, 64)
+		return interface{}(int64(value)), err
+	case client.FLOAT:
+		value, err := strconv.ParseFloat(str, 32)
+		return interface{}(float32(value)), err
+	case client.DOUBLE:
+		value, err := strconv.ParseFloat(str, 64)
+		return interface{}(float64(value)), err
+	case client.TEXT:
+		return interface{}(str), nil
+	case client.UNKNOW:
+		return interface{}(nil), fmt.Errorf("datatype client.UNKNOW, value:%s", str)
+	default:
+		return interface{}(nil), fmt.Errorf("unknown datatype, value:%s", str)
+	}
 }
 
 type fileDataSource struct {
 	scanner *bufio.Scanner
 }
 
-// read new two line, which store one data point
+// read new three line, which store one data point
+// e.g.,
 // e.g.,
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
+// datatype,<datatype1>,<datatype2>,<datatype3>,...
 //
 // deviceID,timestamp,hostname,value
-// root.cpu.host_1,2016-01-01 00:00:00,'host_1',44.0
+// root.cpu.host_1,1451606400000000000,'host_1',44.0
+// datatype,5,2
 //
 // return : bool -> true means got one point, else reaches EOF or error happens
-func (d *fileDataSource) nextTwoLines() (bool, string, string, error) {
+func (d *fileDataSource) nextThreeLines() (bool, string, string, string, error) {
 	ok := d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return false, "", "", nil
+		return false, "", "", "", nil
 	} else if !ok {
-		return false, "", "", fmt.Errorf("scan error: %v", d.scanner.Err())
+		return false, "", "", "", fmt.Errorf("scan error: %v", d.scanner.Err())
 	}
 	line1 := d.scanner.Text()
 	line_ok := strings.HasPrefix(line1, "deviceID,timestamp,")
 	if !line_ok {
-		return false, line1, "", fmt.Errorf("scan error, illegal line: %s", line1)
+		return false, line1, "", "", fmt.Errorf("scan error, illegal line: %s", line1)
 	}
 	ok = d.scanner.Scan()
 	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
-		return false, "", "", nil
+		return false, "", "", "", nil
 	} else if !ok {
-		return false, "", "", fmt.Errorf("scan error: %v", d.scanner.Err())
+		return false, "", "", "", fmt.Errorf("scan error: %v", d.scanner.Err())
 	}
 	line2 := d.scanner.Text()
-	return true, line1, line2, nil
+	ok = d.scanner.Scan()
+	if !ok && d.scanner.Err() == nil { // nothing scanned & no error = EOF
+		return false, "", "", "", nil
+	} else if !ok {
+		return false, "", "", "", fmt.Errorf("scan error: %v", d.scanner.Err())
+	}
+	line3 := d.scanner.Text()
+	return true, line1, line2, line3, nil
+}
+
+func parseThreeLines(line1 string, line2 string, line3 string) data.LoadedPoint {
+	line1_parts := strings.Split(line1, ",") // 'deviceID' and rest keys of fields
+	line2_parts := strings.Split(line2, ",") // deviceID and rest values of fields
+	line3_parts := strings.Split(line3, ",") // deviceID and rest values of fields
+	timestamp, err := strconv.ParseInt(line2_parts[1], 10, 64)
+	if err != nil {
+		fatal("timestamp convert err: %v", err)
+	}
+	timestamp = int64(timestamp / int64(time.Millisecond))
+	var measurements []string
+	var values []interface{}
+	var dataTypes []client.TSDataType
+	// handle measurements, datatype and values
+	measurements = append(measurements, line1_parts[2:]...)
+	for type_index := 1; type_index < len(line3_parts); type_index++ {
+		value_index := type_index + 1
+		datatype, _ := strconv.ParseInt(line3_parts[type_index], 10, 8)
+		dataTypes = append(dataTypes, client.TSDataType(datatype))
+		value, err := parseDateToInterface(client.TSDataType(datatype), line2_parts[value_index])
+		if err != nil {
+			panic(fmt.Errorf("iotdb fileDataSource NextItem Parse error:%v", err))
+		}
+		values = append(values, value)
+	}
+	return data.NewLoadedPoint(
+		&iotdbPoint{
+			deviceID:     line2_parts[0],
+			timestamp:    timestamp,
+			measurements: measurements,
+			values:       values,
+			dataTypes:    dataTypes,
+			fieldsCnt:    uint64(len(line1_parts) - 2),
+		})
 }
 
 func (d *fileDataSource) NextItem() data.LoadedPoint {
-	scan_ok, line1, line2, err := d.nextTwoLines()
+	scan_ok, line1, line2, line3, err := d.nextThreeLines()
 	if !scan_ok {
 		if err == nil { // End of file
 			return data.LoadedPoint{}
@@ -68,15 +141,7 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 			return data.LoadedPoint{}
 		}
 	}
-	line1_parts := strings.SplitN(line1, ",", 2) // 'deviceID' and rest keys of fields
-	line2_parts := strings.SplitN(line2, ",", 2) // deviceID and rest values of fields
-	return data.NewLoadedPoint(
-		&iotdbPoint{
-			deviceID:      line2_parts[0],
-			fieldKeyStr:   line1_parts[1],
-			fieldValueStr: line2_parts[1],
-			fieldsCnt:     uint64(len(strings.Split(line1_parts[1], ","))),
-		})
+	return parseThreeLines(line1, line2, line3)
 }
 
 func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }

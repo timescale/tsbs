@@ -6,13 +6,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/apache/iotdb-client-go/client"
 	"github.com/timescale/tsbs/pkg/data"
 )
 
 // Serializer writes a Point in a serialized form for MongoDB
 type Serializer struct{}
 
-const iotdbTimeFmt = "2006-01-02 15:04:05"
+// const iotdbTimeFmt = "2006-01-02 15:04:05"
+
+const defaultBufSize = 4096
 
 // Serialize writes Point p to the given Writer w, so it can be
 // loaded by the IoTDB loader. The format is CSV with two lines per Point,
@@ -22,14 +25,18 @@ const iotdbTimeFmt = "2006-01-02 15:04:05"
 // e.g.,
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
+// datatype,<datatype1>,<datatype2>,<datatype3>,...
 //
 // deviceID,timestamp,hostname,value
-// root.cpu.host_1,2016-01-01 00:00:00,'host_1',44.0
+// root.cpu.host_1,1451606400000000000,'host_1',44.0
+// datatype,5,2
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	// Tag row first, prefixed with 'time,path'
-	buf1 := make([]byte, 0, 1024)
+	buf1 := make([]byte, 0, defaultBufSize)
 	buf1 = append(buf1, []byte("deviceID,timestamp")...)
-	tempBuf := make([]byte, 0, 1024)
+	datatype_buf := make([]byte, 0, defaultBufSize)
+	datatype_buf = append(datatype_buf, []byte("datatype")...)
+	tempBuf := make([]byte, 0, defaultBufSize)
 	var hostname string
 	foundHostname := false
 	tagKeys := p.TagKeys()
@@ -41,17 +48,20 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		} else {
 			buf1 = append(buf1, ',')
 			buf1 = append(buf1, tagKeys[i]...)
+			valueInStrByte, datatype := iotdbFormat(v)
 			tempBuf = append(tempBuf, ',')
-			tempBuf = iotdbFormatAppend(v, tempBuf)
+			tempBuf = append(tempBuf, valueInStrByte...)
+			datatype_buf = append(datatype_buf, ',')
+			datatype_buf = append(datatype_buf, []byte(fmt.Sprintf("%d", datatype))...)
 		}
 	}
 	if !foundHostname {
 		// Unable to find hostname as part of device id
 		hostname = "unknown"
 	}
-	buf2 := make([]byte, 0, 1024)
+	buf2 := make([]byte, 0, defaultBufSize)
 	buf2 = append(buf2, []byte(fmt.Sprintf("root.%s.%s,", modifyHostname(string(p.MeasurementName())), hostname))...)
-	buf2 = append(buf2, []byte(fmt.Sprintf("%s", p.Timestamp().UTC().Format(iotdbTimeFmt)))...)
+	buf2 = append(buf2, []byte(fmt.Sprintf("%d", p.Timestamp().UTC().UnixNano()))...)
 	buf2 = append(buf2, tempBuf...)
 	// Fields
 	fieldKeys := p.FieldKeys()
@@ -59,14 +69,22 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	for i, v := range fieldValues {
 		buf1 = append(buf1, ',')
 		buf1 = append(buf1, fieldKeys[i]...)
+		// buf2 = iotdbFormatAppend(v, buf2)
+		valueInStrByte, datatype := iotdbFormat(v)
 		buf2 = append(buf2, ',')
-		buf2 = iotdbFormatAppend(v, buf2)
+		buf2 = append(buf2, valueInStrByte...)
+		datatype_buf = append(datatype_buf, ',')
+		datatype_buf = append(datatype_buf, []byte(fmt.Sprintf("%d", datatype))...)
 	}
 	buf1 = append(buf1, '\n')
 	buf2 = append(buf2, '\n')
+	datatype_buf = append(datatype_buf, '\n')
 	_, err := w.Write(buf1)
 	if err == nil {
 		_, err = w.Write(buf2)
+	}
+	if err == nil {
+		_, err = w.Write(datatype_buf)
 	}
 	return err
 }
@@ -86,35 +104,34 @@ func modifyHostname(hostname string) string {
 }
 
 // Utility function for appending various data types to a byte string
-func iotdbFormatAppend(v interface{}, buf []byte) []byte {
+func iotdbFormat(v interface{}) ([]byte, client.TSDataType) {
 	switch v.(type) {
+	case uint:
+		return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT64
+	case uint32:
+		return []byte(strconv.FormatInt(int64(v.(uint32)), 10)), client.INT64
+	case uint64:
+		return []byte(strconv.FormatInt(int64(v.(uint64)), 10)), client.INT64
 	case int:
-		return strconv.AppendInt(buf, int64(v.(int)), 10)
+		return []byte(strconv.FormatInt(int64(v.(int)), 10)), client.INT64
+	case int32:
+		return []byte(strconv.FormatInt(int64(v.(int32)), 10)), client.INT32
 	case int64:
-		return strconv.AppendInt(buf, v.(int64), 10)
+		return []byte(strconv.FormatInt(int64(v.(int64)), 10)), client.INT64
 	case float64:
 		// Why -1 ?
 		// From Golang source on genericFtoa (called by AppendFloat): 'Negative precision means "only as much as needed to be exact."'
 		// Using this instead of an exact number for precision ensures we preserve the precision passed in to the function, allowing us
 		// to use different precision for different use cases.
-		return strconv.AppendFloat(buf, v.(float64), 'f', -1, 64)
+		return []byte(strconv.FormatFloat(float64(v.(float64)), 'f', -1, 64)), client.DOUBLE
 	case float32:
-		return strconv.AppendFloat(buf, float64(v.(float32)), 'f', -1, 32)
+		return []byte(strconv.FormatFloat(float64(v.(float32)), 'f', -1, 32)), client.FLOAT
 	case bool:
-		return strconv.AppendBool(buf, v.(bool))
-	case []byte:
-		buf = append(buf, []byte("'")...)
-		buf = append(buf, v.([]byte)...)
-		buf = append(buf, []byte("'")...)
-		return buf
+		return []byte(strconv.FormatBool(v.(bool))), client.BOOLEAN
 	case string:
-		// buf = append(buf, []byte(fmt.Sprintf("\"%s\"", v.(string)))...)
-		buf = append(buf, []byte("'")...)
-		buf = append(buf, v.(string)...)
-		buf = append(buf, []byte("'")...)
-		return buf
+		return []byte(v.(string)), client.TEXT
 	case nil:
-		return buf
+		return []byte(v.(string)), client.UNKNOW
 	default:
 		panic(fmt.Sprintf("unknown field type for %#v", v))
 	}

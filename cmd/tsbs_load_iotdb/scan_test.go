@@ -3,41 +3,55 @@ package main
 import (
 	"testing"
 
+	"github.com/apache/iotdb-client-go/client"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateInsertStatement(t *testing.T) {
 	cases := []struct {
 		description string
-		point       iotdbPoint
-		expected    string
+		lines       []string
+		expected    iotdbPoint
 	}{
 		{
-			description: "one point(1)",
-			point: iotdbPoint{
-				deviceID:      "root.cpu.host_0",
-				fieldKeyStr:   "timestamp,value,str",
-				fieldValueStr: "123456,999,'abc'",
-				fieldsCnt:     3,
+			description: "one point",
+			lines: []string{
+				"deviceID,timestamp,value",
+				"root.cpu.host_9,1451606400000000000,3.1415926",
+				"datatype,4",
 			},
-			expected: "INSERT INTO root.cpu.host_0(timestamp,value,str) VALUES(123456,999,'abc')",
+			expected: iotdbPoint{
+				deviceID:     "root.cpu.host_9",
+				timestamp:    1451606400000,
+				measurements: []string{"value"},
+				values:       []interface{}{float64(3.1415926)},
+				dataTypes:    []client.TSDataType{client.DOUBLE},
+				fieldsCnt:    1,
+			},
 		},
 		{
-			description: "one point(2)",
-			point: iotdbPoint{
-				deviceID:      "root.cpu.host_9",
-				fieldKeyStr:   "timestamp,floatValue,str,intValue",
-				fieldValueStr: "123456,4321.9,'abc',45621",
-				fieldsCnt:     4,
+			description: "one point with different dataTypes",
+			lines: []string{
+				"deviceID,timestamp,floatV,strV,int64V,int32V,boolV",
+				"root.cpu.host_0,1451606400000000000,3.1415926,hello,123,123,true",
+				"datatype,4,5,2,1,0",
 			},
-			expected: "INSERT INTO root.cpu.host_9(timestamp,floatValue,str,intValue) VALUES(123456,4321.9,'abc',45621)",
+			expected: iotdbPoint{
+				deviceID:     "root.cpu.host_0",
+				timestamp:    1451606400000,
+				measurements: []string{"floatV", "strV", "int64V", "int32V", "boolV"},
+				values:       []interface{}{float64(3.1415926), string("hello"), int64(123), int32(123), true},
+				dataTypes:    []client.TSDataType{client.DOUBLE, client.TEXT, client.INT64, client.INT32, client.BOOLEAN},
+				fieldsCnt:    5,
+			},
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			actual := c.point.generateInsertStatement()
-			require.EqualValues(t, c.expected, actual)
+			require.True(t, len(c.lines) == 3)
+			actual := parseThreeLines(c.lines[0], c.lines[1], c.lines[2])
+			require.EqualValues(t, &c.expected, actual.Data.(*iotdbPoint))
 		})
 	}
 }

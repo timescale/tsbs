@@ -24,9 +24,11 @@ For example:
 ```text
 deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
+datatype,<datatype1>,<datatype2>,<datatype3>,...
 
 deviceID,timestamp,hostname,value
-root.cpu.host_1,2016-01-01 00:00:00,'host_1',44.0
+root.cpu.host_1,1451606400000000000,'host_1',44.0
+datatype,5,2
 ```
 
 `deviceID` describes the storage path which is composed of several nodes.
@@ -34,12 +36,15 @@ IoTDB uses storage group to manage data. For example, in test case `devops`,
 if `measurementName` is `cpu` while `hostname` tag is `host_0`, then `deviceID`
 is `root.cpu.host_0`.
 IoTDB treat tags as fields, except primary key like `hostname` in `devops`.
+The unit of timestamp in generated data is nanosecond, but it will be converted
+into millisecond before insert into database.
 
 An example for the `cpu-only` use case:
 
 ```text
 deviceID,timestamp,region,datacenter,rack,os,arch,team,service,service_version,service_environment,usage_user,usage_system,usage_idle,usage_nice,usage_iowait,usage_irq,usage_softirq,usage_steal,usage_guest,usage_guest_nice
-root.cpu.host_0,2016-01-01 00:00:00,'eu-west-1','eu-west-1c','87','Ubuntu16.04LTS','x64','NYC','18','1','production',58,2,24,61,22,63,6,44,80,38
+root.cpu.host_0,1451606400000000000,eu-west-1,eu-west-1c,87,Ubuntu16.04LTS,x64,NYC,18,1,production,58,2,24,61,22,63,6,44,80,38
+datatype,5,5,5,5,5,5,5,5,5,2,2,2,2,2,2,2,2,2,2
 
 ```
 
