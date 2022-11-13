@@ -11,6 +11,7 @@ Current databases supported:
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + CrateDB [(supplemental docs)](docs/cratedb.md)
 + InfluxDB [(supplemental docs)](docs/influx.md)
++ IoTDB [(supplemental docs)](docs/iotdb.md)
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + QuestDB [(supplemental docs)](docs/questdb.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
