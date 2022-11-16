@@ -26,16 +26,20 @@ const defaultBufSize = 4096
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
 // datatype,<datatype1>,<datatype2>,<datatype3>,...
+// tags,<tagName1>=<tagValue1>,<tagName2>=<tagValue2>,...
 //
 // deviceID,timestamp,hostname,value
 // root.cpu.host_1,1451606400000000000,'host_1',44.0
 // datatype,5,2
+// tags,region='eu-west-1',datacenter='eu-west-1c',rack=87,
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	// Tag row first, prefixed with 'time,path'
 	buf1 := make([]byte, 0, defaultBufSize)
 	buf1 = append(buf1, []byte("deviceID,timestamp")...)
 	datatype_buf := make([]byte, 0, defaultBufSize)
 	datatype_buf = append(datatype_buf, []byte("datatype")...)
+	tags_buf := make([]byte, 0, defaultBufSize)
+	tags_buf = append(tags_buf, []byte("tags")...)
 	tempBuf := make([]byte, 0, defaultBufSize)
 	var hostname string
 	foundHostname := false
@@ -46,13 +50,24 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			foundHostname = true
 			hostname = v.(string)
 		} else {
-			buf1 = append(buf1, ',')
-			buf1 = append(buf1, tagKeys[i]...)
+			// handle other tags
+
+			// buf1 = append(buf1, ',')
+			// buf1 = append(buf1, tagKeys[i]...)
+			// valueInStrByte, datatype := iotdbFormat(v)
+			// tempBuf = append(tempBuf, ',')
+			// tempBuf = append(tempBuf, valueInStrByte...)
+			// datatype_buf = append(datatype_buf, ',')
+			// datatype_buf = append(datatype_buf, []byte(fmt.Sprintf("%d", datatype))...)
 			valueInStrByte, datatype := iotdbFormat(v)
-			tempBuf = append(tempBuf, ',')
-			tempBuf = append(tempBuf, valueInStrByte...)
-			datatype_buf = append(datatype_buf, ',')
-			datatype_buf = append(datatype_buf, []byte(fmt.Sprintf("%d", datatype))...)
+			if datatype == client.TEXT {
+				tagStr := fmt.Sprintf(",%s='%s'", keyStr, string(valueInStrByte))
+				tags_buf = append(tags_buf, []byte(tagStr)...)
+			} else {
+				tagStr := fmt.Sprintf(",%s=", keyStr)
+				tags_buf = append(tags_buf, []byte(tagStr)...)
+				tags_buf = append(tags_buf, valueInStrByte...)
+			}
 		}
 	}
 	if !foundHostname {
@@ -69,7 +84,6 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	for i, v := range fieldValues {
 		buf1 = append(buf1, ',')
 		buf1 = append(buf1, fieldKeys[i]...)
-		// buf2 = iotdbFormatAppend(v, buf2)
 		valueInStrByte, datatype := iotdbFormat(v)
 		buf2 = append(buf2, ',')
 		buf2 = append(buf2, valueInStrByte...)
@@ -79,12 +93,16 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	buf1 = append(buf1, '\n')
 	buf2 = append(buf2, '\n')
 	datatype_buf = append(datatype_buf, '\n')
+	tags_buf = append(tags_buf, '\n')
 	_, err := w.Write(buf1)
 	if err == nil {
 		_, err = w.Write(buf2)
 	}
 	if err == nil {
 		_, err = w.Write(datatype_buf)
+	}
+	if err == nil {
+		_, err = w.Write(tags_buf)
 	}
 	return err
 }

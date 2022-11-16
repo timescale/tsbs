@@ -19,6 +19,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 				"deviceID,timestamp,value",
 				"root.cpu.host_9,1451606400000000000,3.1415926",
 				"datatype,4",
+				"tags",
 			},
 			expected: iotdbPoint{
 				deviceID:     "root.cpu.host_9",
@@ -35,6 +36,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 				"deviceID,timestamp,floatV,strV,int64V,int32V,boolV",
 				"root.cpu.host_0,1451606400000000000,3.1415926,hello,123,123,true",
 				"datatype,4,5,2,1,0",
+				"tags",
 			},
 			expected: iotdbPoint{
 				deviceID:     "root.cpu.host_0",
@@ -50,7 +52,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
 			require.True(t, len(c.lines) == 3)
-			actual := parseThreeLines(c.lines[0], c.lines[1], c.lines[2])
+			actual := parseFourLines(c.lines[0], c.lines[1], c.lines[2], c.lines[3])
 			require.EqualValues(t, &c.expected, actual.Data.(*iotdbPoint))
 		})
 	}
