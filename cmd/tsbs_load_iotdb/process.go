@@ -8,11 +8,14 @@ import (
 )
 
 type processor struct {
-	session        client.Session
-	recordsMaxRows int // max rows of records in 'InsertRecords'
+	numWorker                int // the worker(like thread) ID of this processor
+	session                  client.Session
+	recordsMaxRows           int             // max rows of records in 'InsertRecords'
+	ProcessedTagsDeviceIDMap map[string]bool // already processed device ID
 }
 
-func (p *processor) Init(_ int, doLoad, _ bool) {
+func (p *processor) Init(numWorker int, doLoad, _ bool) {
+	p.numWorker = numWorker
 	if !doLoad {
 		return
 	}
@@ -22,6 +25,7 @@ func (p *processor) Init(_ int, doLoad, _ bool) {
 		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
 		fatal(errMsg)
 	}
+	p.ProcessedTagsDeviceIDMap = make(map[string]bool, 1024)
 }
 
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
@@ -29,6 +33,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 	// Write records
 	if doLoad {
+		var sqlList []string
 		if p.recordsMaxRows > 0 {
 			for index := 0; index < len(batch.points); {
 				var (
@@ -45,6 +50,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 					dataTypes = append(dataTypes, row.dataTypes)
 					values = append(values, row.values)
 					timestamps = append(timestamps, row.timestamp)
+					_, exist := p.ProcessedTagsDeviceIDMap[row.deviceID]
+					if !exist {
+						sqlList = append(sqlList, row.generateTagsAttributesSQL())
+						p.ProcessedTagsDeviceIDMap[row.deviceID] = true
+					}
 					thisRecordsCnt++
 					index++
 				}
@@ -69,6 +79,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				dataTypes = append(dataTypes, row.dataTypes)
 				values = append(values, row.values)
 				timestamps = append(timestamps, row.timestamp)
+				_, exist := p.ProcessedTagsDeviceIDMap[row.deviceID]
+				if !exist {
+					sqlList = append(sqlList, row.generateTagsAttributesSQL())
+					p.ProcessedTagsDeviceIDMap[row.deviceID] = true
+				}
 			}
 			_, err := p.session.InsertRecords(
 				deviceId, measurements, dataTypes, values, timestamps,
@@ -77,10 +92,10 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				fatal("ProcessBatch error:%v", err)
 			}
 		}
-		// for _, row := range batch.points {
-		// 	sql := row.generateInsertStatement()
-		// 	p.session.ExecuteUpdateStatement(sql)
-		// }
+		// handle create timeseries SQL to insert tags
+		for _, sql := range sqlList {
+			p.session.ExecuteUpdateStatement(sql)
+		}
 	}
 
 	metricCount = batch.metrics
