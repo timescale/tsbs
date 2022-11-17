@@ -43,5 +43,7 @@ func (b *iotdbBenchmark) GetProcessor() targets.Processor {
 }
 
 func (b *iotdbBenchmark) GetDBCreator() targets.DBCreator {
-	return &dbCreator{}
+	return &dbCreator{
+		loadToSCV: loadToSCV,
+	}
 }

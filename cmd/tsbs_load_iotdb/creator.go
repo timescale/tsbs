@@ -10,15 +10,19 @@ import (
 // in preparation for running a benchmark against it.
 
 type dbCreator struct {
-	session client.Session
+	session   client.Session
+	loadToSCV bool
 }
 
 func (d *dbCreator) Init() {
-	d.session = client.NewSession(&clientConfig)
-	if err := d.session.Open(false, timeoutInMs); err != nil {
-		errMsg := fmt.Sprintf("IoTDB dbCreator init error, session is not open: %v\n", err)
-		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
-		fatal(errMsg)
+	if !d.loadToSCV {
+		// no need to connect to database, because user want to generate csv files
+		d.session = client.NewSession(&clientConfig)
+		if err := d.session.Open(false, timeoutInMs); err != nil {
+			errMsg := fmt.Sprintf("IoTDB dbCreator init error, session is not open: %v\n", err)
+			errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
+			fatal(errMsg)
+		}
 	}
 }
 
@@ -46,15 +50,18 @@ func (d *dbCreator) getAllStorageGroup() ([]string, error) {
 }
 
 func (d *dbCreator) DBExists(dbName string) bool {
-	sgList, err := d.getAllStorageGroup()
-	if err != nil {
-		fatal("DBExists error: %v", err)
-		return false
-	}
-	sg := fmt.Sprintf("root.%s", dbName)
-	for _, thisSG := range sgList {
-		if thisSG == sg {
-			return true
+	if !d.loadToSCV {
+		// no need to connect to database, because user want to generate csv files
+		sgList, err := d.getAllStorageGroup()
+		if err != nil {
+			fatal("DBExists error: %v", err)
+			return false
+		}
+		sg := fmt.Sprintf("root.%s", dbName)
+		for _, thisSG := range sgList {
+			if thisSG == sg {
+				return true
+			}
 		}
 	}
 	return false
@@ -65,7 +72,11 @@ func (d *dbCreator) CreateDB(dbName string) error {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	sg := fmt.Sprintf("root.%s", dbName)
-	_, err := d.session.DeleteStorageGroup(sg)
-	return err
+	if !d.loadToSCV {
+		// no need to connect to database, because user want to generate csv files
+		sg := fmt.Sprintf("root.%s", dbName)
+		_, err := d.session.DeleteStorageGroup(sg)
+		return err
+	}
+	return nil
 }

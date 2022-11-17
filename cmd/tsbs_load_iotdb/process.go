@@ -26,14 +26,17 @@ func (p *processor) Init(numWorker int, doLoad, _ bool) {
 	if !doLoad {
 		return
 	}
-	p.session = client.NewSession(&clientConfig)
-	if err := p.session.Open(false, timeoutInMs); err != nil {
-		errMsg := fmt.Sprintf("IoTDB processor init error, session is not open: %v\n", err)
-		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
-		fatal(errMsg)
+	if p.loadToSCV {
+		p.ProcessedTagsDeviceIDMap = make(map[string]bool, 1024)
+		p.filePtrMap = make(map[string]*os.File)
+	} else {
+		p.session = client.NewSession(&clientConfig)
+		if err := p.session.Open(false, timeoutInMs); err != nil {
+			errMsg := fmt.Sprintf("IoTDB processor init error, session is not open: %v, ", err)
+			errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms\n", timeoutInMs)
+			fatal(errMsg)
+		}
 	}
-	p.ProcessedTagsDeviceIDMap = make(map[string]bool, 1024)
-	p.filePtrMap = make(map[string]*os.File)
 }
 
 type records struct {
@@ -119,6 +122,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 	// Write records
 	if doLoad {
 		if !p.loadToSCV {
+			// insert records into the database
 			var sqlList []string
 			for index := 0; index < len(batch.points); {
 				startIndex := index
@@ -143,6 +147,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				p.session.ExecuteUpdateStatement(sql)
 			}
 		} else {
+			// generate csv files. There is no requirement to connect to any database
 			for index := 0; index < len(batch.points); index++ {
 				point := batch.points[index]
 				_, exist := p.filePtrMap[point.deviceID]
