@@ -33,7 +33,7 @@ func (p *iotdbPoint) generateTagsAttributesSQL() string {
 }
 
 // parse datatype and convert string into interface
-func parseDateToInterface(datatype client.TSDataType, str string) (interface{}, error) {
+func parseDataToInterface(datatype client.TSDataType, str string) (interface{}, error) {
 	switch client.TSDataType(datatype) {
 	case client.BOOLEAN:
 		value, err := strconv.ParseBool(str)
@@ -130,7 +130,7 @@ func parseFourLines(line1 string, line2 string, line3 string, line4 string) data
 		value_index := type_index + 1
 		datatype, _ := strconv.ParseInt(line3_parts[type_index], 10, 8)
 		dataTypes = append(dataTypes, client.TSDataType(datatype))
-		value, err := parseDateToInterface(client.TSDataType(datatype), line2_parts[value_index])
+		value, err := parseDataToInterface(client.TSDataType(datatype), line2_parts[value_index])
 		if err != nil {
 			panic(fmt.Errorf("iotdb fileDataSource NextItem Parse error:%v", err))
 		}
