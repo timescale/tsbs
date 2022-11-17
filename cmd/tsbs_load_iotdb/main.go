@@ -68,7 +68,7 @@ func init() {
 		timeoutStr = "no timeout for session opening check"
 	}
 	log.Printf("tsbs_load_iotdb target: %s:%s, %s. Loading with %d workers.\n", host, port, timeoutStr, workers)
-	if workers < 5 {
+	if workers < 2 {
 		log.Println("Insertion throughput is strongly related to the number of threads. Use more workers for better performance.")
 	}
 
