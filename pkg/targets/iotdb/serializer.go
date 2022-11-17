@@ -59,7 +59,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 			// tempBuf = append(tempBuf, valueInStrByte...)
 			// datatype_buf = append(datatype_buf, ',')
 			// datatype_buf = append(datatype_buf, []byte(fmt.Sprintf("%d", datatype))...)
-			valueInStrByte, datatype := iotdbFormat(v)
+			valueInStrByte, datatype := IotdbFormat(v)
 			if datatype == client.TEXT {
 				tagStr := fmt.Sprintf(",%s='%s'", keyStr, string(valueInStrByte))
 				tags_buf = append(tags_buf, []byte(tagStr)...)
@@ -84,7 +84,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	for i, v := range fieldValues {
 		buf1 = append(buf1, ',')
 		buf1 = append(buf1, fieldKeys[i]...)
-		valueInStrByte, datatype := iotdbFormat(v)
+		valueInStrByte, datatype := IotdbFormat(v)
 		buf2 = append(buf2, ',')
 		buf2 = append(buf2, valueInStrByte...)
 		datatype_buf = append(datatype_buf, ',')
@@ -122,7 +122,7 @@ func modifyHostname(hostname string) string {
 }
 
 // Utility function for appending various data types to a byte string
-func iotdbFormat(v interface{}) ([]byte, client.TSDataType) {
+func IotdbFormat(v interface{}) ([]byte, client.TSDataType) {
 	switch v.(type) {
 	case uint:
 		return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT64

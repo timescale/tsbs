@@ -62,7 +62,7 @@ func TestIotdbFormat(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			actualByte, actualType := iotdbFormat(c.input)
+			actualByte, actualType := IotdbFormat(c.input)
 			require.EqualValues(t, c.expectedByte, actualByte)
 			require.EqualValues(t, c.expectedType, actualType)
 		})

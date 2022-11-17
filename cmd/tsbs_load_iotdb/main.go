@@ -21,9 +21,11 @@ import (
 
 // database option vars
 var (
-	clientConfig   client.Config
-	timeoutInMs    int // 0 for no timeout
-	recordsMaxRows int // max rows of records in 'InsertRecords'
+	clientConfig      client.Config
+	timeoutInMs       int    // 0 for no timeout
+	recordsMaxRows    int    // max rows of records in 'InsertRecords'
+	loadToSCV         bool   // if true, do NOT insert into databases, but generate csv files instead.
+	csvFilepathPrefix string // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
 )
 
 // Global vars
@@ -58,9 +60,12 @@ func init() {
 	port := viper.GetString("port")
 	user := viper.GetString("user")
 	password := viper.GetString("password")
-	workers := viper.GetUint("workers")
-	recordsMaxRows = viper.GetInt("records-max-rows")
 	timeoutInMs = viper.GetInt("timeout")
+	recordsMaxRows = viper.GetInt("records-max-rows")
+	loadToSCV = viper.GetBool("to-csv")
+	csvFilepathPrefix = viper.GetString("csv-prefix")
+
+	workers := viper.GetUint("workers")
 
 	timeoutStr := fmt.Sprintf("timeout for session opening check: %d ms", timeoutInMs)
 	if timeoutInMs <= 0 {
