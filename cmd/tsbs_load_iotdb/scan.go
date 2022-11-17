@@ -65,14 +65,15 @@ type fileDataSource struct {
 
 // read new four line, which store one data point
 // e.g.,
-// e.g.,
 // deviceID,timestamp,<fieldName1>,<fieldName2>,<fieldName3>,...
 // <deviceID>,<timestamp>,<field1>,<field2>,<field3>,...
 // datatype,<datatype1>,<datatype2>,<datatype3>,...
+// tags,<tagName1>=<tagValue1>,<tagName2>=<tagValue2>,...
 //
 // deviceID,timestamp,hostname,value
 // root.cpu.host_1,1451606400000000000,'host_1',44.0
 // datatype,5,2
+// tags,region='eu-west-1',datacenter='eu-west-1c',rack='87',
 //
 // return : bool -> true means got one point, else reaches EOF or error happens
 func (d *fileDataSource) nextFourLines() (bool, string, string, string, string, error) {

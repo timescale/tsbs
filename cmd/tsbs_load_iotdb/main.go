@@ -76,6 +76,12 @@ func init() {
 	if workers < 2 {
 		log.Println("Insertion throughput is strongly related to the number of threads. Use more workers for better performance.")
 	}
+	if loadToSCV && workers != 1 {
+		err_msg := "Arguments conflicts! When using csv export method, `workers` should NOT be set more than 1. "
+		err_msg += fmt.Sprintf("Current setting: `to-csv`=%v, `workers`=%d.", loadToSCV, workers)
+		log.Println(err_msg)
+		panic(err_msg)
+	}
 
 	clientConfig = client.Config{
 		Host:     host,

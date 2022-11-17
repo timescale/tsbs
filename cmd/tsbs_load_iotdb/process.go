@@ -14,11 +14,12 @@ import (
 type processor struct {
 	numWorker                int // the worker(like thread) ID of this processor
 	session                  client.Session
-	recordsMaxRows           int                 // max rows of records in 'InsertRecords'
-	ProcessedTagsDeviceIDMap map[string]bool     // already processed device ID
-	loadToSCV                bool                // if true, do NOT insert into databases, but generate csv files instead.
-	csvFilepathPrefix        string              // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
-	filePtrMap               map[string]*os.File // file pointer for each deviceID
+	recordsMaxRows           int             // max rows of records in 'InsertRecords'
+	ProcessedTagsDeviceIDMap map[string]bool // already processed device ID
+
+	loadToSCV         bool                // if true, do NOT insert into databases, but generate csv files instead.
+	csvFilepathPrefix string              // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
+	filePtrMap        map[string]*os.File // file pointer for each deviceID
 }
 
 func (p *processor) Init(numWorker int, doLoad, _ bool) {
@@ -27,9 +28,9 @@ func (p *processor) Init(numWorker int, doLoad, _ bool) {
 		return
 	}
 	if p.loadToSCV {
-		p.ProcessedTagsDeviceIDMap = make(map[string]bool, 1024)
 		p.filePtrMap = make(map[string]*os.File)
 	} else {
+		p.ProcessedTagsDeviceIDMap = make(map[string]bool)
 		p.session = client.NewSession(&clientConfig)
 		if err := p.session.Open(false, timeoutInMs); err != nil {
 			errMsg := fmt.Sprintf("IoTDB processor init error, session is not open: %v, ", err)

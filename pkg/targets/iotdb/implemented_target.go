@@ -23,8 +23,8 @@ func (t *iotdbTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Flag
 	flagSet.String(flagPrefix+"password", "root", "The password for user connecting to IoTDB")
 	flagSet.Int(flagPrefix+"timeout", 0, "Session timeout check in millisecond. Use 0 for no timeout.")
 	flagSet.Int(flagPrefix+"records-max-rows", 0, "Max rows of 'InsertRecords'. Use 0 for no limit.")
-	flagSet.Bool(flagPrefix+"to-csv", false, "Do not insert into database, but to some csv files.")
-	flagSet.String(flagPrefix+"csv-prefix", "./", "Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.")
+	flagSet.Bool(flagPrefix+"to-csv", false, "Do not insert into database, but to some CSV files.")
+	flagSet.String(flagPrefix+"csv-prefix", "./", "Prefix of filepath for CSV files. Specific a folder or a folder with filename prefix.")
 }
 
 func (t *iotdbTarget) TargetName() string {

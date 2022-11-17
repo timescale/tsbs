@@ -31,7 +31,8 @@ const defaultBufSize = 4096
 // deviceID,timestamp,hostname,value
 // root.cpu.host_1,1451606400000000000,'host_1',44.0
 // datatype,5,2
-// tags,region='eu-west-1',datacenter='eu-west-1c',rack=87,
+// tags,region='eu-west-1',datacenter='eu-west-1c',rack='87'
+//
 func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 	// Tag row first, prefixed with 'time,path'
 	buf1 := make([]byte, 0, defaultBufSize)
