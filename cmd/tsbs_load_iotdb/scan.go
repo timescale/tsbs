@@ -25,8 +25,11 @@ type iotdbPoint struct {
 	fieldsCnt uint64
 }
 
-// CRTODO:使用这个函数来生成创建语句。
 func (p *iotdbPoint) generateTagsAttributesSQL() string {
+	if p.tagString == "" {
+		// no tags for this host. This is not a normal behavior in benchmark.
+		return fmt.Sprintf("CREATE timeseries %s._tags with datatype=INT32, encoding=RLE, compression=SNAPPY", p.deviceID)
+	}
 	sql := "CREATE timeseries %s._tags with datatype=INT32, encoding=RLE, compression=SNAPPY attributes(%s)"
 	// sql2 := "ALTER timeseries %s._tags UPSERT attributes(%s)"
 	return fmt.Sprintf(sql, p.deviceID, p.tagString)
@@ -137,6 +140,10 @@ func parseFourLines(line1 string, line2 string, line3 string, line4 string) data
 		}
 		values = append(values, value)
 	}
+	tagString := ""
+	if len(line4_parts) > 1 {
+		tagString = line4_parts[1]
+	}
 	return data.NewLoadedPoint(
 		&iotdbPoint{
 			deviceID:     line2_parts[0],
@@ -144,7 +151,7 @@ func parseFourLines(line1 string, line2 string, line3 string, line4 string) data
 			measurements: measurements,
 			values:       values,
 			dataTypes:    dataTypes,
-			tagString:    line4_parts[1],
+			tagString:    tagString,
 			fieldsCnt:    uint64(len(line1_parts) - 2),
 		})
 }
