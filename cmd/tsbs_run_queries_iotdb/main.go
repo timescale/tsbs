@@ -73,13 +73,15 @@ func main() {
 }
 
 type processor struct {
-	session client.Session
+	session        client.Session
+	printResponses bool
 }
 
 func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
 	p.session = client.NewSession(&clientConfig)
+	p.printResponses = runner.DoPrintResponses()
 	if err := p.session.Open(false, int(timeoutInMs)); err != nil {
 		errMsg := fmt.Sprintf("query processor init error, session is not open: %v\n", err)
 		errMsg = errMsg + fmt.Sprintf("timeout setting: %d ms", timeoutInMs)
@@ -92,7 +94,11 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	sql := string(iotdbQ.SqlQuery)
 
 	start := time.Now().UnixNano()
-	_, err := p.session.ExecuteQueryStatement(sql, &timeoutInMs) // 0 for no timeout
+	dataSet, err := p.session.ExecuteQueryStatement(sql, &timeoutInMs) // 0 for no timeout
+	if err == nil && p.printResponses {
+		printDataSet(sql, dataSet)
+		dataSet.Close()
+	}
 
 	took := time.Now().UnixNano() - start
 	if err != nil {
@@ -103,4 +109,37 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	stat := query.GetStat()
 	stat.Init(q.HumanLabelName(), lag)
 	return []*query.Stat{stat}, err
+}
+
+func printDataSet(sql string, sds *client.SessionDataSet) {
+	fmt.Printf("\nResponse for query '%s':\n", sql)
+	showTimestamp := !sds.IsIgnoreTimeStamp()
+	if showTimestamp {
+		fmt.Print("Time\t\t\t\t")
+	}
+
+	for i := 0; i < sds.GetColumnCount(); i++ {
+		fmt.Printf("%s\t", sds.GetColumnName(i))
+	}
+	fmt.Println()
+
+	printedColsCount := 0
+	for next, err := sds.Next(); err == nil && next; next, err = sds.Next() {
+		if showTimestamp {
+			fmt.Printf("%s\t", sds.GetText(client.TimestampColumnName))
+		}
+		for i := 0; i < sds.GetColumnCount(); i++ {
+			columnName := sds.GetColumnName(i)
+			v := sds.GetValue(columnName)
+			if v == nil {
+				v = "null"
+			}
+			fmt.Printf("%v\t\t", v)
+		}
+		fmt.Println()
+		printedColsCount++
+	}
+	if printedColsCount == 0 {
+		fmt.Println("Empty Set.")
+	}
 }

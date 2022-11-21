@@ -94,13 +94,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	selectClause := d.getSelectClausesAggMetricsString("MAX_VALUE", metrics)
 	fromHosts := d.getHostFromString(nHosts)
 
-	humanLabel := fmt.Sprintf("IoTDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
+	humanLabel := fmt.Sprintf("IoTDB %d cpu metric(s), random %4d hosts, random %s by 5m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 5m)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
@@ -123,8 +122,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
-	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+2)
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
@@ -155,7 +153,6 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	// sql = sql + fmt.Sprintf(" WHERE time >= %s AND time < %s", interval.StartString(), interval.EndString())
 	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
@@ -173,9 +170,8 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
-	// sql = sql + fmt.Sprintf(" WHERE time < %s", interval.EndString())
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
-	sql = sql + " LIMIT 5"
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
+	sql = sql + " ORDER BY TIME DESC LIMIT 5"
 
 	humanLabel := "IoTDB max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -207,7 +203,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 
 	sql := "SELECT *"
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	sql = sql + fmt.Sprintf(" WHERE usage_user > 90.0 AND time >= %s AND time < %s", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
+	sql = sql + fmt.Sprintf(" WHERE usage_user > 90 AND time >= %s AND time < %s", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }

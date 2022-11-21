@@ -158,9 +158,9 @@ func TestGroupByTime(t *testing.T) {
 	actual := dp.GenerateEmptyQuery()
 	expected := dp.GenerateEmptyQuery()
 	dp.fillInQuery(expected,
-		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 1m",
-		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 1m: 1970-01-01T00:05:58Z",
-		"SELECT MAX_VALUE(usage_user) FROM root.sg.cpu.host_9 GROUP BY ([1970-01-01 00:05:58, 1970-01-01 00:05:59), 1m)",
+		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 5m",
+		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 5m: 1970-01-01T00:05:58Z",
+		"SELECT MAX_VALUE(usage_user) FROM root.sg.cpu.host_9 GROUP BY ([1970-01-01 00:05:58, 1970-01-01 00:05:59), 5m)",
 	)
 	dp.GroupByTime(actual, nHosts, metrics, duration)
 
@@ -182,7 +182,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root.sg", BasicPathLevel: 1},
 			expectedHumanLabel: "IoTDB mean of 1 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "IoTDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT AVG(usage_user) FROM root.sg.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h), LEVEL = 3",
+			expectedSQLQuery:   "SELECT AVG(usage_user) FROM root.sg.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h)",
 		},
 		{
 			description:        "5 metric with storage group 'root'",
@@ -190,7 +190,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root", BasicPathLevel: 0},
 			expectedHumanLabel: "IoTDB mean of 5 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "IoTDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT AVG(usage_user), AVG(usage_system), AVG(usage_idle), AVG(usage_nice), AVG(usage_iowait) FROM root.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h), LEVEL = 2",
+			expectedSQLQuery:   "SELECT AVG(usage_user), AVG(usage_system), AVG(usage_idle), AVG(usage_nice), AVG(usage_iowait) FROM root.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 12:16:22), 1h)",
 		},
 	}
 
@@ -292,7 +292,7 @@ func TestMaxAllCPU(t *testing.T) {
 
 func TestGroupByOrderByLimit(t *testing.T) {
 	rand.Seed(123) // Setting seed for testing purposes.
-	base := BaseGenerator{BasicPath: "root.ln", BasicPathLevel: 1}
+	base := BaseGenerator{BasicPath: "root", BasicPathLevel: 0}
 	start := time.Unix(0, 0)
 	end := start.Add(2 * time.Hour)
 	queryGenerator, err := base.NewDevops(start, end, 10)
@@ -304,7 +304,7 @@ func TestGroupByOrderByLimit(t *testing.T) {
 	dp.fillInQuery(expected,
 		"IoTDB max cpu over last 5 min-intervals (random end)",
 		"IoTDB max cpu over last 5 min-intervals (random end): 1970-01-01T00:16:22Z",
-		"SELECT MAX_VALUE(usage_user) FROM root.ln.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 01:16:22), 1m) LIMIT 5",
+		"SELECT MAX_VALUE(usage_user) FROM root.cpu.* GROUP BY ([1970-01-01 00:16:22, 1970-01-01 01:16:22), 1m), LEVEL = 1 ORDER BY TIME DESC LIMIT 5",
 	)
 	dp.GroupByOrderByLimit(actual)
 
@@ -326,7 +326,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root", BasicPathLevel: 0},
 			expectedHumanLabel: "IoTDB CPU over threshold, all hosts",
 			expectedHumanDesc:  "IoTDB CPU over threshold, all hosts: 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT * FROM root.cpu.* WHERE usage_user > 90.0 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
+			expectedSQLQuery:   "SELECT * FROM root.cpu.* WHERE usage_user > 90 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
 		},
 		{
 			description:        "1 host with storage group 'root.sg.abc'",
@@ -334,7 +334,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root.sg.abc", BasicPathLevel: 2},
 			expectedHumanLabel: "IoTDB CPU over threshold, 1 host(s)",
 			expectedHumanDesc:  "IoTDB CPU over threshold, 1 host(s): 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT * FROM root.sg.abc.cpu.host_9 WHERE usage_user > 90.0 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
+			expectedSQLQuery:   "SELECT * FROM root.sg.abc.cpu.host_9 WHERE usage_user > 90 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
 		},
 		{
 			description:        "5 host2 with storage group 'root.ln'",
@@ -342,7 +342,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			baseGenerator:      BaseGenerator{BasicPath: "root.ln", BasicPathLevel: 1},
 			expectedHumanLabel: "IoTDB CPU over threshold, 5 host(s)",
 			expectedHumanDesc:  "IoTDB CPU over threshold, 5 host(s): 1970-01-01T00:16:22Z",
-			expectedSQLQuery:   "SELECT * FROM root.ln.cpu.host_9, root.ln.cpu.host_3, root.ln.cpu.host_5, root.ln.cpu.host_1, root.ln.cpu.host_7 WHERE usage_user > 90.0 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
+			expectedSQLQuery:   "SELECT * FROM root.ln.cpu.host_9, root.ln.cpu.host_3, root.ln.cpu.host_5, root.ln.cpu.host_1, root.ln.cpu.host_7 WHERE usage_user > 90 AND time >= 1970-01-01 00:16:22 AND time < 1970-01-01 12:16:22",
 		},
 	}
 
