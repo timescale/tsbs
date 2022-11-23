@@ -99,7 +99,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 5m)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 5m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
@@ -153,7 +153,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h)", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1h), LEVEL=%d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
@@ -170,7 +170,13 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s.cpu.*", d.BasicPath)
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
+	startTime := interval.Start()
+	endTime := interval.End()
+	optimizedStartTime := endTime.Add(time.Second * -300) // 5 mins ago
+	if optimizedStartTime.After(startTime) {
+		startTime = optimizedStartTime
+	}
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", startTime.Format(iotdbTimeFmt), endTime.Format(iotdbTimeFmt), d.BasicPathLevel+1)
 	sql = sql + " ORDER BY TIME DESC LIMIT 5"
 
 	humanLabel := "IoTDB max cpu over last 5 min-intervals (random end)"
@@ -203,7 +209,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 
 	sql := "SELECT *"
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	sql = sql + fmt.Sprintf(" WHERE usage_user > 90 AND time >= %s AND time < %s", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
+	sql = sql + fmt.Sprintf(" WHERE usage_user > 90 AND time >= %s AND time < %s ALIGN BY DEVICE", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt))
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }
