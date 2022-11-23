@@ -96,7 +96,6 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	start := time.Now().UnixNano()
 	dataSet, err := p.session.ExecuteQueryStatement(sql, &timeoutInMs) // 0 for no timeout
 
-	defer dataSet.Close()
 	if err == nil {
 		if p.printResponses {
 			printDataSet(sql, dataSet)
@@ -109,6 +108,7 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	}
 	took := time.Now().UnixNano() - start
 
+	err = dataSet.Close() // close error should also be checked
 	if err != nil {
 		log.Printf("An error occurred while executing query SQL: %s\n", sql)
 		return nil, err
