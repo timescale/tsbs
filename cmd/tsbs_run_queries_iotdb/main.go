@@ -95,15 +95,22 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 
 	start := time.Now().UnixNano()
 	dataSet, err := p.session.ExecuteQueryStatement(sql, &timeoutInMs) // 0 for no timeout
-	took := time.Now().UnixNano() - start
 
+	defer dataSet.Close()
 	if err == nil {
 		if p.printResponses {
 			printDataSet(sql, dataSet)
+		} else {
+			var next bool
+			for next, err = dataSet.Next(); err == nil && next; next, err = dataSet.Next() {
+				// Traverse query results
+			}
 		}
-		dataSet.Close()
-	} else {
-		log.Printf("An error occurred while executing SQL: %s\n", sql)
+	}
+	took := time.Now().UnixNano() - start
+
+	if err != nil {
+		log.Printf("An error occurred while executing query SQL: %s\n", sql)
 		return nil, err
 	}
 
