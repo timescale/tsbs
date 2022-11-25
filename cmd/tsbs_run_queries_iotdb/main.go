@@ -89,13 +89,6 @@ func (p *processor) Init(workerNumber int) {
 	}
 }
 
-func (p *processor) closeDataSet(ds *client.SessionDataSet) {
-	err := ds.Close()
-	if err != nil {
-		log.Printf("[session:%d]An error occurred while closing sessionDataSet: %v\n", err, p.session.GetSessionId())
-	}
-}
-
 func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	iotdbQ := q.(*query.IoTDB)
 	sql := string(iotdbQ.SqlQuery)
@@ -114,7 +107,7 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 	}
 	took := time.Now().UnixNano() - start
 
-	defer p.closeDataSet(dataSet) // close error should also be checked
+	defer dataSet.Close()
 	if err != nil {
 		log.Printf("An error occurred while executing query SQL: %s\n", sql)
 		return nil, err
