@@ -93,8 +93,8 @@ github.com/andybalholm/brotli v1.0.0 h1:7UCwP93aiSfvWpapti8g88vVVGp2qqtGyePsSuDa
 github.com/andybalholm/brotli v1.0.0/go.mod h1:loMXtMfwqflxFJPmdbJO0a3KNoPuLBgiu3qAvBg8x/Y=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/arrow/go/arrow v0.0.0-20191024131854-af6fa24be0db/go.mod h1:VTxUBvSJ3s3eHAg65PNgrsn5BtqCRPdmyXh6rAfdxN0=
-github.com/apache/iotdb-client-go v0.12.2-0.20221102040630-2731a9e19fc9 h1:0djW7kEV/yYbjj+DYKqNQnx5P9RRFAuvCYJjFDeYLy8=
-github.com/apache/iotdb-client-go v0.12.2-0.20221102040630-2731a9e19fc9/go.mod h1:4Az8byJmeA6Nolvl0tYTvuFVP+6AJcF++SZ+gNSeaIA=
+github.com/apache/iotdb-client-go v0.14.0-preview1.0.20221125032227-e7dcc092f533 h1:BpGjGsy1s2xsnw0ML9E1Agqn2bmwdSMr9L+fG7WTsq8=
+github.com/apache/iotdb-client-go v0.14.0-preview1.0.20221125032227-e7dcc092f533/go.mod h1:4Az8byJmeA6Nolvl0tYTvuFVP+6AJcF++SZ+gNSeaIA=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.15.0 h1:aGvdaR0v1t9XLgjtBYwxcBvBOTMqClzwE26CHOgjW1Y=
