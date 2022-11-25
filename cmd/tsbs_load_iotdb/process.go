@@ -145,7 +145,11 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			}
 			// handle create timeseries SQL to insert tags
 			for _, sql := range sqlList {
-				p.session.ExecuteUpdateStatement(sql)
+				ds, err := p.session.ExecuteUpdateStatement(sql)
+				ds.Close()
+				if err != nil {
+					fatal("ProcessBatch SQL Execution error:%v", err)
+				}
 			}
 		} else {
 			// generate csv files. There is no requirement to connect to any database
