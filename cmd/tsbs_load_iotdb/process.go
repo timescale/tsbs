@@ -146,7 +146,14 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 			// handle create timeseries SQL to insert tags
 			for _, sql := range sqlList {
 				ds, err := p.session.ExecuteUpdateStatement(sql)
-				ds.Close()
+				if err != nil {
+					fatal("ProcessBatch SQL Execution error:%v", err)
+				}
+				var next bool
+				for next, err = ds.Next(); err == nil && next; next, err = ds.Next() {
+					// Traverse query results
+				}
+				defer ds.Close()
 				if err != nil {
 					fatal("ProcessBatch SQL Execution error:%v", err)
 				}
