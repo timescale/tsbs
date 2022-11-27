@@ -94,12 +94,12 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	selectClause := d.getSelectClausesAggMetricsString("MAX_VALUE", metrics)
 	fromHosts := d.getHostFromString(nHosts)
 
-	humanLabel := fmt.Sprintf("IoTDB %d cpu metric(s), random %4d hosts, random %s by 5m", numMetrics, nHosts, timeRange)
+	humanLabel := fmt.Sprintf("IoTDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	sql := ""
 	sql = sql + fmt.Sprintf("SELECT %s", selectClause)
 	sql = sql + fmt.Sprintf(" FROM %s", fromHosts)
-	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 5m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
+	sql = sql + fmt.Sprintf(" GROUP BY ([%s, %s), 1m), LEVEL = %d", interval.Start().Format(iotdbTimeFmt), interval.End().Format(iotdbTimeFmt), d.BasicPathLevel+1)
 
 	d.fillInQuery(qi, humanLabel, humanDesc, sql)
 }

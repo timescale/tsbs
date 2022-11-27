@@ -158,9 +158,9 @@ func TestGroupByTime(t *testing.T) {
 	actual := dp.GenerateEmptyQuery()
 	expected := dp.GenerateEmptyQuery()
 	dp.fillInQuery(expected,
-		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 5m",
-		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 5m: 1970-01-01T00:05:58Z",
-		"SELECT MAX_VALUE(usage_user) FROM root.cpu.host_9 GROUP BY ([1970-01-01 00:05:58, 1970-01-01 00:05:59), 5m), LEVEL = 1",
+		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 1m",
+		"IoTDB 1 cpu metric(s), random    1 hosts, random 1s by 1m: 1970-01-01T00:05:58Z",
+		"SELECT MAX_VALUE(usage_user) FROM root.cpu.host_9 GROUP BY ([1970-01-01 00:05:58, 1970-01-01 00:05:59), 1m), LEVEL = 1",
 	)
 	dp.GroupByTime(actual, nHosts, metrics, duration)
 
