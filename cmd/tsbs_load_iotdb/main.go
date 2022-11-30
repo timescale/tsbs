@@ -21,11 +21,13 @@ import (
 
 // database option vars
 var (
-	clientConfig      client.Config
-	timeoutInMs       int    // 0 for no timeout
-	recordsMaxRows    int    // max rows of records in 'InsertRecords'
-	loadToSCV         bool   // if true, do NOT insert into databases, but generate csv files instead.
-	csvFilepathPrefix string // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
+	clientConfig         client.Config
+	timeoutInMs          int    // 0 for no timeout
+	recordsMaxRows       int    // max rows of records in 'InsertRecords'
+	loadToSCV            bool   // if true, do NOT insert into databases, but generate csv files instead.
+	csvFilepathPrefix    string // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
+	useAlignedTimeseries bool   // using aligned timeseries if set true.
+	storeTags            bool   // store tags if set true. Can NOT be used if useAlignedTimeseries is set true.
 )
 
 // Global vars
@@ -64,6 +66,8 @@ func init() {
 	recordsMaxRows = viper.GetInt("records-max-rows")
 	loadToSCV = viper.GetBool("to-csv")
 	csvFilepathPrefix = viper.GetString("csv-prefix")
+	useAlignedTimeseries = viper.GetBool("aligned-timeseries")
+	storeTags = viper.GetBool("store-tags")
 
 	workers := viper.GetUint("workers")
 
@@ -73,14 +77,19 @@ func init() {
 		timeoutStr = "no timeout for session opening check"
 	}
 	log.Printf("tsbs_load_iotdb target: %s:%s, %s. Loading with %d workers.\n", host, port, timeoutStr, workers)
-	if workers < 2 {
-		log.Println("Insertion throughput is strongly related to the number of threads. Use more workers for better performance.")
-	}
 	if loadToSCV && workers != 1 {
 		err_msg := "Arguments conflicts! When using csv export method, `workers` should NOT be set more than 1. "
 		err_msg += fmt.Sprintf("Current setting: `to-csv`=%v, `workers`=%d.", loadToSCV, workers)
 		log.Println(err_msg)
 		panic(err_msg)
+	}
+	if useAlignedTimeseries && storeTags {
+		warn_msg := "[Waring] Can NOT store tags while using aligned timeseries!"
+		warn_msg += " Because IoTDB do NOT support 'attributes' and 'tags' for aligned timeseries yet."
+		log.Println(warn_msg)
+		warn_msg = "Automatic parameter correction: 'store-tags' is set to false."
+		log.Println(warn_msg)
+		storeTags = false
 	}
 
 	clientConfig = client.Config{

@@ -20,6 +20,9 @@ type processor struct {
 	loadToSCV         bool                // if true, do NOT insert into databases, but generate csv files instead.
 	csvFilepathPrefix string              // Prefix of filepath for csv files. Specific a folder or a folder with filename prefix.
 	filePtrMap        map[string]*os.File // file pointer for each deviceID
+
+	useAlignedTimeseries bool // using aligned timeseries if set true.
+	storeTags            bool // store tags if set true. Can NOT be used if useAlignedTimeseries is set true.
 }
 
 func (p *processor) Init(numWorker int, doLoad, _ bool) {
@@ -57,10 +60,13 @@ func (p *processor) pointsToRecords(points []*iotdbPoint) (records, []string) {
 		rcds.dataTypes = append(rcds.dataTypes, row.dataTypes)
 		rcds.values = append(rcds.values, row.values)
 		rcds.timestamps = append(rcds.timestamps, row.timestamp)
-		_, exist := p.ProcessedTagsDeviceIDMap[row.deviceID]
-		if !exist {
-			sqlList = append(sqlList, row.generateTagsAttributesSQL())
-			p.ProcessedTagsDeviceIDMap[row.deviceID] = true
+		// append tags if "storeTags" is set true
+		if p.storeTags {
+			_, exist := p.ProcessedTagsDeviceIDMap[row.deviceID]
+			if !exist {
+				sqlList = append(sqlList, row.generateTagsAttributesSQL())
+				p.ProcessedTagsDeviceIDMap[row.deviceID] = true
+			}
 		}
 	}
 	return rcds, sqlList
@@ -135,9 +141,17 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 				}
 				rcds, tempSqlList := p.pointsToRecords(batch.points[startIndex:endIndex])
 				sqlList = append(sqlList, tempSqlList...)
-				_, err := p.session.InsertRecords(
-					rcds.deviceId, rcds.measurements, rcds.dataTypes, rcds.values, rcds.timestamps,
-				)
+				// using relative API according to "aligned-timeseries" setting
+				var err error
+				if p.useAlignedTimeseries {
+					_, err = p.session.InsertAlignedRecords(
+						rcds.deviceId, rcds.measurements, rcds.dataTypes, rcds.values, rcds.timestamps,
+					)
+				} else {
+					_, err = p.session.InsertRecords(
+						rcds.deviceId, rcds.measurements, rcds.dataTypes, rcds.values, rcds.timestamps,
+					)
+				}
 				if err != nil {
 					fatal("ProcessBatch error:%v", err)
 				}

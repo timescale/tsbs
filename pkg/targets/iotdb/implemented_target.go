@@ -25,6 +25,8 @@ func (t *iotdbTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.Flag
 	flagSet.Int(flagPrefix+"records-max-rows", 0, "Max rows of 'InsertRecords'. Use 0 for no limit.")
 	flagSet.Bool(flagPrefix+"to-csv", false, "Do not insert into database, but to some CSV files.")
 	flagSet.String(flagPrefix+"csv-prefix", "./", "Prefix of filepath for CSV files. Specific a folder or a folder with filename prefix.")
+	flagSet.Bool(flagPrefix+"aligned-timeseries", true, "Using aligned timeseries for all metrics if set true.")
+	flagSet.Bool(flagPrefix+"store-tags", false, "Store tags if set true. Can NOT be used if aligned-timeseries is set true.")
 }
 
 func (t *iotdbTarget) TargetName() string {

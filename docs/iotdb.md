@@ -175,6 +175,17 @@ will be stored in folder `/home/` with prefix `iotdb-data-`, like this:
 works, so please make sure folders in those paths are exist. That means user
 should create those folders manually.
 
+#### `-aligned-timeseries` (type: `bool`, default: `true`)
+
+Using aligned timeseries for all metrics if set true. That means using
+InsertAlignedRecords, which is faster than InsertRecords.
+
+#### `-store-tags` (type: `bool`, default: `false`)
+
+Store tags if set true. Can NOT be used if `-aligned-timeseries` is set true.
+That's because IoTDB do NOT support 'attributes' and 'tags' for aligned
+timeseries yet.
+
 ---
 
 ## `tsbs_run_queries_iotdb` Additional Flags

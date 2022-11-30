@@ -36,9 +36,11 @@ func (b *iotdbBenchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexe
 
 func (b *iotdbBenchmark) GetProcessor() targets.Processor {
 	return &processor{
-		recordsMaxRows:    b.recordsMaxRows,
-		loadToSCV:         loadToSCV,
-		csvFilepathPrefix: csvFilepathPrefix,
+		recordsMaxRows:       b.recordsMaxRows,
+		loadToSCV:            loadToSCV,
+		csvFilepathPrefix:    csvFilepathPrefix,
+		useAlignedTimeseries: useAlignedTimeseries,
+		storeTags:            storeTags,
 	}
 }
 
