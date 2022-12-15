@@ -99,10 +99,10 @@ func (p *processor) ProcessQuery(q query.Query, _ bool) ([]*query.Stat, error) {
 		if p.printResponses {
 			printDataSet(sql, dataSet)
 		} else {
-			var next bool
-			for next, err = dataSet.Next(); err == nil && next; next, err = dataSet.Next() {
-				// Traverse query results
-			}
+			// var next bool
+			// for next, err = dataSet.Next(); err == nil && next; next, err = dataSet.Next() {
+			// 	// Traverse query results
+			// }
 		}
 	}
 	took := time.Now().UnixNano() - start
