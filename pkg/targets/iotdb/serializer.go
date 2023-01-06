@@ -127,23 +127,23 @@ func IotdbFormat(v interface{}) ([]byte, client.TSDataType) {
 	// treat all integer as int32
 	switch v.(type) {
 	case uint:
-		return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT32
-		// return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT64
+		// return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(uint)), 10)), client.INT64
 	case uint32:
-		return []byte(strconv.FormatInt(int64(v.(uint32)), 10)), client.INT32
-		// return []byte(strconv.FormatInt(int64(v.(uint32)), 10)), client.INT64
+		// return []byte(strconv.FormatInt(int64(v.(uint32)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(uint32)), 10)), client.INT64
 	case uint64:
-		return []byte(strconv.FormatInt(int64(v.(uint64)), 10)), client.INT32
-		// return []byte(strconv.FormatInt(int64(v.(uint64)), 10)), client.INT64
+		// return []byte(strconv.FormatInt(int64(v.(uint64)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(uint64)), 10)), client.INT64
 	case int:
-		return []byte(strconv.FormatInt(int64(v.(int)), 10)), client.INT32
-		// return []byte(strconv.FormatInt(int64(v.(int)), 10)), client.INT64
+		// return []byte(strconv.FormatInt(int64(v.(int)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(int)), 10)), client.INT64
 	case int32:
-		return []byte(strconv.FormatInt(int64(v.(int32)), 10)), client.INT32
 		// return []byte(strconv.FormatInt(int64(v.(int32)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(int32)), 10)), client.INT32
 	case int64:
-		return []byte(strconv.FormatInt(int64(v.(int64)), 10)), client.INT32
-		// return []byte(strconv.FormatInt(int64(v.(int64)), 10)), client.INT64
+		// return []byte(strconv.FormatInt(int64(v.(int64)), 10)), client.INT32
+		return []byte(strconv.FormatInt(int64(v.(int64)), 10)), client.INT64
 	case float64:
 		// Why -1 ?
 		// From Golang source on genericFtoa (called by AppendFloat): 'Negative precision means "only as much as needed to be exact."'
