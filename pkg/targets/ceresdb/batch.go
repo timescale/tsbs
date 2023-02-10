@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
+	"github.com/CeresDB/ceresdb-client-go/types"
+	"github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/timescale/tsbs/pkg/data"
 )
 
 type batch struct {
-	rows    uint64
-	metrics uint64
-	points  []ceresdb.Point
+	pointCount uint64
+	fieldCount uint64
+	points     []types.Point
 }
 
 func (b *batch) Len() uint {
-	return uint(b.rows)
+	return uint(b.pointCount)
 }
 
 func unixTimestampMs(t time.Time) int64 {
@@ -34,16 +35,16 @@ func valueToFloat64(v lineprotocol.Value) float64 {
 	}
 }
 func (b *batch) Append(item data.LoadedPoint) {
-	data := item.Data.([]byte)
-	dec := lineprotocol.NewDecoderWithBytes(data)
+	dec := lineprotocol.NewDecoderWithBytes(item.Data.([]byte))
 
 	for dec.Next() {
-		b.rows++
 		m, err := dec.Measurement()
 		if err != nil {
 			panic(err)
 		}
-		tags := make(map[string]string)
+
+		builder := ceresdb.NewPointBuilder(string(m))
+
 		for {
 			key, val, err := dec.NextTag()
 			if err != nil {
@@ -52,9 +53,9 @@ func (b *batch) Append(item data.LoadedPoint) {
 			if key == nil {
 				break
 			}
-			tags[string(key)] = string(val)
+			builder.AddTag(string(key), types.NewStringValue(string(val)))
 		}
-		fields := make(map[string]float64)
+
 		for {
 			key, val, err := dec.NextField()
 			if err != nil {
@@ -63,19 +64,22 @@ func (b *batch) Append(item data.LoadedPoint) {
 			if key == nil {
 				break
 			}
-			fields[string(key)] = valueToFloat64(val)
+			builder.AddField(string(key), types.NewDoubleValue(valueToFloat64(val)))
 		}
-		t, err := dec.Time(lineprotocol.Nanosecond, time.Time{})
+
+		timestamp, err := dec.Time(lineprotocol.Nanosecond, time.Time{})
 		if err != nil {
 			panic(err)
 		}
-		b.metrics += uint64(len(fields))
+		builder.SetTimestamp(unixTimestampMs(timestamp))
 
-		b.points = append(b.points, ceresdb.Point{
-			Metric:    string(m),
-			Tags:      tags,
-			Fields:    fields,
-			Timestamp: unixTimestampMs(t),
-		})
+		point, err := builder.Build()
+		if err != nil {
+			panic(err)
+		}
+
+		b.points = append(b.points, point)
+		b.pointCount++
+		b.fieldCount += uint64(len(point.Fields))
 	}
 }
