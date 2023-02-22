@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
+	"github.com/CeresDB/ceresdb-client-go/types"
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
@@ -69,7 +70,7 @@ type queryExecutorOptions struct {
 
 // query.Processor interface implementation
 type processor struct {
-	db   *ceresdb.Client
+	db   ceresdb.Client
 	opts *queryExecutorOptions
 }
 
@@ -80,7 +81,7 @@ func newProcessor() query.Processor {
 
 // query.Processor interface implementation
 func (p *processor) Init(workerNumber int) {
-	client, err := ceresdb.NewClient(ceresdbAddr)
+	client, err := ceresdb.NewClient(ceresdbAddr, types.Direct, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +111,10 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	}
 
 	// Main action - run the query
-	rows, err := p.db.Query(context.TODO(), sql)
+	rows, err := p.db.SQLQuery(context.TODO(), types.SQLQueryRequest{
+		Tables: []string{string(ceresdbQuery.Table)},
+		SQL:    sql,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +124,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 		fmt.Println(sql)
 	}
 	if p.opts.printResponse {
-		fmt.Printf("request = %s\n", rows)
+		fmt.Printf("request = %v\n", rows)
 	}
 
 	took := float64(time.Since(start).Nanoseconds()) / 1e6

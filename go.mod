@@ -3,8 +3,7 @@ module github.com/timescale/tsbs
 go 1.14
 
 require (
-	github.com/CeresDB/ceresdb-client-go v0.0.0-20230210095919-8b6d9528debb
-	github.com/CeresDB/ceresdbproto/go/ceresdbproto v0.0.0-20220531034131-a7db8811a949 // indirect
+	github.com/CeresDB/ceresdb-client-go v1.0.0
 	github.com/HdrHistogram/hdrhistogram-go v1.0.0
 	github.com/SiriDB/go-siridb-connector v0.0.0-20190110105621-86b34c44c921
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -14,6 +13,7 @@ require (
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gocql/gocql v0.0.0-20190810123941-df4b9cc33030
+	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.0+incompatible
 	github.com/google/go-cmp v0.5.8
