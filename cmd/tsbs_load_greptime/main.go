@@ -107,7 +107,7 @@ func (b *benchmark) GetProcessor() targets.Processor {
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {
-	return nil
+	return &dbCreator{}
 }
 
 func main() {

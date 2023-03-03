@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -33,7 +32,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) listDatabases() ([]string, error) {
-	u := fmt.Sprintf("%s/query?q=show%%20databases", d.daemonURL)
+	u := fmt.Sprintf("%s/v1/sql?sql=show%%20databases", d.daemonURL)
 	resp, err := http.Get(u)
 	if err != nil {
 		return nil, fmt.Errorf("listDatabases error: %s", err.Error())
@@ -46,12 +45,10 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 	}
 
 	// Do ad-hoc parsing to find existing database names:
-	// {"results":[{"series":[{"name":"databases","columns":["name"],"values":[["_internal"],["benchmark_db"]]}]}]}%
+	// {"code":0,"output":[{"records":{"schema":{"column_schemas":[{"name":"Schemas","data_type":"String"}]},"rows":[["public"]]}}],"execution_time_ms":0}
 	type listingType struct {
-		Results []struct {
-			Series []struct {
-				Values [][]string
-			}
+		Output []struct {
+			Rows [][]string
 		}
 	}
 	var listing listingType
@@ -61,7 +58,7 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 	}
 
 	ret := []string{}
-	for _, nestedName := range listing.Results[0].Series[0].Values {
+	for _, nestedName := range listing.Output[0].Rows {
 		name := nestedName[0]
 		// the _internal database is skipped:
 		if name == "_internal" {
@@ -73,7 +70,7 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
-	u := fmt.Sprintf("%s/query?q=drop+database+%s", d.daemonURL, dbName)
+	u := fmt.Sprintf("%s/v1/sql?sql=drop+database+%s", d.daemonURL, dbName)
 	resp, err := http.Post(u, "text/plain", nil)
 	if err != nil {
 		return fmt.Errorf("drop db error: %s", err.Error())
@@ -86,29 +83,13 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 }
 
 func (d *dbCreator) CreateDB(dbName string) error {
-	u, err := url.Parse(d.daemonURL)
+	u := fmt.Sprintf("%s/v1/sql?sql=create%%20database%%20%s", d.daemonURL, dbName)
+	resp, err := http.Get(u)
 	if err != nil {
-		return err
-	}
-
-	// serialize params the right way:
-	u.Path = "query"
-	v := u.Query()
-	v.Set("consistency", "all")
-	v.Set("q", fmt.Sprintf("CREATE DATABASE %s WITH REPLICATION %d", dbName, replicationFactor))
-	u.RawQuery = v.Encode()
-
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return err
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
+		return fmt.Errorf("create db error: %s", err.Error())
 	}
 	defer resp.Body.Close()
+
 	// does the body need to be read into the void?
 
 	if resp.StatusCode != 200 {
