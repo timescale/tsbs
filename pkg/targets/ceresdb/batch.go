@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
-	"github.com/CeresDB/ceresdb-client-go/types"
 	"github.com/influxdata/line-protocol/v2/lineprotocol"
 	"github.com/timescale/tsbs/pkg/data"
 )
@@ -13,7 +12,7 @@ import (
 type batch struct {
 	pointCount uint64
 	fieldCount uint64
-	points     []types.Point
+	points     []ceresdb.Point
 }
 
 func (b *batch) Len() uint {
@@ -53,7 +52,7 @@ func (b *batch) Append(item data.LoadedPoint) {
 			if key == nil {
 				break
 			}
-			builder.AddTag(string(key), types.NewStringValue(string(val)))
+			builder.AddTag(string(key), ceresdb.NewStringValue(string(val)))
 		}
 
 		for {
@@ -64,7 +63,7 @@ func (b *batch) Append(item data.LoadedPoint) {
 			if key == nil {
 				break
 			}
-			builder.AddField(string(key), types.NewDoubleValue(valueToFloat64(val)))
+			builder.AddField(string(key), ceresdb.NewDoubleValue(valueToFloat64(val)))
 		}
 
 		timestamp, err := dec.Time(lineprotocol.Nanosecond, time.Time{})

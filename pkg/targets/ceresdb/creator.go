@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
-	"github.com/CeresDB/ceresdb-client-go/types"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 )
@@ -50,7 +49,7 @@ func (d *dbCreator) DBExists(dbName string) bool { return true }
 
 // loader.DBCreator interface implementation
 func (d *dbCreator) CreateDB(dbName string) error {
-	client, err := ceresdb.NewClient(d.config.CeresdbAddr, types.Direct, ceresdb.WithDefaultDatabase("public"))
+	client, err := ceresdb.NewClient(d.config.CeresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ storage_format = '%s'
 `
 	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.PrimaryKeys, d.config.RowGroupSize, d.config.StorageFormat)
 	// fmt.Printf("sql = %s\n", sql)
-	_, err := client.SQLQuery(context.TODO(), types.SQLQueryRequest{
+	_, err := client.SQLQuery(context.TODO(), ceresdb.SQLQueryRequest{
 		Tables: []string{tableName},
 		SQL:    sql,
 	})

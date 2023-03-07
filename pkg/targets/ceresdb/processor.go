@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
-	"github.com/CeresDB/ceresdb-client-go/types"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
@@ -16,7 +15,7 @@ type processor struct {
 }
 
 func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
-	client, err := ceresdb.NewClient(p.addr, types.Direct, ceresdb.WithDefaultDatabase("public"))
+	client, err := ceresdb.NewClient(p.addr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +33,7 @@ func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, row
 
 func (p *processor) do(b *batch) (uint64, uint64) {
 	for {
-		ret, err := p.client.Write(context.TODO(), types.WriteRequest{Points: b.points})
+		ret, err := p.client.Write(context.TODO(), ceresdb.WriteRequest{Points: b.points})
 
 		if err == nil {
 			// log.Printf("success :%d\n", ret)

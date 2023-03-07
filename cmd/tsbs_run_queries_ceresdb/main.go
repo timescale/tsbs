@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/CeresDB/ceresdb-client-go/ceresdb"
-	"github.com/CeresDB/ceresdb-client-go/types"
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
@@ -81,7 +80,7 @@ func newProcessor() query.Processor {
 
 // query.Processor interface implementation
 func (p *processor) Init(workerNumber int) {
-	client, err := ceresdb.NewClient(ceresdbAddr, types.Direct, ceresdb.WithDefaultDatabase("public"))
+	client, err := ceresdb.NewClient(ceresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}
@@ -111,7 +110,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	}
 
 	// Main action - run the query
-	rows, err := p.db.SQLQuery(context.TODO(), types.SQLQueryRequest{
+	rows, err := p.db.SQLQuery(context.TODO(), ceresdb.SQLQueryRequest{
 		Tables: []string{string(ceresdbQuery.Table)},
 		SQL:    sql,
 	})
