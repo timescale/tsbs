@@ -1,0 +1,35 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [ feat-ceresdb ]
+  pull_request:
+    branches: [ feat-ceresdb ]
+
+env:
+  OUTPUT: ./target
+  CGO_ENABLED: 0
+
+jobs:
+  releases:
+    name: Release Binary
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [arm64, amd64]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: |
+          export GOARCH=${{ matrix.goarch }}
+          export GOOS=${{ matrix.goos }}
+          go build -o ${OUTPUT}/tsbs_generate_data ./cmd/tsbs_generate_data/
+          go build -o ${OUTPUT}/tsbs_load_ceresdb ./cmd/tsbs_load_ceresdb/
+          go build -o ${OUTPUT}/tsbs_run_queries_ceresdb ./cmd/tsbs_run_queries_ceresdb
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: tsbs-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            ${{ env.OUTPUT }}
