@@ -10,8 +10,11 @@ import (
 	"github.com/timescale/tsbs/pkg/data"
 )
 
-// Serializer writes a Point in a serialized form for MongoDB
-type Serializer struct{}
+// Serializer writes a Point in a serialized form for IoTDB
+type Serializer struct {
+	BasicPath      string // e.g. "root.sg" is basic path of "root.sg.device". default : "root"
+	BasicPathLevel int32  // e.g. 0 for "root", 1 for "root.device"
+}
 
 // const iotdbTimeFmt = "2006-01-02 15:04:05"
 
@@ -76,7 +79,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) error {
 		hostname = "unknown"
 	}
 	buf2 := make([]byte, 0, defaultBufSize)
-	buf2 = append(buf2, []byte(fmt.Sprintf("root.%s.%s,", modifyHostname(string(p.MeasurementName())), hostname))...)
+	buf2 = append(buf2, []byte(fmt.Sprintf("%s.%s.%s,", s.BasicPath, modifyHostname(string(p.MeasurementName())), hostname))...)
 	buf2 = append(buf2, []byte(fmt.Sprintf("%d", p.Timestamp().UTC().UnixNano()))...)
 	buf2 = append(buf2, tempBuf...)
 	// Fields

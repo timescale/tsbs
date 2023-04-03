@@ -70,7 +70,7 @@ func TestIotdbFormat(t *testing.T) {
 
 }
 
-func TestSerialize_001(t *testing.T) {
+func TestSerialize_normal(t *testing.T) {
 	cases := []struct {
 		description string
 		inputPoint  *data.Point
@@ -100,6 +100,60 @@ func TestSerialize_001(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
 			ps := &Serializer{}
+			b := new(bytes.Buffer)
+			err := ps.Serialize(c.inputPoint, b)
+			require.NoError(t, err)
+			actual := b.String()
+
+			require.EqualValues(t, c.expected, actual)
+		})
+	}
+
+}
+
+func TestSerialize_nonDefaultBasicPath(t *testing.T) {
+	cases := []struct {
+		description    string
+		inputPoint     *data.Point
+		BasicPath      string
+		BasicPathLevel int32
+		expected       string
+	}{
+		{
+			description:    "a regular point ",
+			inputPoint:     serialize.TestPointDefault(),
+			BasicPath:      "root.sg",
+			BasicPathLevel: 1,
+			expected:       "deviceID,timestamp,usage_guest_nice\nroot.sg.cpu.host_0,1451606400000000000,38.24311829\ndatatype,4\ntags,region='eu-west-1',datacenter='eu-west-1b'\n",
+		},
+		{
+			description:    "a regular Point using int as value",
+			inputPoint:     serialize.TestPointInt(),
+			BasicPath:      "root.ln",
+			BasicPathLevel: 1,
+			expected:       "deviceID,timestamp,usage_guest\nroot.ln.cpu.host_0,1451606400000000000,38\ndatatype,2\ntags,region='eu-west-1',datacenter='eu-west-1b'\n",
+		},
+		{
+			description:    "a regular Point with multiple fields",
+			inputPoint:     serialize.TestPointMultiField(),
+			BasicPath:      "root.db.abc",
+			BasicPathLevel: 2,
+			expected:       "deviceID,timestamp,big_usage_guest,usage_guest,usage_guest_nice\nroot.db.abc.cpu.host_0,1451606400000000000,5000000000,38,38.24311829\ndatatype,2,2,4\ntags,region='eu-west-1',datacenter='eu-west-1b'\n",
+		},
+		{
+			description:    "a Point with no tags",
+			inputPoint:     serialize.TestPointNoTags(),
+			BasicPath:      "root",
+			BasicPathLevel: 0,
+			expected:       "deviceID,timestamp,usage_guest_nice\nroot.cpu.unknown,1451606400000000000,38.24311829\ndatatype,4\ntags\n",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			ps := &Serializer{
+				BasicPath:      c.BasicPath,
+				BasicPathLevel: c.BasicPathLevel,
+			}
 			b := new(bytes.Buffer)
 			err := ps.Serialize(c.inputPoint, b)
 			require.NoError(t, err)

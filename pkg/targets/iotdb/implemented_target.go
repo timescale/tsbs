@@ -10,10 +10,15 @@ import (
 )
 
 func NewTarget() targets.ImplementedTarget {
-	return &iotdbTarget{}
+	return &iotdbTarget{
+		BasicPath:      "root",
+		BasicPathLevel: 0,
+	}
 }
 
 type iotdbTarget struct {
+	BasicPath      string // e.g. "root.sg" is basic path of "root.sg.device". default : "root"
+	BasicPathLevel int32  // e.g. 0 for "root", 1 for "root.device"
 }
 
 func (t *iotdbTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet) {
@@ -34,7 +39,10 @@ func (t *iotdbTarget) TargetName() string {
 }
 
 func (t *iotdbTarget) Serializer() serialize.PointSerializer {
-	return &Serializer{}
+	return &Serializer{
+		BasicPath:      t.BasicPath,
+		BasicPathLevel: t.BasicPathLevel,
+	}
 }
 
 func (t *iotdbTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
