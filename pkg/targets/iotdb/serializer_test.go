@@ -99,7 +99,10 @@ func TestSerialize_normal(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			ps := &Serializer{}
+			ps := &Serializer{
+				BasicPath:      "root",
+				BasicPathLevel: 0,
+			}
 			b := new(bytes.Buffer)
 			err := ps.Serialize(c.inputPoint, b)
 			require.NoError(t, err)
