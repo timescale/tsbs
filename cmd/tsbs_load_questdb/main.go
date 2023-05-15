@@ -25,7 +25,6 @@ import (
 var (
 	questdbRESTEndPoint string
 	questdbILPBindTo    string
-	doAbortOnExist      bool
 )
 
 // Global vars
@@ -70,6 +69,7 @@ func init() {
 	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
 	config.HashWorkers = false
+	config.NoFlowControl = true
 	loader = load.GetBenchmarkRunner(config)
 }
 

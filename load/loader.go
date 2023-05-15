@@ -3,13 +3,14 @@ package load
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/timescale/tsbs/pkg/targets"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/timescale/tsbs/pkg/targets"
 
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/load/insertstrategy"
@@ -19,7 +20,7 @@ const (
 	// defaultBatchSize - default size of batches to be inserted
 	defaultBatchSize                = 10000
 	DefaultChannelCapacityFlagVal   = 0
-	defaultChannelCapacityPerWorker = 5
+	defaultChannelCapacityPerWorker = 15
 	errDBExistsFmt                  = "database \"%s\" exists: aborting."
 )
 
