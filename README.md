@@ -9,6 +9,7 @@ This fork derives from the original TSBS and includes a number of changes
 such as:
 * Loader optimizations for QuestDB making it capable of 4M+ rows/s
 ingestion.
+* A number of bugfixes in query generation.
 * InfluxDB v2 support based on
 [this PR](https://github.com/timescale/tsbs/pull/209). Original TSBS
 supports InfluxDB v1 only.
