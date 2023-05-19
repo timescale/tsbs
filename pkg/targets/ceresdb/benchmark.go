@@ -41,16 +41,17 @@ func NewBenchmark(config *SpecificConfig, dataSourceConfig *source.DataSourceCon
 	}
 
 	br := load.GetBufferedReader(dataSourceConfig.File.Location)
+	dataSource := &fileDataSource{
+		scanner: bufio.NewScanner(br),
+	}
 	client, err := ceresdb.NewClient(config.CeresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}
 	return &benchmark{
-		dataSource: &fileDataSource{
-			scanner: bufio.NewScanner(br),
-		},
-		config: config,
-		client: client,
+		config,
+		dataSource,
+		client,
 	}, nil
 }
 
