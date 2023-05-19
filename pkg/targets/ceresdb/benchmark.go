@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/CeresDB/ceresdb-client-go/ceresdb"
 	"github.com/blagojts/viper"
 	"github.com/timescale/tsbs/load"
 	"github.com/timescale/tsbs/pkg/data/source"
@@ -31,6 +32,7 @@ func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {
 type benchmark struct {
 	config     *SpecificConfig
 	dataSource targets.DataSource
+	client     ceresdb.Client
 }
 
 func NewBenchmark(config *SpecificConfig, dataSourceConfig *source.DataSourceConfig) (targets.Benchmark, error) {
@@ -39,11 +41,16 @@ func NewBenchmark(config *SpecificConfig, dataSourceConfig *source.DataSourceCon
 	}
 
 	br := load.GetBufferedReader(dataSourceConfig.File.Location)
+	client, err := ceresdb.NewClient(config.CeresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
+	if err != nil {
+		panic(err)
+	}
 	return &benchmark{
 		dataSource: &fileDataSource{
 			scanner: bufio.NewScanner(br),
 		},
 		config: config,
+		client: client,
 	}, nil
 }
 
@@ -65,7 +72,7 @@ func (b *benchmark) GetPointIndexer(maxPartitions uint) targets.PointIndexer {
 }
 
 func (b *benchmark) GetProcessor() targets.Processor {
-	return &processor{addr: b.config.CeresdbAddr}
+	return &processor{addr: b.config.CeresdbAddr, client: b.client}
 }
 
 func (b *benchmark) GetDBCreator() targets.DBCreator {

@@ -14,12 +14,7 @@ type processor struct {
 	client ceresdb.Client
 }
 
-func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
-	client, err := ceresdb.NewClient(p.addr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
-	if err != nil {
-		panic(err)
-	}
-	p.client = client
+func (p *processor) Init(_ int, _, _ bool) {
 }
 
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (metricCount, rowCount uint64) {
