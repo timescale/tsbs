@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-	"log"
-	"strings"
 )
 
 type dbCreator struct {
@@ -25,7 +25,6 @@ func (d *dbCreator) Init() {
 	if err != nil {
 		log.Println("Can't establish connection with", daemonURL)
 		log.Fatal(err)
-		}
 	}
 }
 
