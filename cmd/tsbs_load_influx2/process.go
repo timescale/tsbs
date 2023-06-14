@@ -25,7 +25,7 @@ func (p *processor) Init(numWorker int, _, _ bool) {
 	cfg := HTTPWriterConfig{
 		DebugInfo: fmt.Sprintf("worker #%d, dest url: %s", numWorker, daemonURL),
 		Host:      daemonURL,
-		Bucket:  loader.DatabaseName(),
+		Bucket:    loader.DatabaseName(),
 	}
 	w := NewHTTPWriter(cfg, orgID)
 	p.initWithHTTPWriter(numWorker, w)

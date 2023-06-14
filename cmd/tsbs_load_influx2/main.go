@@ -30,8 +30,8 @@ var (
 	useGzip           bool
 	doAbortOnExist    bool
 	consistency       string
-	orgID       string
-	authToken       string
+	orgID             string
+	authToken         string
 )
 
 // Global vars

@@ -73,7 +73,7 @@ func (w *HTTPWriter) initializeReq(req *fasthttp.Request, body []byte, isGzip bo
 	if isGzip {
 		req.Header.Add(headerContentEncoding, headerGzip)
 	}
-	req.Header.Add(headerAuth, "Token " + authToken)
+	req.Header.Add(headerAuth, "Token "+authToken)
 	req.SetBody(body)
 }
 
