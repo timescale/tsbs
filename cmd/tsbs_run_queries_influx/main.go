@@ -20,6 +20,8 @@ import (
 var (
 	daemonUrls []string
 	chunkSize  uint64
+	isV2       bool
+	authToken  string
 )
 
 // Global vars:
@@ -35,6 +37,8 @@ func init() {
 
 	pflag.String("urls", "http://localhost:8086", "Daemon URLs, comma-separated. Will be used in a round-robin fashion.")
 	pflag.Uint64("chunk-response-size", 0, "Number of series to chunk results into. 0 means no chunking.")
+	pflag.Bool("is-v2", false, "Is querying InfluxDB v2. false means querying InfluxDB v1.")
+	pflag.String("auth-token", "tsbs-token", "InfluxDB v2 auth token.")
 
 	pflag.Parse()
 
@@ -50,6 +54,8 @@ func init() {
 
 	csvDaemonUrls = viper.GetString("urls")
 	chunkSize = viper.GetUint64("chunk-response-size")
+	isV2 = viper.GetBool("is-v2")
+	authToken = viper.GetString("auth-token")
 
 	daemonUrls = strings.Split(csvDaemonUrls, ",")
 	if len(daemonUrls) == 0 {

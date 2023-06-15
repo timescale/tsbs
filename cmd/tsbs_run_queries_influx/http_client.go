@@ -30,6 +30,8 @@ type HTTPClientDoOptions struct {
 	PrettyPrintResponses bool
 	chunkSize            uint64
 	database             string
+	isV2                 bool
+	authToken            string
 }
 
 var httpClientOnce = sync.Once{}
@@ -73,6 +75,10 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	req, err := http.NewRequest(string(q.Method), string(w.uri), nil)
 	if err != nil {
 		panic(err)
+	}
+
+	if isV2 {
+		req.Header.Add("Authorization", "Token "+authToken)
 	}
 
 	// Perform the request while tracking latency:
