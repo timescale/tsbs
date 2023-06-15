@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -71,6 +72,7 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 
 	// populate a request with data from the Query:
 	req, err := http.NewRequest(string(q.Method), string(w.uri), nil)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +85,8 @@ func (w *HTTPClient) Do(q *query.HTTP, opts *HTTPClientDoOptions) (lag float64, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		panic("http request did not return status 200 OK")
+		body, _ := io.ReadAll(resp.Body)
+		panic(fmt.Sprintf("http request did not return status 200 OK, code=%d, body=%s", resp.StatusCode, body))
 	}
 
 	var body []byte
