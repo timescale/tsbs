@@ -48,6 +48,9 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return questdb.NewTarget()
 	case constants.FormatInflux2:
 		return influx2.NewTarget()
+	case constants.FormatGreptime:
+		// Reuses influx's target.
+		return influx.NewTarget()
 	}
 
 	supportedFormatsStr := strings.Join(constants.SupportedFormats(), ",")
