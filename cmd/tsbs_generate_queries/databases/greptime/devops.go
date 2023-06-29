@@ -59,7 +59,7 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 
 	humanLabel := fmt.Sprintf("Influx %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	influxql := fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1m)", strings.Join(selectClauses, ", "), whereHosts, interval.StartString(), interval.EndString())
+	influxql := fmt.Sprintf("SELECT %s, date_trunc('minute', ts) minute from cpu where %s and ts >= '%s' and ts < '%s' group by minute", strings.Join(selectClauses, ", "), whereHosts, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
@@ -70,11 +70,11 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 // LIMIT $LIMIT
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.MustRandWindow(time.Hour)
-	where := fmt.Sprintf("WHERE time < '%s'", interval.EndString())
+	where := fmt.Sprintf("WHERE ts < '%s'", interval.EndString())
 
 	humanLabel := "Influx max cpu over last 5 min-intervals (random end)"
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	influxql := fmt.Sprintf(`SELECT max(usage_user) from cpu %s group by time(1m) limit 5`, where)
+	influxql := fmt.Sprintf(`SELECT max(usage_user), date_trunc('minute', ts) minute from cpu %s group by minute limit 5`, where)
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
@@ -93,7 +93,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	humanLabel := devops.GetDoubleGroupByLabel("Influx", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	influxql := fmt.Sprintf("SELECT %s from cpu where time >= '%s' and time < '%s' group by time(1h),hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString())
+	influxql := fmt.Sprintf("SELECT %s, date_trunc('hour', ts) hour from cpu where ts >= '%s' and ts < '%s' group by hour,hostname", strings.Join(selectClauses, ", "), interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
@@ -111,7 +111,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 
 	humanLabel := devops.GetMaxAllLabel("Influx", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	influxql := fmt.Sprintf("SELECT %s from cpu where %s and time >= '%s' and time < '%s' group by time(1h)", strings.Join(selectClauses, ","), whereHosts, interval.StartString(), interval.EndString())
+	influxql := fmt.Sprintf("SELECT %s, date_trunc('hour', ts) hour from cpu where %s and ts >= '%s' and ts < '%s' group by hour", strings.Join(selectClauses, ","), whereHosts, interval.StartString(), interval.EndString())
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
@@ -119,7 +119,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Influx last row per host"
 	humanDesc := humanLabel + ": cpu"
-	influxql := "SELECT * from cpu group by \"hostname\" order by ts desc limit 1"
+	influxql := "select * from cpu inner join (select hostname, max(ts) as ts from cpu group by hostname) sub1 on cpu.hostname = sub1.hostname and cpu.ts = sub1.ts"
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
