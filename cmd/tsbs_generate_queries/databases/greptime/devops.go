@@ -119,7 +119,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 func (d *Devops) LastPointPerHost(qi query.Query) {
 	humanLabel := "Influx last row per host"
 	humanDesc := humanLabel + ": cpu"
-	influxql := "select * from cpu inner join (select hostname, max(ts) as ts from cpu group by hostname) sub1 on cpu.hostname = sub1.hostname and cpu.ts = sub1.ts"
+	influxql := "select * from (select hostname, max(ts) as ts from cpu group by hostname) sub1 inner join cpu on cpu.hostname = sub1.hostname and cpu.ts = sub1.ts"
 	d.fillInQuery(qi, humanLabel, humanDesc, influxql)
 }
 
