@@ -116,7 +116,6 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 				}
 				r = MustQuery(dbBench, checkTableQuery)
 			}
-			return nil
 		}
 	}
 	return nil
