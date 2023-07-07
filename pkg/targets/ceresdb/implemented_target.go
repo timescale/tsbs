@@ -44,7 +44,7 @@ func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet
 	flagSet.Int64(flagPrefix+"row-group-size", 8192, "row num per row group in parquet")
 	flagSet.String(
 		flagPrefix+"primary-keys",
-		"timestamp,tsid",
+		"tsid,timestamp",
 		"Primary keys used when create table",
 	)
 }
