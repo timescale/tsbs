@@ -45,6 +45,7 @@ func init() {
 		Password:   viper.GetString("password"),
 		LogBatches: viper.GetBool("log-batches"),
 		Debug:      viper.GetInt("debug"),
+		InTableTag: viper.GetBool("in-table-partition-tag"),
 		DbName:     loaderConf.DBName,
 	}
 
