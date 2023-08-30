@@ -16,19 +16,20 @@ type LoaderConfig struct {
 }
 
 type RunnerConfig struct {
-	DBName          string `yaml:"db-name" mapstructure:"db-name"`
-	BatchSize       uint   `yaml:"batch-size" mapstructure:"batch-size"`
-	Workers         uint
-	Limit           uint64
-	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load"`
-	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db"`
-	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period"`
-	Seed            int64
-	HashWorkers     bool   `yaml:"hash-workers" mapstructure:"hash-workers"`
-	InsertIntervals string `yaml:"insert-intervals" mapstructure:"insert-intervals"`
-	FlowControl     bool   `yaml:"flow-control" mapstructure:"flow-control"`
-	ChannelCapacity uint   `yaml:"channel-capacity" mapstructure:"channel-capacity"`
+	DBName              string `yaml:"db-name" mapstructure:"db-name"`
+	BatchSize           uint   `yaml:"batch-size" mapstructure:"batch-size"`
+	Workers             uint
+	Limit               uint64
+	DoLoad              bool          `yaml:"do-load" mapstructure:"do-load"`
+	DoCreateDB          bool          `yaml:"do-create-db" mapstructure:"do-create-db"`
+	DoAbortOnExist      bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist"`
+	ReportingPeriod     time.Duration `yaml:"reporting-period" mapstructure:"reporting-period"`
+	Seed                int64
+	HashWorkers         bool   `yaml:"hash-workers" mapstructure:"hash-workers"`
+	InsertIntervals     string `yaml:"insert-intervals" mapstructure:"insert-intervals"`
+	InsertIntervalsUnit string `yaml:"insert-intervals-unit" mapstructure:"insert-intervals-unit"`
+	FlowControl         bool   `yaml:"flow-control" mapstructure:"flow-control"`
+	ChannelCapacity     uint   `yaml:"channel-capacity" mapstructure:"channel-capacity"`
 }
 
 type DataSourceConfig struct {

@@ -43,12 +43,12 @@ type sleepRegulator struct {
 // numWorkers=3, string='1,2' => worker '0' at least 1 second, workers '1' and '2' at least 2 seconds between inserts
 // numWorkers=1, string='0-1' => worker '0' needs to have [0,1) seconds between inserts
 // numWorkers=3, string='1,2-4'=> worker '0' have 1 second between inserts, workers '1' and '2' have [2,4) seconds between inserts
-func NewSleepRegulator(insertIntervalString string, numWorkers int, initialRand *rand.Rand) (SleepRegulator, error) {
+func NewSleepRegulator(insertIntervalString string, unitString string, numWorkers int, initialRand *rand.Rand) (SleepRegulator, error) {
 	if numWorkers <= 0 {
 		return nil, fmt.Errorf("number of workers must be positive, can't be %d", numWorkers)
 	}
 
-	sleepTimes, err := parseInsertIntervalString(insertIntervalString, numWorkers, initialRand)
+	sleepTimes, err := parseInsertIntervalString(insertIntervalString, unitString, numWorkers, initialRand)
 	if err != nil {
 		return nil, err
 	}
