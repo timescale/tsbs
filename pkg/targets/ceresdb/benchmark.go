@@ -18,6 +18,10 @@ type SpecificConfig struct {
 	StorageFormat string `yaml:"storageFormat" mapstructure:"storageFormat"`
 	RowGroupSize  int64  `yaml:"rowGroupSize" mapstructure:"rowGroupSize"`
 	PrimaryKeys   string `yaml:"primaryKeys" mapstructure:"primaryKeys"`
+	PartitionKeys string `yaml:"partitionKeys" mapstructure:"partitionKeys"`
+	PartitionNum  uint32 `yaml:"partitionKeys" mapstructure:"partitionNum"`
+	AccessMode    string `yaml:"accessMode" mapstructure:"accessMode"`
+	UpdateMode    string `yaml:"updateMode" mapstructure:"updateMode"`
 }
 
 func parseSpecificConfig(v *viper.Viper) (*SpecificConfig, error) {
@@ -44,7 +48,8 @@ func NewBenchmark(config *SpecificConfig, dataSourceConfig *source.DataSourceCon
 	dataSource := &fileDataSource{
 		scanner: bufio.NewScanner(br),
 	}
-	client, err := ceresdb.NewClient(config.CeresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
+
+	client, err := NewClient(config.CeresdbAddr, config.AccessMode, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}

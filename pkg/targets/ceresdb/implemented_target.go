@@ -47,6 +47,26 @@ func (vm vmTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.FlagSet
 		"tsid,timestamp",
 		"Primary keys used when create table",
 	)
+	flagSet.String(
+		flagPrefix+"partition-keys",
+		"",
+		"Partition keys used when create partitioned table",
+	)
+	flagSet.Uint32(
+		flagPrefix+"partition-num",
+		4,
+		"Partition keys used when create partitioned table",
+	)
+	flagSet.String(
+		flagPrefix+"access-mode",
+		"direct",
+		"Access mode of ceresdb client",
+	)
+	flagSet.String(
+		flagPrefix+"update-mode",
+		"OVERWRITE",
+		"Update mode when insert",
+	)
 }
 
 func (vm vmTarget) TargetName() string {

@@ -49,7 +49,7 @@ func (d *dbCreator) DBExists(dbName string) bool { return true }
 
 // loader.DBCreator interface implementation
 func (d *dbCreator) CreateDB(dbName string) error {
-	client, err := ceresdb.NewClient(d.config.CeresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
+	client, err := NewClient(d.config.CeresdbAddr, d.config.AccessMode, ceresdb.WithDefaultDatabase("public"))
 	if err != nil {
 		return err
 	}
@@ -78,19 +78,30 @@ func (d *dbCreator) createTable(client ceresdb.Client, tableName string,
 		columnDefs = append(columnDefs, fmt.Sprintf("`%s` double", field))
 	}
 
-	tmpl := `
-create table if not exists %s (
-%s,
-primary key(%s)
-) with (
-enable_ttl = 'false',
-num_rows_per_row_group='%d',
-storage_format = '%s'
-);
+	// The sql can be divided into three parts:
+	// 	+ Create part
+	// 	+ Partition part
+	// 	+ With part
+	crTmpl := `create table if not exists %s (
+		%s,
+		primary key(%s)
+		)`
+	partTmpl := `partition by key (%s) partitions %v`
+	withTmpl := `with (
+		enable_ttl = 'false',
+		num_rows_per_row_group='%d',
+		storage_format = '%s',
+		update_mode='%s'
+		);`
 
-`
-	sql := fmt.Sprintf(tmpl, tableName, strings.Join(columnDefs, ","), d.config.PrimaryKeys, d.config.RowGroupSize, d.config.StorageFormat)
-	// fmt.Printf("sql = %s\n", sql)
+	// Make sql
+	sql := fmt.Sprintf(crTmpl, tableName, strings.Join(columnDefs, ","), d.config.PrimaryKeys) + "\n"
+	if d.config.PartitionKeys != "" {
+		sql = sql + fmt.Sprintf(partTmpl, d.config.PartitionKeys, d.config.PartitionNum) + "\n"
+	}
+	sql = sql + fmt.Sprintf(withTmpl, d.config.RowGroupSize, d.config.StorageFormat, d.config.UpdateMode)
+
+	// Execute
 	_, err := client.SQLQuery(context.TODO(), ceresdb.SQLQueryRequest{
 		Tables: []string{tableName},
 		SQL:    sql,

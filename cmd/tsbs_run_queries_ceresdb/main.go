@@ -7,13 +7,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
-	"github.com/CeresDB/ceresdb-client-go/ceresdb"
+	ceresdbSdk "github.com/CeresDB/ceresdb-client-go/ceresdb"
 	"github.com/blagojts/viper"
 	"github.com/spf13/pflag"
 	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/query"
+	"github.com/timescale/tsbs/pkg/targets/ceresdb"
 )
 
 // Program option vars:
@@ -21,6 +24,10 @@ var (
 	ceresdbAddr string
 
 	showExplain bool
+
+	accessMode string
+
+	responsesFile string
 )
 
 // Global vars:
@@ -39,6 +46,8 @@ func init() {
 		"ceresdb gRPC endpoint",
 	)
 	pflag.Bool("show-explain", false, "Print out the EXPLAIN output for sample query")
+	pflag.String("access-mode", "direct", "Access mode of ceresdb client")
+	pflag.String("responses-file", "", "Write responses to this file if enable responses printing")
 	pflag.Parse()
 
 	err := utils.SetupConfigFile()
@@ -53,7 +62,8 @@ func init() {
 
 	ceresdbAddr = viper.GetString("ceresdb-addr")
 	showExplain = viper.GetBool("show-explain")
-
+	accessMode = viper.GetString("access-mode")
+	responsesFile = viper.GetString("responses-file")
 	runner = query.NewBenchmarkRunner(config)
 }
 
@@ -69,8 +79,9 @@ type queryExecutorOptions struct {
 
 // query.Processor interface implementation
 type processor struct {
-	db   ceresdb.Client
-	opts *queryExecutorOptions
+	db               ceresdbSdk.Client
+	opts             *queryExecutorOptions
+	queryResultsFile *os.File
 }
 
 // query.Processor interface implementation
@@ -80,11 +91,20 @@ func newProcessor() query.Processor {
 
 // query.Processor interface implementation
 func (p *processor) Init(workerNumber int) {
-	client, err := ceresdb.NewClient(ceresdbAddr, ceresdb.Direct, ceresdb.WithDefaultDatabase("public"))
+	client, err := ceresdb.NewClient(ceresdbAddr, accessMode, ceresdbSdk.WithDefaultDatabase("public"))
 	if err != nil {
 		panic(err)
 	}
 	p.db = client
+
+	if responsesFile != "" {
+		queryResultsFile, err := os.Create(responsesFile)
+		if err != nil {
+			panic(err)
+		}
+		p.queryResultsFile = queryResultsFile
+	}
+
 	p.opts = &queryExecutorOptions{
 		showExplain:   false,
 		debug:         runner.DebugLevel() > 0,
@@ -110,7 +130,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	}
 
 	// Main action - run the query
-	rows, err := p.db.SQLQuery(context.TODO(), ceresdb.SQLQueryRequest{
+	rows, err := p.db.SQLQuery(context.TODO(), ceresdbSdk.SQLQueryRequest{
 		Tables: []string{string(ceresdbQuery.Table)},
 		SQL:    sql,
 	})
@@ -123,7 +143,13 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 		fmt.Println(sql)
 	}
 	if p.opts.printResponse {
-		fmt.Printf("request = %v\n", rows)
+		rowsStr := RowsToStr(rows.Rows)
+		query_res := fmt.Sprintf("###query\n sql: %v\naffected: %v\nrows: \n%s\n\n", rows.SQL, rows.AffectedRows, rowsStr)
+		if p.queryResultsFile != nil {
+			p.queryResultsFile.WriteString(query_res)
+		} else {
+			fmt.Print(query_res)
+		}
 	}
 
 	took := float64(time.Since(start).Nanoseconds()) / 1e6
@@ -132,4 +158,18 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	stat.Init(q.HumanLabelName(), took)
 
 	return []*query.Stat{stat}, err
+}
+
+func RowsToStr(rows []ceresdbSdk.Row) string {
+	rowLen := len(rows)
+	if rowLen == 0 {
+		return ""
+	}
+
+	rowStrs := make([]string, 0, len(rows))
+	for _, row := range rows {
+		rowStrs = append(rowStrs, fmt.Sprintf("%v", row))
+	}
+
+	return strings.Join(rowStrs, "\n")
 }
