@@ -62,6 +62,22 @@ a particular device in one document and uses updates for a more efficient
 storage model. However for testing or comparing, this flag is provided to use
 a model where each data reading is stored as a single document.
 
+#### `-timeseries-collection` (type: `boolean`, default: `false`)
+
+Whether to use a MongoDB time-series collection. If true, document-per-event must also be true.
+
+#### `-retryable-writes` (type: `boolean`, default: `true`)
+
+Whether retryable writes should be enabled.
+
+#### `-ordered-inserts` (type: `boolean`, default: `true`)
+
+If true, measurements will be inserted with {ordered: true}, or {ordered: false} if false.
+
+#### `-random-field-order` (type: `boolean`, default: `true`)
+
+Whether measurements will be inserted with random or deterministic field order.
+
 ---
 
 ## `tsbs_run_queries_mongo` Additional Flags

@@ -1,0 +1,48 @@
+################################################################################
+# This example configuration requires that your data is pre-generated using
+# `tsbs_generate_data`. This will provide the best testing of data ingest, but
+# does require considerable disk space to generate initially.
+#
+# See the documentation for each system for what configuration is available, 
+# typically found at: https://github.com/timescale/tsbs/tree/master/docs
+# 
+################################################################################
+
+# configuration about where the data is coming from
+data-source:
+  # data source type [SIMULATOR|FILE]
+  type: FILE
+  # generate data on the fly
+  file:
+    location: /path_to_data_file/mongo.data
+loader:
+  db-specific:
+    document-per-event: true
+    timeseries-collection: true
+    collection-sharded: true
+    retryable-writes: false
+    random-field-order: false
+  runner:
+    # the simulated data will be sent in batches of 'batch-size' points
+    # to each worker
+    batch-size: 10000
+    # don't worry about this until you need to simulate data with scale > 1000
+    channel-capacity: "0"
+    db-name: benchmarkdb
+    do-abort-on-exist: false
+    do-create-db: false
+    # set this to false if you want to see the speed of data generation
+    do-load: true
+    # don't worry about this until you need to simulate data with scale > 1000
+    flow-control: false
+    # use one queue for the simulated data, or a separate queue per worker
+    # points will be separated by `loader.db-specific.hash-property`
+    hash-workers: true
+    # limit how many generated points will be sent to db
+    limit: 10080000000
+    # period in which to print statistics (rows/s, total rows etc)
+    reporting-period: 30s
+    # set to some number for reproducible loads
+    seed: 1
+    # num concurrent workers/clients sending data to db
+    workers: 10

@@ -92,8 +92,7 @@ query execution performance. (It currently does not measure
 concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
-wherever possible to connect to each database (e.g., `mgo` for MongoDB, 
-`aws sdk` for Timestream).
+wherever possible to connect to each database (e.g., `aws sdk` for Timestream).
 
 Although the data is randomly generated, TSBS data and queries are
 entirely deterministic. By supplying the same PRNG (pseudo-random number
