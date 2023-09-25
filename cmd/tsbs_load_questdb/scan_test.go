@@ -34,22 +34,41 @@ func TestBatch(t *testing.T) {
 	if b.metrics != 2 {
 		t.Errorf("batch metric count is not 2 after first append")
 	}
+	if b.metricsPerRow != 2 {
+		t.Errorf("batch metric per row count is not 2 after first append")
+	}
 
 	p = data.LoadedPoint{
 		Data: []byte("tag1=tag1val,tag2=tag2val col1=1.0,col2=1.0 190"),
 	}
 	b.Append(p)
 	if b.Len() != 2 {
-		t.Errorf("batch count is not 1 after first append")
+		t.Errorf("batch count is not 1 after second append")
 	}
 	if b.rows != 2 {
-		t.Errorf("batch row count is not 1 after first append")
+		t.Errorf("batch row count is not 1 after second append")
 	}
 	if b.metrics != 4 {
-		t.Errorf("batch metric count is not 2 after first append")
+		t.Errorf("batch metric count is not 2 after second append")
+	}
+	if b.metricsPerRow != 2 {
+		t.Errorf("batch metric per row count is not 2 after second append")
+	}
+}
+
+func TestBatchMalformedRow(t *testing.T) {
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, 4*1024*1024))
+		},
+	}
+	f := &factory{}
+	b := f.New().(*batch)
+	if b.Len() != 0 {
+		t.Errorf("batch not initialized with count 0")
 	}
 
-	p = data.LoadedPoint{
+	p := data.LoadedPoint{
 		Data: []byte("bad_point"),
 	}
 	errMsg := ""
