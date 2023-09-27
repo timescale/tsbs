@@ -1,12 +1,12 @@
 # Build stage
-FROM golang:1.13.1-alpine AS builder
+FROM golang:1.20.8-alpine AS builder
 WORKDIR /tsbs
 COPY ./ ./
 RUN apk update && apk add --no-cache git
 RUN go mod download && go install ./...
 
 # Final stage
-FROM alpine:3.8.5
+FROM alpine:3.18
 RUN apk update && apk add --no-cache bash
 COPY --from=builder /go/bin /
 COPY --from=builder /tsbs/scripts /

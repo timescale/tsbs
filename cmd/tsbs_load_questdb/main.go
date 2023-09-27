@@ -23,8 +23,10 @@ import (
 
 // Program option vars:
 var (
-	questdbRESTEndPoint string
-	questdbILPBindTo    string
+	questdbILPBindTo string
+	useTLS           bool
+	authTokenId      string
+	authToken        string
 )
 
 // Global vars
@@ -53,6 +55,9 @@ func init() {
 	pflag.CommandLine.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
 	pflag.CommandLine.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
 	pflag.CommandLine.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
+	pflag.CommandLine.Bool("tls", false, "Whether to use TLS encryption for database connection. The certificate check is disabled, so the client will trust any server")
+	pflag.CommandLine.String("auth-id", "", "ILP authentication token id")
+	pflag.CommandLine.String("auth-token", "", "ILP authentication token")
 	target.TargetSpecificFlags("", pflag.CommandLine)
 	pflag.Parse()
 
@@ -66,8 +71,10 @@ func init() {
 		panic(fmt.Errorf("unable to decode config: %s", err))
 	}
 
-	questdbRESTEndPoint = viper.GetString("url")
 	questdbILPBindTo = viper.GetString("ilp-bind-to")
+	useTLS = viper.GetBool("tls")
+	authTokenId = viper.GetString("auth-id")
+	authToken = viper.GetString("auth-token")
 	config.HashWorkers = false
 	config.NoFlowControl = true
 	loader = load.GetBenchmarkRunner(config)

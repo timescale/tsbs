@@ -60,21 +60,22 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 		{
 			desc:   "single host",
 			nHosts: 1,
-			want:   "(hostname = 'host_1')",
+			want:   "(hostname = 'host_5')",
 		},
 		{
 			desc:   "multi host (2)",
 			nHosts: 2,
-			want:   "(hostname = 'host_7' or hostname = 'host_9')",
+			want:   "(hostname = 'host_5' or hostname = 'host_9')",
 		},
 		{
 			desc:   "multi host (3)",
 			nHosts: 3,
-			want:   "(hostname = 'host_1' or hostname = 'host_8' or hostname = 'host_5')",
+			want:   "(hostname = 'host_5' or hostname = 'host_9' or hostname = 'host_3')",
 		},
 	}
 
 	for _, c := range cases {
+		rand.Seed(123)
 		t.Run(c.desc, func(t *testing.T) {
 			b := BaseGenerator{}
 			dq, err := b.NewDevops(time.Now(), time.Now(), 10)
@@ -88,7 +89,6 @@ func TestDevopsGetHostWhereString(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestDevopsGetSelectClausesAggMetrics(t *testing.T) {
