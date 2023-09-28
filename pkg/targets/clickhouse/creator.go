@@ -127,12 +127,17 @@ func createMetricsTable(conf *ClickhouseConfig, db *sqlx.DB, tableName string, f
 
 	// columnsWithType - column specifications with type. Ex.: "cpu_usage Float64"
 	var columnsWithType []string
-	for _, column := range columnNames {
+	for idx, column := range columnNames {
 		if len(column) == 0 {
 			// Skip nameless columns
 			continue
 		}
-		columnsWithType = append(columnsWithType, fmt.Sprintf("%s Nullable(Float64)", column))
+		if conf.InTableTag && idx == 0 {
+			columnsWithType = append(columnsWithType, fmt.Sprintf("%s Nullable(String)", column))
+		} else {
+			columnsWithType = append(columnsWithType, fmt.Sprintf("%s Nullable(Float64)", column))
+		}
+
 	}
 
 	sql := fmt.Sprintf(`
@@ -143,7 +148,7 @@ func createMetricsTable(conf *ClickhouseConfig, db *sqlx.DB, tableName string, f
 				tags_id         UInt32,
 				%s,
 				additional_tags String   DEFAULT ''
-			) ENGINE = MergeTree(created_date, (tags_id, created_at), 8192)
+			) ENGINE = MergeTree() PARTITION BY toYYYYMM(created_date) PRIMARY KEY (tags_id, created_at)
 			`,
 		tableName,
 		strings.Join(columnsWithType, ","))
@@ -180,7 +185,8 @@ func generateTagsTableQuery(tagNames, tagTypes []string) string {
 			"created_at   DateTime DEFAULT now(),\n"+
 			"id           UInt32,\n"+
 			"%s"+
-			") ENGINE = MergeTree(created_date, (%s), 8192)",
+			") ENGINE = MergeTree()"+
+			"PARTITION BY toYYYYMM(created_date) PRIMARY KEY %s",
 		cols,
 		index)
 }
