@@ -34,7 +34,7 @@ func TestNewSleepRegulator(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			res, err := NewSleepRegulator(tc.intervalString, tc.workers, tc.rand)
+			res, err := NewSleepRegulator(tc.intervalString, "second", tc.workers, tc.rand)
 			if err != nil && !tc.expectErr {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -65,7 +65,7 @@ func TestNewSleepRegulator(t *testing.T) {
 }
 
 func TestTimeToSleepPanicOnWrongWorkerNumber(t *testing.T) {
-	sr, _ := NewSleepRegulator("1", 1, rand.New(rand.NewSource(0)))
+	sr, _ := NewSleepRegulator("1", "second", 1, rand.New(rand.NewSource(0)))
 	defer func() {
 		if r := recover(); r != "invalid worker number: 2" {
 			t.Errorf("wrong panic.\nexpected: invalid worker number: 1\ngot: %v", r)

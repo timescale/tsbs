@@ -31,19 +31,20 @@ var (
 
 // BenchmarkRunnerConfig contains all the configuration information required for running BenchmarkRunner.
 type BenchmarkRunnerConfig struct {
-	DBName          string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
-	BatchSize       uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
-	Workers         uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
-	Limit           uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
-	DoLoad          bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
-	DoCreateDB      bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
-	DoAbortOnExist  bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
-	ReportingPeriod time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
-	HashWorkers     bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
-	NoFlowControl   bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
-	ChannelCapacity uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
-	InsertIntervals string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
-	ResultsFile     string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
+	DBName              string        `yaml:"db-name" mapstructure:"db-name" json:"db-name"`
+	BatchSize           uint          `yaml:"batch-size" mapstructure:"batch-size" json:"batch-size"`
+	Workers             uint          `yaml:"workers" mapstructure:"workers" json:"workers"`
+	Limit               uint64        `yaml:"limit" mapstructure:"limit" json:"limit"`
+	DoLoad              bool          `yaml:"do-load" mapstructure:"do-load" json:"do-load"`
+	DoCreateDB          bool          `yaml:"do-create-db" mapstructure:"do-create-db" json:"do-create-db"`
+	DoAbortOnExist      bool          `yaml:"do-abort-on-exist" mapstructure:"do-abort-on-exist" json:"do-abort-on-exist"`
+	ReportingPeriod     time.Duration `yaml:"reporting-period" mapstructure:"reporting-period" json:"reporting-period"`
+	HashWorkers         bool          `yaml:"hash-workers" mapstructure:"hash-workers" json:"hash-workers"`
+	NoFlowControl       bool          `yaml:"no-flow-control" mapstructure:"no-flow-control" json:"no-flow-control"`
+	ChannelCapacity     uint          `yaml:"channel-capacity" mapstructure:"channel-capacity" json:"channel-capacity"`
+	InsertIntervals     string        `yaml:"insert-intervals" mapstructure:"insert-intervals" json:"insert-intervals"`
+	InsertIntervalsUnit string        `yaml:"insert-intervals-unit" mapstructure:"insert-intervals-unit" json:"insert-intervals-unit"`
+	ResultsFile         string        `yaml:"results-file" mapstructure:"results-file" json:"results-file"`
 	// deprecated, should not be used in other places other than tsbs_load_xx commands
 	FileName string `yaml:"file" mapstructure:"file" json:"file"`
 	Seed     int64  `yaml:"seed" mapstructure:"seed" json:"seed"`
@@ -61,7 +62,8 @@ func (c BenchmarkRunnerConfig) AddToFlagSet(fs *pflag.FlagSet) {
 	fs.Duration("reporting-period", 10*time.Second, "Period to report write stats")
 	fs.String("file", "", "File name to read data from")
 	fs.Int64("seed", 0, "PRNG seed (default: 0, which uses the current timestamp)")
-	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s")
+	fs.String("insert-intervals", "", "Time to wait between each insert, default '' => all workers insert ASAP. '1,2' = worker 1 waits 1s between inserts, worker 2 and others wait 2s. (Unit adjustable with insert-intervals-unit)")
+	fs.String("insert-intervals-unit", "second", "Unit for insert intervals. Options: second, millisecond, microsecond.")
 	fs.Bool("hash-workers", false, "Whether to consistently hash insert data to the same workers (i.e., the data for a particular host always goes to the same worker)")
 	fs.String("results-file", "", "Write the test results summary json to this file")
 }
@@ -97,7 +99,7 @@ func GetBenchmarkRunner(c BenchmarkRunnerConfig) BenchmarkRunner {
 	if c.InsertIntervals == "" {
 		loader.sleepRegulator = insertstrategy.NoWait()
 	} else {
-		loader.sleepRegulator, err = insertstrategy.NewSleepRegulator(c.InsertIntervals, int(loader.Workers), loader.initialRand)
+		loader.sleepRegulator, err = insertstrategy.NewSleepRegulator(c.InsertIntervals, c.InsertIntervalsUnit, int(loader.Workers), loader.initialRand)
 		if err != nil {
 			panic(fmt.Sprintf("could not initialize BenchmarkRunner: %v", err))
 		}

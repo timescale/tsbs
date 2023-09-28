@@ -2,6 +2,7 @@ package insertstrategy
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -9,10 +10,13 @@ import (
 )
 
 const (
-	workerSleepUnit     = time.Second
 	intervalSeparator   = ","
 	rangeSeparator      = "-"
 	intervalFormatError = "worker insert interval could not be parsed as integer constant or range. Required: 'x' or 'x-y' | x,y are uint x<y"
+)
+
+var (
+	workerSleepUnit = time.Second
 )
 
 // parseInsertIntervalString parses a string representation of insert intervals for a given
@@ -24,13 +28,15 @@ const (
 // numWorkers=1, string='0-1' => worker '0' needs to have [0,1) seconds between inserts
 // numWorkers=3, string='1,2-4'=> worker '0' have 1 second between inserts, workers '1' and '2' have [2,4) seconds between inserts
 // Error returned if numbers can't be parsed
-func parseInsertIntervalString(insertIntervalString string, numWorkers int, initialRand *rand.Rand) (map[int]generateSleepTimeFn, error) {
+func parseInsertIntervalString(insertIntervalString string, unitString string, numWorkers int, initialRand *rand.Rand) (map[int]generateSleepTimeFn, error) {
 	randsPerWorker := makeRandsForWorkers(numWorkers, initialRand)
 	splitIntervals := splitIntervalString(insertIntervalString)
 	numIntervals := len(splitIntervals)
 	sleepGenerators := make(map[int]generateSleepTimeFn)
 	currentInterval := 0
 	var err error
+
+	setWorkerSleepUnit(unitString)
 
 	for i := 0; i < numWorkers; i++ {
 		intervalToParse := splitIntervals[currentInterval]
@@ -45,6 +51,19 @@ func parseInsertIntervalString(insertIntervalString string, numWorkers int, init
 	}
 
 	return sleepGenerators, nil
+}
+
+func setWorkerSleepUnit(unitString string) {
+	switch unitString {
+	case "millisecond":
+		workerSleepUnit = time.Millisecond
+	case "microsecond":
+		workerSleepUnit = time.Microsecond
+	case "second":
+		workerSleepUnit = time.Second
+	default:
+		panic(fmt.Sprintf(`%s is not a valid unit for insert intervals!`, unitString))
+	}
 }
 
 // parses an insert interval string for a single worker,
