@@ -118,7 +118,7 @@ func (d *Devops) GroupByTime(qi query.Query, nhosts, numMetrics int, timeRange t
 
 	humanLabel := fmt.Sprintf("Akumuli max cpu, rand %4d hosts, rand %s by 1m", nhosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+	d.fillInQuery(qi, humanLabel, humanDesc, bodyWriter.String(), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
 // HighCPUForHosts populates a query that gets CPU metrics when the CPU has high
@@ -167,7 +167,7 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 	humanLabel, err := devops.GetHighCPULabel("Akumuli", nHosts)
 	panicIfErr(err)
 	humanDesc := fmt.Sprintf("%s: %s - %s", humanLabel, interval.StartString(), interval.EndString())
-	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+	d.fillInQuery(qi, humanLabel, humanDesc, bodyWriter.String(), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
 // MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nhosts hosts,
@@ -216,7 +216,7 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
 
 	humanLabel := devops.GetMaxAllLabel("Akumuli", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+	d.fillInQuery(qi, humanLabel, humanDesc, bodyWriter.String(), interval.StartUnixNano(), interval.EndUnixNano())
 }
 
 // LastPointPerHost finds the last row for every host in the dataset
@@ -239,7 +239,7 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 
 	humanLabel := "Akumuli last row per host"
 	humanDesc := humanLabel + ": cpu"
-	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), 0, 0)
+	d.fillInQuery(qi, humanLabel, humanDesc, bodyWriter.String(), 0, 0)
 }
 
 // GroupByTimeAndPrimaryTag selects the AVG of numMetrics metrics under 'cpu' per device per hour for a day,
@@ -284,5 +284,5 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 
 	humanLabel := devops.GetDoubleGroupByLabel("Akumuli", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
-	d.fillInQuery(qi, humanLabel, humanDesc, string(bodyWriter.Bytes()), interval.StartUnixNano(), interval.EndUnixNano())
+	d.fillInQuery(qi, humanLabel, humanDesc, bodyWriter.String(), interval.StartUnixNano(), interval.EndUnixNano())
 }

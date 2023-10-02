@@ -64,9 +64,7 @@ func init() {
 	password = viper.GetString("password")
 
 	// Parse comma separated string of hosts and put in a slice (for multi-node setups)
-	for _, host := range strings.Split(hosts, ",") {
-		hostsList = append(hostsList, host)
-	}
+	hostsList = append(hostsList, strings.Split(hosts, ",")...)
 
 	runner = query.NewBenchmarkRunner(config)
 }
