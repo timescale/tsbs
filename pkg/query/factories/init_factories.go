@@ -3,6 +3,7 @@ package factories
 import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/akumuli"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/ceresdb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
@@ -39,5 +40,6 @@ func InitQueryFactories(config *config.QueryGeneratorConfig) map[string]interfac
 		DBName: config.DbName,
 	}
 	factories[constants.FormatQuestDB] = &questdb.BaseGenerator{}
+	factories[constants.FormatCeresDB] = &ceresdb.BaseGenerator{}
 	return factories
 }

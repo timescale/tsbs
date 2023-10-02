@@ -133,6 +133,8 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 		fallthrough
 	case constants.FormatClickhouse:
 		fallthrough
+	case constants.FormatCeresDB:
+		fallthrough
 	case constants.FormatTimescaleDB:
 		g.writeHeader(sim.Headers())
 	}
