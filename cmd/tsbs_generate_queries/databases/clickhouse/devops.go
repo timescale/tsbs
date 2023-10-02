@@ -218,13 +218,13 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 // high-cpu-1
 // high-cpu-all
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	var hostWhereClause string
 	if nHosts == 0 {
 		hostWhereClause = ""
 	} else {
 		hostWhereClause = fmt.Sprintf("AND (%s)", d.getHostWhereString(nHosts))
 	}
-	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	sql := fmt.Sprintf(`
         SELECT *

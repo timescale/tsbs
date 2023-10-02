@@ -473,19 +473,19 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:               "one host",
 			nHosts:             1,
 			expectedHumanLabel: "TimescaleDB CPU over threshold, 1 host(s)",
-			expectedHumanDesc:  "TimescaleDB CPU over threshold, 1 host(s): 1970-01-01T00:47:30Z",
+			expectedHumanDesc:  "TimescaleDB CPU over threshold, 1 host(s): 1970-01-01T00:54:10Z",
 			expectedHypertable: "cpu",
-			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:47:30.894865 +0000'" +
-				" AND time < '1970-01-01 12:47:30.894865 +0000' AND hostname IN ('host_9')",
+			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:54:10.138978 +0000'" +
+				" AND time < '1970-01-01 12:54:10.138978 +0000' AND hostname IN ('host_3')",
 		},
 		{
 			desc:               "five hosts",
 			nHosts:             5,
 			expectedHumanLabel: "TimescaleDB CPU over threshold, 5 host(s)",
-			expectedHumanDesc:  "TimescaleDB CPU over threshold, 5 host(s): 1970-01-01T00:08:59Z",
+			expectedHumanDesc:  "TimescaleDB CPU over threshold, 5 host(s): 1970-01-01T00:37:12Z",
 			expectedHypertable: "cpu",
-			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:08:59.080812 +0000'" +
-				" AND time < '1970-01-01 12:08:59.080812 +0000' AND hostname IN ('host_5','host_9','host_1','host_7','host_2')",
+			expectedSQLQuery: "SELECT * FROM cpu WHERE usage_user > 90.0 and time >= '1970-01-01 00:37:12.342805 +0000'" +
+				" AND time < '1970-01-01 12:37:12.342805 +0000' AND hostname IN ('host_9','host_5','host_1','host_7','host_2')",
 		},
 	}
 

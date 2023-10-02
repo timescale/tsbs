@@ -160,18 +160,18 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
 			desc:               "one metric",
 			input:              1,
 			expectedHumanLabel: "SiriDB mean of 1 metrics, all hosts, random 12h0m0s by 1h",
-			expectedHumanDesc:  "SiriDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:47:30Z",
+			expectedHumanDesc:  "SiriDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
 			expectedQuery: "select mean(1h) from (`usage_user`) " +
-				"between '1970-01-01T00:47:30Z' and '1970-01-01T12:47:30Z'",
+				"between '1970-01-01T00:16:22Z' and '1970-01-01T12:16:22Z'",
 		},
 		{
 			desc:               "5 metrics",
 			input:              5,
 			expectedHumanLabel: "SiriDB mean of 5 metrics, all hosts, random 12h0m0s by 1h",
-			expectedHumanDesc:  "SiriDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:37:12Z",
+			expectedHumanDesc:  "SiriDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:54:10Z",
 			expectedQuery: "select mean(1h) " +
 				"from (`usage_user`|`usage_system`|`usage_idle`|`usage_nice`|`usage_iowait`) " +
-				"between '1970-01-01T00:37:12Z' and '1970-01-01T12:37:12Z'",
+				"between '1970-01-01T00:54:10Z' and '1970-01-01T12:54:10Z'",
 		},
 		{
 			desc:    "more metrics then it exists",
@@ -280,26 +280,26 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:               "zero hosts",
 			input:              0,
 			expectedHumanLabel: "SiriDB CPU over threshold, all hosts",
-			expectedHumanDesc:  "SiriDB CPU over threshold, all hosts: 1970-01-01T00:16:22Z",
+			expectedHumanDesc:  "SiriDB CPU over threshold, all hosts: 1970-01-01T00:54:10Z",
 			expectedQuery: "select filter(> 90) from `usage_user`  " +
-				"between '1970-01-01T00:16:22Z' and '1970-01-01T12:16:22Z'",
+				"between '1970-01-01T00:54:10Z' and '1970-01-01T12:54:10Z'",
 		},
 		{
 			desc:               "one host",
 			input:              1,
 			expectedHumanLabel: "SiriDB CPU over threshold, 1 host(s)",
 			expectedHumanDesc:  "SiriDB CPU over threshold, 1 host(s): 1970-01-01T00:47:30Z",
-			expectedQuery: "select filter(> 90) from `usage_user` & (`host_9`) " +
+			expectedQuery: "select filter(> 90) from `usage_user` & (`host_5`) " +
 				"between '1970-01-01T00:47:30Z' and '1970-01-01T12:47:30Z'",
 		},
 		{
 			desc:               "5 hosts",
 			input:              5,
 			expectedHumanLabel: "SiriDB CPU over threshold, 5 host(s)",
-			expectedHumanDesc:  "SiriDB CPU over threshold, 5 host(s): 1970-01-01T00:08:59Z",
+			expectedHumanDesc:  "SiriDB CPU over threshold, 5 host(s): 1970-01-01T00:17:45Z",
 			expectedQuery: "select filter(> 90) " +
-				"from `usage_user` & (`host_5`|`host_9`|`host_1`|`host_7`|`host_2`) " +
-				"between '1970-01-01T00:08:59Z' and '1970-01-01T12:08:59Z'",
+				"from `usage_user` & (`host_9`|`host_5`|`host_1`|`host_7`|`host_2`) " +
+				"between '1970-01-01T00:17:45Z' and '1970-01-01T12:17:45Z'",
 		},
 		{
 			desc:    "more hosts then cardinality (11)",
