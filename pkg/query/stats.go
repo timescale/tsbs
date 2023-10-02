@@ -92,10 +92,14 @@ func (s *statGroup) push(n float64) {
 
 // string makes a simple description of a statGroup.
 func (s *statGroup) string() string {
-	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
+	return fmt.Sprintf("min: %8.2fms, p25: %8.2fms, med: %8.2fms, p75: %8.2fms, p95: %8.2fms,  p99: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
 		s.Min(),
 		s.Median(),
+		s.Percentile(25.0),
 		s.Mean(),
+		s.Percentile(75.0),
+		s.Percentile(95.0),
+		s.Percentile(99.0),
 		s.Max(),
 		s.StdDev(),
 		s.sum/hdrScaleFactor,
@@ -109,7 +113,7 @@ func (s *statGroup) write(w io.Writer) error {
 
 // Median returns the Median value of the StatGroup in milliseconds
 func (s *statGroup) Median() float64 {
-	return float64(s.latencyHDRHistogram.ValueAtQuantile(50.0)) / hdrScaleFactor
+	return s.Percentile(50.0)
 }
 
 // Mean returns the Mean value of the StatGroup in milliseconds
@@ -130,6 +134,11 @@ func (s *statGroup) Min() float64 {
 // StdDev returns the StdDev value of the StatGroup in milliseconds
 func (s *statGroup) StdDev() float64 {
 	return float64(s.latencyHDRHistogram.StdDev()) / hdrScaleFactor
+}
+
+// Extract Percentile from StatGroup in milliseconds
+func (s *statGroup) Percentile(quantile float64) float64 {
+	return float64(s.latencyHDRHistogram.ValueAtQuantile(quantile)) / hdrScaleFactor
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
