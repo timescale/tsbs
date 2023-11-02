@@ -68,7 +68,9 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) (err error) {
 	fieldKeys := p.FieldKeys()
 	fieldValues := p.FieldValues()
 	for i := 0; i < len(fieldKeys); i++ {
-
+		if fieldValues[i] == nil {
+			continue
+		}
 		buf = append(buf, p.MeasurementName()...)
 		buf = append(buf, '_')
 		buf = append(buf, fieldKeys[i]...)
@@ -78,7 +80,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) (err error) {
 		var value string
 		switch t := fieldValues[i].(type) {
 		case nil:
-			value = "nil"
+			panic("logical error: nil field has to be skipped earlier")
 		case string:
 			value = fieldValues[i].(string)
 		case int:
@@ -94,9 +96,14 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) (err error) {
 		}
 		buf = append(buf, value...)
 
-		if p.Timestamp() != nil {
+		t := p.Timestamp()
+		if t != nil {
 			buf = append(buf, ' ')
-			buf = serialize.FastFormatAppend(p.Timestamp().UTC().UnixMilli(), buf)
+			if t.Nanosecond() == 0 {
+				buf = serialize.FastFormatAppend(p.Timestamp().UTC().Unix(), buf)
+			} else {
+				buf = serialize.FastFormatAppend(p.Timestamp().UTC().UnixNano(), buf)
+			}
 		}
 		buf = append(buf, '\n')
 	}
