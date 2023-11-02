@@ -11,6 +11,7 @@ const (
 	FormatAkumuli         = "akumuli"
 	FormatCrateDB         = "cratedb"
 	FormatPrometheus      = "prometheus"
+	FormatOpenMetrics     = "openmetrics"
 	FormatVictoriaMetrics = "victoriametrics"
 	FormatTimestream      = "timestream"
 	FormatQuestDB         = "questdb"
@@ -27,6 +28,7 @@ func SupportedFormats() []string {
 		FormatAkumuli,
 		FormatCrateDB,
 		FormatPrometheus,
+		FormatOpenMetrics,
 		FormatVictoriaMetrics,
 		FormatTimestream,
 		FormatQuestDB,
