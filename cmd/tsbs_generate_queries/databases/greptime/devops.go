@@ -89,7 +89,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	databases.PanicIfErr(err)
 	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
-	selectClauses := d.getSelectClausesAggMetrics("mean", metrics)
+	selectClauses := d.getSelectClausesAggMetrics("avg", metrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("Influx", numMetrics)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
