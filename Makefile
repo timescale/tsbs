@@ -43,7 +43,14 @@ runners: tsbs_run_queries_akumuli \
 		 tsbs_run_queries_questdb
 
 test:
-	$(GOTEST) -v ./...
+	$(GOTEST) -v -race \
+      ./cmd/tsbs_generate_data \
+      ./cmd/tsbs_generate_queries \
+      ./cmd/tsbs_load \
+      ./cmd/tsbs_load_greptime \
+      ./internal/... \
+      ./load/... \
+      ./pkg/...
 
 coverage:
 	$(GOTEST) -race -coverprofile=coverage.txt -covermode=atomic ./...
