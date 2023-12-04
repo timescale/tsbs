@@ -39,6 +39,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
+            docker.io/greptime/tsbs:latest
             docker.io/greptime/tsbs:${{ env.IMAGE_TAG }}
 
       - name: Sync images to ACR
@@ -47,6 +48,9 @@ jobs:
           DST_REGISTRY_USERNAME: ${{ secrets.ALICLOUD_USERNAME }}
           DST_REGISTRY_PASSWORD: ${{ secrets.ALICLOUD_PASSWORD }}
         run: |
+          docker run quay.io/skopeo/stable:latest copy -a docker://docker.io/greptime/tsbs:${{ env.IMAGE_TAG }} \
+            --dest-creds "$DST_REGISTRY_USERNAME":"$DST_REGISTRY_PASSWORD" \
+            docker://greptime-registry.cn-hangzhou.cr.aliyuncs.com/greptime/tsbs:latest && \
           docker run quay.io/skopeo/stable:latest copy -a docker://docker.io/greptime/tsbs:${{ env.IMAGE_TAG }} \
             --dest-creds "$DST_REGISTRY_USERNAME":"$DST_REGISTRY_PASSWORD" \
             docker://greptime-registry.cn-hangzhou.cr.aliyuncs.com/greptime/tsbs:${{ env.IMAGE_TAG }}
