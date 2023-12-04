@@ -1,0 +1,52 @@
+name: Build tsbs docker image manually
+
+on:
+  workflow_dispatch:
+
+jobs:
+  docker:
+    name: Build and push image
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Install skopeo
+        run: |
+          sudo apt update && sudo apt install -y skopeo
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configure build image tag
+        shell: bash
+        run: |
+          commitShortSHA=`echo ${GITHUB_SHA} | cut -c1-8`
+          buildTime=`date +%Y%m%d%H%M%S`
+          IMAGE_TAG="$commitShortSHA-$buildTime"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Build and push image
+        uses: docker/build-push-action@v3
+        with:
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            docker.io/greptime/tsbs:${{ env.IMAGE_TAG }}
+
+      - name: Sync images to ACR
+        shell: bash
+        env:
+          DST_REGISTRY_USERNAME: ${{ secrets.ALICLOUD_USERNAME }}
+          DST_REGISTRY_PASSWORD: ${{ secrets.ALICLOUD_PASSWORD }}
+        run: |
+          docker run quay.io/skopeo/stable:latest copy -a docker://docker.io/greptime/tsbs:${{ env.IMAGE_TAG }} \
+            --dest-creds "$DST_REGISTRY_USERNAME":"$DST_REGISTRY_PASSWORD" \
+            docker://greptime-registry.cn-hangzhou.cr.aliyuncs.com/greptime/tsbs:${{ env.IMAGE_TAG }}
