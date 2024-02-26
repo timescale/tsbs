@@ -51,13 +51,14 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 
 	sql := fmt.Sprintf(`
 		SELECT
-			hour(timestamp) AS hour,
+			date_trunc('hour', timestamp) AS hour,
 			%s
 		FROM cpu
 		WHERE hostname IN ('%s')
 		  AND timestamp >= '%s'
 		  AND timestamp < '%s'
-		SAMPLE BY 1h`,
+		GROUP BY hour
+		ORDER BY hour`,
 		strings.Join(selectClauses, ", "),
 		strings.Join(hosts, "', '"),
 		interval.StartString(),
@@ -82,13 +83,13 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	selectClauses := d.getSelectAggClauses("avg", metrics)
 
 	sql := fmt.Sprintf(`
-		SELECT timestamp, hostname,
+		SELECT date_trunc('hour', timestamp) as timestamp, hostname,
 			%s
 		FROM cpu
 		WHERE timestamp >= '%s'
 		  AND timestamp < '%s'
-		SAMPLE BY 1h
-		GROUP BY timestamp, hostname`,
+		GROUP BY timestamp, hostname
+		ORDER BY timestamp, hostname`,
 		strings.Join(selectClauses, ", "),
 		interval.StartString(),
 		interval.EndString())
@@ -106,11 +107,12 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 	interval := d.Interval.MustRandWindow(time.Hour)
 	sql := fmt.Sprintf(`
-		SELECT timestamp AS minute,
+		SELECT date_trunc('minute', timestamp) AS minute,
 			max(usage_user)
 		FROM cpu
 		WHERE timestamp < '%s'
-		SAMPLE BY 1m
+		GROUP BY minute
+		ORDER BY minute DESC
 		LIMIT 5`,
 		interval.EndString())
 
@@ -191,13 +193,14 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	panicIfErr(err)
 
 	sql := fmt.Sprintf(`
-		SELECT timestamp,
+		SELECT date_trunc('minute', timestamp) as minute,
 			%s
 		FROM cpu
 		WHERE hostname IN ('%s')
 		  AND timestamp >= '%s'
 		  AND timestamp < '%s'
-		SAMPLE BY 1m`,
+		GROUP BY minute
+		ORDER BY minute`,
 		strings.Join(selectClauses, ", "),
 		strings.Join(hosts, "', '"),
 		interval.StartString(),

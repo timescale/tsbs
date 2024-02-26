@@ -14,8 +14,8 @@ import (
 func TestDevopsGroupByTime(t *testing.T) {
 	expectedHumanLabel := "QuestDB 1 cpu metric(s), random    1 hosts, random 1s by 1m"
 	expectedHumanDesc := "QuestDB 1 cpu metric(s), random    1 hosts, random 1s by 1m: 1970-01-01T00:05:58Z"
-	expectedQuery := "SELECT timestamp, max(usage_user) AS max_usage_user FROM cpu " +
-		"WHERE hostname IN ('host_9') AND timestamp >= '1970-01-01T00:05:58Z' AND timestamp < '1970-01-01T00:05:59Z' SAMPLE BY 1m"
+	expectedQuery := "SELECT date_trunc('minute', timestamp) as minute, max(usage_user) AS max_usage_user FROM cpu " +
+		"WHERE hostname IN ('host_9') AND timestamp >= '1970-01-01T00:05:58Z' AND timestamp < '1970-01-01T00:05:59Z' GROUP BY minute ORDER BY minute"
 
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
@@ -40,8 +40,8 @@ func TestDevopsGroupByTime(t *testing.T) {
 func TestDevopsGroupByOrderByLimit(t *testing.T) {
 	expectedHumanLabel := "QuestDB max cpu over last 5 min-intervals (random end)"
 	expectedHumanDesc := "QuestDB max cpu over last 5 min-intervals (random end): 1970-01-01T01:16:22Z"
-	expectedQuery := "SELECT timestamp AS minute, max(usage_user) FROM cpu " +
-		"WHERE timestamp < '1970-01-01T01:16:22Z' SAMPLE BY 1m LIMIT 5"
+	expectedQuery := "SELECT date_trunc('minute', timestamp) AS minute, max(usage_user) FROM cpu " +
+		"WHERE timestamp < '1970-01-01T01:16:22Z' GROUP BY minute ORDER BY minute DESC LIMIT 5"
 
 	rand.Seed(123) // Setting seed for testing purposes.
 	s := time.Unix(0, 0)
@@ -72,18 +72,18 @@ func TestDevopsGroupByTimeAndPrimaryTag(t *testing.T) {
 			input:              1,
 			expectedHumanLabel: "QuestDB mean of 1 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "QuestDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
-			expectedQuery: "SELECT timestamp, hostname, avg(usage_user) AS avg_usage_user FROM cpu " +
+			expectedQuery: "SELECT date_trunc('hour', timestamp) as timestamp, hostname, avg(usage_user) AS avg_usage_user FROM cpu " +
 				"WHERE timestamp >= '1970-01-01T00:16:22Z' AND timestamp < '1970-01-01T12:16:22Z' " +
-				"SAMPLE BY 1h GROUP BY timestamp, hostname",
+				"GROUP BY timestamp, hostname ORDER BY timestamp, hostname",
 		},
 		{
 			desc:               "5 metrics",
 			input:              5,
 			expectedHumanLabel: "QuestDB mean of 5 metrics, all hosts, random 12h0m0s by 1h",
 			expectedHumanDesc:  "QuestDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:54:10Z",
-			expectedQuery: "SELECT timestamp, hostname, avg(usage_user) AS avg_usage_user, avg(usage_system) AS avg_usage_system, avg(usage_idle) AS avg_usage_idle, avg(usage_nice) AS avg_usage_nice, avg(usage_iowait) AS avg_usage_iowait FROM cpu " +
+			expectedQuery: "SELECT date_trunc('hour', timestamp) as timestamp, hostname, avg(usage_user) AS avg_usage_user, avg(usage_system) AS avg_usage_system, avg(usage_idle) AS avg_usage_idle, avg(usage_nice) AS avg_usage_nice, avg(usage_iowait) AS avg_usage_iowait FROM cpu " +
 				"WHERE timestamp >= '1970-01-01T00:54:10Z' AND timestamp < '1970-01-01T12:54:10Z' " +
-				"SAMPLE BY 1h GROUP BY timestamp, hostname",
+				"GROUP BY timestamp, hostname ORDER BY timestamp, hostname",
 		},
 	}
 
@@ -112,18 +112,16 @@ func TestMaxAllCPU(t *testing.T) {
 			input:              1,
 			expectedHumanLabel: "QuestDB max of all CPU metrics, random    1 hosts, random 8h0m0s by 1h",
 			expectedHumanDesc:  "QuestDB max of all CPU metrics, random    1 hosts, random 8h0m0s by 1h: 1970-01-01T00:54:10Z",
-			expectedQuery: "SELECT hour(timestamp) AS hour, max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice FROM cpu " +
+			expectedQuery: "SELECT date_trunc('hour', timestamp) AS hour, max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice FROM cpu " +
 				"WHERE hostname IN ('host_3') AND timestamp >= '1970-01-01T00:54:10Z' AND timestamp < '1970-01-01T08:54:10Z' " +
-				"SAMPLE BY 1h",
+				"GROUP BY hour ORDER BY hour",
 		},
 		{
 			desc:               "5 hosts",
 			input:              5,
 			expectedHumanLabel: "QuestDB max of all CPU metrics, random    5 hosts, random 8h0m0s by 1h",
 			expectedHumanDesc:  "QuestDB max of all CPU metrics, random    5 hosts, random 8h0m0s by 1h: 1970-01-01T00:37:12Z",
-			expectedQuery: "SELECT hour(timestamp) AS hour, max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice FROM cpu " +
-				"WHERE hostname IN ('host_9', 'host_5', 'host_1', 'host_7', 'host_2') AND timestamp >= '1970-01-01T00:37:12Z' AND timestamp < '1970-01-01T08:37:12Z' " +
-				"SAMPLE BY 1h",
+			expectedQuery:      "SELECT date_trunc('hour', timestamp) AS hour, max(usage_user) AS max_usage_user, max(usage_system) AS max_usage_system, max(usage_idle) AS max_usage_idle, max(usage_nice) AS max_usage_nice, max(usage_iowait) AS max_usage_iowait, max(usage_irq) AS max_usage_irq, max(usage_softirq) AS max_usage_softirq, max(usage_steal) AS max_usage_steal, max(usage_guest) AS max_usage_guest, max(usage_guest_nice) AS max_usage_guest_nice FROM cpu WHERE hostname IN ('host_9', 'host_5', 'host_1', 'host_7', 'host_2') AND timestamp >= '1970-01-01T00:37:12Z' AND timestamp < '1970-01-01T08:37:12Z' GROUP BY hour ORDER BY hour",
 		},
 	}
 
