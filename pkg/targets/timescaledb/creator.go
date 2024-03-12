@@ -222,9 +222,14 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
 		}
 
+		_ = partitionsOption
+
+		//MustExec(dbBench,
+		//	fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
+		//		creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
 		MustExec(dbBench,
-			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
+			fmt.Sprintf("SELECT %s('%s'::regclass, by_range('time'::name, INTERVAL '%d microseconds'), create_default_indexes=>FALSE)",
+				creationCommand, tableName, d.opts.ChunkTime.Nanoseconds()/1000))
 	}
 }
 
