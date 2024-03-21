@@ -1,0 +1,38 @@
+name: Build and push the image to ECR
+
+on:
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: 'Tag for the image'
+                required: true
+                default: 'latest'
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-22.04
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              timeout-minutes: 5
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a
+              timeout-minutes: 5
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: eu-central-1
+
+            - name: Login to Amazon ECR
+              uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076
+              timeout-minutes: 5
+              
+            - name: Build and push the image 
+              timeout-minutes: 5
+              env:
+                REPO_URL: 698591829921.dkr.ecr.eu-central-1.amazonaws.com/tsbs
+                IMAGE_TAG: ${{ github.event.inputs.tag }}
+              run: |
+                docker build -t $REPO_URL:$IMAGE_TAG .
+                docker push $REPO_URL:$IMAGE_TAG
