@@ -5,6 +5,7 @@ const (
 	FormatCassandra       = "cassandra"
 	FormatClickhouse      = "clickhouse"
 	FormatInflux          = "influx"
+	FormatInflux_2        = "influx_2"
 	FormatMongo           = "mongo"
 	FormatSiriDB          = "siridb"
 	FormatTimescaleDB     = "timescaledb"
@@ -21,6 +22,7 @@ func SupportedFormats() []string {
 		FormatCassandra,
 		FormatClickhouse,
 		FormatInflux,
+		FormatInflux_2,
 		FormatMongo,
 		FormatSiriDB,
 		FormatTimescaleDB,
