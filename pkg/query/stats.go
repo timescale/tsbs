@@ -65,6 +65,9 @@ type statGroup struct {
 	latencyHDRHistogram *hdrhistogram.Histogram
 	sum                 float64
 	count               int64
+	intervalHistogram   *hdrhistogram.Histogram
+	intervalSum         float64
+	intervalCount       int64
 }
 
 // newStatGroup returns a new StatGroup with an initial size
@@ -77,9 +80,14 @@ func newStatGroup(size uint64) *statGroup {
 	//   - 10 millisecond (or better) from 10 millisecond up to 10 seconds,
 	//   - 1 second (or better) from 10 second up to 3600 seconds,
 	lH := hdrhistogram.New(1, 3600000000, 4)
+	iH := hdrhistogram.New(1, 3600000000, 4)
 	return &statGroup{
-		count:               0,
 		latencyHDRHistogram: lH,
+		sum:                 0,
+		count:               0,
+		intervalHistogram:   iH,
+		intervalSum:         0,
+		intervalCount:       0,
 	}
 }
 
@@ -88,11 +96,14 @@ func (s *statGroup) push(n float64) {
 	s.latencyHDRHistogram.RecordValue(int64(n * hdrScaleFactor))
 	s.sum += n
 	s.count++
+	s.intervalHistogram.RecordValue(int64(n * hdrScaleFactor))
+	s.intervalSum += n
+	s.intervalCount++
 }
 
 // string makes a simple description of a statGroup.
 func (s *statGroup) string() string {
-	return fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
+	vl := fmt.Sprintf("min: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
 		s.Min(),
 		s.Median(),
 		s.Mean(),
@@ -100,6 +111,21 @@ func (s *statGroup) string() string {
 		s.StdDev(),
 		s.sum/hdrScaleFactor,
 		s.count)
+	vi := ""
+	if s.intervalCount != 0 {
+		vi = fmt.Sprintf("\nmin: %8.2fms, med: %8.2fms, mean: %8.2fms, max: %7.2fms, stddev: %8.2fms, sum: %5.1fsec, count: %d",
+			s.MinInterval(),
+			s.MedianInterval(),
+			s.MeanInterval(),
+			s.MaxInterval(),
+			s.StdDevInterval(),
+			s.intervalSum/hdrScaleFactor,
+			s.intervalCount)
+	}
+	s.intervalSum = 0
+	s.intervalCount = 0
+	s.intervalHistogram.Reset()
+	return vl + vi
 }
 
 func (s *statGroup) write(w io.Writer) error {
@@ -130,6 +156,26 @@ func (s *statGroup) Min() float64 {
 // StdDev returns the StdDev value of the StatGroup in milliseconds
 func (s *statGroup) StdDev() float64 {
 	return float64(s.latencyHDRHistogram.StdDev()) / hdrScaleFactor
+}
+
+func (s *statGroup) MedianInterval() float64 {
+	return float64(s.intervalHistogram.ValueAtQuantile(50.0)) / hdrScaleFactor
+}
+
+func (s *statGroup) MeanInterval() float64 {
+	return float64(s.intervalHistogram.Mean()) / hdrScaleFactor
+}
+
+func (s *statGroup) MaxInterval() float64 {
+	return float64(s.intervalHistogram.Max()) / hdrScaleFactor
+}
+
+func (s *statGroup) MinInterval() float64 {
+	return float64(s.intervalHistogram.Min()) / hdrScaleFactor
+}
+
+func (s *statGroup) StdDevInterval() float64 {
+	return float64(s.intervalHistogram.StdDev()) / hdrScaleFactor
 }
 
 // writeStatGroupMap writes a map of StatGroups in an ordered fashion by
