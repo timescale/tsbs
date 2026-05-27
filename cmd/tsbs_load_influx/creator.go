@@ -33,8 +33,16 @@ func (d *dbCreator) DBExists(dbName string) bool {
 }
 
 func (d *dbCreator) listDatabases() ([]string, error) {
+	client := http.Client{}
 	u := fmt.Sprintf("%s/query?q=show%%20databases", d.daemonURL)
-	resp, err := http.Get(u)
+	req, err := http.NewRequest("GET", u, nil)
+	if authToken != "" {
+		req.Header = http.Header{
+			headerAuthorization: []string{fmt.Sprintf("Token %s", authToken)},
+		}
+	}
+	resp, err := client.Do(req)
+
 	if err != nil {
 		return nil, fmt.Errorf("listDatabases error: %s", err.Error())
 	}
@@ -61,20 +69,30 @@ func (d *dbCreator) listDatabases() ([]string, error) {
 	}
 
 	ret := []string{}
-	for _, nestedName := range listing.Results[0].Series[0].Values {
-		name := nestedName[0]
-		// the _internal database is skipped:
-		if name == "_internal" {
-			continue
+	if len(listing.Results) > 0 {
+		for _, nestedName := range listing.Results[0].Series[0].Values {
+			name := nestedName[0]
+			// the _internal database is skipped:
+			if name == "_internal" {
+				continue
+			}
+			ret = append(ret, name)
 		}
-		ret = append(ret, name)
 	}
 	return ret, nil
 }
 
 func (d *dbCreator) RemoveOldDB(dbName string) error {
 	u := fmt.Sprintf("%s/query?q=drop+database+%s", d.daemonURL, dbName)
-	resp, err := http.Post(u, "text/plain", nil)
+	client := http.Client{}
+	req, err := http.NewRequest("POST", u, nil)
+	if authToken != "" {
+		req.Header = http.Header{
+			"Content-Type":      []string{"text/plain"},
+			headerAuthorization: []string{fmt.Sprintf("Token %s", authToken)},
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("drop db error: %s", err.Error())
 	}
@@ -99,6 +117,11 @@ func (d *dbCreator) CreateDB(dbName string) error {
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest("GET", u.String(), nil)
+	if authToken != "" {
+		req.Header = http.Header{
+			headerAuthorization: []string{fmt.Sprintf("Token %s", authToken)},
+		}
+	}
 	if err != nil {
 		return err
 	}

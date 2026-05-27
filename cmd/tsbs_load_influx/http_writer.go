@@ -14,6 +14,7 @@ import (
 const (
 	httpClientName        = "tsbs_load_influx"
 	headerContentEncoding = "Content-Encoding"
+	headerAuthorization   = "Authorization"
 	headerGzip            = "gzip"
 )
 
@@ -65,12 +66,15 @@ var (
 	textPlain  = []byte("text/plain")
 )
 
-func (w *HTTPWriter) initializeReq(req *fasthttp.Request, body []byte, isGzip bool) {
+func (w *HTTPWriter) initializeReq(req *fasthttp.Request, body []byte, isGzip bool, authToken string) {
 	req.Header.SetContentTypeBytes(textPlain)
 	req.Header.SetMethodBytes(methodPost)
 	req.Header.SetRequestURIBytes(w.url)
 	if isGzip {
 		req.Header.Add(headerContentEncoding, headerGzip)
+	}
+	if authToken != "" {
+		req.Header.Add(headerAuthorization, fmt.Sprintf("Token %s", authToken))
 	}
 	req.SetBody(body)
 }
@@ -96,7 +100,7 @@ func (w *HTTPWriter) executeReq(req *fasthttp.Request, resp *fasthttp.Response) 
 func (w *HTTPWriter) WriteLineProtocol(body []byte, isGzip bool) (int64, error) {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
-	w.initializeReq(req, body, isGzip)
+	w.initializeReq(req, body, isGzip, authToken)
 
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)

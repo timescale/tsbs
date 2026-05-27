@@ -10,6 +10,7 @@ fi
 # Load parameters - common
 DATA_FILE_NAME=${DATA_FILE_NAME:-influx-data.gz}
 DATABASE_PORT=${DATABASE_PORT:-8086}
+INFLUX_AUTH_TOKEN=${$INFLUX_AUTH_TOKEN:-""}
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
@@ -20,7 +21,10 @@ until curl http://${DATABASE_HOST}:${DATABASE_PORT}/ping 2>/dev/null; do
 done
 
 # Remove previous database
-curl -X POST http://${DATABASE_HOST}:${DATABASE_PORT}/query?q=drop%20database%20${DATABASE_NAME}
+curl --header "Authorization: Token $INFLUX_AUTH_TOKEN" \
+  -X POST http://${DATABASE_HOST}:${DATABASE_PORT}/query?q=drop%20database%20${DATABASE_NAME}
+
+
 # Load new data
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --db-name=${DATABASE_NAME} \
@@ -28,4 +32,5 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --workers=${NUM_WORKERS} \
                                 --batch-size=${BATCH_SIZE} \
                                 --reporting-period=${REPORTING_PERIOD} \
+                                --auth-token $INFLUX_AUTH_TOKEN \
                                 --urls=http://${DATABASE_HOST}:${DATABASE_PORT}
