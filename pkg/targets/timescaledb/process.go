@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/targets"
 
 	"github.com/jackc/pgx/v4"
@@ -147,7 +148,7 @@ func (p *processor) splitTagsAndMetrics(rows []*insertData, dataCols int) ([][]s
 			json = subsystemTagsToJSON(strings.Split(tags[commonTagsLen], ","))
 		}
 
-		metrics := strings.Split(data.fields, ",")
+		metrics := utils.SplitLine(data.fields, ',')
 		numMetrics += uint64(len(metrics) - 1) // 1 field is timestamp
 
 		timeInt, err := strconv.ParseInt(metrics[0], 10, 64)
