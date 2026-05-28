@@ -17,4 +17,5 @@ source ${EXE_DIR}/load_common.sh
 
 # Load data
 cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
-                                --urls=http://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_PATH}
+                                --urls=http://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_PATH} \
+                                --workers=${NUM_WORKERS}
