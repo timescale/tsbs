@@ -79,7 +79,7 @@ func initViperConfig(*cobra.Command, []string) {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in execution directory with name "cobra.yaml" (without extension).
+		// Search config in execution directory with name "config.yaml" (without extension).
 		viper.AddConfigPath(".")
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
