@@ -30,6 +30,7 @@ func (c clickhouseTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.String(flagPrefix+"password", "", "Password to connect to ClickHouse")
 	flagSet.Bool(flagPrefix+"log-batches", false, "Whether to time individual batches.")
 	flagSet.Int(flagPrefix+"debug", 0, "Debug printing (choices: 0, 1, 2). (default 0)")
+	flagSet.Bool(flagPrefix+"in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 }
 
 func (c clickhouseTarget) TargetName() string {
