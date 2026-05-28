@@ -83,6 +83,7 @@ cases are implemented for each database:
 |VictoriaMetrics|X²||
 
 ¹ Does not support the `groupby-orderby-limit` query
+
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
 
 ## What the TSBS tests
