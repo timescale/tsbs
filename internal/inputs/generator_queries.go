@@ -28,6 +28,7 @@ const (
 	errUnknownUseCaseFmt        = "use case '%s' is undefined"
 	errCannotParseTimeFmt       = "cannot parse time from string '%s': %v"
 	errBadUseFmt                = "invalid use case specified: '%v'"
+	errUnknownFormatFmt         = "unknown format: '%s'"
 )
 
 // DevopsGeneratorMaker creates a query generator for devops use case
@@ -64,6 +65,10 @@ type QueryGenerator struct {
 	// bufOut represents the buffered writer that should actually be passed to
 	// any operations that write out data.
 	bufOut *bufio.Writer
+
+	// closerOut is a potential closer for bufOut. It should be closed
+	// when done writing as the underlying Writer can have buffered data too (e.g. gzip).
+	closerOut io.Closer
 }
 
 // NewQueryGenerator returns a QueryGenerator that is set up to work with a given
@@ -132,7 +137,7 @@ func (g *QueryGenerator) init(conf common.GeneratorConfig) error {
 	if g.Out == nil {
 		g.Out = os.Stdout
 	}
-	g.bufOut, err = getBufferedWriter(g.conf.File, g.Out)
+	g.bufOut, g.closerOut, err = internalUtils.GetBufferedWriter(g.conf.File, g.Out)
 	if err != nil {
 		return err
 	}
@@ -201,11 +206,20 @@ func (g *QueryGenerator) getUseCaseGenerator(c *config.QueryGeneratorConfig) (qu
 	}
 }
 
+func (g *QueryGenerator) close() {
+	if g.bufOut != nil {
+		g.bufOut.Flush()
+	}
+	if g.closerOut != nil {
+		g.closerOut.Close()
+	}
+}
+
 func (g *QueryGenerator) runQueryGeneration(useGen queryUtils.QueryGenerator, filler queryUtils.QueryFiller, c *config.QueryGeneratorConfig) error {
 	stats := make(map[string]int64)
 	currentGroup := uint(0)
 	enc := gob.NewEncoder(g.bufOut)
-	defer g.bufOut.Flush()
+	defer g.close()
 
 	rand.Seed(g.conf.Seed)
 	//fmt.Println(g.config.Seed)

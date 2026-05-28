@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/timescale/tsbs/internal/utils"
 	"golang.org/x/time/rate"
 )
 
@@ -19,8 +20,6 @@ const (
 	labelAllQueries  = "all queries"
 	labelColdQueries = "cold queries"
 	labelWarmQueries = "warm queries"
-
-	defaultReadSize = 4 << 20 // 4 MB
 )
 
 // BenchmarkRunnerConfig is the configuration of the benchmark runner.
@@ -119,16 +118,10 @@ type Processor interface {
 // GetBufferedReader returns the buffered Reader that should be used by the loader
 func (b *BenchmarkRunner) GetBufferedReader() *bufio.Reader {
 	if b.br == nil {
-		if len(b.FileName) > 0 {
-			// Read from specified file
-			file, err := os.Open(b.FileName)
-			if err != nil {
-				panic(fmt.Sprintf("cannot open file for read %s: %v", b.FileName, err))
-			}
-			b.br = bufio.NewReaderSize(file, defaultReadSize)
-		} else {
-			// Read from STDIN
-			b.br = bufio.NewReaderSize(os.Stdin, defaultReadSize)
+		var err error
+		b.br, err = utils.GetBufferedReader(b.FileName, os.Stdin)
+		if err != nil {
+			panic(err.Error())
 		}
 	}
 	return b.br

@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/serialize"
 	"github.com/timescale/tsbs/pkg/data/usecases"
@@ -36,6 +37,10 @@ type DataGenerator struct {
 	// bufOut represents the buffered writer that should actually be passed to
 	// any operations that write out data.
 	bufOut *bufio.Writer
+
+	// closerOut is a potential closer for bufOut. It should be closed
+	// when done writing as the underlying Writer can have buffered data too (e.g. gzip).
+	closerOut io.Closer
 }
 
 func (g *DataGenerator) init(config common.GeneratorConfig) error {
@@ -57,7 +62,7 @@ func (g *DataGenerator) init(config common.GeneratorConfig) error {
 	if g.Out == nil {
 		g.Out = os.Stdout
 	}
-	g.bufOut, err = getBufferedWriter(g.config.File, g.Out)
+	g.bufOut, g.closerOut, err = utils.GetBufferedWriter(g.config.File, g.Out)
 	if err != nil {
 		return err
 	}
@@ -101,8 +106,17 @@ func (g *DataGenerator) CreateSimulator(config *common.DataGeneratorConfig) (com
 	return scfg.NewSimulator(g.config.LogInterval, g.config.Limit), nil
 }
 
+func (g *DataGenerator) close() {
+	if g.bufOut != nil {
+		g.bufOut.Flush()
+	}
+	if g.closerOut != nil {
+		g.closerOut.Close()
+	}
+}
+
 func (g *DataGenerator) runSimulator(sim common.Simulator, serializer serialize.PointSerializer, dgc *common.DataGeneratorConfig) error {
-	defer g.bufOut.Flush()
+	defer g.close()
 
 	currGroupID := uint(0)
 	point := data.NewPoint()
@@ -139,7 +153,7 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 	return target.Serializer(), nil
 }
 
-//TODO should be implemented in targets package
+// TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 
