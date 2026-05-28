@@ -133,13 +133,15 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 		fallthrough
 	case constants.FormatClickhouse:
 		fallthrough
+	case constants.FormatDoris:
+		fallthrough
 	case constants.FormatTimescaleDB:
 		g.writeHeader(sim.Headers())
 	}
 	return target.Serializer(), nil
 }
 
-//TODO should be implemented in targets package
+// TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 

@@ -257,7 +257,7 @@ func TestGroupByTimeAndPrimaryTag(t *testing.T) {
                 hour,
                 id
         ) AS cpu_avg
-        ANY INNER JOIN tags USING (id)
+        INNER JOIN tags USING (id)
         ORDER BY
             hour ASC,
             hostname
