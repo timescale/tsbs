@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/globalsign/mgo/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Mongo encodes a Mongo request. This will be serialized for use
