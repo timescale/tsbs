@@ -11,6 +11,7 @@ Current databases supported:
 + ClickHouse [(supplemental docs)](docs/clickhouse.md)
 + CrateDB [(supplemental docs)](docs/cratedb.md)
 + InfluxDB [(supplemental docs)](docs/influx.md)
++ IoTDB [(supplemental docs)](docs/iotdb.md)
 + MongoDB [(supplemental docs)](docs/mongo.md)
 + QuestDB [(supplemental docs)](docs/questdb.md)
 + SiriDB [(supplemental docs)](docs/siridb.md)
@@ -75,6 +76,7 @@ cases are implemented for each database:
 |ClickHouse|X||
 |CrateDB|X||
 |InfluxDB|X|X|
+|IoTDB|X||
 |MongoDB|X|
 |QuestDB|X|X
 |SiriDB|X|
@@ -92,8 +94,8 @@ query execution performance. (It currently does not measure
 concurrent insert and query performance, which is a future priority.)
 To accomplish this in a fair way, the data to be inserted and the
 queries to run are pre-generated and native Go clients are used
-wherever possible to connect to each database (e.g., `mgo` for MongoDB, 
-`aws sdk` for Timestream).
+wherever possible to connect to each database (e.g., `mgo` for MongoDB,
+`aws sdk` for Timestream, `iotdb-client-go` for IoTDB).
 
 Although the data is randomly generated, TSBS data and queries are
 entirely deterministic. By supplying the same PRNG (pseudo-random number
@@ -134,8 +136,8 @@ Variables needed:
 1. an end time. E.g., `2016-01-04T00:00:00Z`
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
- (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `questdb`, `siridb`,
-  `timescaledb` or `victoriametrics`)
+ (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `iotdb`, `mongo`,
+ `questdb`, `siridb`, `timescaledb` or `victoriametrics`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can

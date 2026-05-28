@@ -7,6 +7,7 @@ require (
 	github.com/SiriDB/go-siridb-connector v0.0.0-20190110105621-86b34c44c921
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
+	github.com/apache/iotdb-client-go v0.14.0-preview1.0.20221125032227-e7dcc092f533
 	github.com/aws/aws-sdk-go v1.35.13
 	github.com/blagojts/viper v1.6.3-0.20200313094124-068f44cf5e69
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
@@ -25,6 +26,7 @@ require (
 	github.com/shirou/gopsutil v3.21.3+incompatible
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.8.1
 	github.com/timescale/promscale v0.0.0-20201006153045-6a66a36f5c84
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/transceptor-technology/go-qpack v0.0.0-20190116123619-49a14b216a45
