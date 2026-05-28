@@ -54,6 +54,7 @@ func (c *commonDimensionsProcessor) expandDimensionBuffer(requiredDimensions int
 	}
 }
 func (c *commonDimensionsProcessor) writeToTable(table string, rows []deserializedPoint) (metricCount uint64, err error) {
+	log.Printf("inserting into table %s the number of row %d ", table, len(rows))
 	for _, row := range rows {
 		c.expandDimensionBuffer(len(row.tagKeys))
 		numDimensions := convertTagsToDimensions(row.tagKeys, row.tags, c._dimensionsBuffer)
