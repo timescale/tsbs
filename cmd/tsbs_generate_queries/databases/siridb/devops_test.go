@@ -199,13 +199,7 @@ func TestMaxAllCPU(t *testing.T) {
 			desc:    "negative hosts",
 			input:   -1,
 			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got -1",
-		},
-		{
-			desc:    "zero hosts",
-			input:   0,
-			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got 0",
+			failMsg: "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:               "1 host",
@@ -274,7 +268,7 @@ func TestHighCPUForHosts(t *testing.T) {
 			desc:    "negative hosts",
 			input:   -1,
 			fail:    true,
-			failMsg: "number of hosts cannot be < 1; got -1",
+			failMsg: "number of hosts cannot be < 0; got -1.",
 		},
 		{
 			desc:               "zero hosts",
