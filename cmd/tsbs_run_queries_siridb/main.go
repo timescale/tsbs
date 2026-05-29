@@ -152,7 +152,7 @@ func CreateGroups() {
 		host := fmt.Sprintf("host_%d", n)
 		siriql = append(siriql, fmt.Sprintf("create group `%s` for /.*%s,.*/", host, host))
 	}
-	siriql = append(siriql, fmt.Sprintf("create group `cpu` for /.*^cpu.*/"))
+	siriql = append(siriql, fmt.Sprint("create group `cpu` for /.*^cpu.*/"))
 	for _, qry := range siriql {
 		if siridbConnector.IsConnected() {
 			if _, err := siridbConnector.Query(qry, uint16(writeTimeout)); err != nil {

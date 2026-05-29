@@ -24,7 +24,7 @@ func (s *Serializer) Serialize(p *data.Point, w io.Writer) (err error) {
 	b := fbBuilderPool.Get().(*flatbuffers.Builder)
 
 	timestampNanos := p.Timestamp().UTC().UnixNano()
-	tags := []flatbuffers.UOffsetT{}
+	var tags []flatbuffers.UOffsetT
 	// In order to keep the ordering the same on deserialization, we need
 	// to go in reverse order since we are prepending rather than appending.
 	tagKeys := p.TagKeys()
