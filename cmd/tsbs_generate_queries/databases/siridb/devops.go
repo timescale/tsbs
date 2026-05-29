@@ -101,9 +101,9 @@ func (d *Devops) GroupByOrderByLimit(qi query.Query) {
 //
 // select mean(1h) from (`groupMetric1` | ...) between 'time1' and 'time2'
 func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
-	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	metrics, err := devops.GetCPUMetricsSlice(numMetrics)
 	panicIfErr(err)
+	interval := d.Interval.MustRandWindow(devops.DoubleGroupByDuration)
 	whereMetrics := d.getMetricWhereString(metrics)
 
 	humanLabel := devops.GetDoubleGroupByLabel("SiriDB", numMetrics)
@@ -154,13 +154,13 @@ func (d *Devops) LastPointPerHost(qi query.Query) {
 // nHosts>0:
 // select filter(> 90) from `usage_user` & (`groupHost1` | ...) between 'time1' and 'time2'
 func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
+	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 	var whereHosts string
 	if nHosts == 0 {
 		whereHosts = ""
 	} else {
 		whereHosts = "& " + d.getHostWhereString(nHosts)
 	}
-	interval := d.Interval.MustRandWindow(devops.HighCPUDuration)
 
 	humanLabel, err := devops.GetHighCPULabel("SiriDB", nHosts)
 	panicIfErr(err)
