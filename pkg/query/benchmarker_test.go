@@ -1,7 +1,6 @@
 package query
 
 import (
-	"golang.org/x/time/rate"
 	"io/ioutil"
 	"math"
 	"os"
@@ -9,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"golang.org/x/time/rate"
 )
 
 type testProcessor struct {
@@ -35,6 +36,7 @@ func TestProcessorHandler(t *testing.T) {
 	p2 := &testProcessor{}
 	b := NewBenchmarkRunner(BenchmarkRunnerConfig{})
 	b.ch = make(chan Query, 2)
+	b.ReportingMetricsPort = 0
 
 	var wg sync.WaitGroup
 	qPool := &testQueryPool
