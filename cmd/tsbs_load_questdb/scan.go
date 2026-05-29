@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"strings"
 
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
@@ -32,9 +31,10 @@ func (d *fileDataSource) NextItem() data.LoadedPoint {
 func (d *fileDataSource) Headers() *common.GeneratedDataHeaders { return nil }
 
 type batch struct {
-	buf     *bytes.Buffer
-	rows    uint
-	metrics uint64
+	buf           *bytes.Buffer
+	rows          uint
+	metrics       uint64
+	metricsPerRow uint64
 }
 
 func (b *batch) Len() uint {
@@ -43,16 +43,29 @@ func (b *batch) Len() uint {
 
 func (b *batch) Append(item data.LoadedPoint) {
 	that := item.Data.([]byte)
-	thatStr := string(that)
 	b.rows++
-	// Each influx line is format "csv-tags csv-fields timestamp", so we split by space
-	// and then on the middle element, we split by comma to count number of fields added
-	args := strings.Split(thatStr, " ")
-	if len(args) != 3 {
-		fatal(errNotThreeTuplesFmt, len(args))
-		return
+
+	// We only validate the very first row per batch since it's an expensive operation.
+	// As a part of the validation we also calculate the number of metrics per row.
+	if b.metricsPerRow == 0 {
+		// Each influx line is format "csv-tags csv-fields timestamp", so we split by space.
+		var tuples, metrics uint64 = 1, 1
+		for i := 0; i < len(that); i++ {
+			if that[i] == byte(' ') {
+				tuples++
+			}
+			// On the middle element, we split by comma to count number of fields added.
+			if tuples == 2 && that[i] == byte(',') {
+				metrics++
+			}
+		}
+		if tuples != 3 {
+			fatal(errNotThreeTuplesFmt, tuples)
+			return
+		}
+		b.metricsPerRow = metrics
 	}
-	b.metrics += uint64(len(strings.Split(args[1], ",")))
+	b.metrics += b.metricsPerRow
 
 	b.buf.Write(that)
 	b.buf.Write(newLine)
