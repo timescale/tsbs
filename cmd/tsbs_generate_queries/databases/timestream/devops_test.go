@@ -2,12 +2,13 @@ package timestream
 
 import (
 	"fmt"
-	"github.com/andreyvit/diff"
-	"github.com/timescale/tsbs/pkg/query"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/andreyvit/diff"
+	"github.com/timescale/tsbs/pkg/query"
 
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 )
@@ -322,7 +323,7 @@ func TestMaxAllCPU(t *testing.T) {
 	d := dq.(*Devops)
 
 	q := d.GenerateEmptyQuery()
-	d.MaxAllCPU(q, 1)
+	d.MaxAllCPU(q, 1, devops.MaxAllDuration)
 	verifyQuery(t, q, expectedHumanLabel, expectedHumanDesc, expectedTable, expectedSQLQuery)
 }
 

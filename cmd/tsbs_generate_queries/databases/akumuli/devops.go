@@ -70,9 +70,11 @@ type tsdbAggregateAllQuery struct {
 // SELECT minute, max(metric1), ..., max(metricN)
 // FROM cpu
 // WHERE
-// 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// 	AND time >= '$HOUR_START'
-// 	AND time < '$HOUR_END'
+//
+//		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+//	AND time >= '$HOUR_START'
+//	AND time < '$HOUR_END'
+//
 // GROUP BY minute
 // ORDER BY minute ASC
 //
@@ -176,17 +178,19 @@ func (d *Devops) HighCPUForHosts(qi query.Query, nHosts int) {
 // SELECT MAX(metric1), ..., MAX(metricN)
 // FROM cpu
 // WHERE
-// 		(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
-// 		AND time >= '$HOUR_START'
-// 		AND time < '$HOUR_END'
+//
+//	(hostname = '$HOSTNAME_1' OR ... OR hostname = '$HOSTNAME_N')
+//	AND time >= '$HOUR_START'
+//	AND time < '$HOUR_END'
+//
 // GROUP BY hour
 // ORDER BY hour
 //
 // Resultsets:
 // cpu-max-all-1
 // cpu-max-all-8
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 	hostnames, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
 	startTimestamp := interval.StartUnixNano()
