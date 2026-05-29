@@ -1,11 +1,15 @@
 # TSBS Supplemental Guide: InfluxDB
 
-InfluxDB is a purpose-built time-series database written in Go from
-InfluxData. This supplemental guide explains how
-the data generated for TSBS is stored, additional flags available when
-using the data importer (`tsbs_load_influx`), and additional flags
-available for the query runner (`tsbs_run_queries_influx`). **This
-should be read *after* the main README.**
+[InfluxDB](https://www.influxdata.com/products/influxdb-overview/)
+is a purpose-built time-series database written in Go from
+InfluxData. Only v1.x is currently supported by TSBS
+(see [#163](https://github.com/timescale/tsbs/issues/163)).
+
+This supplemental guide explains how the data generated for TSBS is
+stored, additional flags available when using the data importer
+(`tsbs_load_influx`), and additional flags available for the query
+runner (`tsbs_run_queries_influx`).
+**This should be read *after* the main README.**
 
 ## Data format
 
