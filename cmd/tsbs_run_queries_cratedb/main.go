@@ -1,21 +1,22 @@
 package main
 
 import (
-	"context"
+    "database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/blagojts/viper"
-	"github.com/jackc/pgx/v4"
-	"github.com/spf13/pflag"
-
-	_ "github.com/jackc/pgx/v4/stdlib"
-	_ "github.com/lib/pq"
-	"github.com/pkg/errors"
-	"github.com/timescale/tsbs/internal/utils"
-	"github.com/timescale/tsbs/pkg/query"
+    _ "github.com/jackc/pgx/v4/stdlib"
+    _ "github.com/lib/pq"
+    "github.com/pkg/errors"
+    "github.com/spf13/pflag"
+    "github.com/timescale/tsbs/internal/utils"
+    "github.com/timescale/tsbs/pkg/query"
 )
+
+const pgxDriver = "pgx" // default driver
+const pqDriver = "postgres"
 
 var (
 	hosts       string
@@ -24,8 +25,11 @@ var (
 	port        int
 	showExplain bool
 )
-
-var runner *query.BenchmarkRunner
+// Global vars:
+var (
+    runner *query.BenchmarkRunner
+    driver string
+)
 
 func init() {
 	var config query.BenchmarkRunnerConfig
@@ -60,22 +64,19 @@ func init() {
 	if showExplain {
 		runner.SetLimit(1)
 	}
+    driver = pgxDriver
 }
 
 func main() {
-	processor, err := newProcessor()
-	if err != nil {
-		panic(err)
-	}
+	processor := newProcessor()
 	runner.Run(&query.CrateDBPool, func() query.Processor {
 		return processor
 	})
 }
 
 type processor struct {
-	conn    *pgx.Conn
-	connCfg *pgx.ConnConfig
-	opts    *executorOptions
+	db   *sql.DB
+	opts *executorOptions
 }
 
 type executorOptions struct {
@@ -84,28 +85,20 @@ type executorOptions struct {
 	printResponse bool
 }
 
-func newProcessor() (query.Processor, error) {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password='%s' dbname=%s", hosts, port, user, pass, runner.DatabaseName())
-	connConfig, err := pgx.ParseConfig(connStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not parse connection config")
-	}
-	return &processor{
-		connCfg: connConfig,
-		opts: &executorOptions{
-			showExplain:   showExplain,
-			debug:         runner.DebugLevel() > 0,
-			printResponse: runner.DoPrintResponses(),
-		},
-	}, nil
-}
+func newProcessor() query.Processor { return &processor{} }
 
 func (p *processor) Init(workerNumber int) {
-	conn, err := pgx.ConnectConfig(context.Background(), p.connCfg)
-	if err != nil {
-		panic(err)
-	}
-	p.conn = conn
+    connStr := fmt.Sprintf("host=%s port=%d user=%s password='%s' dbname=%s", hosts, port, user, pass, runner.DatabaseName())
+	db, err := sql.Open(driver, connStr)
+    	if err != nil {
+    		panic(err)
+    	}
+    	p.db = db
+    	p.opts = &executorOptions{
+    		showExplain:   showExplain,
+    		debug:         runner.DebugLevel() > 0,
+    		printResponse: runner.DoPrintResponses(),
+    	}
 }
 
 func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, error) {
@@ -120,7 +113,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 	if showExplain {
 		qry = "EXPLAIN ANALYZE " + qry
 	}
-	rows, err := p.conn.Query(context.Background(), qry)
+	rows, err := p.db.Query(qry)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +140,7 @@ func (p *processor) ProcessQuery(q query.Query, isWarm bool) ([]*query.Stat, err
 // prettyPrintResponse prints a Query and its response in JSON format with two
 // keys: 'query' which has a value of the SQL used to generate the second key
 // 'results' which is an array of each row in the return set.
-func prettyPrintResponse(rows pgx.Rows, q *query.CrateDB) {
+func prettyPrintResponse(rows *sql.Rows, q *query.CrateDB) {
 	resp := make(map[string]interface{})
 	resp["query"] = string(q.SqlQuery)
 	resp["results"] = mapRows(rows)
@@ -160,9 +153,9 @@ func prettyPrintResponse(rows pgx.Rows, q *query.CrateDB) {
 	fmt.Println(string(line) + "\n")
 }
 
-func mapRows(r pgx.Rows) []map[string]interface{} {
+func mapRows(r *sql.Rows) []map[string]interface{} {
 	var rows []map[string]interface{}
-	cols := r.FieldDescriptions()
+	cols, _ := r.Columns()
 	for r.Next() {
 		row := make(map[string]interface{})
 		values := make([]interface{}, len(cols))
@@ -176,8 +169,8 @@ func mapRows(r pgx.Rows) []map[string]interface{} {
 		}
 
 		for i, column := range cols {
-			row[string(column.Name)] = *values[i].(*interface{})
-		}
+            row[column] = *values[i].(*interface{})
+        }
 		rows = append(rows, row)
 	}
 	return rows
