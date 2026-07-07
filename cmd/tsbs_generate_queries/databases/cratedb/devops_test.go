@@ -85,7 +85,7 @@ func TestDevopsMaxAllCPUQuery(t *testing.T) {
 		)}
 
 	got := &query.CrateDB{}
-	d.MaxAllCPU(got, 2)
+	d.MaxAllCPU(got, 2, devops.MaxAllDuration)
 
 	if !reflect.DeepEqual(want.SqlQuery, got.SqlQuery) {
 		t.Errorf("incorrect sql query:\ngot: %s\n want:\n %s",
