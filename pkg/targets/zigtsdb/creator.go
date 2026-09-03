@@ -25,7 +25,9 @@ type dbCreator struct {
 
 func (d *dbCreator) Init() {
 	d.url = strings.TrimSuffix(d.url, "/")
-	d.client = &http.Client{}
+	// No keep-alive: zigtsdb serves one connection per HTTP thread, and an
+	// idle creator connection would hold a thread the workers need.
+	d.client = &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 	resp, err := d.client.Get(d.url + "/health")
 	if err != nil {
 		fatal("zigtsdb health check failed: %s", err)

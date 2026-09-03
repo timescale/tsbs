@@ -61,6 +61,12 @@ curl http://localhost:8080/health
 `TSDB_EXPECTED_SERIES` pre-sizes the series map: use `scale × 10` for
 `cpu-only` (10 fields per host).
 
+`TSDB_HTTP_THREADS` matters for concurrency: ZigTSDB serves one connection
+per HTTP thread and defaults to `min(cpu, 8)`. Every loader and query worker
+holds one keep-alive connection, so set it to at least the number of workers
+you will run (e.g. `-e TSDB_HTTP_THREADS=32`); a client beyond the thread
+count waits for an idle connection to expire (about 30 s) instead of failing.
+
 **Licensing.** A server without a license key runs in the free tier and
 meters ingest at 1,000,000 points per day, after which ingest answers
 `429 Quota exceeded`. Any TSBS run above that needs a key; activate one with

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -108,9 +109,11 @@ func (p *processor) post(chunk []byte) {
 			if wait <= 0 {
 				wait = time.Second
 			}
+			log.Printf("ingest returned 429 (%s); retrying in %s", er.Error, wait)
 			sleep(wait)
 		case http.StatusServiceUnavailable:
 			// HA transitions (not_leader, commit_timeout, read_only_minority).
+			log.Printf("ingest returned 503 (%s); retrying in %s", bytes.TrimSpace(body), backoff)
 			sleep(backoff)
 			if backoff < 2*time.Second {
 				backoff *= 2

@@ -41,3 +41,26 @@ func TestExtraParams(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestCheckResultBody(t *testing.T) {
+	ok := []string{
+		`{"status":"ok","result":55.0}`,
+		`{"status":"ok","buckets":[{"ts":1,"value":2.5}]}`,
+		`{"status":"ok","group_by":"hostname","groups":[{"labels":{"hostname":"host_0"},"value":91.0}]}`,
+	}
+	for _, b := range ok {
+		if err := checkResultBody([]byte(b)); err != nil {
+			t.Fatalf("expected %s to pass, got %v", b, err)
+		}
+	}
+	bad := []string{
+		`{"error":"Missing zql parameter"}`,
+		`{"status":"ok","group_by":"hostname","groups":[{"labels":{"hostname":"host_9"},"value":nan}]}`,
+		`{"status":"ok","result":-nan}`,
+	}
+	for _, b := range bad {
+		if err := checkResultBody([]byte(b)); err == nil {
+			t.Fatalf("expected %s to be rejected", b)
+		}
+	}
+}

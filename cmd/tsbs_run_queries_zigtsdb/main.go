@@ -191,6 +191,26 @@ func (p *processor) do(q *query.HTTP) (float64, error) {
 	return lag, nil
 }
 
+// checkResultBody rejects anything that is not a successful, finite result.
+// Some zigtsdb versions answer an unknown aggregate (e.g. last() before
+// 1.2.0) with status ok and NaN values, which must not count as a result.
+func checkResultBody(body []byte) error {
+	if !bytes.Contains(body, []byte(`"status":"ok"`)) {
+		return fmt.Errorf("query did not succeed: %s", truncate(body, 300))
+	}
+	if bytes.Contains(body, []byte(":nan")) || bytes.Contains(body, []byte(":-nan")) {
+		return fmt.Errorf("query returned NaN values (aggregate unsupported by this server version?): %s", truncate(body, 300))
+	}
+	return nil
+}
+
+func truncate(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "..."
+}
+
 // exec runs one statement, retrying on the server's query-capacity valve.
 func (p *processor) exec(path string) ([]byte, error) {
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -220,8 +240,8 @@ func (p *processor) exec(path string) ([]byte, error) {
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("non-200 status code received: %d; body: %s", resp.StatusCode, body)
 		}
-		if !bytes.Contains(body, []byte(`"status":"ok"`)) {
-			return nil, fmt.Errorf("query did not succeed: %s", body)
+		if err := checkResultBody(body); err != nil {
+			return nil, err
 		}
 		return body, nil
 	}
