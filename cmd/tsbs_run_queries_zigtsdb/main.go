@@ -234,6 +234,7 @@ func (p *processor) exec(path string) ([]byte, error) {
 			if wait <= 0 {
 				wait = time.Second
 			}
+			log.Printf("query returned 429 (%s); retrying in %s (the sleep counts in this query's latency)", er.Error, wait)
 			time.Sleep(wait)
 			continue
 		}
