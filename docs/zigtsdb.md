@@ -135,23 +135,31 @@ Retries per statement when the server answers `429 query_capacity`.
 
 ## Query mapping
 
-Queries are `GET /query?zql=<statement>`. ZQL has no cross-metric `SELECT`,
-so a TSBS query over *N* CPU fields is generated as *N* statements. The
-runner executes them **sequentially on one keep-alive connection and reports
-the wall-clock time over all of them** as the query latency. Keep that in
-mind when comparing with engines that answer the same query in one request.
+Queries are `GET /query?zql=<statement>`. ZigTSDB stores the metric name as a
+`__metric__` pseudo-label, so a query over *N* CPU fields resolves them all in
+**one statement** with a `__metric__ =~ 'cpu_(field_a|field_b|…)'` matcher and
+folds per metric with `GROUP BY __metric__` — one round trip, one scan, the
+long-form of QuestDB's wide `max(usage_user), max(usage_system), …` row.
 
-| TSBS query | ZQL (one statement per CPU field `f`) |
+The exception is `double-groupby-*`, which groups by hostname **and** metric;
+multi-label `GROUP BY` is a follow-up, so those still emit *N* statements that
+the runner executes sequentially and times together.
+
+| TSBS query | ZQL |
 |---|---|
-| `single-groupby-N-h-t` | `SELECT max(value) FROM cpu_f WHERE (hostname = 'host_a' OR …) AND time >= S AND time < E GROUP BY time_bucket(time, 1 m)` |
-| `cpu-max-all-N` | `SELECT max(value) FROM cpu_f WHERE (hosts) AND time … GROUP BY time_bucket(time, 1 h)` — 10 statements |
-| `double-groupby-N` | `SELECT avg(value) FROM cpu_f WHERE time … GROUP BY hostname, time_bucket(time, 1 h)` |
+| `single-groupby-1-h-t` | `SELECT max(value) FROM cpu_usage_user WHERE (hostname = 'host_a' OR …) AND time >= S AND time < E GROUP BY time_bucket(time, 1 m)` (one metric → plain windowed path) |
+| `single-groupby-N-h-t` (N>1) | `SELECT max(value) FROM cpu_usage_user WHERE __metric__ =~ 'cpu_(usage_user|…)' AND (hostname = 'host_a' OR …) AND time … GROUP BY __metric__, time_bucket(time, 1 m)` — one statement |
+| `cpu-max-all-N` | `SELECT max(value) FROM cpu_usage_user WHERE __metric__ =~ 'cpu_(usage_user|…|usage_guest_nice)' AND (hosts) AND time … GROUP BY __metric__, time_bucket(time, 1 h)` — one statement, all ten fields |
+| `double-groupby-N` | `SELECT avg(value) FROM cpu_f WHERE time … GROUP BY hostname, time_bucket(time, 1 h)` — one statement per field `f` |
 | `groupby-orderby-limit` | `SELECT max(value) FROM cpu_usage_user WHERE time < E GROUP BY time_bucket(time, 1 m) ORDER BY time DESC LIMIT 5` |
 | `high-cpu-N` | `SELECT * FROM cpu_usage_user WHERE value > 90.0 [AND (hosts)] AND time … LIMIT 1000000` |
 | `lastpoint` | `SELECT last(value) FROM cpu_usage_user GROUP BY hostname` |
 
 Timestamps `S`/`E` are Unix nanoseconds. Notes:
 
+- The `__metric__ =~` matcher is fully anchored, so `cpu_usage_guest` never
+  matches `cpu_usage_guest_nice`. The response is one group per metric:
+  `{"group_by":"__metric__","groups":[{"labels":{"__metric__":"cpu_usage_user"},"buckets":[…]}, …]}`.
 - `high-cpu-*` returns only the `usage_user` column of qualifying rows;
   ZQL cannot assemble the other nine fields of the same reading.
 - `lastpoint` needs ZigTSDB **1.2.0 or later** (the `last()` aggregate).

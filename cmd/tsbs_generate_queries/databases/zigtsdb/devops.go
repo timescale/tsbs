@@ -12,9 +12,11 @@ import (
 // Devops produces ZQL queries for all the devops query types.
 //
 // zigtsdb stores one float64 value per series, so the TSBS `cpu` measurement
-// is loaded as ten metrics `cpu_<field>` (see pkg/targets/zigtsdb). A TSBS
-// query that spans N fields therefore becomes N ZQL statements, executed
-// sequentially by tsbs_run_queries_zigtsdb and timed together.
+// is loaded as ten metrics `cpu_<field>` (see pkg/targets/zigtsdb). Multi-field
+// queries resolve every field-metric in ONE statement via a `__metric__ =~`
+// regex and fold per metric with `GROUP BY __metric__` — one round trip, one
+// scan. (Double-groupby, which also groups by hostname, still emits N
+// statements: multi-label GROUP BY is a follow-up.)
 type Devops struct {
 	*BaseGenerator
 	*devops.Core
@@ -39,6 +41,14 @@ func hostWhere(hosts []string) string {
 	return "(" + strings.Join(parts, " OR ") + ")"
 }
 
+// metricRegex builds a `__metric__` predicate that resolves exactly the given
+// CPU field-metrics in one shot: `__metric__ =~ 'cpu_(usage_user|usage_system|
+// ...)'`. ZQL regexes are fully anchored, so no field name matches another as a
+// prefix (e.g. usage_guest does not match cpu_usage_guest_nice).
+func metricRegex(fields []string) string {
+	return fmt.Sprintf("__metric__ =~ 'cpu_(%s)'", strings.Join(fields, "|"))
+}
+
 // timeWhere bounds the query to [start, end) in Unix nanoseconds, the unit
 // ZQL uses for absolute `time` comparisons.
 func timeWhere(startNs, endNs int64) string {
@@ -46,11 +56,13 @@ func timeWhere(startNs, endNs int64) string {
 }
 
 // GroupByTime selects the MAX for numMetrics metrics under 'cpu' per minute
-// for nHosts hosts, one statement per metric:
+// for nHosts hosts. One metric uses the plain windowed path; N>1 metrics fold
+// into a single statement:
 //
 //	SELECT max(value) FROM cpu_usage_user
-//	WHERE (hostname = 'host_1' OR ...) AND time >= S AND time < E
-//	GROUP BY time_bucket(time, 1 m)
+//	WHERE __metric__ =~ 'cpu_(usage_user|...)' AND (hostname = 'host_1' OR ...)
+//	      AND time >= S AND time < E
+//	GROUP BY __metric__, time_bucket(time, 1 m)
 //
 // Resultsets: single-groupby-{1,5}-{1,8}-{1,12}
 func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange time.Duration) {
@@ -60,10 +72,21 @@ func (d *Devops) GroupByTime(qi query.Query, nHosts, numMetrics int, timeRange t
 	hosts, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
 
-	stmts := make([]string, len(metrics))
-	for i, m := range metrics {
-		stmts[i] = fmt.Sprintf("SELECT max(value) FROM %s WHERE %s AND %s GROUP BY time_bucket(time, 1 m)",
-			metricName(m), hostWhere(hosts), timeWhere(interval.StartUnixNano(), interval.EndUnixNano()))
+	var stmts []string
+	if numMetrics == 1 {
+		// One metric → the plain windowed aggregation path (no per-metric fold).
+		stmts = []string{fmt.Sprintf(
+			"SELECT max(value) FROM %s WHERE %s AND %s GROUP BY time_bucket(time, 1 m)",
+			metricName(metrics[0]), hostWhere(hosts),
+			timeWhere(interval.StartUnixNano(), interval.EndUnixNano()))}
+	} else {
+		// N metrics → ONE statement: resolve every field-metric via the
+		// __metric__ regex and fold per metric with GROUP BY __metric__, instead
+		// of N sequential statements (the former 20-100x multi-metric penalty).
+		stmts = []string{fmt.Sprintf(
+			"SELECT max(value) FROM %s WHERE %s AND %s AND %s GROUP BY __metric__, time_bucket(time, 1 m)",
+			metricName(metrics[0]), metricRegex(metrics), hostWhere(hosts),
+			timeWhere(interval.StartUnixNano(), interval.EndUnixNano()))}
 	}
 	humanLabel := fmt.Sprintf("ZigTSDB %d cpu metric(s), random %4d hosts, random %s by 1m", numMetrics, nHosts, timeRange)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
@@ -93,8 +116,13 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 	d.fillInQuery(qi, humanLabel, humanDesc, interval, stmts)
 }
 
-// MaxAllCPU selects the MAX of all metrics under 'cpu' per hour for nHosts
-// hosts: ten statements, one per CPU field.
+// MaxAllCPU selects the MAX of all ten metrics under 'cpu' per hour for nHosts
+// hosts in ONE statement, folded per metric:
+//
+//	SELECT max(value) FROM cpu_usage_user
+//	WHERE __metric__ =~ 'cpu_(usage_user|...)' AND (hostname = 'host_1' OR ...)
+//	      AND time >= S AND time < E
+//	GROUP BY __metric__, time_bucket(time, 1 h)
 //
 // Resultsets: cpu-max-all-{1,8}
 func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
@@ -103,11 +131,13 @@ func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
 	panicIfErr(err)
 
 	metrics := devops.GetAllCPUMetrics()
-	stmts := make([]string, len(metrics))
-	for i, m := range metrics {
-		stmts[i] = fmt.Sprintf("SELECT max(value) FROM %s WHERE %s AND %s GROUP BY time_bucket(time, 1 h)",
-			metricName(m), hostWhere(hosts), timeWhere(interval.StartUnixNano(), interval.EndUnixNano()))
-	}
+	// ONE statement folding all ten CPU field-metrics per metric — the long-form
+	// of QuestDB's wide `max(usage_user), max(usage_system), ...` row. Replaces
+	// the former ten sequential statements (the ~510 ms cpu-max-all rows).
+	stmts := []string{fmt.Sprintf(
+		"SELECT max(value) FROM %s WHERE %s AND %s AND %s GROUP BY __metric__, time_bucket(time, 1 h)",
+		metricName(metrics[0]), metricRegex(metrics), hostWhere(hosts),
+		timeWhere(interval.StartUnixNano(), interval.EndUnixNano()))}
 	humanLabel := devops.GetMaxAllLabel("ZigTSDB", nHosts)
 	humanDesc := fmt.Sprintf("%s: %s", humanLabel, interval.StartString())
 	d.fillInQuery(qi, humanLabel, humanDesc, interval, stmts)
