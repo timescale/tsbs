@@ -74,7 +74,7 @@ func TestDevopsGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHumanDesc:  "QuestDB mean of 1 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:16:22Z",
 			expectedQuery: "SELECT timestamp, hostname, avg(usage_user) AS avg_usage_user FROM cpu " +
 				"WHERE timestamp >= '1970-01-01T00:16:22Z' AND timestamp < '1970-01-01T12:16:22Z' " +
-				"SAMPLE BY 1h GROUP BY timestamp, hostname",
+				"SAMPLE BY 1h",
 		},
 		{
 			desc:               "5 metrics",
@@ -83,7 +83,7 @@ func TestDevopsGroupByTimeAndPrimaryTag(t *testing.T) {
 			expectedHumanDesc:  "QuestDB mean of 5 metrics, all hosts, random 12h0m0s by 1h: 1970-01-01T00:54:10Z",
 			expectedQuery: "SELECT timestamp, hostname, avg(usage_user) AS avg_usage_user, avg(usage_system) AS avg_usage_system, avg(usage_idle) AS avg_usage_idle, avg(usage_nice) AS avg_usage_nice, avg(usage_iowait) AS avg_usage_iowait FROM cpu " +
 				"WHERE timestamp >= '1970-01-01T00:54:10Z' AND timestamp < '1970-01-01T12:54:10Z' " +
-				"SAMPLE BY 1h GROUP BY timestamp, hostname",
+				"SAMPLE BY 1h",
 		},
 	}
 
@@ -129,7 +129,7 @@ func TestMaxAllCPU(t *testing.T) {
 
 	testFunc := func(d *Devops, c testCase) query.Query {
 		q := d.GenerateEmptyQuery()
-		d.MaxAllCPU(q, c.input)
+		d.MaxAllCPU(q, c.input, devops.MaxAllDuration)
 		return q
 	}
 

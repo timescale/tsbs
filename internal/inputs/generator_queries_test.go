@@ -21,6 +21,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/questdb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/siridb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/timescaledb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/zigtsdb"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/uses/devops"
 	queryUtils "github.com/timescale/tsbs/cmd/tsbs_generate_queries/utils"
 	internalUtils "github.com/timescale/tsbs/internal/utils"
@@ -321,6 +322,13 @@ func TestGetUseCaseGenerator(t *testing.T) {
 		t.Fatalf("Error creating questdb query generator")
 	}
 	checkType(constants.FormatQuestDB, qdb)
+
+	bz := zigtsdb.BaseGenerator{}
+	zdb, err := bz.NewDevops(tsStart, tsEnd, scale)
+	if err != nil {
+		t.Fatalf("Error creating zigtsdb query generator")
+	}
+	checkType(constants.FormatZigTSDB, zdb)
 
 	bcc.UseTags = true
 	clickt, err := bcc.NewDevops(tsStart, tsEnd, scale)
