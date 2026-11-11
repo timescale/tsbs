@@ -80,6 +80,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 }
 
 func (d *dbCreator) PostCreateDB(dbName string) error {
+	if err := d.opts.validateColumnstore(); err != nil {
+		return err
+	}
+
 	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
 

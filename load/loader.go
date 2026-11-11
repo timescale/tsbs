@@ -208,6 +208,21 @@ func (l *CommonBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 	}
 
 	l.postRun(wg, start)
+	l.postLoad(b)
+}
+
+// postLoad gives the DBCreator a chance to do work on the loaded data. It runs
+// after postRun, so it is not part of the timed and reported load.
+func (l *CommonBenchmarkRunner) postLoad(b targets.Benchmark) {
+	if !l.DoLoad {
+		return
+	}
+	if dbcpl, ok := b.GetDBCreator().(targets.DBCreatorPostLoad); ok {
+		if err := dbcpl.PostLoad(l.DBName); err != nil {
+			log.Println("could not execute PostLoad:" + err.Error())
+			panic(err)
+		}
+	}
 }
 
 // useDBCreator handles a DBCreator by running it according to flags set by the

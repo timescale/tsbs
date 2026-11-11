@@ -26,6 +26,10 @@ type LoadingOptions struct {
 	ReplicationFactor int           `yaml:"replication-factor" mapstructure:"replication-factor"`
 	ChunkTime         time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
+	UseColumnstore       bool   `yaml:"use-columnstore" mapstructure:"use-columnstore"`
+	ColumnstoreSegmentBy string `yaml:"columnstore-segmentby" mapstructure:"columnstore-segmentby"`
+	ColumnstoreOrderBy   string `yaml:"columnstore-orderby" mapstructure:"columnstore-orderby"`
+
 	TimeIndex          bool   `yaml:"time-index" mapstructure:"time-index"`
 	TimePartitionIndex bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`
 	PartitionIndex     bool   `yaml:"partition-index" mapstructure:"partition-index"`
