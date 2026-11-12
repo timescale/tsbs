@@ -15,6 +15,7 @@ BULK_DATA_DIR=${BULK_DATA_DIR:-"/tmp/bulk_queries"}
 USE_JSON=${USE_JSON:-false}
 USE_TAGS=${USE_TAGS:-true}
 USE_TIME_BUCKET=${USE_TIME_BUCKET:-true}
+MONGO_USE_NAIVE=${MONGO_USE_NAIVE:-true}
 
 # Space-separated list of target DB formats to generate
 FORMATS=${FORMATS:-"timescaledb"}
@@ -90,6 +91,7 @@ for QUERY_TYPE in ${QUERY_TYPES}; do
                 --timescale-use-tags=${USE_TAGS} \
                 --timescale-use-time-bucket=${USE_TIME_BUCKET} \
                 --clickhouse-use-tags=${USE_TAGS} \
+                --mongo-use-naive=${MONGO_USE_NAIVE} \
             | gzip  > ${DATA_FILE_NAME}
 
             trap - EXIT
