@@ -87,6 +87,13 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
 
+	if d.opts.CreateMetricsTable && d.opts.UseHypertable {
+		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+		if err := d.opts.checkTimescaleVersion(dbBench); err != nil {
+			return err
+		}
+	}
+
 	headers := d.ds.Headers()
 	tagNames := headers.TagKeys
 	tagTypes := headers.TagTypes
@@ -180,7 +187,14 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	}
 
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
-	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
+	MustExec(dbBench, createTableQuery(tableName, fieldDefs, d.opts))
+
+	// We assume a single partition hypertable. This provides an option to test
+	// partitioning on regular hypertables
+	if d.opts.UseHypertable && d.opts.NumberPartitions > 0 {
+		MustExec(dbBench, fmt.Sprintf("SELECT add_dimension('%s'::regclass, by_hash('%s', %d))", tableName, partitionColumn, d.opts.NumberPartitions))
+	}
+
 	if d.opts.PartitionIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
 	}
@@ -197,51 +211,17 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	for _, indexDef := range indexDefs {
 		MustExec(dbBench, indexDef)
 	}
-
-	if d.opts.UseHypertable {
-		var creationCommand string = "create_hypertable"
-		// Empty by default: a plain hypertable needs no partitioning arguments.
-		// This used to pass "replication_factor => NULL", but that parameter was
-		// removed from create_hypertable along with multi-node in TimescaleDB
-		// 2.14, so naming it at all fails on every current release.
-		var partitionsOption string
-
-		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
-
-		// Replication factor determines whether we create a distributed hypertable
-		// or not. If it is unset or zero, then we will create a regular
-		// hypertable with no partitions.
-		//
-		// If replication factor is greater >= 1, we assume there are at least multiple
-		// data nodes. We currently use `create_hypertable` for both statements, the
-		// default behavior is to create a distributed hypertable if `replication_factor`
-		// is >= 1
-
-		// We assume a single partition hypertable. This provides an option to test
-		// partitioning on regular hypertables
-		if d.opts.NumberPartitions > 0 {
-			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, number_partitions => %v::smallint", partitionColumn, d.opts.NumberPartitions)
-		}
-
-		if d.opts.ReplicationFactor > 0 {
-			// This gives us a future option of testing the impact of
-			// multi-node replication across data nodes
-			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
-		}
-
-		MustExec(dbBench, createHypertableQuery(creationCommand, tableName, partitionsOption, d.opts.ChunkTime))
-	}
 }
 
-// createHypertableQuery builds the create_hypertable call. partitionsOption is
-// spliced in only when set, so the default call names no partitioning or
-// replication arguments.
-func createHypertableQuery(creationCommand, tableName, partitionsOption string, chunkTime time.Duration) string {
-	if partitionsOption != "" {
-		partitionsOption += ", "
+// createTableQuery builds the CREATE TABLE for a metrics table. With
+// --use-hypertable the tsdb.* storage parameters make it a hypertable (by
+// default a direct-compress columnstore one) in the same statement.
+func createTableQuery(tableName string, fieldDefs []string, opts *LoadingOptions) string {
+	query := fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ","))
+	if opts.UseHypertable {
+		query += fmt.Sprintf(" WITH (%s)", strings.Join(opts.hypertableOptions(), ", "))
 	}
-	return fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %schunk_time_interval => %d, create_default_indexes=>FALSE)",
-		creationCommand, tableName, partitionsOption, chunkTime.Nanoseconds()/1000)
+	return query
 }
 
 func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string) []string {

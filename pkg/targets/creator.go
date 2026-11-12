@@ -25,16 +25,6 @@ type DBCreatorCloser interface {
 	Close()
 }
 
-// DBCreatorPostLoad is a DBCreator that also needs to do some work once all the
-// data has been loaded (e.g., converting it to a different storage layout).
-// It runs after the load has been timed and its results reported.
-type DBCreatorPostLoad interface {
-	DBCreator
-
-	// PostLoad runs after the load has finished
-	PostLoad(dbName string) error
-}
-
 // DBCreatorPost is a DBCreator that also needs to do some initialization after the
 // database is created (e.g., only one client should actually create the DB, so
 // non-creator clients should still set themselves up for writing)

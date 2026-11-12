@@ -70,6 +70,8 @@ in the connection string will be overridden with the values from the flags
 
 Whether to actually use TimescaleDB's hypertable for storing data. Set to
 `false` to measure the insert/write performance of plain PostgreSQL.
+Hypertables are created with `CREATE TABLE ... WITH (tsdb.hypertable, ...)`,
+which requires TimescaleDB 2.20 or later.
 
 #### `-user` (type: `string`, default: `postgres`)
 
@@ -114,24 +116,49 @@ time.Duration string, meaning a number followed by a unit abbreviation
 (s = seconds, m = minutes, h = hours), e.g., the default `12h` is 12 hours.
 This should be adjusted based on the dataset size.
 
-#### `-use-columnstore` (type: `boolean`, default: `false`)
-Whether to convert every chunk to the columnstore (hypercore) once the load
-has finished, and then run `ANALYZE`. Without this flag the data stays in
-uncompressed rowstore chunks, which is not how TimescaleDB is normally
-deployed, so storage size and query results will not reflect a typical
-installation. Requires TimescaleDB 2.18 or later and `-use-hypertable`.
+#### `-use-columnstore` (type: `boolean`, default: `true`)
+Whether to enable the columnstore (hypercore) on the hypertables, which is how
+TimescaleDB is normally deployed. Set it to `false` to keep the data in
+uncompressed rowstore chunks. It only applies to hypertables and is ignored
+with `-use-hypertable=false`.
 
-The conversion runs after the load has been timed, so it does not affect the
-reported ingest rate.
+#### `-columnstore-direct-compress` (type: `boolean`, default: `true`)
+Whether to load straight into the columnstore. The hypertables are created
+with `tsdb.direct_compress`, so every `COPY` or `INSERT` writes compressed
+batches and the compression is part of the timed load. Requires TimescaleDB
+2.29 or later; on older versions set it to `false`.
+
+With `false`, the loader writes uncompressed chunks and leaves them to the
+columnstore policy that TimescaleDB creates, which converts them in the
+background on its own schedule. Queries may then run against a mix of
+compressed and uncompressed chunks.
+
+Direct compress builds its batches from each insert batch, so a small
+`-batch-size` spread over many hosts gives small compressed batches (for the
+cpu-only use case at scale 200, the default batch size gives about 50 rows per
+batch). A larger `-batch-size` gives fuller batches and better compression, at
+some cost in ingest rate. The compaction policy TimescaleDB creates alongside
+does not reliably merge them afterwards.
 
 #### `-columnstore-segmentby` (type: `string`, default: `tags_id`)
-The `timescaledb.segmentby` setting used with `-use-columnstore`. The default
+The `tsdb.segmentby` setting used with `-use-columnstore`. The default
 segments by the tag set, which suits queries that filter or group by host or
-device. Set it to an empty string for no segmentby. If you load with
-`-in-table-partition-tag`, consider segmenting by that column instead.
+device. Set it to an empty string to leave the choice to TimescaleDB. If you
+load with `-in-table-partition-tag`, consider segmenting by that column instead.
 
 #### `-columnstore-orderby` (type: `string`, default: `time DESC`)
-The `timescaledb.orderby` setting used with `-use-columnstore`.
+The `tsdb.orderby` setting used with `-use-columnstore`.
+
+#### `-columnstore-sparse-index` (type: `string`, default: empty)
+The `tsdb.sparse_index` setting used with `-use-columnstore`, e.g.
+`minmax(usage_user)`. Use `minmax` for range filters, `bloom` for equality
+filters and `firstlast` for latest-value lookups; none is allowed on a
+segmentby column, each column takes at most one, and the orderby column always
+gets one implicitly. Leave it empty to let TimescaleDB choose.
+
+For example, `firstlast` on every column lets the `lastpoint` query be
+answered from batch metadata without decompressing anything, for about 20%
+more storage.
 
 #### `-partitions` (type: `int`, default: `0`)
 Number of space partitions for the primary tag. Setting this to `0` will
@@ -143,12 +170,9 @@ distributed hypertable will be created across all connected data nodes, which
 is the preferred setup.
 
 #### `-replication-factor` (type: `int`, default: `0`)
-This setting is specifically required to create a distributed hypertable. This 
-is only supported on multi-node installations. Setting it to a value of 1 is 
-recommended for most multi-node testing.
-
-If this value is set >=1 on a single-node TimescaleDB instance, `tsbs_load` will
-error.
+This setting created a distributed hypertable on multi-node installations.
+Multi-node was removed in TimescaleDB 2.14, so any value >= 1 now makes
+`tsbs_load` fail before loading.
 
 ### Index related
 

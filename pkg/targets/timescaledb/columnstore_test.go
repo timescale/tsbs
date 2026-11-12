@@ -1,61 +1,91 @@
 package timescaledb
 
-import "testing"
+import (
+	"testing"
 
-func TestSupportsColumnstore(t *testing.T) {
-	cases := map[string]bool{
-		"2.17.2":     false,
-		"2.18.0":     true,
-		"2.18.0-dev": true,
-		"2.31.0":     true,
-		"3.0.0":      true,
-		"1.7.5":      false,
-		"":           false,
-		"garbage":    false,
+	"github.com/blagojts/viper"
+	"github.com/spf13/pflag"
+)
+
+func TestColumnstoreDefaults(t *testing.T) {
+	// Options left out of the flags or config file take the flag defaults:
+	// a direct-compress columnstore, segmented by tags_id.
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	NewTarget().TargetSpecificFlags("", flagSet)
+	v := viper.New()
+	if err := v.BindPFlags(flagSet); err != nil {
+		t.Fatal(err)
 	}
-	for version, want := range cases {
-		if got := supportsColumnstore(version); got != want {
-			t.Errorf("supportsColumnstore(%q) = %v, want %v", version, got, want)
+	var opts LoadingOptions
+	if err := v.Unmarshal(&opts); err != nil {
+		t.Fatal(err)
+	}
+	if !opts.UseHypertable || !opts.UseColumnstore || !opts.DirectCompress {
+		t.Errorf("want hypertable, columnstore and direct compress on by default, got %v, %v, %v",
+			opts.UseHypertable, opts.UseColumnstore, opts.DirectCompress)
+	}
+	if opts.ColumnstoreSegmentBy != "tags_id" || opts.ColumnstoreOrderBy != "time DESC" || opts.ColumnstoreSparseIdx != "" {
+		t.Errorf("got segmentby %q, orderby %q, sparse index %q, want \"tags_id\", \"time DESC\", \"\"",
+			opts.ColumnstoreSegmentBy, opts.ColumnstoreOrderBy, opts.ColumnstoreSparseIdx)
+	}
+}
+
+func TestVersionAtLeast(t *testing.T) {
+	cases := []struct {
+		version string
+		min     [2]int
+		want    bool
+	}{
+		{"2.19.3", minVersionCreateTableWith, false},
+		{"2.20.0", minVersionCreateTableWith, true},
+		{"2.28.1", minVersionDirectCompress, false},
+		{"2.29.0", minVersionDirectCompress, true},
+		{"2.29.0-dev", minVersionDirectCompress, true},
+		{"2.32.0", minVersionDirectCompress, true},
+		{"3.0.0", minVersionDirectCompress, true},
+		{"1.7.5", minVersionCreateTableWith, false},
+		{"", minVersionCreateTableWith, false},
+		{"garbage", minVersionCreateTableWith, false},
+	}
+	for _, c := range cases {
+		if got := versionAtLeast(c.version, c.min); got != c.want {
+			t.Errorf("versionAtLeast(%q, %v) = %v, want %v", c.version, c.min, got, c.want)
 		}
 	}
 }
 
-func TestEnableColumnstoreQuery(t *testing.T) {
-	got := enableColumnstoreQuery("cpu", "tags_id", "time DESC")
-	want := "ALTER TABLE cpu SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = 'tags_id', timescaledb.orderby = 'time DESC')"
-	if got != want {
-		t.Errorf("got  %s\nwant %s", got, want)
+func TestValidateColumnstore(t *testing.T) {
+	cases := []struct {
+		desc    string
+		opts    LoadingOptions
+		wantErr bool
+	}{
+		{desc: "rowstore hypertable", opts: LoadingOptions{UseHypertable: true}},
+		{desc: "columnstore hypertable", opts: LoadingOptions{UseHypertable: true, UseColumnstore: true, DirectCompress: true}},
+		{desc: "plain table", opts: LoadingOptions{}},
+		{desc: "columnstore defaults are ignored for a plain table", opts: LoadingOptions{UseColumnstore: true, DirectCompress: true}},
+		{desc: "replication factor is gone", opts: LoadingOptions{UseHypertable: true, ReplicationFactor: 1}, wantErr: true},
 	}
-
-	// values are operator-supplied, so they are escaped rather than pasted
-	got = enableColumnstoreQuery("cpu", "", "it's")
-	want = "ALTER TABLE cpu SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = '', timescaledb.orderby = 'it''s')"
-	if got != want {
-		t.Errorf("got  %s\nwant %s", got, want)
-	}
-}
-
-func TestPostLoadNoopWithoutColumnstore(t *testing.T) {
-	// must not try to connect to anything when the flag is off
-	d := &dbCreator{opts: &LoadingOptions{UseHypertable: true}}
-	if err := d.PostLoad("benchmark"); err != nil {
-		t.Errorf("unexpected error: %v", err)
+	for _, c := range cases {
+		if err := c.opts.validateColumnstore(); (err != nil) != c.wantErr {
+			t.Errorf("%s: err = %v, wantErr %v", c.desc, err, c.wantErr)
+		}
 	}
 }
 
-func TestPostLoadColumnstoreNeedsHypertable(t *testing.T) {
-	d := &dbCreator{opts: &LoadingOptions{UseColumnstore: true, UseHypertable: false}}
-	if err := d.PostLoad("benchmark"); err == nil {
-		t.Errorf("expected an error for --use-columnstore without --use-hypertable")
+func TestRequiredVersion(t *testing.T) {
+	cases := []struct {
+		desc string
+		opts LoadingOptions
+		want [2]int
+	}{
+		{desc: "direct compress", opts: LoadingOptions{UseColumnstore: true, DirectCompress: true}, want: minVersionDirectCompress},
+		{desc: "columnstore without direct compress", opts: LoadingOptions{UseColumnstore: true}, want: minVersionCreateTableWith},
+		{desc: "rowstore", opts: LoadingOptions{DirectCompress: true}, want: minVersionCreateTableWith},
 	}
-}
-
-func TestMetricTables(t *testing.T) {
-	old := tableCols
-	defer func() { tableCols = old }()
-	tableCols = map[string][]string{tagsKey: {"hostname"}, "readings": {"a"}, "diagnostics": {"b"}}
-	got := metricTables()
-	if len(got) != 2 || got[0] != "diagnostics" || got[1] != "readings" {
-		t.Errorf("got %v, want [diagnostics readings]", got)
+	for _, c := range cases {
+		if got, _ := c.opts.requiredVersion(); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.desc, got, c.want)
+		}
 	}
 }

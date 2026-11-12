@@ -46,8 +46,10 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.ChunkTime = viper.GetDuration("chunk-time")
 
 	opts.UseColumnstore = viper.GetBool("use-columnstore")
+	opts.DirectCompress = viper.GetBool("columnstore-direct-compress")
 	opts.ColumnstoreSegmentBy = viper.GetString("columnstore-segmentby")
 	opts.ColumnstoreOrderBy = viper.GetString("columnstore-orderby")
+	opts.ColumnstoreSparseIdx = viper.GetString("columnstore-sparse-index")
 
 	opts.UseJSON = viper.GetBool("use-jsonb-tags")
 

@@ -256,24 +256,57 @@ func TestGenerateTagsTableQueryPanicOnWrongType(t *testing.T) {
 	t.Fatalf("test should have stopped at this point")
 }
 
-func TestCreateHypertableQuery(t *testing.T) {
+func TestCreateTableQuery(t *testing.T) {
+	const cols = "CREATE TABLE cpu (time timestamptz, tags_id integer, usage_user DOUBLE PRECISION, additional_tags JSONB DEFAULT NULL)"
+	const hypertable = " WITH (tsdb.hypertable, tsdb.partition_column = 'time', tsdb.chunk_interval = '43200000000 microseconds', tsdb.create_default_indexes = false"
 	cases := []struct {
-		desc             string
-		partitionsOption string
-		want             string
+		desc string
+		opts LoadingOptions
+		want string
 	}{
 		{
-			desc: "default names no replication_factor (removed in TimescaleDB 2.14)",
-			want: "SELECT create_hypertable('cpu'::regclass, 'time'::name, chunk_time_interval => 43200000000, create_default_indexes=>FALSE)",
+			desc: "plain table",
+			opts: LoadingOptions{ChunkTime: 12 * time.Hour},
+			want: cols,
 		},
 		{
-			desc:             "partitions option is passed through",
-			partitionsOption: "partitioning_column => 'tags_id'::name, number_partitions => 4::smallint",
-			want:             "SELECT create_hypertable('cpu'::regclass, 'time'::name, partitioning_column => 'tags_id'::name, number_partitions => 4::smallint, chunk_time_interval => 43200000000, create_default_indexes=>FALSE)",
+			desc: "plain table ignores the columnstore defaults",
+			opts: LoadingOptions{UseColumnstore: true, DirectCompress: true, ChunkTime: 12 * time.Hour,
+				ColumnstoreSegmentBy: "tags_id", ColumnstoreOrderBy: "time DESC"},
+			want: cols,
+		},
+		{
+			desc: "rowstore hypertable keeps the columnstore off",
+			opts: LoadingOptions{UseHypertable: true, DirectCompress: true, ChunkTime: 12 * time.Hour},
+			want: cols + hypertable + ", tsdb.columnstore = false)",
+		},
+		{
+			desc: "default: columnstore hypertable with direct compress",
+			opts: LoadingOptions{UseHypertable: true, UseColumnstore: true, DirectCompress: true, ChunkTime: 12 * time.Hour,
+				ColumnstoreSegmentBy: "tags_id", ColumnstoreOrderBy: "time DESC"},
+			want: cols + hypertable + ", tsdb.segmentby = 'tags_id', tsdb.orderby = 'time DESC', tsdb.direct_compress)",
+		},
+		{
+			desc: "columnstore without direct compress",
+			opts: LoadingOptions{UseHypertable: true, UseColumnstore: true, ChunkTime: 12 * time.Hour,
+				ColumnstoreSegmentBy: "tags_id", ColumnstoreOrderBy: "time DESC"},
+			want: cols + hypertable + ", tsdb.segmentby = 'tags_id', tsdb.orderby = 'time DESC')",
+		},
+		{
+			desc: "sparse indexes are passed through",
+			opts: LoadingOptions{UseHypertable: true, UseColumnstore: true, DirectCompress: true, ChunkTime: 12 * time.Hour,
+				ColumnstoreSegmentBy: "tags_id", ColumnstoreOrderBy: "time DESC", ColumnstoreSparseIdx: "minmax(usage_user)"},
+			want: cols + hypertable + ", tsdb.segmentby = 'tags_id', tsdb.orderby = 'time DESC', tsdb.sparse_index = 'minmax(usage_user)', tsdb.direct_compress)",
+		},
+		{
+			desc: "empty segmentby is left to TimescaleDB, values are escaped",
+			opts: LoadingOptions{UseHypertable: true, UseColumnstore: true, DirectCompress: true, ChunkTime: 12 * time.Hour,
+				ColumnstoreOrderBy: "it's"},
+			want: cols + hypertable + ", tsdb.orderby = 'it''s', tsdb.direct_compress)",
 		},
 	}
 	for _, c := range cases {
-		got := createHypertableQuery("create_hypertable", "cpu", c.partitionsOption, 12*time.Hour)
+		got := createTableQuery("cpu", []string{"usage_user DOUBLE PRECISION"}, &c.opts)
 		if got != c.want {
 			t.Errorf("%s:\ngot  %s\nwant %s", c.desc, got, c.want)
 		}

@@ -27,8 +27,10 @@ type LoadingOptions struct {
 	ChunkTime         time.Duration `yaml:"chunk-time" mapstructure:"chunk-time"`
 
 	UseColumnstore       bool   `yaml:"use-columnstore" mapstructure:"use-columnstore"`
+	DirectCompress       bool   `yaml:"columnstore-direct-compress" mapstructure:"columnstore-direct-compress"`
 	ColumnstoreSegmentBy string `yaml:"columnstore-segmentby" mapstructure:"columnstore-segmentby"`
 	ColumnstoreOrderBy   string `yaml:"columnstore-orderby" mapstructure:"columnstore-orderby"`
+	ColumnstoreSparseIdx string `yaml:"columnstore-sparse-index" mapstructure:"columnstore-sparse-index"`
 
 	TimeIndex          bool   `yaml:"time-index" mapstructure:"time-index"`
 	TimePartitionIndex bool   `yaml:"time-partition-index" mapstructure:"time-partition-index"`

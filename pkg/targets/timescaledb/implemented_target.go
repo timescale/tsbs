@@ -52,13 +52,15 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Bool(flagPrefix+"use-jsonb-tags", false, "Whether tags should be stored as JSONB (instead of a separate table with schema)")
 	flagSet.Bool(flagPrefix+"in-table-partition-tag", false, "Whether the partition key (e.g. hostname) should also be in the metrics hypertable")
 
-	flagSet.Int(flagPrefix+"replication-factor", 0, "Setting replication factor >= 1 will create a distributed hypertable")
+	flagSet.Int(flagPrefix+"replication-factor", 0, "No longer supported: multi-node was removed in TimescaleDB 2.14, so any value >= 1 is an error")
 	flagSet.Int(flagPrefix+"partitions", 0, "Number of partitions")
 	flagSet.Duration(flagPrefix+"chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
-	flagSet.Bool(flagPrefix+"use-columnstore", false, "Whether to convert all chunks to the columnstore (hypercore) once the load finishes. Requires TimescaleDB >= 2.18. The conversion is not part of the timed load.")
-	flagSet.String(flagPrefix+"columnstore-segmentby", "tags_id", "Columnstore segmentby setting, used with --use-columnstore. Empty for no segmentby.")
+	flagSet.Bool(flagPrefix+"use-columnstore", true, "Whether to enable the columnstore (hypercore) on the hypertables. Ignored with --use-hypertable=false.")
+	flagSet.Bool(flagPrefix+"columnstore-direct-compress", true, "Whether to load straight into the columnstore with direct compress, used with --use-columnstore. Requires TimescaleDB >= 2.29; without it chunks are left to the columnstore policy.")
+	flagSet.String(flagPrefix+"columnstore-segmentby", "tags_id", "Columnstore segmentby setting, used with --use-columnstore. Empty leaves the choice to TimescaleDB.")
 	flagSet.String(flagPrefix+"columnstore-orderby", "time DESC", "Columnstore orderby setting, used with --use-columnstore")
+	flagSet.String(flagPrefix+"columnstore-sparse-index", "", "Columnstore sparse indexes, e.g. 'minmax(usage_user), bloom(x)', used with --use-columnstore. Empty leaves the choice to TimescaleDB.")
 
 	flagSet.Bool(flagPrefix+"time-index", true, "Whether to build an index on the time dimension")
 	flagSet.Bool(flagPrefix+"time-partition-index", false, "Whether to build an index on the time dimension, compounded with partition")
