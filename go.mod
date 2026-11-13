@@ -8,7 +8,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
 	github.com/aws/aws-sdk-go v1.35.13
-	github.com/blagojts/viper v1.6.3-0.20200313094124-068f44cf5e69
+	github.com/blagojts/viper 97ee7adfef48
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gocql/gocql v0.0.0-20190810123941-df4b9cc33030
