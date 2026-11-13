@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Hypercore's enable_columnstore / convert_to_columnstore API first shipped in
@@ -22,7 +23,8 @@ const (
 // layout TimescaleDB is deployed with rather than uncompressed rowstore chunks.
 //
 // It runs after the load has been timed and reported, so the conversion does
-// not count towards the reported ingest rate.
+// not count towards the reported ingest rate. The time the conversion took is
+// logged separately, so the full cost of getting to compressed data is visible.
 func (d *dbCreator) PostLoad(dbName string) error {
 	if !d.opts.UseColumnstore {
 		return nil
@@ -42,6 +44,7 @@ func (d *dbCreator) PostLoad(dbName string) error {
 		return fmt.Errorf("--use-columnstore needs timescaledb >= %d.%d, got %s", columnstoreMinMajor, columnstoreMinMinor, version)
 	}
 
+	start := time.Now()
 	for _, ht := range metricTables() {
 		if _, err := db.Exec(enableColumnstoreQuery(ht, d.opts.ColumnstoreSegmentBy, d.opts.ColumnstoreOrderBy)); err != nil {
 			return fmt.Errorf("could not enable columnstore on %s: %v", ht, err)
@@ -58,6 +61,7 @@ func (d *dbCreator) PostLoad(dbName string) error {
 			}
 		}
 	}
+	log.Printf("columnstore conversion took %0.3fsec (not included in the load time above)", time.Since(start).Seconds())
 
 	// The conversion rewrites every chunk, and the loader never analyzes.
 	if _, err := db.Exec("ANALYZE"); err != nil {

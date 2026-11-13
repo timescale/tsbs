@@ -122,7 +122,9 @@ deployed, so storage size and query results will not reflect a typical
 installation. Requires TimescaleDB 2.18 or later and `-use-hypertable`.
 
 The conversion runs after the load has been timed, so it does not affect the
-reported ingest rate.
+reported ingest rate. The loader logs how long the conversion took as a
+separate line; add it to the load time for the full cost of getting to
+compressed data.
 
 #### `-columnstore-segmentby` (type: `string`, default: `tags_id`)
 The `timescaledb.segmentby` setting used with `-use-columnstore`. The default
