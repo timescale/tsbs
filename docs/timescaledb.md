@@ -114,6 +114,27 @@ time.Duration string, meaning a number followed by a unit abbreviation
 (s = seconds, m = minutes, h = hours), e.g., the default `12h` is 12 hours.
 This should be adjusted based on the dataset size.
 
+#### `-use-columnstore` (type: `boolean`, default: `false`)
+Whether to convert every chunk to the columnstore (hypercore) once the load
+has finished, and then run `ANALYZE`. Without this flag the data stays in
+uncompressed rowstore chunks, which is not how TimescaleDB is normally
+deployed, so storage size and query results will not reflect a typical
+installation. Requires TimescaleDB 2.18 or later and `-use-hypertable`.
+
+The conversion runs after the load has been timed, so it does not affect the
+reported ingest rate. The loader logs how long the conversion took as a
+separate line; add it to the load time for the full cost of getting to
+compressed data.
+
+#### `-columnstore-segmentby` (type: `string`, default: `tags_id`)
+The `timescaledb.segmentby` setting used with `-use-columnstore`. The default
+segments by the tag set, which suits queries that filter or group by host or
+device. Set it to an empty string for no segmentby. If you load with
+`-in-table-partition-tag`, consider segmenting by that column instead.
+
+#### `-columnstore-orderby` (type: `string`, default: `time DESC`)
+The `timescaledb.orderby` setting used with `-use-columnstore`.
+
 #### `-partitions` (type: `int`, default: `0`)
 Number of space partitions for the primary tag. Setting this to `0` will
 disable space partitioning.
