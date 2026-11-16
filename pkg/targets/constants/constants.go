@@ -4,6 +4,7 @@ package constants
 const (
 	FormatCassandra       = "cassandra"
 	FormatClickhouse      = "clickhouse"
+	FormatDoris           = "doris"
 	FormatInflux          = "influx"
 	FormatMongo           = "mongo"
 	FormatSiriDB          = "siridb"
@@ -20,6 +21,7 @@ func SupportedFormats() []string {
 	return []string{
 		FormatCassandra,
 		FormatClickhouse,
+		FormatDoris,
 		FormatInflux,
 		FormatMongo,
 		FormatSiriDB,

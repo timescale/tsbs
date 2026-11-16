@@ -5,6 +5,7 @@ import (
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cassandra"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/clickhouse"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/cratedb"
+	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/doris"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/influx"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/mongo"
 	"github.com/timescale/tsbs/cmd/tsbs_generate_queries/databases/questdb"
@@ -20,6 +21,9 @@ func InitQueryFactories(config *config.QueryGeneratorConfig) map[string]interfac
 	factories := make(map[string]interface{})
 	factories[constants.FormatCassandra] = &cassandra.BaseGenerator{}
 	factories[constants.FormatClickhouse] = &clickhouse.BaseGenerator{
+		UseTags: config.ClickhouseUseTags,
+	}
+	factories[constants.FormatDoris] = &doris.BaseGenerator{
 		UseTags: config.ClickhouseUseTags,
 	}
 	factories[constants.FormatCrateDB] = &cratedb.BaseGenerator{}

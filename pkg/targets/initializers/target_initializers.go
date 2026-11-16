@@ -8,6 +8,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/clickhouse"
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"github.com/timescale/tsbs/pkg/targets/crate"
+	"github.com/timescale/tsbs/pkg/targets/doris"
 	"github.com/timescale/tsbs/pkg/targets/influx"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
@@ -31,6 +32,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return clickhouse.NewTarget()
 	case constants.FormatCrateDB:
 		return crate.NewTarget()
+	case constants.FormatDoris:
+		return doris.NewTarget()
 	case constants.FormatInflux:
 		return influx.NewTarget()
 	case constants.FormatMongo:

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/timescale/tsbs/pkg/targets"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,7 @@ type processor struct {
 	conf *ClickhouseConfig
 }
 
-// load.Processor interface implementation
+// Init load.Processor interface implementation
 func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	if doLoad {
 		p.db = sqlx.MustConnect(dbType, getConnectString(p.conf, true))
@@ -29,14 +30,17 @@ func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	}
 }
 
-// load.ProcessorCloser interface implementation
+// Close load.ProcessorCloser interface implementation
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
-		p.db.Close()
+		err := p.db.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-// load.Processor interface implementation
+// ProcessBatch load.Processor interface implementation
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*tableArr)
 	rowCnt := 0
@@ -84,13 +88,12 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 	dataRows := make([][]interface{}, 0, len(rows))
 	ret := uint64(0)
 	commonTagsLen := len(tableCols["tags"])
-
 	colLen := len(tableCols[tableName]) + 2
 	if p.conf.InTableTag {
 		colLen++
 	}
 
-	var tagsIdPosition int = 0
+	var tagsIdPosition = 0
 
 	for _, row := range rows {
 		// Split the tags into individual common tags and
@@ -142,7 +145,7 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 			panic(err)
 		}
 		timeUTC := time.Unix(0, timestampNano)
-		TimeUTCStr := timeUTC.Format("2006-01-02 15:04:05.999999 -0700")
+		TimeUTCStr := timeUTC.UTC().Format("2006-01-02 15:04:05.999999 -0700")
 
 		// use nil at 2-nd position as placeholder for tagKey
 		r := make([]interface{}, 0, colLen)
@@ -183,12 +186,17 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 	// New tags in this batch, need to be inserted
 	newTags := make([][]string, 0, len(rows))
 	p.csi.mutex.RLock()
+	// judge by device hostname(unique)
+	seen := make(map[string]bool)
 	for _, tagRow := range tagRows {
 		// tagRow contains what was called `tags` earlier - see one screen higher
 		// tagRow[0] = hostname
 		if _, ok := p.csi.m[tagRow[0]]; !ok {
 			// Tags of this hostname are not listed as inserted - new tags line, add it for creation
-			newTags = append(newTags, tagRow)
+			if !seen[tagRow[0]] {
+				newTags = append(newTags, tagRow)
+				seen[tagRow[0]] = true
+			}
 		}
 	}
 	p.csi.mutex.RUnlock()
@@ -324,7 +332,7 @@ func insertTags(conf *ClickhouseConfig, db *sqlx.DB, startID int, rows [][]strin
 		// more details on the item:
 		// https://blog.learngoprogramming.com/golang-variadic-funcs-how-to-patterns-369408f19085
 		// Passing a slice to variadic param with an empty-interface
-		var variadicArgs []interface{} = make([]interface{}, len(row)+1) // +1 here for additional 'id' column value
+		var variadicArgs = make([]interface{}, len(row)+1) // +1 here for additional 'id' column value
 		// Place id at the beginning
 		variadicArgs[0] = id
 		// And all the rest of column values afterwards
