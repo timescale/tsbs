@@ -25,7 +25,7 @@ func (t *akumuliTarget) TargetName() string {
 }
 
 func (t *akumuliTarget) Serializer() serialize.PointSerializer {
-	return &Serializer{}
+	return NewAkumuliSerializer()
 }
 
 func (t *akumuliTarget) Benchmark(string, *source.DataSourceConfig, *viper.Viper) (targets.Benchmark, error) {
