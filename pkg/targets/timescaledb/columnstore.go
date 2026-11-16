@@ -10,16 +10,17 @@ import (
 	"time"
 )
 
-// Hypercore's enable_columnstore / convert_to_columnstore API first shipped in
-// TimescaleDB 2.18.
+// CREATE TABLE ... WITH (tsdb.hypertable, ...), which the loader uses to create
+// hypertables with the columnstore enabled, first shipped in TimescaleDB 2.20.
 const (
 	columnstoreMinMajor = 2
-	columnstoreMinMinor = 18
+	columnstoreMinMinor = 20
 )
 
 // PostLoad runs once all data is loaded. With --use-columnstore it converts
-// every chunk of the hypertables this load wrote to into the columnstore and
-// then runs ANALYZE, so that queries are measured against the storage
+// every chunk of the hypertables this load wrote to into the columnstore (the
+// hypertables were created with the columnstore settings already, see
+// createColumnstoreTableQuery) and then runs ANALYZE, so that queries are measured against the storage
 // layout TimescaleDB is deployed with rather than uncompressed rowstore chunks.
 //
 // It runs after the load has been timed and reported, so the conversion does
@@ -36,19 +37,12 @@ func (d *dbCreator) PostLoad(dbName string) error {
 	db := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer db.Close()
 
-	var version string
-	if err := db.QueryRow("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'").Scan(&version); err != nil {
-		return fmt.Errorf("could not read timescaledb version: %v", err)
-	}
-	if !supportsColumnstore(version) {
-		return fmt.Errorf("--use-columnstore needs timescaledb >= %d.%d, got %s", columnstoreMinMajor, columnstoreMinMinor, version)
+	if err := checkColumnstoreVersion(db); err != nil {
+		return err
 	}
 
 	start := time.Now()
 	for _, ht := range metricTables() {
-		if _, err := db.Exec(enableColumnstoreQuery(ht, d.opts.ColumnstoreSegmentBy, d.opts.ColumnstoreOrderBy)); err != nil {
-			return fmt.Errorf("could not enable columnstore on %s: %v", ht, err)
-		}
 		chunks, err := queryStrings(db, "SELECT show_chunks($1::regclass)::text", ht)
 		if err != nil {
 			return fmt.Errorf("could not list chunks of %s: %v", ht, err)
@@ -74,8 +68,29 @@ func (d *dbCreator) PostLoad(dbName string) error {
 // with. PostCreateDB calls it too, so a bad combination fails before the load
 // rather than after it.
 func (o *LoadingOptions) validateColumnstore() error {
-	if o.UseColumnstore && !o.UseHypertable {
-		return fmt.Errorf("--use-columnstore requires --use-hypertable")
+	if !o.UseColumnstore {
+		return nil
+	}
+	if !o.UseHypertable {
+		return fmt.Errorf("--use-columnstore requires --use-hypertable; pass --use-columnstore=false to load into plain PostgreSQL")
+	}
+	if o.ReplicationFactor > 0 {
+		// distributed hypertables were removed in TimescaleDB 2.14, before the
+		// columnstore syntax the loader relies on existed
+		return fmt.Errorf("--use-columnstore cannot be combined with --replication-factor; pass --use-columnstore=false")
+	}
+	return nil
+}
+
+// checkColumnstoreVersion fails unless the installed timescaledb extension is
+// new enough for the columnstore syntax the loader uses.
+func checkColumnstoreVersion(db *sql.DB) error {
+	var version string
+	if err := db.QueryRow("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'").Scan(&version); err != nil {
+		return fmt.Errorf("could not read timescaledb version: %v", err)
+	}
+	if !supportsColumnstore(version) {
+		return fmt.Errorf("--use-columnstore needs timescaledb >= %d.%d, got %s; pass --use-columnstore=false for older versions", columnstoreMinMajor, columnstoreMinMinor, version)
 	}
 	return nil
 }
@@ -94,17 +109,19 @@ func metricTables() []string {
 	return tables
 }
 
-// enableColumnstoreQuery builds the ALTER TABLE that turns the columnstore on
-// for a hypertable. The name is used unquoted, as it is when the loader creates
-// the table.
-func enableColumnstoreQuery(hypertable, segmentBy, orderBy string) string {
+// createColumnstoreTableQuery builds the CREATE TABLE that creates a
+// hypertable partitioned on time with the columnstore enabled. The partition
+// column is named explicitly, as TimescaleDB only infers it from 2.23 on. The
+// name is used unquoted, as it is for the plain CREATE TABLE.
+func createColumnstoreTableQuery(tableName, columnDefs string, chunkTime time.Duration, segmentBy, orderBy string) string {
 	return fmt.Sprintf(
-		"ALTER TABLE %s SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = %s, timescaledb.orderby = %s)",
-		hypertable, quoteLiteral(segmentBy), quoteLiteral(orderBy))
+		"CREATE TABLE %s (%s) WITH (tsdb.hypertable, tsdb.partition_column = 'time', tsdb.chunk_interval = '%d microseconds', "+
+			"tsdb.create_default_indexes = false, tsdb.segmentby = %s, tsdb.orderby = %s)",
+		tableName, columnDefs, chunkTime.Microseconds(), quoteLiteral(segmentBy), quoteLiteral(orderBy))
 }
 
 // supportsColumnstore reports whether a timescaledb extversion such as
-// "2.21.3" or "2.18.0-dev" is new enough for the columnstore API.
+// "2.21.3" or "2.20.0-dev" is new enough for the columnstore syntax.
 func supportsColumnstore(version string) bool {
 	parts := strings.SplitN(version, ".", 3)
 	if len(parts) < 2 {

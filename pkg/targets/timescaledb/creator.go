@@ -87,6 +87,17 @@ func (d *dbCreator) PostCreateDB(dbName string) error {
 	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
 
+	if d.opts.UseColumnstore {
+		// Check the version before any table is created, so an old TimescaleDB
+		// fails here rather than on the CREATE TABLE ... WITH syntax.
+		if d.opts.CreateMetricsTable {
+			MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+		}
+		if err := checkColumnstoreVersion(dbBench); err != nil {
+			return err
+		}
+	}
+
 	headers := d.ds.Headers()
 	tagNames := headers.TagKeys
 	tagTypes := headers.TagTypes
@@ -180,7 +191,24 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 	}
 
 	MustExec(dbBench, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
-	MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL)", tableName, strings.Join(fieldDefs, ",")))
+	columnDefs := fmt.Sprintf("time timestamptz, tags_id integer, %s, additional_tags JSONB DEFAULT NULL", strings.Join(fieldDefs, ","))
+	if d.opts.UseHypertable && d.opts.UseColumnstore {
+		// With the columnstore the table is created as a hypertable straight
+		// away, with its columnstore settings, rather than converted afterwards.
+		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
+		MustExec(dbBench, createColumnstoreTableQuery(tableName, columnDefs, d.opts.ChunkTime, d.opts.ColumnstoreSegmentBy, d.opts.ColumnstoreOrderBy))
+		// CREATE TABLE ... WITH also adds a columnstore policy that converts
+		// chunks older than one chunk interval. TSBS data lies in the past, so
+		// that policy would start converting chunks in the background while the
+		// load is being timed. PostLoad converts every chunk after the load instead.
+		// remove_columnstore_policy is a procedure, so CALL rather than SELECT
+		MustExec(dbBench, fmt.Sprintf("CALL remove_columnstore_policy('%s'::regclass, if_exists => true)", tableName))
+		if d.opts.NumberPartitions > 0 {
+			MustExec(dbBench, fmt.Sprintf("SELECT add_dimension('%s'::regclass, by_hash('%s'::name, %d))", tableName, partitionColumn, d.opts.NumberPartitions))
+		}
+	} else {
+		MustExec(dbBench, fmt.Sprintf("CREATE TABLE %s (%s)", tableName, columnDefs))
+	}
 	if d.opts.PartitionIndex {
 		MustExec(dbBench, fmt.Sprintf("CREATE INDEX ON %s(%s, \"time\" DESC)", tableName, partitionColumn))
 	}
@@ -198,7 +226,7 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 		MustExec(dbBench, indexDef)
 	}
 
-	if d.opts.UseHypertable {
+	if d.opts.UseHypertable && !d.opts.UseColumnstore {
 		var creationCommand string = "create_hypertable"
 		// Empty by default: a plain hypertable needs no partitioning arguments.
 		// This used to pass "replication_factor => NULL", but that parameter was

@@ -23,6 +23,7 @@ PERF_OUTPUT=${PERF_OUTPUT:-}
 JSON_TAGS=${JSON_TAGS:-false}
 IN_TABLE_PARTITION_TAG=${IN_TABLE_PARTITION_TAG:-true}
 USE_HYPERTABLE=${USE_HYPERTABLE:-true}
+USE_COLUMNSTORE=${USE_COLUMNSTORE:-${USE_HYPERTABLE}}
 DO_CREATE_DB=${DO_CREATE_DB:-true}
 FORCE_TEXT_FORMAT=${FORCE_TEXT_FORMAT:-false}
 USE_COPY=${USE_COPY:-true}
@@ -49,6 +50,7 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --batch-size=${BATCH_SIZE} \
                                 --reporting-period=${REPORTING_PERIOD} \
                                 --use-hypertable=${USE_HYPERTABLE} \
+                                --use-columnstore=${USE_COLUMNSTORE} \
                                 --use-jsonb-tags=${JSON_TAGS} \
                                 --in-table-partition-tag=${IN_TABLE_PARTITION_TAG} \
                                 --hash-workers=${HASH_WORKERS} \
