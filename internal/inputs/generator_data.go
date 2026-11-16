@@ -136,10 +136,17 @@ func (g *DataGenerator) getSerializer(sim common.Simulator, target targets.Imple
 	case constants.FormatTimescaleDB:
 		g.writeHeader(sim.Headers())
 	}
-	return target.Serializer(), nil
+	serializer := target.Serializer()
+	if cs, ok := serializer.(serialize.ConfigurableSerializer); ok {
+		err := cs.Config(g.config, g.bufOut)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return serializer, nil
 }
 
-//TODO should be implemented in targets package
+// TODO should be implemented in targets package
 func (g *DataGenerator) writeHeader(headers *common.GeneratedDataHeaders) {
 	g.bufOut.WriteString("tags")
 

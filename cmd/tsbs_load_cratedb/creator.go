@@ -58,18 +58,21 @@ func (d *dbCreator) Init() {
 // First N lines are the header, describing the data structure.
 // The first line contains the tags table name followed by a comma-separated
 // list of tags:
-//     tags,hostname,region,datacenter,rack,os,arch,team,service,service_version
+//
+//	tags,hostname,region,datacenter,rack,os,arch,team,service,service_version
 //
 // The second through N-1 line containing table name (ex.: 'disk') followed by
 // list of column names, comma-separated:
-//     disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
+//
+//	disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
 //
 // The last line being blank to separate the header from the data.
 //
 // Header example:
-//      tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
-//      disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
-//      nginx,accepts,active,handled,reading,requests,waiting,writing
+//
+//	tags,hostname,region,datacenter,rack,os,arch,team,service,service_version,service_environment
+//	disk,total,free,used,used_percent,inodes_total,inodes_free,inodes_used
+//	nginx,accepts,active,handled,reading,requests,waiting,writing
 func (d *dbCreator) readDataHeader(header *common.GeneratedDataHeaders) ([]*tableDef, error) {
 	var tableDefs []*tableDef
 	for tableName, fieldCols := range header.FieldKeys {

@@ -17,6 +17,7 @@ Current databases supported:
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
 + Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
++ TDengine [(supplemental docs)](docs/tdengine.md)
 
 ## Overview
 
@@ -81,6 +82,7 @@ cases are implemented for each database:
 |TimescaleDB|X|X|
 |Timestream|X||
 |VictoriaMetrics|X²||
+|TDengine|X|X|
 
 ¹ Does not support the `groupby-orderby-limit` query
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
@@ -112,6 +114,10 @@ $ cd $GOPATH/src/github.com/timescale/tsbs
 $ make
 ```
 
+**`Notice`**
+
+The make process will failed if the TDengine client isn't installed. Please refer to the [supplementary documentation for TDengine](docs/tdengine.md).
+
 ## How to use TSBS
 
 Using TSBS for benchmarking involves 3 phases: data and query
@@ -135,7 +141,7 @@ Variables needed:
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
  (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `questdb`, `siridb`,
-  `timescaledb` or `victoriametrics`)
+  `timescaledb` `victoriametrics` or `tdengine`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can
