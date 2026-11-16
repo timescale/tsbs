@@ -26,7 +26,8 @@ type Devops struct {
 // a set of column idents.
 //
 // For instance:
-//      max(cpu_time) AS max_cpu_time
+//
+//	max(cpu_time) AS max_cpu_time
 func (d *Devops) getSelectAggClauses(aggFunc string, idents []string) []string {
 	selectAggClauses := make([]string, len(idents))
 	for i, ident := range idents {
@@ -42,8 +43,8 @@ func (d *Devops) getSelectAggClauses(aggFunc string, idents []string) []string {
 // Queries:
 // cpu-max-all-1
 // cpu-max-all-8
-func (d *Devops) MaxAllCPU(qi query.Query, nHosts int) {
-	interval := d.Interval.MustRandWindow(devops.MaxAllDuration)
+func (d *Devops) MaxAllCPU(qi query.Query, nHosts int, duration time.Duration) {
+	interval := d.Interval.MustRandWindow(duration)
 	selectClauses := d.getSelectAggClauses("max", devops.GetAllCPUMetrics())
 	hosts, err := d.GetRandomHosts(nHosts)
 	panicIfErr(err)
@@ -86,8 +87,7 @@ func (d *Devops) GroupByTimeAndPrimaryTag(qi query.Query, numMetrics int) {
 		FROM cpu
 		WHERE timestamp >= '%s'
 		  AND timestamp < '%s'
-		SAMPLE BY 1h
-		GROUP BY timestamp, hostname`,
+		SAMPLE BY 1h`,
 		strings.Join(selectClauses, ", "),
 		interval.StartString(),
 		interval.EndString())

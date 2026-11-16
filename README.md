@@ -17,6 +17,7 @@ Current databases supported:
 + TimescaleDB [(supplemental docs)](docs/timescaledb.md)
 + Timestream [(supplemental docs)](docs/timestream.md)
 + VictoriaMetrics [(supplemental docs)](docs/victoriametrics.md)
++ ZigTSDB [(supplemental docs)](docs/zigtsdb.md)
 
 ## Overview
 
@@ -81,9 +82,11 @@ cases are implemented for each database:
 |TimescaleDB|X|X|
 |Timestream|X||
 |VictoriaMetrics|X²||
+|ZigTSDB|X³||
 
 ¹ Does not support the `groupby-orderby-limit` query
 ² Does not support the `groupby-orderby-limit`, `lastpoint`, `high-cpu-1`, `high-cpu-all` queries
+³ Multi-metric queries run as several sequential statements and `high-cpu-*` return only the `usage_user` column; see [docs/zigtsdb.md](docs/zigtsdb.md)
 
 ## What the TSBS tests
 
@@ -135,7 +138,7 @@ Variables needed:
 1. how much time should be between each reading per device, in seconds. E.g., `10s`
 1. and which database(s) you want to generate for. E.g., `timescaledb`
  (choose from `cassandra`, `clickhouse`, `cratedb`, `influx`, `mongo`, `questdb`, `siridb`,
-  `timescaledb` or `victoriametrics`)
+  `timescaledb`, `victoriametrics` or `zigtsdb`)
 
 Given the above steps you can now generate a dataset (or multiple
 datasets, if you chose to generate for multiple databases) that can
