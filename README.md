@@ -103,13 +103,36 @@ with identical data and queried using identical queries.
 ## Installation
 
 TSBS is a collection of Go programs (with some auxiliary bash and Python
-scripts). The easiest way to get and install the Go programs is to use
-`go get` and then `make all` to install all binaries:
+scripts).
+
+### Option 1: Install from source (Recommended)
+Clone the repository and install all command binaries to your `$GOPATH/bin`:
+
 ```bash
-# Fetch TSBS and its dependencies
-$ go get github.com/timescale/tsbs
-$ cd $GOPATH/src/github.com/timescale/tsbs
-$ make
+# Clone the repository
+$ git clone [https://github.com/timescale/tsbs.git](https://github.com/timescale/tsbs.git)
+$ cd tsbs
+
+# Sync modules and dependencies
+$ go mod tidy
+
+# Install all TSBS binaries
+$ go install ./cmd/...
+```
+
+### Option 2: Direct installation of specific tools
+If you do not want to clone the repo, install specific tools directly using `@latest`:
+
+```bash
+# Data generator
+$ go install [github.com/timescale/tsbs/cmd/tsbs_generate_data@latest](https://github.com/timescale/tsbs/cmd/tsbs_generate_data@latest)
+
+# Query generator
+$ go install [github.com/timescale/tsbs/cmd/tsbs_generate_queries@latest](https://github.com/timescale/tsbs/cmd/tsbs_generate_queries@latest)
+
+# Database specific loaders/runners (e.g., TimescaleDB)
+$ go install [github.com/timescale/tsbs/cmd/tsbs_load_timescaledb@latest](https://github.com/timescale/tsbs/cmd/tsbs_load_timescaledb@latest)
+$ go install [github.com/timescale/tsbs/cmd/tsbs_run_queries_timescaledb@latest](https://github.com/timescale/tsbs/cmd/tsbs_run_queries_timescaledb@latest)
 ```
 
 ## How to use TSBS
