@@ -18,14 +18,14 @@ type dbCreator struct {
 	config  *ClickhouseConfig
 }
 
-// loader.DBCreator interface implementation
+// Init loader.DBCreator interface implementation
 func (d *dbCreator) Init() {
 	// fills dbCreator struct with data structure (tables description)
 	// specified at the beginning of the data file
 	d.headers = d.ds.Headers()
 }
 
-// loader.DBCreator interface implementation
+// DBExists loader.DBCreator interface implementation
 func (d *dbCreator) DBExists(dbName string) bool {
 	db := sqlx.MustConnect(dbType, getConnectString(d.config, false))
 	defer db.Close()
@@ -52,7 +52,7 @@ func (d *dbCreator) DBExists(dbName string) bool {
 	return false
 }
 
-// loader.DBCreator interface implementation
+// RemoveOldDB loader.DBCreator interface implementation
 func (d *dbCreator) RemoveOldDB(dbName string) error {
 	db := sqlx.MustConnect(dbType, getConnectString(d.config, false))
 	defer db.Close()
@@ -64,7 +64,7 @@ func (d *dbCreator) RemoveOldDB(dbName string) error {
 	return nil
 }
 
-// loader.DBCreator interface implementation
+// CreateDB loader.DBCreator interface implementation
 func (d *dbCreator) CreateDB(dbName string) error {
 	// Connect to ClickHouse in general and CREATE DATABASE
 	db := sqlx.MustConnect(dbType, getConnectString(d.config, false))
@@ -143,7 +143,9 @@ func createMetricsTable(conf *ClickhouseConfig, db *sqlx.DB, tableName string, f
 				tags_id         UInt32,
 				%s,
 				additional_tags String   DEFAULT ''
-			) ENGINE = MergeTree(created_date, (tags_id, created_at), 8192)
+			) ENGINE = MergeTree()
+			ORDER BY (created_date, (tags_id, created_at))
+			SETTINGS index_granularity = 8192;
 			`,
 		tableName,
 		strings.Join(columnsWithType, ","))
@@ -180,7 +182,9 @@ func generateTagsTableQuery(tagNames, tagTypes []string) string {
 			"created_at   DateTime DEFAULT now(),\n"+
 			"id           UInt32,\n"+
 			"%s"+
-			") ENGINE = MergeTree(created_date, (%s), 8192)",
+			") ENGINE = MergeTree()"+
+			"ORDER BY (created_date, (%s))"+
+			"SETTINGS index_granularity = 8192;",
 		cols,
 		index)
 }
