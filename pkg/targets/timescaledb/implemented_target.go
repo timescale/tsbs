@@ -56,7 +56,7 @@ func (t *timescaleTarget) TargetSpecificFlags(flagPrefix string, flagSet *pflag.
 	flagSet.Int(flagPrefix+"partitions", 0, "Number of partitions")
 	flagSet.Duration(flagPrefix+"chunk-time", 12*time.Hour, "Duration that each chunk should represent, e.g., 12h")
 
-	flagSet.Bool(flagPrefix+"use-columnstore", false, "Whether to convert all chunks to the columnstore (hypercore) once the load finishes. Requires TimescaleDB >= 2.18. The conversion is not part of the timed load.")
+	flagSet.Bool(flagPrefix+"use-columnstore", true, "Whether to create hypertables with the columnstore (hypercore) enabled and convert all chunks to it once the load finishes. Requires TimescaleDB >= 2.20. The conversion is not part of the timed load. Set to false for older TimescaleDB, plain PostgreSQL or rowstore-only runs.")
 	flagSet.String(flagPrefix+"columnstore-segmentby", "tags_id", "Columnstore segmentby setting, used with --use-columnstore. Empty for no segmentby.")
 	flagSet.String(flagPrefix+"columnstore-orderby", "time DESC", "Columnstore orderby setting, used with --use-columnstore")
 

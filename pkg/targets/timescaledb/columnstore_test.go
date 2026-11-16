@@ -1,12 +1,16 @@
 package timescaledb
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestSupportsColumnstore(t *testing.T) {
 	cases := map[string]bool{
-		"2.17.2":     false,
-		"2.18.0":     true,
-		"2.18.0-dev": true,
+		"2.18.0":     false,
+		"2.19.3":     false,
+		"2.20.0":     true,
+		"2.20.0-dev": true,
 		"2.31.0":     true,
 		"3.0.0":      true,
 		"1.7.5":      false,
@@ -20,16 +24,20 @@ func TestSupportsColumnstore(t *testing.T) {
 	}
 }
 
-func TestEnableColumnstoreQuery(t *testing.T) {
-	got := enableColumnstoreQuery("cpu", "tags_id", "time DESC")
-	want := "ALTER TABLE cpu SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = 'tags_id', timescaledb.orderby = 'time DESC')"
+func TestCreateColumnstoreTableQuery(t *testing.T) {
+	got := createColumnstoreTableQuery("cpu", "time timestamptz, tags_id integer", 12*time.Hour, "tags_id", "time DESC")
+	want := "CREATE TABLE cpu (time timestamptz, tags_id integer) WITH (tsdb.hypertable, tsdb.partition_column = 'time', " +
+		"tsdb.chunk_interval = '43200000000 microseconds', tsdb.create_default_indexes = false, " +
+		"tsdb.segmentby = 'tags_id', tsdb.orderby = 'time DESC')"
 	if got != want {
 		t.Errorf("got  %s\nwant %s", got, want)
 	}
 
 	// values are operator-supplied, so they are escaped rather than pasted
-	got = enableColumnstoreQuery("cpu", "", "it's")
-	want = "ALTER TABLE cpu SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = '', timescaledb.orderby = 'it''s')"
+	got = createColumnstoreTableQuery("cpu", "time timestamptz", 12*time.Hour, "", "it's")
+	want = "CREATE TABLE cpu (time timestamptz) WITH (tsdb.hypertable, tsdb.partition_column = 'time', " +
+		"tsdb.chunk_interval = '43200000000 microseconds', tsdb.create_default_indexes = false, " +
+		"tsdb.segmentby = '', tsdb.orderby = 'it''s')"
 	if got != want {
 		t.Errorf("got  %s\nwant %s", got, want)
 	}
@@ -47,6 +55,17 @@ func TestPostLoadColumnstoreNeedsHypertable(t *testing.T) {
 	d := &dbCreator{opts: &LoadingOptions{UseColumnstore: true, UseHypertable: false}}
 	if err := d.PostLoad("benchmark"); err == nil {
 		t.Errorf("expected an error for --use-columnstore without --use-hypertable")
+	}
+}
+
+func TestValidateColumnstoreRejectsReplication(t *testing.T) {
+	o := &LoadingOptions{UseColumnstore: true, UseHypertable: true, ReplicationFactor: 1}
+	if err := o.validateColumnstore(); err == nil {
+		t.Errorf("expected an error for --use-columnstore with --replication-factor")
+	}
+	o.UseColumnstore = false
+	if err := o.validateColumnstore(); err != nil {
+		t.Errorf("unexpected error without --use-columnstore: %v", err)
 	}
 }
 

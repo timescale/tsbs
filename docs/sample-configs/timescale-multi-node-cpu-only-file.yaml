@@ -35,6 +35,8 @@ loader:
     port: "5432"
     in-table-partition-tag: true
     replication-factor: 1
+    # the columnstore cannot be combined with replication-factor
+    use-columnstore: false
     log-batches: false
     partition-index: true
     postgres: sslmode=require
