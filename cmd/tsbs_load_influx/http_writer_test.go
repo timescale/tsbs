@@ -114,7 +114,7 @@ func TestHTTPWriterInitializeReq(t *testing.T) {
 	defer fasthttp.ReleaseRequest(req)
 	w := NewHTTPWriter(testConf, testConsistency)
 	body := "this is a test body"
-	w.initializeReq(req, []byte(body), false)
+	w.initializeReq(req, []byte(body), false, "")
 
 	if got := string(req.Body()); got != body {
 		t.Errorf("non-gzip: body not correct: got '%s' want '%s'", got, body)
@@ -129,7 +129,7 @@ func TestHTTPWriterInitializeReq(t *testing.T) {
 		t.Errorf("non-gzip: Content-Encoding is not empty: got %s", got)
 	}
 
-	w.initializeReq(req, []byte(body), true)
+	w.initializeReq(req, []byte(body), true, "")
 	if got := string(req.Header.Peek(headerContentEncoding)); got != headerGzip {
 		t.Errorf("gzip: Content-Encoding is not correct: got %s want %s", got, headerGzip)
 	}
@@ -144,7 +144,7 @@ func TestHTTPWriterExecuteReq(t *testing.T) {
 	w := NewHTTPWriter(testConf, testConsistency)
 	body := "this is a test body"
 	normalURL := w.url // save for later modification
-	w.initializeReq(req, []byte(body), false)
+	w.initializeReq(req, []byte(body), false, "")
 	resp := fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseResponse(resp)
 	lat, err := w.executeReq(req, resp)
@@ -161,7 +161,7 @@ func TestHTTPWriterExecuteReq(t *testing.T) {
 	w.url = []byte(fmt.Sprintf("%s&%s=true", string(normalURL), shouldBackoffParam))
 	req = fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
-	w.initializeReq(req, []byte(body), false)
+	w.initializeReq(req, []byte(body), false, "")
 	lat, err = w.executeReq(req, resp)
 	if err != errBackoff {
 		t.Errorf("unexpected error response received (not backoff error): %v", err)
@@ -176,7 +176,7 @@ func TestHTTPWriterExecuteReq(t *testing.T) {
 	w.url = []byte(fmt.Sprintf("%s&%s=true", string(normalURL), shouldInvalidParam))
 	req = fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
-	w.initializeReq(req, []byte(body), false)
+	w.initializeReq(req, []byte(body), false, "")
 	lat, err = w.executeReq(req, resp)
 	if err == nil {
 		t.Errorf("unexpected non-error response received")

@@ -30,6 +30,9 @@ var (
 	useGzip           bool
 	doAbortOnExist    bool
 	consistency       string
+	authToken         string // InfluxDB v2
+	bucketId          string // InfluxDB v2
+	orgId             string // InfluxDB v2
 )
 
 // Global vars
@@ -73,11 +76,19 @@ func init() {
 	csvDaemonURLs = viper.GetString("urls")
 	replicationFactor = viper.GetInt("replication-factor")
 	consistency = viper.GetString("consistency")
+	authToken = viper.GetString("auth-token")
+	orgId = viper.GetString("org")
 	backoff = viper.GetDuration("backoff")
 	useGzip = viper.GetBool("gzip")
 
 	if _, ok := consistencyChoices[consistency]; !ok {
 		log.Fatalf("invalid consistency settings")
+	}
+
+	if authToken != "" {
+		log.Println("Using Authorization header in benchmark")
+	} else {
+		log.Println("Given no Authorization header was provided will not send it in benchmark")
 	}
 
 	daemonURLs = strings.Split(csvDaemonURLs, ",")
