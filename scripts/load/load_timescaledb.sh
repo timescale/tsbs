@@ -25,10 +25,8 @@ IN_TABLE_PARTITION_TAG=${IN_TABLE_PARTITION_TAG:-true}
 USE_HYPERTABLE=${USE_HYPERTABLE:-true}
 DO_CREATE_DB=${DO_CREATE_DB:-true}
 FORCE_TEXT_FORMAT=${FORCE_TEXT_FORMAT:-false}
-USE_COPY=${USE_COPY:-true}
 REPLICATION_FACTOR=${REPLICATION_FACTOR:-0}
 CREATE_METRICS_TABLE=${CREATE_METRICS_TABLE:-true}
-PARTITION_ON_HOSTNAME=${PARTITION_ON_HOSTNAME:-false}
 
 EXE_DIR=${EXE_DIR:-$(dirname $0)}
 source ${EXE_DIR}/load_common.sh
@@ -53,13 +51,11 @@ cat ${DATA_FILE} | gunzip | $EXE_FILE_NAME \
                                 --in-table-partition-tag=${IN_TABLE_PARTITION_TAG} \
                                 --hash-workers=${HASH_WORKERS} \
                                 --time-partition-index=${TIME_PARTITION_INDEX} \
-                                --partition-on-hostname=${PARTITION_ON_HOSTNAME} \
                                 --partitions=${PARTITIONS} \
                                 --chunk-time=${CHUNK_TIME} \
                                 --write-profile=${PERF_OUTPUT} \
                                 --field-index-count=1 \
                                 --do-create-db=${DO_CREATE_DB} \
                                 --force-text-format=${FORCE_TEXT_FORMAT} \
-                                --use-copy=${USE_COPY} \
                                 --replication-factor=${REPLICATION_FACTOR} \
                                 --create-metrics-table=${CREATE_METRICS_TABLE}
