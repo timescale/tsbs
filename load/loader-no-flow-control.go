@@ -32,6 +32,7 @@ func (l *noFlowBenchmarkRunner) RunBenchmark(b targets.Benchmark) {
 		close(c)
 	}
 	l.postRun(wg, start)
+	l.postLoad(b)
 }
 
 // createChannels create channels from which workers would receive tasks

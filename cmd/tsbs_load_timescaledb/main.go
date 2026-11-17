@@ -45,6 +45,10 @@ func initProgramOptions() (*timescaledb.LoadingOptions, load.BenchmarkRunner, *l
 	opts.UseHypertable = viper.GetBool("use-hypertable")
 	opts.ChunkTime = viper.GetDuration("chunk-time")
 
+	opts.UseColumnstore = viper.GetBool("use-columnstore")
+	opts.ColumnstoreSegmentBy = viper.GetString("columnstore-segmentby")
+	opts.ColumnstoreOrderBy = viper.GetString("columnstore-orderby")
+
 	opts.UseJSON = viper.GetBool("use-jsonb-tags")
 
 	// This must be set to 'true' if you are going to test

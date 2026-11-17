@@ -80,6 +80,10 @@ func (d *dbCreator) CreateDB(dbName string) error {
 }
 
 func (d *dbCreator) PostCreateDB(dbName string) error {
+	if err := d.opts.validateColumnstore(); err != nil {
+		return err
+	}
+
 	dbBench := MustConnect(d.driver, d.opts.GetConnectString(dbName))
 	defer dbBench.Close()
 
@@ -196,7 +200,11 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 
 	if d.opts.UseHypertable {
 		var creationCommand string = "create_hypertable"
-		var partitionsOption string = "replication_factor => NULL"
+		// Empty by default: a plain hypertable needs no partitioning arguments.
+		// This used to pass "replication_factor => NULL", but that parameter was
+		// removed from create_hypertable along with multi-node in TimescaleDB
+		// 2.14, so naming it at all fails on every current release.
+		var partitionsOption string
 
 		MustExec(dbBench, "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE")
 
@@ -221,10 +229,19 @@ func (d *dbCreator) createTableAndIndexes(dbBench *sql.DB, tableName string, fie
 			partitionsOption = fmt.Sprintf("partitioning_column => '%s'::name, replication_factor => %v::smallint", partitionColumn, d.opts.ReplicationFactor)
 		}
 
-		MustExec(dbBench,
-			fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %s, chunk_time_interval => %d, create_default_indexes=>FALSE)",
-				creationCommand, tableName, partitionsOption, d.opts.ChunkTime.Nanoseconds()/1000))
+		MustExec(dbBench, createHypertableQuery(creationCommand, tableName, partitionsOption, d.opts.ChunkTime))
 	}
+}
+
+// createHypertableQuery builds the create_hypertable call. partitionsOption is
+// spliced in only when set, so the default call names no partitioning or
+// replication arguments.
+func createHypertableQuery(creationCommand, tableName, partitionsOption string, chunkTime time.Duration) string {
+	if partitionsOption != "" {
+		partitionsOption += ", "
+	}
+	return fmt.Sprintf("SELECT %s('%s'::regclass, 'time'::name, %schunk_time_interval => %d, create_default_indexes=>FALSE)",
+		creationCommand, tableName, partitionsOption, chunkTime.Nanoseconds()/1000)
 }
 
 func (d *dbCreator) getCreateIndexOnFieldCmds(hypertable, field, idxType string) []string {
