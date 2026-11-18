@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/timescale/tsbs/pkg/targets"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +18,7 @@ type processor struct {
 	conf *ClickhouseConfig
 }
 
-// load.Processor interface implementation
+// Init load.Processor interface implementation
 func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	if doLoad {
 		p.db = sqlx.MustConnect(dbType, getConnectString(p.conf, true))
@@ -29,14 +30,17 @@ func (p *processor) Init(workerNum int, doLoad, hashWorkers bool) {
 	}
 }
 
-// load.ProcessorCloser interface implementation
+// Close load.ProcessorCloser interface implementation
 func (p *processor) Close(doLoad bool) {
 	if doLoad {
-		p.db.Close()
+		err := p.db.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-// load.Processor interface implementation
+// ProcessBatch load.Processor interface implementation
 func (p *processor) ProcessBatch(b targets.Batch, doLoad bool) (uint64, uint64) {
 	batches := b.(*tableArr)
 	rowCnt := 0
@@ -75,7 +79,8 @@ type syncCSI struct {
 }
 
 // globalSyncCSI is used when data is not hashed by some function to a worker consistently so
-// therefore all workers need to know about the same map from hostname -> tags_id
+//
+//	all workers need to know about the same map from hostname -> tags_id
 var globalSyncCSI = newSyncCSI()
 
 // Process part of incoming data - insert into tables
@@ -183,12 +188,17 @@ func (p *processor) processCSI(tableName string, rows []*insertData) uint64 {
 	// New tags in this batch, need to be inserted
 	newTags := make([][]string, 0, len(rows))
 	p.csi.mutex.RLock()
+	// judge by device hostname(unique)
+	seen := make(map[string]bool)
 	for _, tagRow := range tagRows {
 		// tagRow contains what was called `tags` earlier - see one screen higher
 		// tagRow[0] = hostname
 		if _, ok := p.csi.m[tagRow[0]]; !ok {
 			// Tags of this hostname are not listed as inserted - new tags line, add it for creation
-			newTags = append(newTags, tagRow)
+			if !seen[tagRow[0]] {
+				newTags = append(newTags, tagRow)
+				seen[tagRow[0]] = true
+			}
 		}
 	}
 	p.csi.mutex.RUnlock()
