@@ -404,9 +404,9 @@ the results.
 |single-groupby-5-8-1| Simple aggregrate (MAX) on 5 metrics for 8 hosts, every 5 mins for 1 hour
 |cpu-max-all-1| Aggregate across all CPU metrics per hour over 1 hour for a single host
 |cpu-max-all-8| Aggregate across all CPU metrics per hour over 1 hour for eight hosts
-|double-groupby-1| Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 24 hours
-|double-groupby-5| Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 24 hours
-|double-groupby-all| Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 24 hours
+|double-groupby-1| Aggregate on across both time and host, giving the average of 1 CPU metric per host per hour for 12 hours
+|double-groupby-5| Aggregate on across both time and host, giving the average of 5 CPU metrics per host per hour for 12 hours
+|double-groupby-all| Aggregate on across both time and host, giving the average of all (10) CPU metrics per host per hour for 12 hours
 |high-cpu-all| All the readings where one metric is above a threshold across all hosts
 |high-cpu-1| All the readings where one metric is above a threshold for a particular host
 |lastpoint| The last reading for each host
