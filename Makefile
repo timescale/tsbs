@@ -21,6 +21,7 @@ loaders: tsbs_load \
 		 tsbs_load_clickhouse \
 		 tsbs_load_cratedb \
 		 tsbs_load_influx \
+		 tsbs_load_influx_2 \
  		 tsbs_load_mongo \
  		 tsbs_load_prometheus \
  		 tsbs_load_siridb \
@@ -33,6 +34,7 @@ runners: tsbs_run_queries_akumuli \
 		 tsbs_run_queries_clickhouse \
 		 tsbs_run_queries_cratedb \
 		 tsbs_run_queries_influx \
+		 tsbs_run_queries_influx_2 \
 		 tsbs_run_queries_mongo \
 		 tsbs_run_queries_siridb \
 		 tsbs_run_queries_timescaledb \

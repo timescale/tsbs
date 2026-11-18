@@ -2,6 +2,8 @@ package initializers
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/timescale/tsbs/pkg/targets"
 	"github.com/timescale/tsbs/pkg/targets/akumuli"
 	"github.com/timescale/tsbs/pkg/targets/cassandra"
@@ -9,6 +11,7 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/constants"
 	"github.com/timescale/tsbs/pkg/targets/crate"
 	"github.com/timescale/tsbs/pkg/targets/influx"
+	"github.com/timescale/tsbs/pkg/targets/influx_2"
 	"github.com/timescale/tsbs/pkg/targets/mongo"
 	"github.com/timescale/tsbs/pkg/targets/prometheus"
 	"github.com/timescale/tsbs/pkg/targets/questdb"
@@ -16,7 +19,6 @@ import (
 	"github.com/timescale/tsbs/pkg/targets/timescaledb"
 	"github.com/timescale/tsbs/pkg/targets/timestream"
 	"github.com/timescale/tsbs/pkg/targets/victoriametrics"
-	"strings"
 )
 
 func GetTarget(format string) targets.ImplementedTarget {
@@ -33,6 +35,8 @@ func GetTarget(format string) targets.ImplementedTarget {
 		return crate.NewTarget()
 	case constants.FormatInflux:
 		return influx.NewTarget()
+	case constants.FormatInflux_2:
+		return influx_2.NewTarget()
 	case constants.FormatMongo:
 		return mongo.NewTarget()
 	case constants.FormatPrometheus:

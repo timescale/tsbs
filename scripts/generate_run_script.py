@@ -5,30 +5,34 @@ pipline. The output of the script relies on load_* scripts in the same directory
 for inserting, and on Go binaries generated from Influx's benchmark suite.
 
 Usage flags:
-    -b      Sets the batch size for inserting (default: 10000)
+    -b       Sets the batch size for inserting (default: 10000)
 
-    -d      Database to benchmark. Valid values: cassandra, influx, timescaledb, postgres
+    -d       Database to benchmark. Valid values: cassandra, influx, influx_2, timescaledb, postgres
 
-    -e      Extra flags to pass to pass to query benchmarker, e.g., "-show-explain -debug 9"
+    -e       Extra flags to pass to pass to query benchmarker, e.g., "-show-explain -debug 9"
 
-    -f      Filename containing query benchmark names, one per line. Lines can
-            be commented out to exclude those benchmarks (default: queries.txt)
+    -f       Filename containing query benchmark names, one per line. Lines can
+             be commented out to exclude those benchmarks (default: queries.txt)
 
-    -i      Insert benchmark only, no queries (default: false)
+    -i       Insert benchmark only, no queries (default: false)
 
-    -l      Directory where input files are located. They should be named
-            `[database]-data.gz` (default: /tmp)
+    -l       Directory where input files are located. They should be named
+             `[database]-data.gz` (default: /tmp)
             
-    -n      Number of queries to run for each query type (default: 1000)
+    -n       Number of queries to run for each query type (default: 1000)
 
-    -o      Directory where query files are located (default: /tmp/queries)
+    -o       Directory where query files are located (default: /tmp/queries)
 
-    -q      Query benchmarks only, no insert. Data needs to be previously
-            inserted (default: false)
+    -q       Query benchmarks only, no insert. Data needs to be previously
+             inserted (default: false)
 
-    -s      Hostname for the client to connect to (default: localhost)
+    -s       Hostname for the client to connect to (default: localhost)
 
-    -w      Number of workers/threads to use (default: 4)
+    -w       Number of workers/threads to use (default: 4)
+    
+    --token  Token for authentication in influxdb 2.X (default: None)
+
+    --org    Organization for authentication in influxdb 2.X (default: None)
 
 EXAMPLE:
 
@@ -61,7 +65,7 @@ def get_load_str(load_dir, label, batch_size, workers, hostname):
     loader = label if label != 'postgres' else 'timescaledb'
     suffix = ' ./load_{}.sh | tee {}'.format(loader, logfilename)
 
-    if label == 'influx' or label == 'cassandra':
+    if label == 'influx' or label == "influx_2" or label == 'cassandra':
         return prefix + suffix
     elif label == 'timescaledb':
         return prefix + ' USE_HYPERTABLE=true ' + suffix
@@ -69,7 +73,7 @@ def get_load_str(load_dir, label, batch_size, workers, hostname):
         return prefix + ' USE_HYPERTABLE=false ' + suffix
 
 
-def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
+def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args, influxdb_2_token=None, influxdb_2_org=None):
     '''Writes a script line corresponding to executing a query on a database'''
     limit_arg = '--max-queries={}'.format(limit) if limit is not None else ''
     output_file = 'query_{}_{}'.format(label, queryfile.split('/')[-1]).split('.')[0]
@@ -83,7 +87,9 @@ def get_query_str(queryfile, label, workers, limit, hostname, extra_query_args):
     elif label == 'timescaledb' or label == 'postgres':
         # TimescaleDB needs the connection string
         extra_args = '--hosts="{}" --postgres="{}"'.format(hostname, 'user=postgres sslmode=disable')
-
+    elif label == 'influx_2':
+        # InfluxDB 2.X needs the token and org
+        extra_args = '--token="{}" --org="{}"'.format(influxdb_2_token, influxdb_2_org)
     return 'cat {} | gunzip | tsbs_run_queries_{} --workers={} {} {} {} | tee {}.out'.format(
         queryfile, benchmarker, workers, limit_arg, extra_args, extra_query_args, output_file)
 
@@ -102,7 +108,7 @@ def load_queries_file_names(filename, label, query_dir):
 
     return l
 
-def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, limit, workers, hostname, extra_query_args):
+def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, limit, workers, hostname, extra_query_args, influxdb_2_token=None, influxdb_2_org=None):
     '''Writes a bash script file to run load/query tests'''
 
     print('#!/bin/bash')
@@ -118,7 +124,7 @@ def generate_run_file(queries_file, query_dir, load_dir, db_name, batch_size, li
     if len(queries) > 0:
         print("# Queries")
         for query in queries:
-            print(get_query_str(query, db_name, workers, limit, hostname, extra_query_args))
+            print(get_query_str(query, db_name, workers, limit, hostname, extra_query_args, influxdb_2_token, influxdb_2_org))
             print("")
 
 
@@ -149,11 +155,19 @@ if __name__ == "__main__":
         type=str, help='Hostname of the database')
     parser.add_argument('-w', dest='workers', default=4, type=int,
         help='Number of workers to use for inserts and queries')
+    parser.add_argument("--token", dest="token", default=None, 
+                        help="Token for authentication in influxdb 2.X")
+    parser.add_argument("--org", dest="org", default=None,
+                        help="Organization for authentication in influxdb 2.X")
 
     args = parser.parse_args()
 
     if args.db_name is None:
         print("Usage: generate_query_run.py -d db_name")
+        exit(1)
+        
+    if args.db_name == "influx_2" and (args.token is None or args.org is None):
+        print("Usage: generate_query_run.py -d influx_2 --token <token> --org <org>")
         exit(1)
 
     generate_run_file(
@@ -165,4 +179,6 @@ if __name__ == "__main__":
         args.max_queries,
         args.workers,
         args.hostname,
-        args.extra_query_args)
+        args.extra_query_args,
+        args.token,
+        args.org)
