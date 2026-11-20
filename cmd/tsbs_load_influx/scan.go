@@ -5,12 +5,13 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/timescale/tsbs/internal/utils"
 	"github.com/timescale/tsbs/pkg/data"
 	"github.com/timescale/tsbs/pkg/data/usecases/common"
 	"github.com/timescale/tsbs/pkg/targets"
 )
 
-const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d"
+const errNotThreeTuplesFmt = "parse error: line does not have 3 tuples, has %d -> %s"
 
 var newLine = []byte("\n")
 
@@ -47,9 +48,9 @@ func (b *batch) Append(item data.LoadedPoint) {
 	b.rows++
 	// Each influx line is format "csv-tags csv-fields timestamp", so we split by space
 	// and then on the middle element, we split by comma to count number of fields added
-	args := strings.Split(thatStr, " ")
+	args := utils.SplitLine(thatStr, ' ')
 	if len(args) != 3 {
-		fatal(errNotThreeTuplesFmt, len(args))
+		fatal(errNotThreeTuplesFmt, len(args), thatStr)
 		return
 	}
 	b.metrics += uint64(len(strings.Split(args[1], ",")))
